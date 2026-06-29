@@ -5,9 +5,9 @@ import { authService } from '../services/authService';
  * Custom hook to handle state and logic of the LMS login/signup form.
  * Keeps UI components pure and focused on layout/rendering.
  */
-export const useLoginForm = () => {
+export const useLoginForm = (initialStep) => {
   // Navigation step: 'role_selection' (Get Started), 'sign_up', 'sign_in'
-  const [authStep, setAuthStep] = useState('role_selection');
+  const [authStep, setAuthStep] = useState(initialStep || 'role_selection');
 
   // Active role can be: 'student', 'teacher', 'headmaster' (maps to Organization)
   const [activeRole, setActiveRole] = useState('student');
