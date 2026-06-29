@@ -3,8 +3,8 @@ import useLoginForm from '../../hooks/useLoginForm';
 import LoginForm from './LoginForm';
 import Toast from '../../components/ui/Toast';
 
-export const LoginPage = () => {
-  const formState = useLoginForm();
+export const LoginPage = ({ onBackToHome, initialAuthStep }) => {
+  const formState = useLoginForm(initialAuthStep);
   const { 
     authStep,
     setAuthStep,
@@ -140,9 +140,15 @@ export const LoginPage = () => {
           }
         `}
       >
-        {/* Top Logo - Placed top-left on role page, top-right on form page */}
         <div className={`text-2xl font-black tracking-tight ${isRolePage ? 'text-left' : 'text-right'}`}>
-          LMS
+          <button
+            type="button"
+            onClick={onBackToHome}
+            className="cursor-pointer hover:text-violet-200 transition-colors focus:outline-none"
+            aria-label="Back to home page"
+          >
+            LMS
+          </button>
         </div>
 
         {/* Dynamic Marketing Content in Center */}
