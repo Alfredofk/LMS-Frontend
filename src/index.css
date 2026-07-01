@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: 'Plus Jakarta Sans', sans-serif;
+}
+
 @keyframes slideInRight {
   from {
     transform: translateX(120%);

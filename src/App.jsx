@@ -1,54 +1,39 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import MainLayout from './layouts/MainLayout';
 import LandingPage from './views/Landing/LandingPage';
 import LoginPage from './views/Login/LoginPage';
-import Toast from './components/ui/Toast';
+import StudentDashboard from './views/Dashboard/StudentDashboard';
+import UnauthorizedPage from './views/Unauthorized/UnauthorizedPage';
 
 function App() {
-  const [view, setView] = useState('landing'); // 'landing' | 'auth'
-  const [initialAuthStep, setInitialAuthStep] = useState('role_selection');
-  const [toast, setToast] = useState(null);
-
-  const showToast = (message, type = 'info') => {
-    setToast({ message, type });
-  };
-
-  const closeToast = () => {
-    setToast(null);
-  };
-
-  // Navigates from landing to sign-in / sign-up / role selection
-  const handleNavigate = (step) => {
-    setInitialAuthStep(step);
-    setView('auth');
-  };
-
-  // Navigates back to landing page
-  const handleBackToHome = () => {
-    setView('landing');
-  };
-
   return (
-    <>
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={closeToast}
-        />
-      )}
-      
-      {view === 'landing' ? (
-        <LandingPage 
-          onNavigate={handleNavigate} 
-          showToast={showToast} 
-        />
-      ) : (
-        <LoginPage 
-          onBackToHome={handleBackToHome} 
-          initialAuthStep={initialAuthStep} 
-        />
-      )}
-    </>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/unauthorized" element={<UnauthorizedPage />} />
+
+          {/* Protected Student Dashboard Route wrapped under MainLayout and Guard */}
+          <Route
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <MainLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/dashboard" element={<StudentDashboard />} />
+          </Route>
+
+          {/* Fallback to Home for unmatched routes */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 
