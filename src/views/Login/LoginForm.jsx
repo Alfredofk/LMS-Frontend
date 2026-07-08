@@ -1,6 +1,121 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import { useAuth } from '../../context/AuthContext';
+
+export const TeacherLoginForm = ({ icons }) => {
+  const navigate = useNavigate();
+  const { login } = useAuth();
+  const [schoolCode, setSchoolCode] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
+  const [errors, setErrors] = useState({});
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setErrorMessage(null);
+    setErrors({});
+
+    try {
+      const response = await fetch('/api/auth/teacher/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ schoolCode, email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const error = new Error(data.error || 'Login gagal.');
+        error.field = data.field;
+        throw error;
+      }
+
+      // Simpan token asli dari backend
+      localStorage.setItem('token', data.token);
+      
+      // Update global AuthContext user state
+      login({ ...data.user, role: 'teacher' });
+
+      // Redirect ke dashboard guru
+      navigate('/teacher/dashboard');
+    } catch (err) {
+      if (err.field) {
+        setErrors({ [err.field]: err.message });
+        const fieldLabel = err.field === 'schoolCode' ? 'Kode Sekolah' : err.field === 'email' ? 'Email/Username' : 'Password';
+        setErrorMessage(`Kolom ${fieldLabel} tidak sesuai kriteria: ${err.message}`);
+      } else {
+        setErrorMessage(err.message || 'Login gagal. Silakan coba lagi.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleLogin} className="space-y-[15px] text-left">
+      <Input
+        id="schoolCode"
+        type="text"
+        placeholder="Enter school code"
+        required
+        icon={icons.schoolCode}
+        value={schoolCode}
+        onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
+        error={errors.schoolCode}
+      />
+
+      <Input
+        id="email"
+        type="text"
+        placeholder="Enter username/email"
+        required
+        icon={icons.user}
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        error={errors.email}
+      />
+
+      <Input
+        id="password"
+        type="password"
+        placeholder="Enter your password"
+        required
+        icon={icons.lock}
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        error={errors.password}
+      />
+
+      {errorMessage && (
+        <div className="text-red-500 text-xs font-semibold select-none mt-2" role="alert">
+          {errorMessage}
+        </div>
+      )}
+
+      <Button
+        type="submit"
+        disabled={isLoading}
+        className="w-full py-3 md:py-3.5 rounded-2xl justify-center font-bold text-sm md:text-base bg-[#7047EB] hover:bg-[#5E3BD2] active:scale-95 transition-transform mt-5 shadow-lg shadow-[#7047EB]/20 text-white select-none disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <span className="flex items-center gap-1">
+          {isLoading ? 'Sedang Masuk...' : 'Continue'}
+          {!isLoading && (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 mt-0.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+            </svg>
+          )}
+        </span>
+      </Button>
+    </form>
+  );
+};
 
 export const LoginForm = ({ formState }) => {
   const {
@@ -139,268 +254,230 @@ export const LoginForm = ({ formState }) => {
         </div>
       )}
 
-      <form onSubmit={handleAuthSubmit} className="space-y-[15px] text-left">
-        {isSignUp ? (
-          /* ========================================================================= */
-          /* ======================== SIGN UP FIELDS ================================= */
-          /* ========================================================================= */
-          <>
-            <Input
-              id="name"
-              type="text"
-              placeholder={activeRole === 'headmaster' ? 'Enter your school name' : 'Enter your full name'}
-              required
-              icon={icons.user}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              error={errors.name}
-            />
+      {activeRole === 'teacher' && !isSignUp ? (
+        <TeacherLoginForm icons={icons} />
+      ) : (
+        <form onSubmit={handleAuthSubmit} className="space-y-[15px] text-left">
+          {isSignUp ? (
+            /* ========================================================================= */
+            /* ======================== SIGN UP FIELDS ================================= */
+            /* ========================================================================= */
+            <>
+              <Input
+                id="name"
+                type="text"
+                placeholder={activeRole === 'headmaster' ? 'Enter your school name' : 'Enter your full name'}
+                required
+                icon={icons.user}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                error={errors.name}
+              />
 
-            <Input
-              id="email"
-              type="email"
-              placeholder={
-                activeRole === 'headmaster' 
-                  ? 'Enter your school email' 
-                  : activeRole === 'teacher' 
-                    ? 'Enter your teacher email' 
-                    : 'Enter your student email'
-              }
-              required
-              icon={icons.email}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              error={errors.email}
-            />
+              <Input
+                id="email"
+                type="email"
+                placeholder={
+                  activeRole === 'headmaster' 
+                    ? 'Enter your school email' 
+                    : activeRole === 'teacher' 
+                      ? 'Enter your teacher email' 
+                      : 'Enter your student email'
+                }
+                required
+                icon={icons.email}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                error={errors.email}
+              />
 
-            <Input
-              id="password"
-              type="password"
-              placeholder="Enter your password"
-              required
-              icon={icons.lock}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              error={errors.password}
-            />
+              <Input
+                id="password"
+                type="password"
+                placeholder="Enter your password"
+                required
+                icon={icons.lock}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                error={errors.password}
+              />
 
-            <Input
-              id="confirmPassword"
-              type="password"
-              placeholder="Confirm your password"
-              required
-              icon={icons.lock}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              error={errors.confirmPassword}
-            />
-          </>
-        ) : (
-          /* ========================================================================= */
-          /* ======================== SIGN IN FIELDS ================================= */
-          /* ========================================================================= */
-          <>
-            {activeRole === 'headmaster' && (
-              <>
-                <Input
-                  id="npsn"
-                  type="text"
-                  placeholder="Enter school NPSN (8 digits)"
-                  required
-                  icon={icons.schoolCode}
-                  value={npsn}
-                  onChange={(e) => setNpsn(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                  error={errors.npsn}
-                />
-                <Input
-                  id="loginPassword"
-                  type="password"
-                  placeholder="Enter your password"
-                  required
-                  icon={icons.lock}
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  error={errors.loginPassword}
-                />
-              </>
-            )}
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Confirm your password"
+                required
+                icon={icons.lock}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                error={errors.confirmPassword}
+              />
+            </>
+          ) : (
+            /* ========================================================================= */
+            /* ======================== SIGN IN FIELDS ================================= */
+            /* ========================================================================= */
+            <>
+              {activeRole === 'headmaster' && (
+                <>
+                  <Input
+                    id="npsn"
+                    type="text"
+                    placeholder="Enter school NPSN (8 digits)"
+                    required
+                    icon={icons.schoolCode}
+                    value={npsn}
+                    onChange={(e) => setNpsn(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                    error={errors.npsn}
+                  />
+                  <Input
+                    id="loginPassword"
+                    type="password"
+                    placeholder="Enter your password"
+                    required
+                    icon={icons.lock}
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    error={errors.loginPassword}
+                  />
+                </>
+              )}
 
-            {activeRole === 'teacher' && (
-              <div className="space-y-4">
-                <div className="flex bg-slate-50 border border-slate-100 p-1 rounded-xl">
-                  <button
-                    type="button"
-                    onClick={() => setTeacherMethod('google')}
-                    className={`flex-1 text-center py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors ${
-                      teacherMethod === 'google'
-                        ? 'bg-violet-100 text-violet-700'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    Gmail (OAuth)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTeacherMethod('school_code')}
-                    className={`flex-1 text-center py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors ${
-                      teacherMethod === 'school_code'
-                        ? 'bg-violet-100 text-violet-700'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    School Code
-                  </button>
-                </div>
-
-                {teacherMethod === 'google' ? (
-                  <div className="py-2 space-y-4 text-center">
-                    <p className="text-sm text-slate-400">
-                      Gunakan akun Google yang terdaftar secara resmi di sistem sekolah Anda.
-                    </p>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-center gap-2 border border-slate-200 py-3 rounded-2xl hover:bg-slate-50 transition-colors shadow-sm text-slate-700 font-semibold text-sm md:text-base"
-                      onClick={handleGoogleAuth}
-                      isLoading={isLoading}
+              {activeRole === 'teacher' && (
+                <div className="space-y-4">
+                  <div className="flex bg-slate-50 border border-slate-100 p-1 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setTeacherMethod('google')}
+                      className={`flex-1 text-center py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors ${
+                        teacherMethod === 'google'
+                          ? 'bg-violet-100 text-violet-700'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
                     >
-                      {icons.google}
-                      Sign in with Gmail
-                    </Button>
+                      Gmail (OAuth)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTeacherMethod('school_code')}
+                      className={`flex-1 text-center py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors ${
+                        teacherMethod === 'school_code'
+                          ? 'bg-violet-100 text-violet-700'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      School Code
+                    </button>
                   </div>
-                ) : (
-                  <>
-                    <Input
-                      id="schoolCode"
-                      type="text"
-                      placeholder="Enter school code"
-                      required
-                      icon={icons.schoolCode}
-                      value={schoolCode}
-                      onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
-                      error={errors.schoolCode}
-                    />
-                    <Input
-                      id="username"
-                      type="text"
-                      placeholder="Enter username/email"
-                      required
-                      icon={icons.user}
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      error={errors.username}
-                    />
-                    <Input
-                      id="loginPassword"
-                      type="password"
-                      placeholder="Enter your password"
-                      required
-                      icon={icons.lock}
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      error={errors.loginPassword}
-                    />
-                  </>
-                )}
-              </div>
-            )}
 
-            {activeRole === 'student' && (
-              <>
-                <Input
-                  id="schoolCode"
-                  type="text"
-                  placeholder="Enter school code"
-                  required
-                  icon={icons.schoolCode}
-                  value={schoolCode}
-                  onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
-                  error={errors.schoolCode}
-                />
-                <Input
-                  id="username"
-                  type="text"
-                  placeholder="Enter NISN / username"
-                  required
-                  icon={icons.user}
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  error={errors.username}
-                />
-                <Input
-                  id="loginPassword"
-                  type="password"
-                  placeholder="Enter your password"
-                  required
-                  icon={icons.lock}
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  error={errors.loginPassword}
-                />
-              </>
-            )}
-          </>
-        )}
+                  {teacherMethod === 'google' ? (
+                    <div className="py-2 space-y-4 text-center">
+                      <p className="text-sm text-slate-400">
+                        Gunakan akun Google yang terdaftar secara resmi di sistem sekolah Anda.
+                      </p>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-center gap-2 border border-slate-200 py-3 rounded-2xl hover:bg-slate-50 transition-colors shadow-sm text-slate-700 font-semibold text-sm md:text-base"
+                        onClick={handleGoogleAuth}
+                        isLoading={isLoading}
+                      >
+                        {icons.google}
+                        Sign in with Gmail
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Input
+                        id="schoolCode"
+                        type="text"
+                        placeholder="Enter school code"
+                        required
+                        icon={icons.schoolCode}
+                        value={schoolCode}
+                        onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
+                        error={errors.schoolCode}
+                      />
+                      <Input
+                        id="username"
+                        type="text"
+                        placeholder="Enter username/email"
+                        required
+                        icon={icons.user}
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        error={errors.username}
+                      />
+                      <Input
+                        id="loginPassword"
+                        type="password"
+                        placeholder="Enter your password"
+                        required
+                        icon={icons.lock}
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                        error={errors.loginPassword}
+                      />
+                    </>
+                  )}
+                </div>
+              )}
 
-        {/* Submit button: purple pill, "Continue ->" */}
-        {!(activeRole === 'teacher' && !isSignUp && teacherMethod === 'google') && (
-          <Button
-            type="submit"
-            className="w-full py-3 md:py-3.5 rounded-2xl justify-center font-bold text-sm md:text-base bg-[#7047EB] hover:bg-[#5E3BD2] active:scale-95 transition-transform mt-5 shadow-lg shadow-[#7047EB]/20 text-white select-none"
-            isLoading={isLoading}
-          >
-            <span className="flex items-center gap-1">
-              Continue
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 mt-0.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-              </svg>
-            </span>
-          </Button>
-        )}
+              {activeRole === 'student' && (
+                <>
+                  <Input
+                    id="schoolCode"
+                    type="text"
+                    placeholder="Enter school code"
+                    required
+                    icon={icons.schoolCode}
+                    value={schoolCode}
+                    onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
+                    error={errors.schoolCode}
+                  />
+                  <Input
+                    id="username"
+                    type="text"
+                    placeholder="Enter NISN / username"
+                    required
+                    icon={icons.user}
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    error={errors.username}
+                  />
+                  <Input
+                    id="loginPassword"
+                    type="password"
+                    placeholder="Enter your password"
+                    required
+                    icon={icons.lock}
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    error={errors.loginPassword}
+                  />
+                </>
+              )}
+            </>
+          )}
 
-        {/* Social login buttons: or sign up / sign in with */}
-        {!(activeRole === 'teacher' && !isSignUp && teacherMethod === 'google') && (
-          <div className="pt-4 space-y-4">
-            <div className="flex items-center justify-center gap-3">
-              <span className="h-px bg-slate-100 flex-1"></span>
-              <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider select-none">
-                or {isSignUp ? 'sign up' : 'sign in'} with
+          {/* Submit button: purple pill, "Continue ->" */}
+          {!(activeRole === 'teacher' && !isSignUp && teacherMethod === 'google') && (
+            <Button
+              type="submit"
+              className="w-full py-3 md:py-3.5 rounded-2xl justify-center font-bold text-sm md:text-base bg-[#7047EB] hover:bg-[#5E3BD2] active:scale-95 transition-transform mt-5 shadow-lg shadow-[#7047EB]/20 text-white select-none"
+              isLoading={isLoading}
+            >
+              <span className="flex items-center gap-1">
+                Continue
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 mt-0.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                </svg>
               </span>
-              <span className="h-px bg-slate-100 flex-1"></span>
-            </div>
+            </Button>
+          )}
 
-            <div className="flex justify-center gap-4">
-              <Button
-                variant="social"
-                size="circle"
-                onClick={handleGoogleAuth}
-                isLoading={isLoading}
-                ariaLabel={`Masuk dengan Google`}
-                className="w-12 h-12 flex items-center justify-center rounded-full border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 shadow-sm"
-              >
-                {icons.google}
-              </Button>
-              <Button
-                variant="social"
-                size="circle"
-                onClick={() => showToast('Facebook Sign-In is under construction.', 'info')}
-                ariaLabel={`Masuk dengan Facebook`}
-                className="w-12 h-12 flex items-center justify-center rounded-full border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 shadow-sm"
-              >
-                {icons.facebook}
-              </Button>
-              <Button
-                variant="social"
-                size="circle"
-                onClick={() => showToast('Apple Sign-In is under construction.', 'info')}
-                ariaLabel={`Masuk dengan Apple`}
-                className="w-12 h-12 flex items-center justify-center rounded-full border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 shadow-sm"
-              >
-                {icons.apple}
-              </Button>
-            </div>
-          </div>
-        )}
-      </form>
+
+        </form>
+      )}
     </div>
   );
 };

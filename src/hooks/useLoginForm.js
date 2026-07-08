@@ -141,7 +141,16 @@ export const useLoginForm = () => {
         setAuthStep('role_selection');
       }
     } catch (err) {
-      setErrors({ global: err.message || 'Authentication failed. Please try again.' });
+      if (err.field) {
+        const fieldName = err.field === 'password' ? 'loginPassword' : err.field;
+        const fieldLabel = err.field === 'schoolCode' ? 'Kode Sekolah' : err.field === 'username' ? 'Username/NISN' : 'Password';
+        setErrors({ 
+          [fieldName]: err.message,
+          global: `Kolom ${fieldLabel} tidak sesuai kriteria: ${err.message}`
+        });
+      } else {
+        setErrors({ global: err.message || 'Authentication failed. Please try again.' });
+      }
       showToast(err.message || 'Authentication failed.', 'error');
     } finally {
       setIsLoading(false);
@@ -153,11 +162,17 @@ export const useLoginForm = () => {
     setIsLoading(true);
     setErrors({});
     try {
-      const response = await authService.loginWithGoogle();
+      const response = await authService.loginWithGoogle(activeRole);
       console.log('API Response (Google):', response);
       showToast(`Logged in successfully via Google as ${response.user.name}`, 'success');
       resetForm();
       setAuthStep('role_selection');
+<<<<<<< Updated upstream
+=======
+      const userPayload = { ...response.user, role: activeRole };
+      login(userPayload);
+      if (onAuthSuccess) onAuthSuccess(userPayload);
+>>>>>>> Stashed changes
     } catch (err) {
       setErrors({ global: err.message || 'Google Auth failed.' });
       showToast(err.message || 'Google authentication failed.', 'error');

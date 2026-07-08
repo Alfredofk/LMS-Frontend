@@ -4,7 +4,21 @@ import LoginForm from './LoginForm';
 import Toast from '../../components/ui/Toast';
 
 export const LoginPage = () => {
+<<<<<<< Updated upstream
   const formState = useLoginForm();
+=======
+  const navigate = useNavigate();
+  const location = useLocation();
+  const initialAuthStep = location.state?.step || 'role_selection';
+
+  const formState = useLoginForm(initialAuthStep, (user) => {
+    if (user.role === 'teacher') {
+      navigate('/teacher/dashboard', { replace: true });
+    } else {
+      navigate('/dashboard', { replace: true });
+    }
+  });
+>>>>>>> Stashed changes
   const { 
     authStep,
     setAuthStep,
