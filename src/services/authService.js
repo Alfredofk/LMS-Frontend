@@ -7,25 +7,24 @@ export const authService = {
    * Login for Headmaster (Kepala Sekolah / Organization) using NPSN
    */
   async loginWithNpsn(npsn, password) {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (!/^\d{8}$/.test(npsn)) {
-          return reject(new Error('NPSN harus berupa 8 digit angka.'));
-        }
-        if (!password || password.length < 6) {
-          return reject(new Error('Password minimal 6 karakter.'));
-        }
-
-        resolve({
-          token: 'mock-jwt-token-headmaster',
-          user: {
-            role: 'headmaster',
-            npsn,
-            name: 'Organization Head',
-          }
-        });
-      }, 1200);
+    const response = await fetch('/api/auth/headmaster/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ npsn, password }),
     });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const error = new Error(data.error || 'Login gagal.');
+      error.field = data.field;
+      throw error;
+    }
+
+    localStorage.setItem('token', data.token);
+    return data;
   },
 
   /**

@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { authService } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * Custom hook to handle state and logic of the LMS login/signup form.
  * Keeps UI components pure and focused on layout/rendering.
  */
-export const useLoginForm = () => {
+export const useLoginForm = (initialAuthStep = 'role_selection', onAuthSuccess) => {
+  const { login } = useAuth();
   // Navigation step: 'role_selection' (Get Started), 'sign_up', 'sign_in'
-  const [authStep, setAuthStep] = useState('role_selection');
+  const [authStep, setAuthStep] = useState(initialAuthStep);
 
   // Active role can be: 'student', 'teacher', 'headmaster' (maps to Organization)
   const [activeRole, setActiveRole] = useState('student');
@@ -136,14 +138,18 @@ export const useLoginForm = () => {
         console.log('API Response (Sign In):', response);
         showToast(`Welcome back, ${response.user.name}! Login successful.`, 'success');
         
+        const userPayload = { ...response.user, role: response.user.role || activeRole };
+        login(userPayload);
+
         // Reset and redirect back to role selection
         resetForm();
         setAuthStep('role_selection');
+        if (onAuthSuccess) onAuthSuccess(userPayload);
       }
     } catch (err) {
       if (err.field) {
         const fieldName = err.field === 'password' ? 'loginPassword' : err.field;
-        const fieldLabel = err.field === 'schoolCode' ? 'Kode Sekolah' : err.field === 'username' ? 'Username/NISN' : 'Password';
+        const fieldLabel = err.field === 'schoolCode' ? 'Kode Sekolah' : err.field === 'username' ? 'Username/NISN' : err.field === 'npsn' ? 'NPSN' : 'Password';
         setErrors({ 
           [fieldName]: err.message,
           global: `Kolom ${fieldLabel} tidak sesuai kriteria: ${err.message}`
@@ -167,12 +173,9 @@ export const useLoginForm = () => {
       showToast(`Logged in successfully via Google as ${response.user.name}`, 'success');
       resetForm();
       setAuthStep('role_selection');
-<<<<<<< Updated upstream
-=======
       const userPayload = { ...response.user, role: activeRole };
       login(userPayload);
       if (onAuthSuccess) onAuthSuccess(userPayload);
->>>>>>> Stashed changes
     } catch (err) {
       setErrors({ global: err.message || 'Google Auth failed.' });
       showToast(err.message || 'Google authentication failed.', 'error');

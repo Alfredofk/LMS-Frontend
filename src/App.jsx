@@ -1,11 +1,11 @@
 import React from 'react';
-import LoginPage from './views/Login/LoginPage';
-<<<<<<< Updated upstream
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import MainLayout from './layouts/MainLayout';
 
-function App() {
-  return (
-    <LoginPage />
-=======
+import LandingPage from './views/Landing/LandingPage';
+import LoginPage from './views/Login/LoginPage';
 import StudentDashboard from './views/Dashboard/StudentDashboard';
 import TeacherDashboard from './views/Dashboard/TeacherDashboard';
 import TeacherGradebook from './views/Gradebook/TeacherGradebook';
@@ -58,7 +58,6 @@ function App() {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
->>>>>>> Stashed changes
   );
 }
 

@@ -1,12 +1,10 @@
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import useLoginForm from '../../hooks/useLoginForm';
 import LoginForm from './LoginForm';
 import Toast from '../../components/ui/Toast';
 
 export const LoginPage = () => {
-<<<<<<< Updated upstream
-  const formState = useLoginForm();
-=======
   const navigate = useNavigate();
   const location = useLocation();
   const initialAuthStep = location.state?.step || 'role_selection';
@@ -18,7 +16,6 @@ export const LoginPage = () => {
       navigate('/dashboard', { replace: true });
     }
   });
->>>>>>> Stashed changes
   const { 
     authStep,
     setAuthStep,
