@@ -12,6 +12,8 @@ export const LoginPage = () => {
   const formState = useLoginForm(initialAuthStep, (user) => {
     if (user.role === 'teacher') {
       navigate('/teacher/dashboard', { replace: true });
+    } else if (user.role === 'headmaster') {
+      navigate('/headmaster/dashboard', { replace: true });
     } else {
       navigate('/dashboard', { replace: true });
     }

@@ -23,76 +23,69 @@ export const TeacherDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // 2. Simulated Asynchronous API Fetching
+  // 2. Real API Fetching with JWT authentication
   useEffect(() => {
     let isMounted = true;
     
     const fetchTeacherDashboard = async () => {
       try {
         setIsLoading(true);
-        // Simulate a 1.5-second network request delay
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        setError(null);
+        
+        const token = localStorage.getItem('token');
+        
+        // Fetch courses list, stats, and recent submissions in parallel
+        const [coursesRes, statsRes, submissionsRes] = await Promise.all([
+          fetch('/api/courses', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          fetch('/api/teacher/stats', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          fetch('/api/teacher/recent-submissions', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+        ]);
+
+        if (!coursesRes.ok || !statsRes.ok || !submissionsRes.ok) {
+          if (coursesRes.status === 401 || statsRes.status === 401 || submissionsRes.status === 401) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('lms_user');
+            navigate('/login');
+            return;
+          }
+          throw new Error('Gagal mengambil data kelas, statistik, atau riwayat pengumpulan dari server.');
+        }
+
+        const courses = await coursesRes.json();
+        const stats = await statsRes.json();
+        const submissions = await submissionsRes.json();
         
         if (isMounted) {
-          // Dynamic teacher dashboard data payload
+          // Map backend courses (school_id, code, name, description, grade_level, teacher_id)
+          // to classes required for rendering in the dashboard
+          const mappedClasses = courses.map((cls, idx) => ({
+            id: cls.id || `class-${idx}`,
+            name: cls.name,
+            grade: cls.grade_level || 'Umum',
+            studentsCount: parseInt(cls.student_count, 10) || 0,
+            schedule: 'Senin, 07:00 - 08:30' // Mock schedule for rendering
+          }));
+
           setDashboardData({
             stats: {
-              totalClasses: 3,
-              totalStudents: 105,
-              pendingGrading: 12
+              totalClasses: stats.totalClasses,
+              totalStudents: stats.totalStudents,
+              pendingGrading: stats.pendingGrading
             },
-            classes: [
-              {
-                id: 'class-1',
-                name: 'Matematika Lanjut',
-                grade: 'XII IPA 2',
-                studentsCount: 35,
-                schedule: 'Senin, 07:00 - 08:30'
-              },
-              {
-                id: 'class-2',
-                name: 'Matematika Wajib',
-                grade: 'XI IPA 1',
-                studentsCount: 36,
-                schedule: 'Selasa, 09:00 - 10:30'
-              },
-              {
-                id: 'class-3',
-                name: 'Matematika Lanjut',
-                grade: 'XII IPA 1',
-                studentsCount: 34,
-                schedule: 'Kamis, 07:00 - 08:30'
-              }
-            ],
-            recentSubmissions: [
-              {
-                id: 'sub-1',
-                studentName: 'Andi Rahmat',
-                grade: 'XII IPA 2',
-                assignmentTitle: 'Laporan Praktikum Asam Basa',
-                time: '10 menit yang lalu'
-              },
-              {
-                id: 'sub-2',
-                studentName: 'Siti Rahma',
-                grade: 'XII IPA 2',
-                assignmentTitle: 'Tugas Mandiri 1: Aplikasi Integral Tentu',
-                time: '2 jam yang lalu'
-              },
-              {
-                id: 'sub-3',
-                studentName: 'Budi Santoso',
-                grade: 'XI IPA 1',
-                assignmentTitle: 'Latihan Matriks Dasar',
-                time: '5 jam yang lalu'
-              }
-            ]
+            classes: mappedClasses,
+            recentSubmissions: submissions
           });
           setIsLoading(false);
         }
       } catch (err) {
         if (isMounted) {
-          setError('Gagal memuat data dashboard guru. Silakan coba beberapa saat lagi.');
+          setError(err.message || 'Gagal memuat data dashboard guru. Silakan coba beberapa saat lagi.');
           setIsLoading(false);
         }
       }
@@ -102,12 +95,10 @@ export const TeacherDashboard = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [navigate]);
 
-  const handleManageClass = (className, grade) => {
-    if (showToast) {
-      showToast(`Membuka panel manajemen kelas: ${grade} - ${className}...`, 'success');
-    }
+  const handleManageClass = (classId, className, grade) => {
+    navigate(`/teacher/courses/${classId}`);
   };
 
   const handleGradeTask = (studentName, taskTitle) => {
@@ -313,7 +304,7 @@ export const TeacherDashboard = () => {
                 </div>
 
                 <Button
-                  onClick={() => handleManageClass(cls.name, cls.grade)}
+                  onClick={() => handleManageClass(cls.id, cls.name, cls.grade)}
                   className="w-full py-2.5 rounded-xl font-bold bg-[#7047EB] hover:bg-[#5E3BD2] text-white shadow-sm text-xs cursor-pointer flex items-center justify-center gap-1"
                 >
                   Kelola Kelas

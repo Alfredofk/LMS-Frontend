@@ -12,14 +12,8 @@ export const AssignmentContent = ({ sections, showToast }) => {
     ? sections.flatMap(section => section.assignments || []) 
     : [];
 
-  const handleAction = (task, status) => {
-    if (status === 'late') {
-      if (showToast) {
-        showToast(`Tenggat tugas "${task.title}" telah berakhir. Silakan hubungi guru pengampu.`, 'error');
-      }
-    } else {
-      navigate(`/assignment/${task.id}`, { state: { courseId } });
-    }
+  const handleAction = (task) => {
+    navigate(`/assignment/${task.id}`, { state: { courseId } });
   };
 
   return (

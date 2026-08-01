@@ -2,7 +2,7 @@ import React from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { Award } from 'lucide-react';
 
-export const ProfileHeader = () => {
+export const ProfileHeader = ({ profile }) => {
   const { user } = useAuth();
 
   // Get Initials dynamically
@@ -16,17 +16,23 @@ export const ProfileHeader = () => {
       .toUpperCase();
   };
 
-  const currentXp = 0;
-  const targetXp = 5000;
-  const progressPercentage = (currentXp / targetXp) * 100;
+  const currentXp = profile?.xp || 0;
+  const targetXp = ((Math.floor(currentXp / 1000) + 1) * 1000);
+  const prevLevelXp = Math.floor(currentXp / 1000) * 1000;
+  
+  // Progress within current level:
+  const levelProgress = currentXp - prevLevelXp;
+  const nextLevelTarget = 1000;
+  const progressPercentage = Math.min(100, Math.max(0, (levelProgress / nextLevelTarget) * 100));
+  const currentLevel = profile?.level || 1;
+  const nextLevel = currentLevel + 1;
 
   return (
-    <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 select-none hover:shadow-md transition-shadow duration-200 text-left">
-      
+    <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 select-none hover:shadow-md transition-shadow duration-200 text-left w-full">
       {/* Left side: Avatar and credentials */}
       <div className="flex items-center gap-4">
         {/* Large Initials Avatar Circle */}
-        <div className="w-16 h-16 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center font-black text-xl shadow-inner shrink-0 border-2 border-white ring-4 ring-violet-50">
+        <div className="w-16 h-16 rounded-full bg-violet-100 text-[#7047EB] flex items-center justify-center font-black text-xl shadow-inner shrink-0 border-2 border-white ring-4 ring-violet-50">
           {getInitials()}
         </div>
         
@@ -49,9 +55,9 @@ export const ProfileHeader = () => {
         <div className="flex items-center justify-between text-xs font-black text-slate-800">
           <div className="flex items-center gap-1.5">
             <Award className="w-4 h-4 text-[#7047EB] shrink-0" />
-            <span>Total XP: {currentXp.toLocaleString('id-ID')} / {targetXp.toLocaleString('id-ID')}</span>
+            <span>XP: {currentXp.toLocaleString('id-ID')} / {targetXp.toLocaleString('id-ID')}</span>
           </div>
-          <span className="text-[#7047EB]">Menuju Level 2</span>
+          <span className="text-[#7047EB]">Menuju Level {nextLevel} (Lvl {currentLevel})</span>
         </div>
 
         {/* Thick progress bar */}
@@ -62,7 +68,6 @@ export const ProfileHeader = () => {
           />
         </div>
       </div>
-
     </div>
   );
 };

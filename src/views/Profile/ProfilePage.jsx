@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import ProfileHeader from './components/ProfileHeader';
 import BadgeCase from './components/BadgeCase';
@@ -10,14 +10,89 @@ import { Lock, Save, User, Mail, Shield } from 'lucide-react';
 export const ProfilePage = () => {
   const { user } = useAuth();
   const { showToast } = useOutletContext();
-  const isTeacher = user?.role === 'teacher';
+  const role = user?.role || 'student';
+  const isStaff = role === 'teacher' || role === 'headmaster';
 
   // State management for teacher password change
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const handlePasswordSubmit = (e) => {
+  // Gamification state
+  const [gamificationProfile, setGamificationProfile] = useState(null);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+  const navigate = useNavigate();
+
+  // Load and verify profile auth on mount
+  useEffect(() => {
+    const checkProfileAuth = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('lms_user');
+            navigate('/login');
+            showToast('Sesi Anda telah berakhir. Silakan login kembali.', 'error');
+            return;
+          }
+          throw new Error('Gagal memverifikasi profil dengan server.');
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    };
+
+    checkProfileAuth();
+  }, [navigate, showToast]);
+
+  // Load gamification data for student
+  useEffect(() => {
+    if (isStaff) return;
+    
+    let isMounted = true;
+    const fetchGamificationData = async () => {
+      try {
+        setIsLoadingStats(true);
+        const token = localStorage.getItem('token');
+        const [profileRes, leaderboardRes] = await Promise.all([
+          fetch('/api/gamification/profile', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          fetch('/api/leaderboard', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+        ]);
+
+        if (profileRes.ok && leaderboardRes.ok) {
+          const profileData = await profileRes.json();
+          const leaderboardData = await leaderboardRes.json();
+          if (isMounted) {
+            setGamificationProfile(profileData);
+            setLeaderboard(leaderboardData);
+            setIsLoadingStats(false);
+          }
+        }
+      } catch (err) {
+        console.error('Fetch Gamification Error:', err);
+      }
+    };
+
+    fetchGamificationData();
+    return () => {
+      isMounted = false;
+    };
+  }, [isStaff]);
+
+  const handlePasswordSubmit = async (e) => {
     e.preventDefault();
     if (!oldPassword || !newPassword || !confirmPassword) {
       showToast('Semua input form ganti password wajib diisi.', 'warning');
@@ -27,13 +102,38 @@ export const ProfilePage = () => {
       showToast('Konfirmasi password baru tidak cocok.', 'warning');
       return;
     }
-    showToast('Memproses penggantian password...', 'info');
-    setTimeout(() => {
+
+    try {
+      showToast('Memproses penggantian password...', 'info');
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/profile/password', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ oldPassword, newPassword })
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('lms_user');
+          navigate('/login');
+          showToast('Sesi Anda telah berakhir. Silakan login kembali.', 'error');
+          return;
+        }
+        const data = await response.json();
+        throw new Error(data.error || 'Gagal memperbarui sandi.');
+      }
+
       showToast('Password administratif berhasil diperbarui!', 'success');
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    }, 1000);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
   };
 
   // Get Initials dynamically
@@ -48,16 +148,15 @@ export const ProfilePage = () => {
   };
 
   // ==========================================
-  // VIEW: Teacher Administrative Profile Layout
+  // VIEW: Staff Administrative Profile Layout
   // ==========================================
-  if (isTeacher) {
+  if (isStaff) {
     return (
       <div className="space-y-6 text-left">
-        
         <div className="pb-4 select-none">
-          <h1 className="text-xl sm:text-2xl font-black text-slate-905 tracking-tight leading-tight flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight flex items-center gap-2">
             <Shield className="w-6 h-6 text-[#7047EB]" />
-            Profil Administratif Guru
+            {role === 'headmaster' ? 'Profil Kepala Sekolah' : 'Profil Administratif Guru'}
           </h1>
           <p className="text-xs font-semibold text-slate-500">
             Kelola detail profil institusi dan keamanan sandi Anda.
@@ -65,26 +164,24 @@ export const ProfilePage = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-          
-          {/* Left Column: Basic Teacher Details (NIP, Contact) */}
           <div className="lg:col-span-1 space-y-6">
             <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow duration-200 text-center select-none space-y-5">
-              
-              {/* Profile Avatar circle */}
               <div className="w-20 h-20 rounded-full bg-violet-100 text-[#7047EB] flex items-center justify-center font-black text-2xl mx-auto border-2 border-white ring-4 ring-violet-50 shadow-inner">
                 {getInitials()}
               </div>
 
-              {/* Bio Detail info */}
               <div className="space-y-1.5">
-                <h3 className="text-base font-extrabold text-slate-805">
-                  {user?.name || 'Teacher User'}
+                <h3 className="text-base font-extrabold text-slate-800">
+                  {user?.name || 'Staff User'}
                 </h3>
                 <p className="text-xs text-slate-500 font-bold">
-                  Guru Mata Pelajaran
+                  {role === 'headmaster' ? 'Kepala Sekolah' : 'Guru Mata Pelajaran'}
                 </p>
                 <div className="px-2.5 py-0.5 bg-[#F1EEFF] text-[#7047EB] text-[10px] font-black rounded-md inline-block">
-                  NIP {user?.username && !user.username.includes('@') ? user.username : '197805122003122002'}
+                  {role === 'headmaster'
+                    ? `NPSN ${user?.schoolCode || '20261005'}`
+                    : `NIP ${user?.username && !user.username.includes('@') ? user.username : '197805122003122002'}`
+                  }
                 </div>
               </div>
 
@@ -107,16 +204,13 @@ export const ProfilePage = () => {
                   </div>
                 </div>
               </div>
-
             </div>
           </div>
 
-          {/* Right Column: Security Change Password Form */}
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-white border border-slate-100 rounded-2xl p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow duration-200 space-y-6">
-              
               <div className="space-y-1 pb-4 border-b border-slate-100 select-none">
-                <h3 className="text-sm font-extrabold text-slate-855 tracking-tight flex items-center gap-1.5">
+                <h3 className="text-sm font-extrabold text-slate-800 tracking-tight flex items-center gap-1.5">
                   <Lock className="w-4 h-4 text-[#7047EB] shrink-0" />
                   Perbarui Kata Sandi
                 </h3>
@@ -126,8 +220,6 @@ export const ProfilePage = () => {
               </div>
 
               <form onSubmit={handlePasswordSubmit} className="space-y-4">
-                
-                {/* Old Password Input */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-black text-slate-700 select-none">
                     Kata Sandi Lama
@@ -141,7 +233,6 @@ export const ProfilePage = () => {
                   />
                 </div>
 
-                {/* Grid side by side for new credentials */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-black text-slate-700 select-none">
@@ -170,7 +261,6 @@ export const ProfilePage = () => {
                   </div>
                 </div>
 
-                {/* Actions button */}
                 <div className="pt-2 flex justify-end">
                   <Button
                     type="submit"
@@ -180,14 +270,10 @@ export const ProfilePage = () => {
                     Simpan Sandi Baru
                   </Button>
                 </div>
-
               </form>
-
             </div>
           </div>
-
         </div>
-
       </div>
     );
   }
@@ -195,27 +281,35 @@ export const ProfilePage = () => {
   // ==========================================
   // VIEW: Student Gamified Profile Layout (Default)
   // ==========================================
+  if (isLoadingStats) {
+    return (
+      <div className="space-y-6 animate-pulse select-none text-left w-full">
+        <div className="h-28 bg-white border border-slate-100 rounded-2xl shadow-sm"></div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-8 h-48 bg-white border border-slate-100 rounded-2xl"></div>
+          <div className="lg:col-span-4 h-48 bg-white border border-slate-100 rounded-2xl"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      
+    <div className="space-y-6 w-full text-left">
       {/* 1. Header (Profile info + XP progress) */}
-      <ProfileHeader />
+      <ProfileHeader profile={gamificationProfile} />
 
       {/* 2. Grid split content */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Badge cabinet (Left - 8 columns on desktop) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Badge cabinet */}
         <div className="lg:col-span-8">
-          <BadgeCase />
+          <BadgeCase badges={gamificationProfile?.badges || []} />
         </div>
 
-        {/* Leaderboard ranking (Right - 4 columns on desktop) */}
+        {/* Leaderboard ranking */}
         <div className="lg:col-span-4">
-          <LeaderboardWidget />
+          <LeaderboardWidget leaderboard={leaderboard} />
         </div>
-
       </div>
-
     </div>
   );
 };

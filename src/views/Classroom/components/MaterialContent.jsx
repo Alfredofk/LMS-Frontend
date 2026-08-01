@@ -3,9 +3,57 @@ import { FileText, Video, Download, Eye } from 'lucide-react';
 
 export const MaterialContent = ({ sections, showToast }) => {
   const handleAction = (action, fileName) => {
-    if (showToast) {
-      const verb = action === 'download' ? 'Mengunduh' : 'Membuka';
-      showToast(`${verb} berkas "${fileName}"...`, 'success');
+    const cleanTitle = fileName.trim();
+    const isVideo = cleanTitle.toLowerCase().endsWith('.mp4') || cleanTitle.toLowerCase().endsWith('.mkv') || cleanTitle.toLowerCase().endsWith('.avi');
+    const isTxt = cleanTitle.toLowerCase().endsWith('.txt');
+    
+    let blob;
+    let finalFileName = cleanTitle;
+    
+    if (isVideo) {
+      const mp4Base64 = 'AAAAIGZ0eXBpc29tAAACAGlzb21tcDgxbXA0MgAAAAhmcmVlAAAAG21kYXQAAAGAMGF0b20gY29kZWQgbXA0IAAAAA1tb292AAAAbG12aGQAAAAA3ndHNN53RzQAAAPoAAAAKAABAAABAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAACNXRyYWsAAABcdGtoZAAAAADed0c03ndHNAAAAAEAAAAAAAABAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAABNlZGlhAAAAWG1kaGQAAAAA3ndHNN53RzQAAAPoAAAAKABVAAAAAAAxaGQ3dGhlMAAAAAAxYXBwbAAAAAAxYXBwbAAAAAAxYXBwbAAAAAAxYXBwbAAAAAAxYXBwbAAAAC1oZGxyAAAAAAAAAAB2aWRlAAAAAAAAAAAAAAAAVmlkZW9IYW5kbGVyAAAAAVxtaW5mAAAAEHZtYWhkAAAAAQAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAxtdXJsAAAAAAAAAAcAc3RjbyAAAAAAAAABAAAADAAAAGNvb2tpAAAAAA==';
+      const byteCharacters = atob(mp4Base64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      blob = new Blob([byteArray], { type: 'video/mp4' });
+      if (!finalFileName.toLowerCase().endsWith('.mp4')) {
+        finalFileName += '.mp4';
+      }
+    } else if (isTxt) {
+      blob = new Blob([`Materi pelajaran: ${cleanTitle}`], { type: 'text/plain' });
+    } else {
+      // Default to valid 1-page PDF binary document
+      const pdfBase64 = 'JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCjIgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFszIDAgUl0KL0NvdW50IDEKPj4KZW5kb2JqCjMgMCBvYmoKPDwKL1R5cGUgL1BhZ2UKL1BhcmVudCAyIDAgUgovTWVkaWFCb3ggWzAgMCA1OTUgODQyXQovQ29udGVudHMgNCAwIFIKL1Jlc291cmNlcyA8PAovRm9udCA8PAovRjEgPj4KPj4KPj4KZW5kb2JqCjQgMCBvYmoKPDwKL0xlbmd0aCA1MAo+PgpzdHJlYW0KQlQgL0YxIDEyIFRmIDUwIDcwMCBUZCAoRG9rdW1lbnQgTWF0ZXJpIEtsYXNLaXRhKSBUaiBFVCBlbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+CmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIGYgCjAwMDAwMDAyNDIgMDAwMDAgbiAKMDAwMDAwMDM0MSAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDYKL1Jvb3QgMSAwIFIKPj4Kc3RhcnR4cmVmCjQyOQolJUVPRg==';
+      const byteCharacters = atob(pdfBase64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      blob = new Blob([byteArray], { type: 'application/pdf' });
+      if (!finalFileName.toLowerCase().endsWith('.pdf')) {
+        finalFileName += '.pdf';
+      }
+    }
+
+    const url = URL.createObjectURL(blob);
+
+    if (action === 'download') {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = finalFileName.replace(/\s+/g, '_');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      if (showToast) showToast(`Mengunduh berkas: ${finalFileName}...`, 'success');
+    } else {
+      // View action
+      window.open(url, '_blank');
+      if (showToast) showToast(`Membuka berkas: ${finalFileName}...`, 'success');
     }
   };
 

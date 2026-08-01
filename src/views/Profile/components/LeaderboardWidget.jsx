@@ -1,17 +1,17 @@
 import React from 'react';
 import { useAuth } from '../../../context/AuthContext';
 
-export const LeaderboardWidget = () => {
+export const LeaderboardWidget = ({ leaderboard }) => {
   const { user } = useAuth();
-  const activeStudentName = user?.name || 'Andi Rahmat';
+  const activeStudentName = user?.name || '';
 
-  const rankings = [];
+  const rankings = leaderboard || [];
 
   return (
-    <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm flex flex-col justify-between text-left select-none hover:shadow-md transition-shadow duration-200">
+    <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm flex flex-col justify-between text-left select-none hover:shadow-md transition-shadow duration-200 w-full">
       <div>
-        <h3 className="text-base font-extrabold text-slate-850 tracking-tight pb-6">
-          Papan Peringkat
+        <h3 className="text-base font-extrabold text-slate-800 tracking-tight pb-6">
+          Papan Peringkat Sekolah
         </h3>
 
         {rankings.length === 0 ? (
@@ -22,7 +22,7 @@ export const LeaderboardWidget = () => {
           </div>
         ) : (
           <div className="space-y-2.5">
-            {rankings.map((student, index) => {
+            {rankings.slice(0, 5).map((student, index) => {
               const isCurrentUser = student.name === activeStudentName;
               
               // Render Rank Badges
@@ -82,9 +82,8 @@ export const LeaderboardWidget = () => {
 
                   {/* Score */}
                   <span className="text-[10px] font-black text-[#7047EB] bg-purple-100/60 px-2 py-0.5 rounded-md shrink-0">
-                    {student.xp.toLocaleString('id-ID')} XP
+                    {(student.xp || 0).toLocaleString('id-ID')} XP
                   </span>
-
                 </div>
               );
             })}

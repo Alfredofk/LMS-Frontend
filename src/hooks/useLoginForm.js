@@ -138,6 +138,10 @@ export const useLoginForm = (initialAuthStep = 'role_selection', onAuthSuccess) 
         console.log('API Response (Sign In):', response);
         showToast(`Welcome back, ${response.user.name}! Login successful.`, 'success');
         
+        if (response && response.token) {
+          localStorage.setItem('token', response.token);
+        }
+        
         const userPayload = { ...response.user, role: response.user.role || activeRole };
         login(userPayload);
 
@@ -173,6 +177,11 @@ export const useLoginForm = (initialAuthStep = 'role_selection', onAuthSuccess) 
       showToast(`Logged in successfully via Google as ${response.user.name}`, 'success');
       resetForm();
       setAuthStep('role_selection');
+      
+      if (response && response.token) {
+        localStorage.setItem('token', response.token);
+      }
+      
       const userPayload = { ...response.user, role: activeRole };
       login(userPayload);
       if (onAuthSuccess) onAuthSuccess(userPayload);
