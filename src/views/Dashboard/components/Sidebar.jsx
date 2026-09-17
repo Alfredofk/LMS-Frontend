@@ -60,6 +60,7 @@ export const Sidebar = ({ showToast, userRole }) => {
     }
     return location.pathname === routePath;
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { 
   LayoutDashboard, 
@@ -75,11 +76,24 @@ import {
 
 export const Sidebar = ({ showToast }) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleLinkClick = (menuName) => {
-    if (showToast) {
-      showToast(`Fitur "${menuName}" sedang dalam proses pengerjaan (On Progress).`, 'info');
+  const handleLinkClick = (menuName, routePath) => {
+    if (routePath) {
+      navigate(routePath);
+    } else {
+      if (showToast) {
+        showToast(`Fitur "${menuName}" sedang dalam proses pengerjaan (On Progress).`, 'info');
+      }
     }
+  };
+
+  const isActive = (routePath) => {
+    if (routePath === '/classroom') {
+      return location.pathname.startsWith('/classroom');
+    }
+    return location.pathname === routePath;
   };
 
   // Get Initials dynamically
@@ -176,7 +190,7 @@ export const Sidebar = ({ showToast }) => {
               Kelas XII IPA 2
             </p>
             <div className="mt-1.5 px-2 py-0.5 bg-[#F1EEFF] text-[#7047EB] text-[9px] font-black rounded-md inline-block">
-              {user?.username ? `NIS ${user.username}` : 'NIS 20261005'}
+              {user?.username && !user.username.includes('@') ? `NIS ${user.username}` : 'NIS 20261005'}
             </div>
           </div>
         </div>
@@ -327,17 +341,27 @@ export const Sidebar = ({ showToast }) => {
             </span>
             <nav className="space-y-1">
               <button 
-                onClick={() => handleLinkClick('Dashboard')}
-                className="w-full flex items-center gap-3 px-3 py-2 text-xs font-black rounded-xl bg-violet-600 text-white shadow-md shadow-violet-500/10 hover:shadow-lg transition-all duration-200 select-none cursor-pointer"
+                onClick={() => handleLinkClick('Dashboard', '/dashboard')}
+                className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-black rounded-xl transition-all duration-200 select-none cursor-pointer
+                  ${isActive('/dashboard') 
+                    ? 'bg-violet-600 text-white shadow-md shadow-violet-500/10 hover:shadow-lg' 
+                    : 'text-slate-900 hover:bg-slate-50 hover:shadow-sm'
+                  }
+                `}
               >
-                <LayoutDashboard className="w-4 h-4 shrink-0" />
+                <LayoutDashboard className={`w-4 h-4 shrink-0 ${isActive('/dashboard') ? 'text-white' : 'text-slate-900'}`} />
                 Dashboard
               </button>
               <button 
-                onClick={() => handleLinkClick('My Courses')}
-                className="w-full flex items-center gap-3 px-3 py-2 text-xs font-black rounded-xl text-slate-900 hover:bg-slate-50 hover:shadow-sm transition-all duration-200 select-none cursor-pointer"
+                onClick={() => handleLinkClick('My Courses', '/classroom')}
+                className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-black rounded-xl transition-all duration-200 select-none cursor-pointer
+                  ${isActive('/classroom') 
+                    ? 'bg-violet-600 text-white shadow-md shadow-violet-500/10 hover:shadow-lg' 
+                    : 'text-slate-900 hover:bg-slate-50 hover:shadow-sm'
+                  }
+                `}
               >
-                <BookOpen className="w-4 h-4 shrink-0 text-slate-900" />
+                <BookOpen className={`w-4 h-4 shrink-0 ${isActive('/classroom') ? 'text-white' : 'text-slate-900'}`} />
                 My Courses
               </button>
               <button 
@@ -401,10 +425,15 @@ export const Sidebar = ({ showToast }) => {
             </span>
             <nav className="space-y-1">
               <button 
-                onClick={() => handleLinkClick('My Profile')}
-                className="w-full flex items-center gap-3 px-3 py-2 text-xs font-black rounded-xl text-slate-900 hover:bg-slate-50 hover:shadow-sm transition-all duration-200 select-none cursor-pointer"
+                onClick={() => handleLinkClick('My Profile', '/profile')}
+                className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-black rounded-xl transition-all duration-200 select-none cursor-pointer
+                  ${isActive('/profile') 
+                    ? 'bg-violet-600 text-white shadow-md shadow-violet-500/10 hover:shadow-lg' 
+                    : 'text-slate-900 hover:bg-slate-50 hover:shadow-sm'
+                  }
+                `}
               >
-                <User className="w-4 h-4 shrink-0 text-slate-900" />
+                <User className={`w-4 h-4 shrink-0 ${isActive('/profile') ? 'text-white' : 'text-slate-900'}`} />
                 My Profile
               </button>
             </nav>

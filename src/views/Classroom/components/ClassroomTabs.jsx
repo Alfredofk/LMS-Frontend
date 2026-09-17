@@ -1,11 +1,10 @@
 import React from 'react';
-import { BookOpen, FileText, Users, Calendar } from 'lucide-react';
+import { BookOpen, FileText, Users } from 'lucide-react';
 
 export const ClassroomTabs = ({ activeTab, setActiveTab }) => {
   const tabs = [
     { id: 'materi', label: 'Materi', icon: BookOpen },
     { id: 'tugas', label: 'Tugas & Kuis', icon: FileText },
-    { id: 'presensi', label: 'Presensi Kehadiran', icon: Calendar },
     { id: 'anggota', label: 'Anggota Kelas', icon: Users },
   ];
 
