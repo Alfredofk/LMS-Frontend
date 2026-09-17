@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { authService } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * Custom hook to handle state and logic of the LMS login/signup form.
  * Keeps UI components pure and focused on layout/rendering.
  */
-export const useLoginForm = (initialStep) => {
+export const useLoginForm = (initialStep, onAuthSuccess) => {
+  const { login } = useAuth();
   // Navigation step: 'role_selection' (Get Started), 'sign_up', 'sign_in'
   const [authStep, setAuthStep] = useState(initialStep || 'role_selection');
 
@@ -110,7 +112,6 @@ export const useLoginForm = (initialStep) => {
 
     try {
       if (authStep === 'sign_up') {
-        // Sign Up Flow
         const response = await authService.signUp(activeRole, name, email, password);
         console.log('API Response (Sign Up):', response);
         showToast('Registration successful! Your account is created.', 'success');
@@ -118,6 +119,9 @@ export const useLoginForm = (initialStep) => {
         // Reset and redirect back to role selection
         resetForm();
         setAuthStep('role_selection');
+        const userPayload = { ...response.user, role: activeRole };
+        login(userPayload);
+        if (onAuthSuccess) onAuthSuccess(userPayload);
       } else {
         // Sign In Flow
         let response;
@@ -139,6 +143,9 @@ export const useLoginForm = (initialStep) => {
         // Reset and redirect back to role selection
         resetForm();
         setAuthStep('role_selection');
+        const userPayload = { ...response.user, role: response.user.role || activeRole };
+        login(userPayload);
+        if (onAuthSuccess) onAuthSuccess(userPayload);
       }
     } catch (err) {
       setErrors({ global: err.message || 'Authentication failed. Please try again.' });
@@ -158,6 +165,9 @@ export const useLoginForm = (initialStep) => {
       showToast(`Logged in successfully via Google as ${response.user.name}`, 'success');
       resetForm();
       setAuthStep('role_selection');
+      const userPayload = { ...response.user, role: 'teacher' };
+      login(userPayload);
+      if (onAuthSuccess) onAuthSuccess(userPayload);
     } catch (err) {
       setErrors({ global: err.message || 'Google Auth failed.' });
       showToast(err.message || 'Google authentication failed.', 'error');
