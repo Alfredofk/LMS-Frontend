@@ -6,7 +6,8 @@ import { useAuth } from '../context/AuthContext';
  * Custom hook to handle state and logic of the LMS login/signup form.
  * Keeps UI components pure and focused on layout/rendering.
  */
-export const useLoginForm = (initialStep) => {
+export const useLoginForm = (initialStep, onAuthSuccess) => {
+  const { login } = useAuth();
   // Navigation step: 'role_selection' (Get Started), 'sign_up', 'sign_in'
   const [authStep, setAuthStep] = useState(initialStep || 'role_selection');
 export const useLoginForm = (initialAuthStep = 'role_selection', onAuthSuccess) => {
@@ -115,7 +116,6 @@ export const useLoginForm = (initialAuthStep = 'role_selection', onAuthSuccess) 
 
     try {
       if (authStep === 'sign_up') {
-        // Sign Up Flow
         const response = await authService.signUp(activeRole, name, email, password);
         console.log('API Response (Sign Up):', response);
         showToast('Registration successful! Your account is created.', 'success');
@@ -123,6 +123,9 @@ export const useLoginForm = (initialAuthStep = 'role_selection', onAuthSuccess) 
         // Reset and redirect back to role selection
         resetForm();
         setAuthStep('role_selection');
+        const userPayload = { ...response.user, role: activeRole };
+        login(userPayload);
+        if (onAuthSuccess) onAuthSuccess(userPayload);
       } else {
         // Sign In Flow
         let response;
@@ -151,6 +154,8 @@ export const useLoginForm = (initialAuthStep = 'role_selection', onAuthSuccess) 
         // Reset and redirect back to role selection
         resetForm();
         setAuthStep('role_selection');
+        const userPayload = { ...response.user, role: response.user.role || activeRole };
+        login(userPayload);
         if (onAuthSuccess) onAuthSuccess(userPayload);
       }
     } catch (err) {
@@ -186,6 +191,7 @@ export const useLoginForm = (initialAuthStep = 'role_selection', onAuthSuccess) 
       }
       
       const userPayload = { ...response.user, role: activeRole };
+      const userPayload = { ...response.user, role: 'teacher' };
       login(userPayload);
       if (onAuthSuccess) onAuthSuccess(userPayload);
     } catch (err) {

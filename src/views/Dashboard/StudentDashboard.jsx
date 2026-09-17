@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import StatCard from './components/StatCard';
 import { 
@@ -8,6 +10,7 @@ import {
   Star, 
   AlertCircle,
   Inbox
+  AlertCircle 
 } from 'lucide-react';
 import { 
   TodayActivities, 
@@ -105,6 +108,10 @@ export const StudentDashboard = () => {
       navigate('/scores');
     } else if (statName === 'New Materials') {
       navigate('/classroom');
+
+  const handleStatCardClick = (statName) => {
+    if (showToast) {
+      showToast(`Statistik detail "${statName}" sedang dalam proses pengerjaan (On Progress).`, 'info');
     }
   };
 
@@ -153,11 +160,21 @@ export const StudentDashboard = () => {
           Selamat {getGreeting()}, {user?.name || 'Siswa'}
         </h1>
         <p className="text-xs text-slate-500 font-medium mt-1">
+  return (
+    <div className="space-y-6">
+      
+      {/* Greeting Banner (Dynamic) */}
+      <div className="select-none text-left">
+        <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-tight capitalize">
+          Selamat {getGreeting()}, {user?.name || 'Siswa'}
+        </h1>
+        <p className="text-xs sm:text-sm text-slate-900 font-black mt-1">
           Semester Genap 2025/2026 · {getFormattedDate()}
         </p>
       </div>
 
       {/* Metrics cards row (4 cards) */}
+      {/* Metrics cards row (Cleared mockup totals - setting to empty placeholders as requested) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <div onClick={() => handleStatCardClick('Total Courses')} className="cursor-pointer">
           <StatCard
@@ -166,6 +183,10 @@ export const StudentDashboard = () => {
             subtext="This Semester"
             icon={BookOpen}
             iconBg="bg-[#EDE9FE] text-[#7047EB]"
+            value="0"
+            subtext="This Semester"
+            icon={BookOpen}
+            iconBg="bg-[#F1EEFF] text-[#7047EB]"
           />
         </div>
         <div onClick={() => handleStatCardClick('To-Do')} className="cursor-pointer">
@@ -175,6 +196,10 @@ export const StudentDashboard = () => {
             subtext="Assignment"
             icon={ListTodo}
             iconBg="bg-[#FEF3C7] text-[#D97706]"
+            value="0"
+            subtext="Assignment"
+            icon={ListTodo}
+            iconBg="bg-amber-50 text-amber-500"
           />
         </div>
         <div onClick={() => handleStatCardClick('Avg Score')} className="cursor-pointer">
@@ -184,6 +209,10 @@ export const StudentDashboard = () => {
             subtext="Overall"
             icon={Star}
             iconBg="bg-[#D1FAE5] text-[#059669]"
+            value="—"
+            subtext="Overall"
+            icon={Star}
+            iconBg="bg-emerald-50 text-emerald-600"
           />
         </div>
         <div onClick={() => handleStatCardClick('New Materials')} className="cursor-pointer">
@@ -193,6 +222,10 @@ export const StudentDashboard = () => {
             subtext="New Materials"
             icon={AlertCircle}
             iconBg="bg-[#FEE2E2] text-[#DC2626]"
+            value="0"
+            subtext="New Materials"
+            icon={AlertCircle}
+            iconBg="bg-red-50 text-red-500"
           />
         </div>
       </div>
@@ -242,6 +275,15 @@ export const StudentDashboard = () => {
             </div>
           </div>
         )}
+      {/* Widgets Section Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Row 1 Widgets */}
+        <TodayActivities showToast={showToast} />
+        <ActiveAssessment showToast={showToast} />
+
+        {/* Row 2 Widgets */}
+        <CourseProgress showToast={showToast} />
+        <SchoolAnnouncement showToast={showToast} />
       </div>
 
     </div>

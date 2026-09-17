@@ -1,4 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import MainLayout from './layouts/MainLayout';
 import LandingPage from './views/Landing/LandingPage';
 import LoginPage from './views/Login/LoginPage';
 import Toast from './components/ui/Toast';
@@ -27,32 +31,12 @@ import AnnouncementPage from './views/Announcement/AnnouncementPage';
 import SchedulePage from './views/Schedule/SchedulePage';
 import AssessmentPage from './views/Assessment/AssessmentPage';
 import AttendancePage from './views/Attendance/AttendancePage';
+import StudentDashboard from './views/Dashboard/StudentDashboard';
+import UnauthorizedPage from './views/Unauthorized/UnauthorizedPage';
 
 function App() {
-  const [view, setView] = useState('landing'); // 'landing' | 'auth'
-  const [initialAuthStep, setInitialAuthStep] = useState('role_selection');
-  const [toast, setToast] = useState(null);
-
-  const showToast = (message, type = 'info') => {
-    setToast({ message, type });
-  };
-
-  const closeToast = () => {
-    setToast(null);
-  };
-
-  // Navigates from landing to sign-in / sign-up / role selection
-  const handleNavigate = (step) => {
-    setInitialAuthStep(step);
-    setView('auth');
-  };
-
-  // Navigates back to landing page
-  const handleBackToHome = () => {
-    setView('landing');
-  };
-
   return (
+<<<<<<< HEAD
 <<<<<<< HEAD
     <>
       {toast && (
@@ -76,6 +60,8 @@ function App() {
       )}
     </>
 =======
+=======
+>>>>>>> feat/frontend-dashboard
     <AuthProvider>
       <BrowserRouter>
         <Routes>
@@ -93,6 +79,7 @@ function App() {
             }
           >
             <Route path="/dashboard" element={<StudentDashboard />} />
+<<<<<<< HEAD
             <Route path="/classroom" element={<ClassroomPage />} />
             <Route path="/classroom/:courseId" element={<ClassroomPage />} />
             <Route path="/assignment/:assignmentId" element={<AssignmentDetailPage />} />
@@ -139,6 +126,8 @@ function App() {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/announcements" element={<AnnouncementPage />} />
             <Route path="/schedule" element={<SchedulePage />} />
+=======
+>>>>>>> feat/frontend-dashboard
           </Route>
 
           {/* Fallback to Home for unmatched routes */}
@@ -146,7 +135,10 @@ function App() {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+<<<<<<< HEAD
 >>>>>>> feat/frontend-login
+=======
+>>>>>>> feat/frontend-dashboard
   );
 }
 

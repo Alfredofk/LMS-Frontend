@@ -19,6 +19,7 @@ export const LoginPage = () => {
     } else {
       navigate('/dashboard', { replace: true });
     }
+    navigate('/dashboard', { replace: true });
   });
   const { 
     authStep,
@@ -155,15 +156,24 @@ export const LoginPage = () => {
           }
         `}
       >
+<<<<<<< HEAD
         <div className={`text-2xl font-black tracking-tight ${isRolePage ? 'text-left' : 'text-right'}`}>
 <<<<<<< HEAD
+=======
+        <div className={`flex ${isRolePage ? 'justify-start' : 'justify-end'} select-none`}>
+>>>>>>> feat/frontend-dashboard
           <button
             type="button"
-            onClick={onBackToHome}
-            className="cursor-pointer hover:text-violet-200 transition-colors focus:outline-none"
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 text-white cursor-pointer hover:text-violet-200 transition-colors focus:outline-none"
             aria-label="Back to home page"
           >
-            LMS
+            <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white font-black text-base shadow-sm">
+              L
+            </div>
+            <span className="text-lg font-extrabold tracking-tight">
+              LMS
+            </span>
           </button>
 =======
           MikeKwok

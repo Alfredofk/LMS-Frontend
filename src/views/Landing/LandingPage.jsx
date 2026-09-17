@@ -1,10 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
+import Toast from '../../components/ui/Toast';
 
-export const LandingPage = ({ onNavigate, showToast }) => {
-  // Navigation trigger utility
-  const handleUnderConstruction = (featureName) => {
-    showToast(`${featureName} feature is under construction.`, 'info');
+export const LandingPage = () => {
+  const navigate = useNavigate();
+  const [toast, setToast] = useState(null);
+
+  // Dynamic Toast trigger
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
   };
 
   // Feature cards data
@@ -42,6 +47,11 @@ export const LandingPage = () => {
       <span className="text-base font-black tracking-tight">
         <span className="text-slate-900">Mike</span>
         <span className="text-[#7047EB]">Kwok</span>
+      <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center text-white font-black text-base shadow-md shadow-violet-500/10">
+        L
+      </div>
+      <span className="text-base font-extrabold tracking-tight text-slate-850">
+        LMS
       </span>
     </div>
   );
@@ -120,7 +130,10 @@ export const LandingPage = () => {
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 antialiased overflow-x-hidden selection:bg-violet-500 selection:text-white">
       
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> feat/frontend-dashboard
       {/* Toast notifier container */}
       {toast && (
         <Toast
@@ -130,11 +143,15 @@ export const LandingPage = () => {
         />
       )}
 
+<<<<<<< HEAD
 >>>>>>> feat/frontend-login
+=======
+>>>>>>> feat/frontend-dashboard
       {/* ========================================== */}
       {/* 1. NAVBAR SECTION                          */}
       {/* ========================================== */}
       <header className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between select-none relative z-30">
+<<<<<<< HEAD
 <<<<<<< HEAD
         {/* Logo */}
         <div className="flex items-center gap-2">
@@ -145,12 +162,16 @@ export const LandingPage = () => {
             LMS
           </span>
         </div>
+=======
+        <Logo />
+>>>>>>> feat/frontend-dashboard
 
         {/* Links */}
         <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-500">
-          <button onClick={() => showToast('You are on Home page.', 'info')} className="hover:text-slate-900 transition-colors cursor-pointer">Home</button>
+          <button onClick={() => showToast('Anda berada di halaman utama.', 'info')} className="hover:text-slate-900 transition-colors cursor-pointer">Home</button>
           <button onClick={() => handleUnderConstruction('Course')} className="hover:text-slate-900 transition-colors cursor-pointer">Course</button>
           <button onClick={() => handleUnderConstruction('Mentor')} className="hover:text-slate-900 transition-colors cursor-pointer">Mentor</button>
+<<<<<<< HEAD
           <button onClick={() => handleUnderConstruction('About Us')} className="hover:text-slate-900 transition-colors cursor-pointer">About us</button>
 =======
         <Logo />
@@ -162,6 +183,9 @@ export const LandingPage = () => {
           <button onClick={() => handleUnderConstruction('Mentor')} className="hover:text-slate-900 transition-colors cursor-pointer">Mentor</button>
           <button onClick={() => handleUnderConstruction('About us')} className="hover:text-slate-900 transition-colors cursor-pointer">About us</button>
 >>>>>>> feat/frontend-login
+=======
+          <button onClick={() => handleUnderConstruction('About us')} className="hover:text-slate-900 transition-colors cursor-pointer">About us</button>
+>>>>>>> feat/frontend-dashboard
         </nav>
 
         {/* Action Buttons */}
@@ -169,10 +193,14 @@ export const LandingPage = () => {
           <button
             type="button"
 <<<<<<< HEAD
+<<<<<<< HEAD
             onClick={() => onNavigate('sign_in')}
 =======
             onClick={() => navigate('/login', { state: { step: 'sign_in' } })}
 >>>>>>> feat/frontend-login
+=======
+            onClick={() => navigate('/login', { state: { step: 'sign_in' } })}
+>>>>>>> feat/frontend-dashboard
             className="text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
           >
             Sign In
@@ -180,10 +208,14 @@ export const LandingPage = () => {
           <Button
             size="sm"
 <<<<<<< HEAD
+<<<<<<< HEAD
             onClick={() => onNavigate('sign_up')}
 =======
             onClick={() => navigate('/login', { state: { step: 'sign_up' } })}
 >>>>>>> feat/frontend-login
+=======
+            onClick={() => navigate('/login', { state: { step: 'sign_up' } })}
+>>>>>>> feat/frontend-dashboard
             className="rounded-xl px-4 py-2 text-sm font-bold shadow-md shadow-violet-500/10 cursor-pointer"
           >
             Register
@@ -196,9 +228,12 @@ export const LandingPage = () => {
       {/* ========================================== */}
       <section className="max-w-6xl mx-auto px-6 pt-8 pb-16 lg:pb-24 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-20">
 <<<<<<< HEAD
+<<<<<<< HEAD
         {/* Left text column */}
 =======
 >>>>>>> feat/frontend-login
+=======
+>>>>>>> feat/frontend-dashboard
         <div className="lg:col-span-7 space-y-6 text-left">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 leading-tight">
             Unlock a <span className="text-[#7047EB]">World of</span> <br />
@@ -211,10 +246,14 @@ export const LandingPage = () => {
           <div className="flex items-center gap-4 pt-2">
             <Button
 <<<<<<< HEAD
+<<<<<<< HEAD
               onClick={() => onNavigate('role_selection')}
 =======
               onClick={() => navigate('/login', { state: { step: 'role_selection' } })}
 >>>>>>> feat/frontend-login
+=======
+              onClick={() => navigate('/login', { state: { step: 'role_selection' } })}
+>>>>>>> feat/frontend-dashboard
               className="py-3 px-6 rounded-xl font-bold bg-[#7047EB] hover:bg-[#5E3BD2] shadow-lg shadow-violet-500/20 active:scale-95 transition-transform text-white cursor-pointer"
             >
               Get Started
@@ -230,16 +269,18 @@ export const LandingPage = () => {
         </div>
 
 <<<<<<< HEAD
+<<<<<<< HEAD
         {/* Right Illustration Column (CSS Vector Shapes exactly matching SS) */}
+=======
+        {/* Right Illustration Column (Reverted to the original clean circular chart illustration) */}
+>>>>>>> feat/frontend-dashboard
         <div className="lg:col-span-5 flex items-center justify-center relative">
           
-          {/* Main graphic block */}
           <div className="w-72 h-72 sm:w-80 sm:h-80 lg:w-96 lg:h-96 rounded-full relative overflow-hidden bg-[#ECE9FE]/40 border-8 border-white shadow-xl flex items-center justify-center">
             
-            {/* SVG custom segment matching screenshot */}
             <svg viewBox="0 0 100 100" className="w-full h-full transform scale-95 select-none pointer-events-none">
-              {/* Soft purple segment */}
               <circle cx="50" cy="50" r="46" fill="#F1EEFF" />
+<<<<<<< HEAD
               {/* Deep purple semi-circle block rotated */}
 =======
         {/* Right Illustration Column (Reverted to the original clean circular chart illustration) */}
@@ -250,6 +291,8 @@ export const LandingPage = () => {
             <svg viewBox="0 0 100 100" className="w-full h-full transform scale-95 select-none pointer-events-none">
               <circle cx="50" cy="50" r="46" fill="#F1EEFF" />
 >>>>>>> feat/frontend-login
+=======
+>>>>>>> feat/frontend-dashboard
               <path 
                 d="M 50 4 A 46 46 0 0 1 96 50 L 50 50 Z" 
                 fill="#7047EB" 
@@ -260,9 +303,12 @@ export const LandingPage = () => {
           </div>
 
 <<<<<<< HEAD
+<<<<<<< HEAD
           {/* Accent decoration items */}
 =======
 >>>>>>> feat/frontend-login
+=======
+>>>>>>> feat/frontend-dashboard
           <div className="absolute top-10 right-4 w-4 h-4 bg-[#7047EB] rounded-full pointer-events-none opacity-85 shadow-sm" />
           <div className="absolute bottom-12 left-6 w-5 h-5 bg-[#7047EB] rounded-full pointer-events-none opacity-85 shadow-sm" />
           <div className="absolute top-1/2 left-[-10px] w-2.5 h-2.5 bg-violet-400 rounded-full pointer-events-none opacity-60" />
@@ -274,6 +320,7 @@ export const LandingPage = () => {
       {/* ========================================== */}
       <section className="max-w-6xl mx-auto px-6 relative z-30">
 <<<<<<< HEAD
+<<<<<<< HEAD
         
         {/* Combined Metrics Strip */}
         <div className="bg-white rounded-3xl border border-slate-100/60 shadow-xl py-6 px-8 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
@@ -283,6 +330,10 @@ export const LandingPage = () => {
         <div className="bg-white rounded-3xl border border-slate-100/60 shadow-xl py-6 px-8 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
           
 >>>>>>> feat/frontend-login
+=======
+        <div className="bg-white rounded-3xl border border-slate-100/60 shadow-xl py-6 px-8 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+          
+>>>>>>> feat/frontend-dashboard
           <div className="flex items-center text-left md:border-r border-slate-100 last:border-0 py-2">
             <div className="w-12 h-12 bg-[#F1EEFF] text-[#7047EB] rounded-2xl flex items-center justify-center shrink-0 mr-4">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
@@ -296,9 +347,12 @@ export const LandingPage = () => {
           </div>
 
 <<<<<<< HEAD
+<<<<<<< HEAD
           {/* Partner schools */}
 =======
 >>>>>>> feat/frontend-login
+=======
+>>>>>>> feat/frontend-dashboard
           <div className="flex items-center text-left md:border-r border-slate-100 last:border-0 py-2">
             <div className="w-12 h-12 bg-[#F1EEFF] text-[#7047EB] rounded-2xl flex items-center justify-center shrink-0 mr-4">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
@@ -312,9 +366,12 @@ export const LandingPage = () => {
           </div>
 
 <<<<<<< HEAD
+<<<<<<< HEAD
           {/* Global Users */}
 =======
 >>>>>>> feat/frontend-login
+=======
+>>>>>>> feat/frontend-dashboard
           <div className="flex items-center text-left py-2">
             <div className="w-12 h-12 bg-[#F1EEFF] text-[#7047EB] rounded-2xl flex items-center justify-center shrink-0 mr-4">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
@@ -344,13 +401,17 @@ export const LandingPage = () => {
         </div>
 
 <<<<<<< HEAD
+<<<<<<< HEAD
         {/* Feature Cards Grid */}
 =======
 >>>>>>> feat/frontend-login
+=======
+>>>>>>> feat/frontend-dashboard
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
           {features.map((feature, idx) => (
             <div
               key={idx}
+<<<<<<< HEAD
 <<<<<<< HEAD
               className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all duration-200 flex items-center text-left"
             >
@@ -359,6 +420,10 @@ export const LandingPage = () => {
               className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow flex items-center text-left"
             >
 >>>>>>> feat/frontend-login
+=======
+              className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow flex items-center text-left"
+            >
+>>>>>>> feat/frontend-dashboard
               <div className={`w-14 h-14 ${feature.bgColor} ${feature.textColor} rounded-2xl flex items-center justify-center shrink-0 mr-4`}>
                 {feature.icon}
               </div>
@@ -376,15 +441,16 @@ export const LandingPage = () => {
       {/* ========================================== */}
       <footer className="bg-[#ECE9FE] pt-16 pb-8 px-6 sm:px-12 relative z-10 select-none">
 <<<<<<< HEAD
+<<<<<<< HEAD
         
         {/* Structured White Card Container */}
+=======
+>>>>>>> feat/frontend-dashboard
         <div className="max-w-6xl mx-auto bg-white rounded-[32px] p-8 sm:p-12 shadow-xl flex flex-col gap-12">
           
-          {/* Main Footer link grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 text-left">
-            
-            {/* Col 1: Branding and description */}
             <div className="lg:col-span-4 space-y-4">
+<<<<<<< HEAD
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center text-white font-black text-base shadow-md shadow-violet-500/10">
                   L
@@ -400,15 +466,21 @@ export const LandingPage = () => {
             <div className="lg:col-span-4 space-y-4">
               <Logo />
 >>>>>>> feat/frontend-login
+=======
+              <Logo />
+>>>>>>> feat/frontend-dashboard
               <p className="text-xs text-slate-400 leading-relaxed font-semibold max-w-xs">
                 A modern LMS platform to create, manage, and deliver engaging learning experiences for everyone.
               </p>
             </div>
 
 <<<<<<< HEAD
+<<<<<<< HEAD
             {/* Col 2: Platform Links */}
 =======
 >>>>>>> feat/frontend-login
+=======
+>>>>>>> feat/frontend-dashboard
             <div className="lg:col-span-2 space-y-3">
               <h5 className="text-xs font-black text-slate-850 uppercase tracking-wider">Platform</h5>
               <ul className="space-y-2 text-xs text-slate-400 font-semibold">
@@ -420,9 +492,12 @@ export const LandingPage = () => {
             </div>
 
 <<<<<<< HEAD
+<<<<<<< HEAD
             {/* Col 3: Support Links */}
 =======
 >>>>>>> feat/frontend-login
+=======
+>>>>>>> feat/frontend-dashboard
             <div className="lg:col-span-2 space-y-3">
               <h5 className="text-xs font-black text-slate-850 uppercase tracking-wider">Support</h5>
               <ul className="space-y-2 text-xs text-slate-400 font-semibold">
@@ -433,9 +508,12 @@ export const LandingPage = () => {
             </div>
 
 <<<<<<< HEAD
+<<<<<<< HEAD
             {/* Col 4: Resources Links */}
 =======
 >>>>>>> feat/frontend-login
+=======
+>>>>>>> feat/frontend-dashboard
             <div className="lg:col-span-2 space-y-3">
               <h5 className="text-xs font-black text-slate-850 uppercase tracking-wider">Resources</h5>
               <ul className="space-y-2 text-xs text-slate-400 font-semibold">
@@ -447,9 +525,12 @@ export const LandingPage = () => {
             </div>
 
 <<<<<<< HEAD
+<<<<<<< HEAD
             {/* Col 5: Legal Links */}
 =======
 >>>>>>> feat/frontend-login
+=======
+>>>>>>> feat/frontend-dashboard
             <div className="lg:col-span-2 space-y-3">
               <h5 className="text-xs font-black text-slate-850 uppercase tracking-wider">Legal</h5>
               <ul className="space-y-2 text-xs text-slate-400 font-semibold">
@@ -459,16 +540,17 @@ export const LandingPage = () => {
               </ul>
             </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
 
+=======
+>>>>>>> feat/frontend-dashboard
           </div>
 
-          {/* Bottom Bar containing details */}
           <div className="border-t border-slate-100 pt-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-400 font-semibold text-center md:text-left">
             <div>
               © 2026 LMS - All Rights Reserved.
             </div>
             
-            {/* Center links matching screenshot */}
             <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 text-slate-500">
               <a href="mailto:support@lms.com" className="flex items-center gap-1.5 hover:text-violet-600 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-400">
@@ -484,10 +566,10 @@ export const LandingPage = () => {
               </a>
             </div>
 
-            {/* Social media icons */}
             <div className="flex items-center gap-3">
               <button onClick={() => handleUnderConstruction('Instagram')} className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-violet-600 hover:border-violet-200 hover:bg-violet-50 transition-all cursor-pointer" aria-label="Instagram">
                 <svg fill="currentColor" viewBox="0 0 24 24" className="w-4 h-4">
+<<<<<<< HEAD
                   <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
 =======
           </div>
@@ -517,6 +599,9 @@ export const LandingPage = () => {
                 <svg fill="currentColor" viewBox="0 0 24 24" className="w-4 h-4">
                   <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.779-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
 >>>>>>> feat/frontend-login
+=======
+                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.779-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
+>>>>>>> feat/frontend-dashboard
                 </svg>
               </button>
               <button onClick={() => handleUnderConstruction('Facebook')} className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-violet-600 hover:border-violet-200 hover:bg-violet-50 transition-all cursor-pointer" aria-label="Facebook">
@@ -537,9 +622,12 @@ export const LandingPage = () => {
             </div>
           </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 =======
 >>>>>>> feat/frontend-login
+=======
+>>>>>>> feat/frontend-dashboard
         </div>
       </footer>
 

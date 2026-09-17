@@ -24,6 +24,7 @@ export const MainLayout = () => {
 
   return (
     <div className="h-screen w-screen flex flex-row overflow-hidden bg-[#F8F9FD] font-sans antialiased text-slate-800">
+    <div className="h-screen w-screen flex flex-row overflow-hidden bg-slate-50 font-sans antialiased text-slate-800">
       {/* Toast Alert Notifier container */}
       {toast && (
         <Toast
@@ -38,11 +39,13 @@ export const MainLayout = () => {
 
       {/* 2. Main content container */}
       <div className="flex-1 h-full flex flex-col overflow-hidden bg-[#F8F9FD]">
+      <div className="flex-1 h-full flex flex-col overflow-hidden">
         {/* Navbar */}
         <Navbar showToast={showToast} />
 
         {/* Scrollable Content Body */}
         <main className="flex-1 overflow-y-auto p-6 sm:p-8 bg-[#F8F9FD]">
+        <main className="flex-1 overflow-y-auto p-6 sm:p-8">
           <div className="max-w-7xl mx-auto text-left">
             {/* Child routes rendered here */}
             <Outlet context={{ showToast }} />
