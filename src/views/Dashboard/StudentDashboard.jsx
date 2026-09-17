@@ -27,6 +27,7 @@ export const StudentDashboard = () => {
     avgScore: '—',
     totalMaterials: 0
   });
+  const [todayActivities, setTodayActivities] = useState([]);
   const [protests, setProtests] = useState([]);
   const [activeAssessments, setActiveAssessments] = useState([]);
   const [courseProgress, setCourseProgress] = useState([]);
@@ -40,9 +41,10 @@ export const StudentDashboard = () => {
       try {
         const token = localStorage.getItem('token');
         
-        // Fetch stats, protests, announcements, and widgets in parallel
-        const [statsRes, protestsRes, announcementsRes, widgetsRes] = await Promise.all([
+        // Fetch stats, schedule, protests, announcements, and widgets in parallel
+        const [statsRes, scheduleRes, protestsRes, announcementsRes, widgetsRes] = await Promise.all([
           fetch('/api/student/stats', { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch('/api/schedule/student', { headers: { 'Authorization': `Bearer ${token}` } }),
           fetch('/api/protests/student', { headers: { 'Authorization': `Bearer ${token}` } }),
           fetch('/api/announcements', { headers: { 'Authorization': `Bearer ${token}` } }),
           fetch('/api/announcements/student/dashboard-widgets', { headers: { 'Authorization': `Bearer ${token}` } })
@@ -51,6 +53,16 @@ export const StudentDashboard = () => {
         if (statsRes.ok) {
           const statsData = await statsRes.json();
           if (isMounted) setStats(statsData);
+        }
+
+        if (scheduleRes.ok) {
+          const scheduleData = await scheduleRes.json();
+          if (isMounted) {
+            const todayDayOfWeek = new Date().getDay();
+            // Filter weekly schedules for today
+            const todayClasses = scheduleData.weeklySchedules?.filter(s => s.dayOfWeek === todayDayOfWeek) || [];
+            setTodayActivities(todayClasses);
+          }
         }
 
         if (protestsRes.ok) {
@@ -86,11 +98,13 @@ export const StudentDashboard = () => {
 
   const handleStatCardClick = (statName) => {
     if (statName === 'To-Do') {
-      navigate('/classroom', { state: { activeTab: 'tugas' } });
+      navigate('/assessment');
     } else if (statName === 'Total Courses') {
       navigate('/classroom');
-    } else if (showToast) {
-      showToast(`Statistik detail "${statName}" sedang dalam proses pengerjaan (On Progress).`, 'info');
+    } else if (statName === 'Avg Score') {
+      navigate('/scores');
+    } else if (statName === 'New Materials') {
+      navigate('/classroom');
     }
   };
 
@@ -133,17 +147,17 @@ export const StudentDashboard = () => {
   return (
     <div className="space-y-6 w-full text-left">
       
-      {/* Greeting Banner (Dynamic) */}
+      {/* Greeting Banner (Dynamic with real user name) */}
       <div className="select-none">
-        <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-tight capitalize">
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight leading-tight">
           Selamat {getGreeting()}, {user?.name || 'Siswa'}
         </h1>
-        <p className="text-xs sm:text-sm text-slate-900 font-black mt-1">
+        <p className="text-xs text-slate-500 font-medium mt-1">
           Semester Genap 2025/2026 · {getFormattedDate()}
         </p>
       </div>
 
-      {/* Metrics cards row */}
+      {/* Metrics cards row (4 cards) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <div onClick={() => handleStatCardClick('Total Courses')} className="cursor-pointer">
           <StatCard
@@ -151,7 +165,7 @@ export const StudentDashboard = () => {
             value={stats.totalCourses.toString()}
             subtext="This Semester"
             icon={BookOpen}
-            iconBg="bg-[#F1EEFF] text-[#7047EB]"
+            iconBg="bg-[#EDE9FE] text-[#7047EB]"
           />
         </div>
         <div onClick={() => handleStatCardClick('To-Do')} className="cursor-pointer">
@@ -160,7 +174,7 @@ export const StudentDashboard = () => {
             value={stats.totalTodo.toString()}
             subtext="Assignment"
             icon={ListTodo}
-            iconBg="bg-amber-50 text-amber-500"
+            iconBg="bg-[#FEF3C7] text-[#D97706]"
           />
         </div>
         <div onClick={() => handleStatCardClick('Avg Score')} className="cursor-pointer">
@@ -169,7 +183,7 @@ export const StudentDashboard = () => {
             value={stats.avgScore}
             subtext="Overall"
             icon={Star}
-            iconBg="bg-emerald-50 text-emerald-600"
+            iconBg="bg-[#D1FAE5] text-[#059669]"
           />
         </div>
         <div onClick={() => handleStatCardClick('New Materials')} className="cursor-pointer">
@@ -178,47 +192,47 @@ export const StudentDashboard = () => {
             value={stats.totalMaterials.toString()}
             subtext="New Materials"
             icon={AlertCircle}
-            iconBg="bg-red-50 text-red-500"
+            iconBg="bg-[#FEE2E2] text-[#DC2626]"
           />
         </div>
       </div>
 
-      {/* Widgets Section Grid */}
+      {/* Widgets Section Grid (2x2) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Row 1 Widgets */}
-        <TodayActivities showToast={showToast} />
+        <TodayActivities activities={todayActivities} isLoading={isLoading} />
         <ActiveAssessment activeAssessments={activeAssessments} isLoading={isLoading} />
 
         {/* Row 2 Widgets */}
         <CourseProgress courseProgress={courseProgress} isLoading={isLoading} />
         <SchoolAnnouncement announcements={schoolAnnouncements} isLoading={isLoading} />
 
-        {/* Row 3 Widget: Grade Protests Tracker */}
+        {/* Row 3 Widget: Grade Protests Tracker (if any exist) */}
         {protests.length > 0 && (
-          <div className="lg:col-span-2 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-4">
-            <h3 className="text-sm font-extrabold text-slate-800 tracking-tight flex items-center gap-2">
+          <div className="lg:col-span-2 bg-white border border-slate-100 rounded-2xl p-6 shadow-sm space-y-4">
+            <h3 className="text-sm font-bold text-slate-800 tracking-tight flex items-center gap-2">
               <Inbox className="w-4 h-4 text-[#7047EB]" />
               Pelacakan Banding & Sanggahan Nilai
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {protests.slice(0, 4).map(p => (
-                <div key={p.id} className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 flex flex-col justify-between space-y-3">
+                <div key={p.id} className="border border-slate-100 rounded-xl p-4 bg-slate-50/40 flex flex-col justify-between space-y-3">
                   <div className="flex items-start justify-between">
                     <div>
                       <h4 className="text-xs font-bold text-slate-800 line-clamp-1">{p.assignment_title}</h4>
                       <span className="text-[10px] text-slate-400 font-semibold">Diajukan: {new Date(p.created_at).toLocaleDateString('id-ID')}</span>
                     </div>
-                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-black
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold
                       ${p.status === 'Pending' ? 'bg-amber-100 text-amber-700' : p.status === 'Disetujui' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}
                     `}>
                       {p.status}
                     </span>
                   </div>
-                  <div className="text-[10px] text-slate-500 font-semibold space-y-1">
+                  <div className="text-[10px] text-slate-500 font-medium space-y-1">
                     <p>Nilai Asli: <strong className="text-slate-700">{p.original_grade}</strong> → Harapan: <strong className="text-[#7047EB]">{p.requested_grade}</strong></p>
                     <p className="italic text-slate-400">"{p.reason}"</p>
                     {p.teacher_feedback && (
-                      <p className="text-slate-650 border-t border-slate-200/60 pt-1.5 mt-1.5">
+                      <p className="text-slate-600 border-t border-slate-100 pt-1.5 mt-1.5">
                         <strong>Review Guru:</strong> "{p.teacher_feedback}"
                       </p>
                     )}

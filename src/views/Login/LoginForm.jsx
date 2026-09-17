@@ -242,7 +242,7 @@ export const LoginForm = ({ formState }) => {
         <span className="text-[#7047EB]">{getRoleTitle()}</span>
       </h1>
       <p className="text-slate-400 text-sm mt-2 mb-8 font-medium select-none">
-        Start your journey with LMS
+        Start your journey with MikeKwok
       </p>
 
       {errors.global && (

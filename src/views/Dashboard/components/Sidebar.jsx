@@ -2,16 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import {
-  LayoutDashboard,
+  LayoutGrid,
   BookOpen,
-  GraduationCap,
+  Award,
   MessageSquare,
   Calendar,
-  FileText,
-  CheckSquare,
+  ClipboardList,
+  CalendarCheck,
   Megaphone,
   User,
   Users,
+  GraduationCap,
   LogOut
 } from 'lucide-react';
 
@@ -62,7 +63,7 @@ export const Sidebar = ({ showToast, userRole }) => {
 
   // Get Initials dynamically
   const getInitials = () => {
-    if (!user || !user.name) return 'US';
+    if (!user || !user.name) return 'AR';
     return user.name
       .split(' ')
       .map(n => n[0])
@@ -71,88 +72,84 @@ export const Sidebar = ({ showToast, userRole }) => {
       .toUpperCase();
   };
 
-  return (
-    <aside className="w-66 bg-white border-r border-slate-150 flex flex-col justify-between h-full select-none shrink-0 relative overflow-hidden text-slate-800">
+  const activeBtnClass = "w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-bold rounded-xl bg-[#7047EB] text-white shadow-md shadow-purple-500/20 select-none cursor-pointer transition-all";
+  const inactiveBtnClass = "w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-bold rounded-xl text-slate-700 hover:text-[#7047EB] hover:bg-purple-50/50 select-none cursor-pointer group transition-all";
 
-      {/* Main Content Area (With Scroll) */}
-      <div className="flex flex-col flex-1 overflow-y-auto min-h-0">
+  return (
+    <aside className="w-64 bg-white border-r border-slate-100 flex flex-col justify-between h-full select-none shrink-0 relative overflow-hidden text-slate-800">
+
+      {/* Main Content Area (With Scroll and generous bottom padding so items never overlap the decorative corner) */}
+      <div className="flex flex-col flex-1 overflow-y-auto min-h-0 relative z-10 pb-28">
         
         {/* Brand/School Logo Header */}
-        <div className="p-6 border-b border-slate-100 flex items-center gap-3 select-none">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#7047EB] to-[#5C36DB] flex items-center justify-center text-white font-black text-base shadow-md shadow-violet-500/10">
-            L
+        <div className="p-5 border-b border-slate-50 flex items-center gap-3 select-none">
+          <div className="w-9 h-9 rounded-xl bg-[#7047EB] flex items-center justify-center text-white shadow-md shadow-purple-500/20 shrink-0">
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 4L4 10L12 16L20 10L12 4Z" fill="white" fillOpacity="0.9" />
+              <path d="M7 13.5L12 17.5L17 13.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </div>
           <div className="text-left min-w-0">
-            <div className="text-sm font-black text-slate-900 tracking-tight leading-tight">LMS</div>
-            <div className="text-[10px] font-bold text-slate-500 truncate" title={user?.schoolName || 'SMA Negeri 1 Harapan'}>
-              {user?.schoolName || 'SMA Negeri 1 Harapan'}
+            <div className="text-sm font-black tracking-tight leading-none">
+              <span className="text-slate-900">Mike</span>
+              <span className="text-[#7047EB]">Kwok</span>
+            </div>
+            <div className="text-[10px] font-semibold text-slate-400 truncate mt-0.5" title={user?.schoolName || 'SMA Patroli Jaya'}>
+              {user?.schoolName || 'SMA Patroli Jaya'}
             </div>
           </div>
         </div>
 
-        {/* Student/Teacher Profile Info Card (Light Card Layout) */}
-        <div className="p-4 mx-4 mt-6 mb-4 flex items-center gap-3 bg-slate-50/60 border border-slate-100 rounded-2xl min-w-0 shadow-sm relative group hover:bg-slate-50 transition-all">
-          <div className="w-10 h-10 rounded-full bg-violet-100 border border-violet-200 text-violet-750 flex items-center justify-center font-black text-xs shrink-0 shadow-inner">
+        {/* Student/Teacher Profile Info Card */}
+        <div className="p-3.5 mx-3 mt-4 mb-2 flex items-center gap-3 bg-white border border-slate-100 rounded-2xl min-w-0 shadow-sm relative group hover:border-purple-100 transition-all">
+          <div className="w-10 h-10 rounded-full bg-[#EDE9FE] text-[#7047EB] flex items-center justify-center font-black text-xs shrink-0 shadow-inner">
             {getInitials()}
           </div>
           <div className="text-left min-w-0 flex-1">
-            <h4 className="text-xs font-black text-slate-900 leading-tight truncate" title={user?.name || (role === 'teacher' ? 'Teacher User' : role === 'headmaster' ? 'Kepala Sekolah' : 'Student User')}>
-              {user?.name || (role === 'teacher' ? 'Teacher User' : role === 'headmaster' ? 'Kepala Sekolah' : 'Student User')}
+            <h4 className="text-xs font-black text-slate-900 leading-tight truncate" title={user?.name || (role === 'teacher' ? 'Guru' : role === 'headmaster' ? 'Kepala Sekolah' : 'Andi Rahmat')}>
+              {user?.name || (role === 'teacher' ? 'Guru' : role === 'headmaster' ? 'Kepala Sekolah' : 'Andi Rahmat')}
             </h4>
-            <p className="text-[9px] font-bold text-slate-500 mt-0.5 truncate" title={user?.email || 'admin@sekolah.sch.id'}>
-              {user?.email || 'admin@sekolah.sch.id'}
-            </p>
-            <p className="text-[9px] font-bold text-slate-450 mt-0.5">
+            <p className="text-[10px] font-medium text-slate-400 mt-0.5 truncate">
               {role === 'teacher' 
                 ? 'Guru Mata Pelajaran' 
                 : role === 'headmaster' 
                   ? 'Kepala Sekolah' 
-                  : 'Kelas XII IPA 2'}
+                  : (user?.className || 'Kelas XII IPA 2')}
             </p>
-            <div className="mt-1.5 px-2 py-0.5 bg-[#F1EEFF] text-[#7047EB] border border-violet-100 text-[8px] font-black rounded-md inline-block">
+            <div className="mt-1 px-2 py-0.5 bg-[#EDE9FE] text-[#7047EB] text-[9px] font-bold rounded-full inline-block">
               {role === 'teacher'
-                ? (user?.username && !user.username.includes('@') ? `NIP ${user.username}` : 'NIP 197805122003122002')
+                ? (user?.nip ? `NIP ${user.nip}` : (user?.username && !user.username.includes('@') ? `NIP ${user.username}` : 'NIP 197805122003122002'))
                 : role === 'headmaster'
                   ? `NPSN ${user?.schoolCode || '20261005'}`
-                  : (user?.username && !user.username.includes('@') ? `NIS ${user.username}` : 'NIS 20261005')
+                  : (user?.nis ? `NIS ${user.nis}` : (user?.username && !user.username.includes('@') ? `NIS ${user.username}` : 'NIS 20245005'))
               }
             </div>
           </div>
         </div>
 
         {/* Navigation Listings */}
-        <div className="px-4 py-4 space-y-6 text-left flex-1">
+        <div className="px-3 py-3 space-y-4 text-left flex-1">
 
           {/* Main Menu group */}
-          <div className="space-y-1.5">
-            <span className="px-3 text-[9px] font-black text-slate-450 uppercase tracking-widest block select-none">
+          <div className="space-y-1">
+            <span className="px-3 text-[10px] font-bold text-[#8B7FE8] tracking-wider block select-none">
               Main Menu
             </span>
-            <nav className="space-y-1">
+            <nav className="space-y-0.5">
               <button
                 onClick={() => handleLinkClick('Dashboard', role === 'teacher' ? '/teacher/dashboard' : role === 'headmaster' ? '/headmaster/dashboard' : '/dashboard')}
-                className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-black rounded-xl transition-all duration-200 select-none cursor-pointer group hover:translate-x-1
-                  ${isActive(role === 'teacher' ? '/teacher/dashboard' : role === 'headmaster' ? '/headmaster/dashboard' : '/dashboard')
-                    ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-500/10 hover:shadow-lg'
-                    : 'text-slate-800 hover:text-[#7047EB] hover:bg-slate-50'
-                  }
-                `}
+                className={isActive(role === 'teacher' ? '/teacher/dashboard' : role === 'headmaster' ? '/headmaster/dashboard' : '/dashboard') ? activeBtnClass : inactiveBtnClass}
               >
-                <LayoutDashboard className={`w-4 h-4 shrink-0 transition-colors ${isActive(role === 'teacher' ? '/teacher/dashboard' : role === 'headmaster' ? '/headmaster/dashboard' : '/dashboard') ? 'text-white' : 'text-slate-500 group-hover:text-[#7047EB]'}`} />
+                <LayoutGrid className={`w-4 h-4 shrink-0 transition-colors ${isActive(role === 'teacher' ? '/teacher/dashboard' : role === 'headmaster' ? '/headmaster/dashboard' : '/dashboard') ? 'text-white' : 'text-[#7047EB]'}`} />
                 Dashboard
               </button>
 
               {role !== 'headmaster' && (
                 <button
                   onClick={() => handleLinkClick('My Courses', role === 'teacher' ? '/teacher/courses' : '/classroom')}
-                  className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-black rounded-xl transition-all duration-200 select-none cursor-pointer group hover:translate-x-1
-                    ${isActive(role === 'teacher' ? '/teacher/courses' : '/classroom')
-                      ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-500/10 hover:shadow-lg'
-                      : 'text-slate-800 hover:text-[#7047EB] hover:bg-slate-50'
-                    }
-                  `}
+                  className={isActive(role === 'teacher' ? '/teacher/courses' : '/classroom') ? activeBtnClass : inactiveBtnClass}
                 >
-                  <BookOpen className={`w-4 h-4 shrink-0 transition-colors ${isActive(role === 'teacher' ? '/teacher/courses' : '/classroom') ? 'text-white' : 'text-slate-500 group-hover:text-[#7047EB]'}`} />
+                  <BookOpen className={`w-4 h-4 shrink-0 transition-colors ${isActive(role === 'teacher' ? '/teacher/courses' : '/classroom') ? 'text-white' : 'text-[#7047EB]'}`} />
                   My Courses
                 </button>
               )}
@@ -161,41 +158,26 @@ export const Sidebar = ({ showToast, userRole }) => {
                 <>
                   <button
                     onClick={() => handleLinkClick('Gradebook', '/teacher/gradebook')}
-                    className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-black rounded-xl transition-all duration-200 select-none cursor-pointer group hover:translate-x-1
-                      ${isActive('/teacher/gradebook')
-                        ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-500/10 hover:shadow-lg'
-                        : 'text-slate-800 hover:text-[#7047EB] hover:bg-slate-50'
-                      }
-                    `}
+                    className={isActive('/teacher/gradebook') ? activeBtnClass : inactiveBtnClass}
                   >
-                    <GraduationCap className={`w-4 h-4 shrink-0 transition-colors ${isActive('/teacher/gradebook') ? 'text-white' : 'text-slate-500 group-hover:text-[#7047EB]'}`} />
+                    <GraduationCap className={`w-4 h-4 shrink-0 transition-colors ${isActive('/teacher/gradebook') ? 'text-white' : 'text-[#7047EB]'}`} />
                     Gradebook
                   </button>
 
                   <button
                     onClick={() => handleLinkClick('Schedule', '/schedule')}
-                    className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-black rounded-xl transition-all duration-200 select-none cursor-pointer group hover:translate-x-1
-                      ${isActive('/schedule')
-                        ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-500/10 hover:shadow-lg'
-                        : 'text-slate-800 hover:text-[#7047EB] hover:bg-slate-50'
-                      }
-                    `}
+                    className={isActive('/schedule') ? activeBtnClass : inactiveBtnClass}
                   >
-                    <Calendar className={`w-4 h-4 shrink-0 transition-colors ${isActive('/schedule') ? 'text-white' : 'text-slate-500 group-hover:text-[#7047EB]'}`} />
+                    <Calendar className={`w-4 h-4 shrink-0 transition-colors ${isActive('/schedule') ? 'text-white' : 'text-[#7047EB]'}`} />
                     Schedule
                   </button>
 
                   {isHomeroomTeacher && (
                     <button
                       onClick={() => handleLinkClick('Kelas Perwalian', '/teacher/homeroom')}
-                      className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-black rounded-xl transition-all duration-200 select-none cursor-pointer group hover:translate-x-1
-                        ${isActive('/teacher/homeroom')
-                          ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-500/10 hover:shadow-lg'
-                          : 'text-slate-800 hover:text-[#7047EB] hover:bg-slate-50'
-                        }
-                      `}
+                      className={isActive('/teacher/homeroom') ? activeBtnClass : inactiveBtnClass}
                     >
-                      <Users className={`w-4 h-4 shrink-0 transition-colors ${isActive('/teacher/homeroom') ? 'text-white' : 'text-slate-500 group-hover:text-[#7047EB]'}`} />
+                      <Users className={`w-4 h-4 shrink-0 transition-colors ${isActive('/teacher/homeroom') ? 'text-white' : 'text-[#7047EB]'}`} />
                       Kelas Perwalian
                     </button>
                   )}
@@ -204,22 +186,17 @@ export const Sidebar = ({ showToast, userRole }) => {
                 <>
                   <button
                     onClick={() => handleLinkClick('Scores', '/scores')}
-                    className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-black rounded-xl transition-all duration-200 select-none cursor-pointer group hover:translate-x-1
-                      ${isActive('/scores')
-                        ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-500/10 hover:shadow-lg'
-                        : 'text-slate-800 hover:text-[#7047EB] hover:bg-slate-50'
-                      }
-                    `}
+                    className={isActive('/scores') ? activeBtnClass : inactiveBtnClass}
                   >
-                    <GraduationCap className={`w-4 h-4 shrink-0 transition-colors ${isActive('/scores') ? 'text-white' : 'text-slate-500 group-hover:text-[#7047EB]'}`} />
+                    <Award className={`w-4 h-4 shrink-0 transition-colors ${isActive('/scores') ? 'text-white' : 'text-[#7047EB]'}`} />
                     Scores
                   </button>
 
                   <button
                     onClick={() => handleLinkClick('Chatbot')}
-                    className="w-full flex items-center gap-3 px-3 py-2 text-xs font-black rounded-xl text-slate-800 hover:text-[#7047EB] hover:bg-slate-50 hover:translate-x-1 transition-all duration-200 select-none cursor-pointer group"
+                    className={inactiveBtnClass}
                   >
-                    <MessageSquare className="w-4 h-4 shrink-0 text-slate-500 group-hover:text-[#7047EB] transition-colors" />
+                    <MessageSquare className="w-4 h-4 shrink-0 text-[#7047EB] transition-colors" />
                     Chatbot
                   </button>
                 </>
@@ -229,57 +206,37 @@ export const Sidebar = ({ showToast, userRole }) => {
 
           {/* Activities group - Only for students */}
           {role === 'student' && (
-            <div className="space-y-1.5">
-              <span className="px-3 text-[9px] font-black text-slate-450 uppercase tracking-widest block select-none">
+            <div className="space-y-1">
+              <span className="px-3 text-[10px] font-bold text-[#8B7FE8] tracking-wider block select-none">
                 Activities
               </span>
-              <nav className="space-y-1">
+              <nav className="space-y-0.5">
                 <button
                   onClick={() => handleLinkClick('Schedule', '/schedule')}
-                  className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-black rounded-xl transition-all duration-200 select-none cursor-pointer group hover:translate-x-1
-                    ${isActive('/schedule')
-                      ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-500/10 hover:shadow-lg'
-                      : 'text-slate-800 hover:text-[#7047EB] hover:bg-slate-50'
-                    }
-                  `}
+                  className={isActive('/schedule') ? activeBtnClass : inactiveBtnClass}
                 >
-                  <Calendar className={`w-4 h-4 shrink-0 transition-colors ${isActive('/schedule') ? 'text-white' : 'text-slate-500 group-hover:text-[#7047EB]'}`} />
+                  <Calendar className={`w-4 h-4 shrink-0 transition-colors ${isActive('/schedule') ? 'text-white' : 'text-[#7047EB]'}`} />
                   Schedule
                 </button>
                 <button
                   onClick={() => handleLinkClick('Assessment', '/assessment')}
-                  className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-black rounded-xl transition-all duration-200 select-none cursor-pointer group hover:translate-x-1
-                    ${isActive('/assessment')
-                      ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-500/10 hover:shadow-lg'
-                      : 'text-slate-800 hover:text-[#7047EB] hover:bg-slate-50'
-                    }
-                  `}
+                  className={isActive('/assessment') ? activeBtnClass : inactiveBtnClass}
                 >
-                  <FileText className={`w-4 h-4 shrink-0 transition-colors ${isActive('/assessment') ? 'text-white' : 'text-slate-500 group-hover:text-[#7047EB]'}`} />
+                  <ClipboardList className={`w-4 h-4 shrink-0 transition-colors ${isActive('/assessment') ? 'text-white' : 'text-[#7047EB]'}`} />
                   Assessment
                 </button>
                 <button
                   onClick={() => handleLinkClick('Attendance', '/attendance')}
-                  className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-black rounded-xl transition-all duration-200 select-none cursor-pointer group hover:translate-x-1
-                    ${isActive('/attendance')
-                      ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-500/10 hover:shadow-lg'
-                      : 'text-slate-800 hover:text-[#7047EB] hover:bg-slate-50'
-                    }
-                  `}
+                  className={isActive('/attendance') ? activeBtnClass : inactiveBtnClass}
                 >
-                  <CheckSquare className={`w-4 h-4 shrink-0 transition-colors ${isActive('/attendance') ? 'text-white' : 'text-slate-500 group-hover:text-[#7047EB]'}`} />
+                  <CalendarCheck className={`w-4 h-4 shrink-0 transition-colors ${isActive('/attendance') ? 'text-white' : 'text-[#7047EB]'}`} />
                   Attendance
                 </button>
                 <button
                   onClick={() => handleLinkClick('Announcement', '/announcements')}
-                  className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-black rounded-xl transition-all duration-200 select-none cursor-pointer group hover:translate-x-1
-                    ${isActive('/announcements')
-                      ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-500/10 hover:shadow-lg'
-                      : 'text-slate-800 hover:text-[#7047EB] hover:bg-slate-50'
-                    }
-                  `}
+                  className={isActive('/announcements') ? activeBtnClass : inactiveBtnClass}
                 >
-                  <Megaphone className={`w-4 h-4 shrink-0 transition-colors ${isActive('/announcements') ? 'text-white' : 'text-slate-500 group-hover:text-[#7047EB]'}`} />
+                  <Megaphone className={`w-4 h-4 shrink-0 transition-colors ${isActive('/announcements') ? 'text-white' : 'text-[#7047EB]'}`} />
                   Announcement
                 </button>
               </nav>
@@ -287,22 +244,24 @@ export const Sidebar = ({ showToast, userRole }) => {
           )}
 
           {/* Account group */}
-          <div className="space-y-1.5">
-            <span className="px-3 text-[9px] font-black text-slate-450 uppercase tracking-widest block select-none">
+          <div className="space-y-1">
+            <span className="px-3 text-[10px] font-bold text-[#8B7FE8] tracking-wider block select-none">
               Account
             </span>
-            <nav className="space-y-1">
+            <nav className="space-y-0.5">
               <button
                 onClick={() => handleLinkClick('My Profile', '/profile')}
-                className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-black rounded-xl transition-all duration-200 select-none cursor-pointer group hover:translate-x-1
-                  ${isActive('/profile')
-                    ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-500/10 hover:shadow-lg'
-                    : 'text-slate-800 hover:text-[#7047EB] hover:bg-slate-50'
-                  }
-                `}
+                className={isActive('/profile') ? activeBtnClass : inactiveBtnClass}
               >
-                <User className={`w-4 h-4 shrink-0 transition-colors ${isActive('/profile') ? 'text-white' : 'text-slate-500 group-hover:text-[#7047EB]'}`} />
+                <User className={`w-4 h-4 shrink-0 transition-colors ${isActive('/profile') ? 'text-white' : 'text-[#7047EB]'}`} />
                 My Profile
+              </button>
+              <button
+                onClick={logout}
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-bold rounded-xl text-slate-700 hover:text-rose-600 hover:bg-rose-50/50 select-none cursor-pointer group transition-all"
+              >
+                <LogOut className="w-4 h-4 shrink-0 text-[#7047EB] group-hover:text-rose-500 transition-colors" />
+                Log Out
               </button>
             </nav>
           </div>
@@ -310,19 +269,8 @@ export const Sidebar = ({ showToast, userRole }) => {
         </div>
       </div>
 
-      {/* Decorative corner accent */}
-      <div className="absolute bottom-[-60px] left-[-60px] w-32 h-32 rounded-full bg-[#6D43EC] pointer-events-none opacity-[0.02]" />
-
-      {/* Log Out button */}
-      <div className="p-4 border-t border-slate-100 bg-slate-50/50">
-        <button
-          onClick={logout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-black rounded-xl text-slate-650 hover:bg-rose-50 hover:text-rose-600 transition-all duration-200 select-none cursor-pointer group active:scale-95"
-        >
-          <LogOut className="w-4 h-4 shrink-0 text-slate-500 group-hover:text-rose-550 transition-colors" />
-          Log Out
-        </button>
-      </div>
+      {/* Decorative corner accent: Purple quarter circle positioned at the very bottom-left, cleanly below the scroll content */}
+      <div className="absolute -bottom-14 -left-14 w-32 h-32 rounded-full bg-[#7047EB] pointer-events-none z-0" />
 
     </aside>
   );

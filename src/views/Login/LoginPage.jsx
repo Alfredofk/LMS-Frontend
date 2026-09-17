@@ -155,7 +155,7 @@ export const LoginPage = () => {
       >
         {/* Top Logo - Placed top-left on role page, top-right on form page */}
         <div className={`text-2xl font-black tracking-tight ${isRolePage ? 'text-left' : 'text-right'}`}>
-          LMS
+          MikeKwok
         </div>
 
         {/* Dynamic Marketing Content in Center */}
@@ -166,7 +166,7 @@ export const LoginPage = () => {
               Smarter Learning Starts Here
             </h2>
             <p className="text-sm sm:text-base text-violet-100/90 leading-relaxed font-medium">
-              Manage, track, and improve learning with an all-in-one LMS solution designed for schools, teachers, and students.
+              Manage, track, and improve learning with an all-in-one platform designed for schools, teachers, and students.
             </p>
           </div>
         ) : (
@@ -194,7 +194,7 @@ export const LoginPage = () => {
 
         {/* Bottom copyright */}
         <div className={`text-xs text-violet-200/50 mt-12 lg:mt-0 z-10 shrink-0 ${isRolePage ? 'text-left' : 'text-right'}`}>
-          © 2026 LMS Platform. All rights reserved.
+          © 2026 MikeKwok Platform. All rights reserved.
         </div>
 
         {/* Decorative elements: white circle arc */}
@@ -265,7 +265,7 @@ export const LoginPage = () => {
                   Get Started
                 </h1>
                 <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold select-none">
-                  Choose how you want to use LMS
+                  Choose how you want to use MikeKwok
                 </p>
               </div>
 
@@ -339,7 +339,7 @@ export const LoginPage = () => {
                     </div>
                     <div>
                       <h3 className="text-base font-extrabold text-slate-800">Organization</h3>
-                      <p className="text-xs text-slate-400 font-semibold mt-0.5">Set up LMS for your school</p>
+                      <p className="text-xs text-slate-400 font-semibold mt-0.5">Set up MikeKwok for your school</p>
                     </div>
                   </div>
                   <div className="w-8 h-8 rounded-full border border-[#7047EB]/20 flex items-center justify-center text-[#7047EB] text-sm shrink-0">

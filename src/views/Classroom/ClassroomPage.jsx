@@ -6,7 +6,8 @@ import MaterialContent from './components/MaterialContent';
 import AssignmentContent from './components/AssignmentContent';
 import MembersContent from './components/MembersContent';
 import AttendanceContent from './components/AttendanceContent';
-import { BookOpen } from 'lucide-react';
+import MyCoursesCatalog from './components/MyCoursesCatalog';
+import { BookOpen, ChevronLeft } from 'lucide-react';
 
 export const ClassroomPage = () => {
   const { showToast } = useOutletContext();
@@ -42,13 +43,7 @@ export const ClassroomPage = () => {
         const data = await response.json();
         if (isMounted) {
           setCourses(data);
-          
-          // If no specific courseId in URL but courses exist, redirect to the first course
-          if (!courseId && data.length > 0) {
-            navigate(`/classroom/${data[0].id}`, { replace: true, state: location.state });
-          } else if (data.length === 0) {
-            setIsLoading(false);
-          }
+          setIsLoading(false);
         }
       } catch (err) {
         if (isMounted) {
@@ -62,7 +57,7 @@ export const ClassroomPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [courseId, navigate]);
+  }, []);
 
   // 2. Fetch materials and assignments when courseId changes
   useEffect(() => {
@@ -180,28 +175,49 @@ export const ClassroomPage = () => {
     }
   };
 
+  // If no specific course selected, render My Courses Catalog Grid
+  if (!courseId) {
+    return (
+      <MyCoursesCatalog 
+        courses={courses} 
+        isLoading={isLoading} 
+        error={error} 
+      />
+    );
+  }
+
   return (
     <div className="space-y-6 w-full">
       {/* Subject Capsule Switcher Toolbar */}
       <div className="flex items-center justify-between">
-        <div className="flex gap-2 p-1 bg-slate-100/80 rounded-xl border border-slate-200/20 select-none">
-          {courses.map((course) => {
-            const isSelected = String(course.id) === String(courseId);
-            return (
-              <button
-                key={course.id}
-                onClick={() => navigate(`/classroom/${course.id}`)}
-                className={`px-3.5 py-1.5 text-xs font-black rounded-lg transition-all cursor-pointer focus:outline-none
-                  ${isSelected
-                    ? 'bg-[#7047EB] text-white shadow-sm'
-                    : 'text-slate-650 hover:text-slate-900'
-                  }
-                `}
-              >
-                {course.name}
-              </button>
-            );
-          })}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate('/classroom')}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#7047EB] bg-purple-50 hover:bg-purple-100/80 rounded-xl transition-colors cursor-pointer"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span>Semua Kelas</span>
+          </button>
+
+          <div className="flex gap-2 p-1 bg-slate-100/80 rounded-xl border border-slate-200/20 select-none overflow-x-auto">
+            {courses.map((course) => {
+              const isSelected = String(course.id) === String(courseId);
+              return (
+                <button
+                  key={course.id}
+                  onClick={() => navigate(`/classroom/${course.id}`)}
+                  className={`px-3.5 py-1.5 text-xs font-black rounded-lg transition-all cursor-pointer focus:outline-none shrink-0
+                    ${isSelected
+                      ? 'bg-[#7047EB] text-white shadow-sm'
+                      : 'text-slate-650 hover:text-slate-900'
+                    }
+                  `}
+                >
+                  {course.name}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 

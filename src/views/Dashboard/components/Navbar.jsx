@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { 
   Bell, 
   BookOpen, 
@@ -8,7 +8,9 @@ import {
   Megaphone, 
   Check, 
   Trash2, 
-  X 
+  X,
+  Search,
+  ChevronLeft
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { classroomData } from '../../Classroom/classroomData';
@@ -17,6 +19,7 @@ export const Navbar = ({ showToast }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Notification States
   const [notifications, setNotifications] = useState([]);
@@ -289,23 +292,51 @@ export const Navbar = ({ showToast }) => {
 
     switch (location.pathname) {
       case '/dashboard':
-        return <span className="text-base font-semibold text-slate-700">Dashboard</span>;
+        return <span className="text-lg font-bold text-slate-900">Dashboard</span>;
+      case '/classroom':
+        return (
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate('/dashboard')}
+              className="w-8 h-8 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
+              title="Kembali ke Dashboard"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-xl font-bold text-slate-900 tracking-tight">My Courses</span>
+          </div>
+        );
+      case '/scores':
+        return (
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate('/dashboard')}
+              className="w-8 h-8 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
+              title="Kembali ke Dashboard"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-xl font-bold text-slate-900 tracking-tight">Scores</span>
+          </div>
+        );
       case '/teacher/dashboard':
-        return <span className="text-base font-semibold text-slate-700">Teacher Dashboard</span>;
+        return <span className="text-lg font-bold text-slate-900">Teacher Dashboard</span>;
       case '/teacher/gradebook':
-        return <span className="text-base font-semibold text-slate-700">Gradebook</span>;
+        return <span className="text-lg font-bold text-slate-900">Gradebook</span>;
       case '/teacher/create-assignment':
-        return <span className="text-base font-semibold text-slate-700">Create Assignment</span>;
+        return <span className="text-lg font-bold text-slate-900">Create Assignment</span>;
       case '/profile':
-        return <span className="text-base font-semibold text-slate-700">My Profile</span>;
+        return <span className="text-lg font-bold text-slate-900">My Profile</span>;
       default:
-        return <span className="text-base font-semibold text-slate-700">Dashboard</span>;
+        return <span className="text-lg font-bold text-slate-900">Dashboard</span>;
     }
   };
 
   // Get Initials dynamically
   const getInitials = () => {
-    if (!user || !user.name) return 'US';
+    if (!user || !user.name) return 'AR';
     return user.name
       .split(' ')
       .map(n => n[0])
@@ -315,30 +346,47 @@ export const Navbar = ({ showToast }) => {
   };
 
   return (
-    <header className="h-16 border-b border-slate-100 bg-white flex items-center justify-between px-8 select-none shrink-0 relative">
+    <header className="h-16 border-b border-slate-100 bg-white flex items-center justify-between px-8 select-none shrink-0 relative z-20">
       {/* Title */}
-      <div className="tracking-tight">
+      <div className="tracking-tight flex items-center">
         {getNavbarTitle()}
       </div>
 
+      {/* Middle Search Bar for My Courses & Scores */}
+      {(location.pathname === '/classroom' || location.pathname === '/scores') && (
+        <div className="flex-1 max-w-sm mx-6 hidden md:block">
+          <div className="relative">
+            <Search className="w-4 h-4 text-[#7047EB] absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchParams.get('q') || ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSearchParams(val ? { q: val } : {});
+              }}
+              placeholder="Search..."
+              className="w-full bg-[#F1EEFF] text-slate-800 text-xs font-medium pl-10 pr-4 py-2 rounded-full focus:outline-none focus:ring-1 focus:ring-purple-400 placeholder:text-slate-400 transition-all"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Utilities */}
-      <div className="flex items-center gap-4 relative">
+      <div className="flex items-center gap-3 relative">
         {/* Notification Bell Dropdown Container */}
         <div className="relative" ref={dropdownRef}>
           <button
             type="button"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             className={`p-2 rounded-xl transition-all relative cursor-pointer
-              ${isDropdownOpen ? 'bg-violet-50 text-violet-650' : 'hover:bg-slate-50 text-slate-900 hover:text-violet-600'}
+              ${isDropdownOpen ? 'bg-violet-50 text-violet-650' : 'hover:bg-slate-50 text-slate-700 hover:text-[#7047EB]'}
             `}
             aria-label="View notifications"
           >
             <Bell className="w-5 h-5" />
-            {/* Red indicator dot */}
+            {/* Red indicator dot if unread notifications exist */}
             {unreadCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 px-1 min-w-4 h-4 rounded-full bg-red-500 border border-white text-white text-[8px] font-black flex items-center justify-center">
-                {unreadCount}
-              </span>
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white" />
             )}
           </button>
 
@@ -416,18 +464,11 @@ export const Navbar = ({ showToast }) => {
           )}
         </div>
 
-        {/* Level Badge Indicator (Hidden for teachers) */}
-        {user?.role !== 'teacher' && user?.role !== 'headmaster' && (
-          <span className="px-2 py-0.5 bg-[#F1EEFF] text-[#7047EB] text-[10px] font-black rounded-md select-none tracking-wide">
-            Lv. {user?.level || 1}
-          </span>
-        )}
-
         {/* Avatar block (navigates to Profile) */}
         <button
           type="button"
           onClick={() => navigate('/profile')}
-          className="w-8 h-8 rounded-full bg-[#F1EEFF] text-[#7047EB] flex items-center justify-center font-extrabold text-xs shadow-inner select-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+          className="w-8 h-8 rounded-full bg-[#EDE9FE] text-[#7047EB] flex items-center justify-center font-bold text-xs shadow-inner select-none cursor-pointer focus:outline-none hover:ring-2 hover:ring-purple-200 transition-all"
         >
           {getInitials()}
         </button>

@@ -23,7 +23,21 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('lms_user', JSON.stringify(userData));
   };
 
-  const logout = () => {
+  const logout = async () => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+      } catch (err) {
+        console.error('API logout error:', err);
+      }
+    }
     setUser(null);
     localStorage.removeItem('lms_user');
     localStorage.removeItem('token');

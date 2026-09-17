@@ -23,11 +23,15 @@ export const LandingPage = () => {
   // Reusable Simple Brand Logo
   const Logo = () => (
     <div className="flex items-center gap-2 select-none">
-      <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center text-white font-black text-base shadow-md shadow-violet-500/10">
-        L
+      <div className="w-8 h-8 rounded-lg bg-[#7047EB] flex items-center justify-center text-white font-black text-base shadow-md shadow-violet-500/10">
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 3L3 9L12 15L21 9L12 3Z" fill="white" fillOpacity="0.9" />
+          <path d="M5 13.5V17.5L12 21.5L19 17.5V13.5L12 17.5L5 13.5Z" fill="white" fillOpacity="0.6" />
+        </svg>
       </div>
-      <span className="text-base font-extrabold tracking-tight text-slate-850">
-        LMS
+      <span className="text-base font-black tracking-tight">
+        <span className="text-slate-900">Mike</span>
+        <span className="text-[#7047EB]">Kwok</span>
       </span>
     </div>
   );
@@ -330,21 +334,21 @@ export const LandingPage = () => {
 
           <div className="border-t border-slate-100 pt-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-400 font-semibold text-center md:text-left">
             <div>
-              © 2026 LMS - All Rights Reserved.
+              © 2026 MikeKwok - All Rights Reserved.
             </div>
             
             <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 text-slate-500">
-              <a href="mailto:support@lms.com" className="flex items-center gap-1.5 hover:text-violet-600 transition-colors">
+              <a href="mailto:support@mikekwok.com" className="flex items-center gap-1.5 hover:text-violet-600 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-400">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                 </svg>
-                support@lms.com
+                support@mikekwok.com
               </a>
-              <a href="https://www.lms.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-violet-600 transition-colors">
+              <a href="https://www.mikekwok.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-violet-600 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-400">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9s2.015-9 4.5-9m0 0a9.015 9.015 0 018.72 6.253M12 3a9.015 9.015 0 00-8.72 6.253M4.27 13.75h15.46M5.22 8.75h13.56" />
                 </svg>
-                www.lms.com
+                www.mikekwok.com
               </a>
             </div>
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { Save, Filter, AlertCircle, CheckCircle, GraduationCap, BookOpen, Inbox } from 'lucide-react';
+import { Save, Filter, AlertCircle, CheckCircle, GraduationCap, BookOpen, Inbox, Download } from 'lucide-react';
 import Button from '../../components/ui/Button';
 
 export const TeacherGradebook = () => {
@@ -23,6 +23,7 @@ export const TeacherGradebook = () => {
   const [isProtestsOpen, setIsProtestsOpen] = useState(false);
   const [protests, setProtests] = useState([]);
   const [protestsCount, setProtestsCount] = useState(0);
+  const [filterRemedialOnly, setFilterRemedialOnly] = useState(false);
 
   // 2. Load Taught Courses on Mount
   useEffect(() => {
@@ -276,8 +277,58 @@ export const TeacherGradebook = () => {
     }
   };
 
+  const handleExportCSV = () => {
+    if (students.length === 0) return;
+    
+    const headers = ['Nama Siswa', 'NIS', 'Email', ...assignments.map(asm => asm.title), 'Nilai Akhir', 'Status'];
+    const rows = students.map(student => {
+      const finalAvg = calculateFinalAverage(student);
+      const isPass = finalAvg >= 75;
+      const assignmentGrades = assignments.map(asm => {
+        const grade = student.grades[asm.id];
+        return grade === null || grade === undefined ? 'Belum Dinilai' : grade;
+      });
+      return [
+        student.name,
+        student.nis || '-',
+        student.email,
+        ...assignmentGrades,
+        finalAvg,
+        isPass ? 'Lulus' : 'Remedial'
+      ];
+    });
+    
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(val => `"${val.toString().replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+      
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    
+    const courseName = courses.find(c => c.id === selectedCourseId)?.name || 'buku_nilai';
+    const sanitizedCourseName = courseName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    
+    link.setAttribute('download', `buku_nilai_${sanitizedCourseName}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showToast('Ekspor buku nilai ke file CSV berhasil!', 'success');
+  };
+
   // Sum of weights
   const totalWeight = Object.values(weights).reduce((sum, w) => sum + (parseInt(w, 10) || 0), 0);
+
+  const displayedStudents = students.filter(student => {
+    if (filterRemedialOnly) {
+      const finalAvg = calculateFinalAverage(student);
+      return finalAvg < 75;
+    }
+    return true;
+  });
 
   if (isLoading) {
     return (
@@ -331,9 +382,9 @@ export const TeacherGradebook = () => {
         </Button>
       </div>
 
-      {/* 2. Course Selection Dropdown */}
+      {/* 2. Course Selection Dropdown & Controls */}
       <div className="flex flex-wrap items-center justify-between gap-4 select-none w-full">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
             <Filter className="w-4 h-4 text-slate-400" />
             <span>Pilih Kelas:</span>
@@ -341,7 +392,7 @@ export const TeacherGradebook = () => {
           <select
             value={selectedCourseId}
             onChange={(e) => setSelectedCourseId(e.target.value)}
-            className="text-xs font-black text-slate-800 border border-slate-200 rounded-xl px-3.5 py-2.5 bg-white focus:outline-none focus:border-[#7047EB] transition-colors cursor-pointer shadow-sm"
+            className="text-xs font-black text-slate-800 border border-slate-200 rounded-xl px-3.5 py-2.5 bg-white focus:outline-none focus:border-[#7047EB] transition-colors cursor-pointer shadow-sm mr-2"
           >
             {courses.map(course => (
               <option key={course.id} value={course.id}>
@@ -349,6 +400,29 @@ export const TeacherGradebook = () => {
               </option>
             ))}
           </select>
+
+          {/* Remedial Filter Button */}
+          <button
+            onClick={() => setFilterRemedialOnly(!filterRemedialOnly)}
+            className={`text-xs font-black flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border transition-all cursor-pointer
+              ${filterRemedialOnly 
+                ? 'bg-red-55 border-red-200 text-red-650 hover:bg-red-100/60 shadow-sm' 
+                : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50 hover:text-slate-800 shadow-sm'
+              }
+            `}
+          >
+            <AlertCircle className="w-4 h-4" />
+            {filterRemedialOnly ? 'Menampilkan: Remedial Saja' : 'Filter: Remedial Saja'}
+          </button>
+
+          {/* Export to CSV Button */}
+          <button
+            onClick={handleExportCSV}
+            className="text-xs font-black text-slate-655 hover:text-slate-800 flex items-center gap-1.5 bg-white border border-slate-200 px-3.5 py-2.5 rounded-xl transition-all cursor-pointer hover:bg-slate-50 shadow-sm"
+          >
+            <Download className="w-4 h-4 text-slate-400" />
+            Ekspor CSV
+          </button>
         </div>
 
         {/* Protests Inbox Button */}
@@ -418,7 +492,7 @@ export const TeacherGradebook = () => {
               </thead>
 
               <tbody className="divide-y divide-slate-100 text-xs font-bold text-slate-700">
-                {students.map(student => {
+                {displayedStudents.map(student => {
                   const finalAvg = calculateFinalAverage(student);
                   const isPass = finalAvg >= 75; // KKM = 75
 
