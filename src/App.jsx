@@ -5,15 +5,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './layouts/MainLayout';
 import LandingPage from './views/Landing/LandingPage';
 import LoginPage from './views/Login/LoginPage';
-import Toast from './components/ui/Toast';
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
-import MainLayout from './layouts/MainLayout';
-
-import LandingPage from './views/Landing/LandingPage';
-import LoginPage from './views/Login/LoginPage';
 import StudentDashboard from './views/Dashboard/StudentDashboard';
 import TeacherDashboard from './views/Dashboard/TeacherDashboard';
 import TeacherGradebook from './views/Gradebook/TeacherGradebook';
@@ -31,46 +22,16 @@ import AnnouncementPage from './views/Announcement/AnnouncementPage';
 import SchedulePage from './views/Schedule/SchedulePage';
 import AssessmentPage from './views/Assessment/AssessmentPage';
 import AttendancePage from './views/Attendance/AttendancePage';
-import StudentDashboard from './views/Dashboard/StudentDashboard';
-import UnauthorizedPage from './views/Unauthorized/UnauthorizedPage';
 
 function App() {
   return (
-<<<<<<< HEAD
-<<<<<<< HEAD
-    <>
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={closeToast}
-        />
-      )}
-      
-      {view === 'landing' ? (
-        <LandingPage 
-          onNavigate={handleNavigate} 
-          showToast={showToast} 
-        />
-      ) : (
-        <LoginPage 
-          onBackToHome={handleBackToHome} 
-          initialAuthStep={initialAuthStep} 
-        />
-      )}
-    </>
-=======
-=======
->>>>>>> feat/frontend-dashboard
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-          {/* Protected Student Dashboard Route wrapped under MainLayout and Guard */}
           <Route
             element={
               <ProtectedRoute allowedRoles={['student']}>
@@ -79,7 +40,6 @@ function App() {
             }
           >
             <Route path="/dashboard" element={<StudentDashboard />} />
-<<<<<<< HEAD
             <Route path="/classroom" element={<ClassroomPage />} />
             <Route path="/classroom/:courseId" element={<ClassroomPage />} />
             <Route path="/assignment/:assignmentId" element={<AssignmentDetailPage />} />
@@ -88,7 +48,6 @@ function App() {
             <Route path="/attendance" element={<AttendancePage />} />
           </Route>
 
-          {/* Protected Teacher Dashboard Route wrapped under MainLayout and Guard */}
           <Route
             element={
               <ProtectedRoute allowedRoles={['teacher']}>
@@ -104,7 +63,6 @@ function App() {
             <Route path="/teacher/homeroom" element={<HomeroomDashboard />} />
           </Route>
 
-          {/* Protected Headmaster Dashboard Route wrapped under MainLayout and Guard */}
           <Route
             element={
               <ProtectedRoute allowedRoles={['headmaster']}>
@@ -115,7 +73,6 @@ function App() {
             <Route path="/headmaster/dashboard" element={<HeadmasterDashboard />} />
           </Route>
 
-          {/* Protected Shared Routes for all roles */}
           <Route
             element={
               <ProtectedRoute allowedRoles={['student', 'teacher', 'headmaster']}>
@@ -126,19 +83,12 @@ function App() {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/announcements" element={<AnnouncementPage />} />
             <Route path="/schedule" element={<SchedulePage />} />
-=======
->>>>>>> feat/frontend-dashboard
           </Route>
 
-          {/* Fallback to Home for unmatched routes */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
-<<<<<<< HEAD
->>>>>>> feat/frontend-login
-=======
->>>>>>> feat/frontend-dashboard
   );
 }
 

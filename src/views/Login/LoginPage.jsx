@@ -4,8 +4,6 @@ import useLoginForm from '../../hooks/useLoginForm';
 import LoginForm from './LoginForm';
 import Toast from '../../components/ui/Toast';
 
-export const LoginPage = ({ onBackToHome, initialAuthStep }) => {
-  const formState = useLoginForm(initialAuthStep);
 export const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -19,7 +17,6 @@ export const LoginPage = () => {
     } else {
       navigate('/dashboard', { replace: true });
     }
-    navigate('/dashboard', { replace: true });
   });
   const { 
     authStep,
@@ -156,28 +153,9 @@ export const LoginPage = () => {
           }
         `}
       >
-<<<<<<< HEAD
+        {/* Top Logo - Placed top-left on role page, top-right on form page */}
         <div className={`text-2xl font-black tracking-tight ${isRolePage ? 'text-left' : 'text-right'}`}>
-<<<<<<< HEAD
-=======
-        <div className={`flex ${isRolePage ? 'justify-start' : 'justify-end'} select-none`}>
->>>>>>> feat/frontend-dashboard
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            className="flex items-center gap-2 text-white cursor-pointer hover:text-violet-200 transition-colors focus:outline-none"
-            aria-label="Back to home page"
-          >
-            <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white font-black text-base shadow-sm">
-              L
-            </div>
-            <span className="text-lg font-extrabold tracking-tight">
-              LMS
-            </span>
-          </button>
-=======
           MikeKwok
->>>>>>> feat/frontend-login
         </div>
 
         {/* Dynamic Marketing Content in Center */}
