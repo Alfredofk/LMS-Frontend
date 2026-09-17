@@ -7,39 +7,38 @@ export const authService = {
    * Login for Headmaster (Kepala Sekolah / Organization) using NPSN
    */
   async loginWithNpsn(npsn, password) {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (!/^\d{8}$/.test(npsn)) {
-          return reject(new Error('NPSN harus berupa 8 digit angka.'));
-        }
-        if (!password || password.length < 6) {
-          return reject(new Error('Password minimal 6 karakter.'));
-        }
-
-        resolve({
-          token: 'mock-jwt-token-headmaster',
-          user: {
-            role: 'headmaster',
-            npsn,
-            name: 'Organization Head',
-          }
-        });
-      }, 1200);
+    const response = await fetch('/api/auth/headmaster/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ npsn, password }),
     });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const error = new Error(data.error || 'Login gagal.');
+      error.field = data.field;
+      throw error;
+    }
+
+    localStorage.setItem('token', data.token);
+    return data;
   },
 
   /**
-   * Login for Teacher (Guru) using Gmail (OAuth flow)
+   * Login for Teacher (Guru) or Student using Gmail (OAuth flow)
    */
-  async loginWithGoogle() {
+  async loginWithGoogle(role) {
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve({
-          token: 'mock-jwt-token-google-teacher',
+          token: `mock-jwt-token-google-${role || 'teacher'}`,
           user: {
-            role: 'teacher',
-            email: 'guru.teladan@gmail.com',
-            name: 'Teacher User',
+            role: role || 'teacher',
+            email: role === 'student' ? 'student.teladan@gmail.com' : 'guru.teladan@gmail.com',
+            name: role === 'student' ? 'Student User' : 'Teacher User',
           }
         });
       }, 1500);
@@ -50,6 +49,27 @@ export const authService = {
    * Login for Teacher or Student using School Code
    */
   async loginWithSchoolCode(schoolCode, role, username, password) {
+    if (role === 'student') {
+      const response = await fetch('/api/auth/student/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ schoolCode, username, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const error = new Error(data.error || 'Login gagal.');
+        error.field = data.field;
+        throw error;
+      }
+
+      localStorage.setItem('token', data.token);
+      return data;
+    }
+
     return new Promise((resolve, reject) => {
       setTimeout(() => {
         if (!schoolCode || schoolCode.trim().length < 4) {
@@ -79,29 +99,24 @@ export const authService = {
    * Sign Up for Organization, Teacher, or Student
    */
   async signUp(role, name, email, password) {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (!name || name.trim().length < 3) {
-          return reject(new Error('Nama lengkap / sekolah minimal 3 karakter.'));
-        }
-        if (!email || !/\S+@\S+\.\S+/.test(email)) {
-          return reject(new Error('Email tidak valid.'));
-        }
-        if (!password || password.length < 6) {
-          return reject(new Error('Password minimal 6 karakter.'));
-        }
-
-        resolve({
-          token: `mock-jwt-token-registered-${role}`,
-          user: {
-            role,
-            name,
-            email,
-            message: 'Registrasi berhasil!'
-          }
-        });
-      }, 1200);
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ role, name, email, password }),
     });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const error = new Error(data.error || 'Registrasi gagal.');
+      error.field = data.field;
+      throw error;
+    }
+
+    localStorage.setItem('token', data.token);
+    return data;
   }
 };
 

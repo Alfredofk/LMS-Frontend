@@ -1,10 +1,25 @@
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import useLoginForm from '../../hooks/useLoginForm';
 import LoginForm from './LoginForm';
 import Toast from '../../components/ui/Toast';
 
 export const LoginPage = ({ onBackToHome, initialAuthStep }) => {
   const formState = useLoginForm(initialAuthStep);
+export const LoginPage = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const initialAuthStep = location.state?.step || 'role_selection';
+
+  const formState = useLoginForm(initialAuthStep, (user) => {
+    if (user.role === 'teacher') {
+      navigate('/teacher/dashboard', { replace: true });
+    } else if (user.role === 'headmaster') {
+      navigate('/headmaster/dashboard', { replace: true });
+    } else {
+      navigate('/dashboard', { replace: true });
+    }
+  });
   const { 
     authStep,
     setAuthStep,
@@ -141,6 +156,7 @@ export const LoginPage = ({ onBackToHome, initialAuthStep }) => {
         `}
       >
         <div className={`text-2xl font-black tracking-tight ${isRolePage ? 'text-left' : 'text-right'}`}>
+<<<<<<< HEAD
           <button
             type="button"
             onClick={onBackToHome}
@@ -149,6 +165,9 @@ export const LoginPage = ({ onBackToHome, initialAuthStep }) => {
           >
             LMS
           </button>
+=======
+          MikeKwok
+>>>>>>> feat/frontend-login
         </div>
 
         {/* Dynamic Marketing Content in Center */}
@@ -159,7 +178,7 @@ export const LoginPage = ({ onBackToHome, initialAuthStep }) => {
               Smarter Learning Starts Here
             </h2>
             <p className="text-sm sm:text-base text-violet-100/90 leading-relaxed font-medium">
-              Manage, track, and improve learning with an all-in-one LMS solution designed for schools, teachers, and students.
+              Manage, track, and improve learning with an all-in-one platform designed for schools, teachers, and students.
             </p>
           </div>
         ) : (
@@ -187,7 +206,7 @@ export const LoginPage = ({ onBackToHome, initialAuthStep }) => {
 
         {/* Bottom copyright */}
         <div className={`text-xs text-violet-200/50 mt-12 lg:mt-0 z-10 shrink-0 ${isRolePage ? 'text-left' : 'text-right'}`}>
-          © 2026 LMS Platform. All rights reserved.
+          © 2026 MikeKwok Platform. All rights reserved.
         </div>
 
         {/* Decorative elements: white circle arc */}
@@ -258,7 +277,7 @@ export const LoginPage = ({ onBackToHome, initialAuthStep }) => {
                   Get Started
                 </h1>
                 <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold select-none">
-                  Choose how you want to use LMS
+                  Choose how you want to use MikeKwok
                 </p>
               </div>
 
@@ -332,7 +351,7 @@ export const LoginPage = ({ onBackToHome, initialAuthStep }) => {
                     </div>
                     <div>
                       <h3 className="text-base font-extrabold text-slate-800">Organization</h3>
-                      <p className="text-xs text-slate-400 font-semibold mt-0.5">Set up LMS for your school</p>
+                      <p className="text-xs text-slate-400 font-semibold mt-0.5">Set up MikeKwok for your school</p>
                     </div>
                   </div>
                   <div className="w-8 h-8 rounded-full border border-[#7047EB]/20 flex items-center justify-center text-[#7047EB] text-sm shrink-0">
