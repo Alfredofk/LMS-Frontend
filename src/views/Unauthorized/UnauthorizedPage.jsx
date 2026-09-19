@@ -2,10 +2,12 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
+import { useT } from '../../i18n/LanguageContext';
 
 export const UnauthorizedPage = () => {
   const navigate = useNavigate();
   const { roles, logout } = useAuth();
+  const { t } = useT();
 
   /*
     Landing here no longer means the wrong account. Somebody may hold several
@@ -33,11 +35,9 @@ export const UnauthorizedPage = () => {
 
         {/* Details */}
         <div className="space-y-2">
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Access Denied</h1>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">{t('unauthorized.title')}</h1>
           <p className="text-xs sm:text-sm text-slate-400 font-bold leading-relaxed">
-            {canSwitchRole
-              ? 'Halaman ini tidak dilayani oleh peran yang sedang Anda pakai. Ganti peran, atau kembali ke beranda.'
-              : 'Anda tidak memiliki otorisasi untuk mengakses rute/dashboard ini. Silakan masuk menggunakan akun yang sesuai.'}
+            {t(canSwitchRole ? 'unauthorized.canSwitch' : 'unauthorized.cannotSwitch')}
           </p>
         </div>
 
@@ -48,21 +48,21 @@ export const UnauthorizedPage = () => {
             variant="outline"
             className="flex-1 rounded-xl py-3 text-sm font-bold border border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer"
           >
-            Go to Home
+            {t('unauthorized.home')}
           </Button>
           {canSwitchRole ? (
             <Button
               onClick={() => navigate('/select-role')}
               className="flex-1 rounded-xl py-3 text-sm font-bold bg-[#7047EB] hover:bg-[#5E3BD2] text-white shadow-md cursor-pointer"
             >
-              Switch Role
+              {t('unauthorized.switchRole')}
             </Button>
           ) : (
             <Button
               onClick={handleSwitchAccount}
               className="flex-1 rounded-xl py-3 text-sm font-bold bg-[#7047EB] hover:bg-[#5E3BD2] text-white shadow-md cursor-pointer"
             >
-              Switch Account
+              {t('unauthorized.switchAccount')}
             </Button>
           )}
         </div>

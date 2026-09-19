@@ -33,17 +33,83 @@ export class ApiError extends Error {
 
 // --- token storage -------------------------------------------------------
 
-export const getAccessToken = () => localStorage.getItem(ACCESS_TOKEN_KEY);
-export const getRefreshToken = () => localStorage.getItem(REFRESH_TOKEN_KEY);
+/*
+  A session lives in exactly one of the two web storages, and which one is what
+  "Remember me" decides.
 
-export function saveTokens({ accessToken, refreshToken }) {
-  if (accessToken) localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-  if (refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    localStorage    survives closing the browser
+    sessionStorage  dies with the tab
+
+  The backend has no say in this — its login body is only { email, password } —
+  and it caps the whole thing anyway: a refresh token is good for 7 days, rolling
+  (LMS-Backend/src/shared/auth.js:63). So this choice is about the machine in
+  front of the person, which matters most on the shared ones in a school.
+
+  There is no separate flag recording the choice. The session is found by looking
+  for it: sessionStorage first, then localStorage. A flag could drift out of step
+  with where the tokens actually are; a search cannot.
+*/
+const holdsSession = (store) => {
+  try {
+    return store.getItem(REFRESH_TOKEN_KEY) !== null;
+  } catch {
+    // Private browsing and blocked site data both throw rather than return null.
+    return false;
+  }
+};
+
+/** The storage this session currently lives in. */
+export const activeStore = () =>
+  holdsSession(sessionStorage) ? sessionStorage : localStorage;
+
+const readToken = (key) => {
+  try {
+    return activeStore().getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+export const getAccessToken = () => readToken(ACCESS_TOKEN_KEY);
+export const getRefreshToken = () => readToken(REFRESH_TOKEN_KEY);
+
+/**
+ * Store a token pair.
+ *
+ * @param {{ accessToken?: string, refreshToken?: string }} auth
+ * @param {boolean} [persist] true keeps the session across browser restarts,
+ *   false ends it with the tab. **Leave it out to keep the session where it
+ *   already is** — a mid-flight token refresh must not quietly move somebody
+ *   onto permanent storage they never asked for.
+ */
+export function saveTokens({ accessToken, refreshToken }, persist) {
+  const target =
+    persist === undefined ? activeStore() : persist ? localStorage : sessionStorage;
+  const other = target === localStorage ? sessionStorage : localStorage;
+
+  try {
+    // Clear the other one first: a session that exists in both is a session that
+    // outlives the choice somebody made about it.
+    other.removeItem(ACCESS_TOKEN_KEY);
+    other.removeItem(REFRESH_TOKEN_KEY);
+
+    if (accessToken) target.setItem(ACCESS_TOKEN_KEY, accessToken);
+    if (refreshToken) target.setItem(REFRESH_TOKEN_KEY, refreshToken);
+  } catch {
+    // Storage can be unavailable entirely. The tokens in memory still serve this
+    // page; the next reload will simply ask the person to sign in again.
+  }
 }
 
 export function clearTokens() {
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  for (const store of [localStorage, sessionStorage]) {
+    try {
+      store.removeItem(ACCESS_TOKEN_KEY);
+      store.removeItem(REFRESH_TOKEN_KEY);
+    } catch {
+      // Nothing to clear if the store cannot be reached.
+    }
+  }
 }
 
 // --- the request itself --------------------------------------------------
@@ -138,6 +204,7 @@ async function performRefresh() {
       return false;
     }
 
+    // No second argument: the new pair belongs wherever the old one lived.
     saveTokens(payload.data);
     return true;
   } catch {

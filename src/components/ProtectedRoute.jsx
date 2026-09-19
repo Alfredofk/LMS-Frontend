@@ -5,9 +5,9 @@ import { useAuth } from '../context/AuthContext';
 /**
  * Signed in, and nothing more.
  *
- * /select-role and /no-school are where ProtectedRoute sends people who are
- * missing a role or a school, so they cannot be guarded by it — the redirect
- * would point at itself and spin. They are guarded by this instead.
+ * /select-role is where ProtectedRoute sends people who have no role to enter
+ * with, so it cannot be guarded by it — the redirect would point at itself and
+ * spin. It is guarded by this instead.
  */
 export const RequireAuth = ({ children }) => {
   const { isAuthenticated } = useAuth();
@@ -33,10 +33,10 @@ export const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/login" replace />;
   }
 
-  // No usable role: either no membership at all, or one still waiting on
-  // approval. Both are real states, and /no-school is where they are explained.
+  // No usable role: no membership at all, or one still waiting on approval.
+  // Both are real states, and /select-role explains them card by card.
   if (roles.length === 0) {
-    return <Navigate to="/no-school" replace />;
+    return <Navigate to="/select-role" replace />;
   }
 
   // Holds roles but has not said which one they are here as. Only possible with

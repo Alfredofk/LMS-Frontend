@@ -2,9 +2,27 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Toast from '../../components/ui/Toast';
+import BrandMark from '../../components/ui/BrandMark';
+import LanguageSwitch from '../../components/ui/LanguageSwitch';
+import { useT } from '../../i18n/LanguageContext';
+
+/*
+  Outside the page component on purpose. Declared inside it, React treats every
+  render as a brand-new component type and rebuilds the subtree from scratch —
+  which is what `react-hooks/static-components` was flagging here twice.
+*/
+const Logo = () => (
+  <div className="flex items-center gap-2 select-none">
+    <BrandMark size="sm" tone="solid" />
+    <span className="text-base font-extrabold tracking-tight text-slate-850">
+      EduForID
+    </span>
+  </div>
+);
 
 export const LandingPage = () => {
   const navigate = useNavigate();
+  const { t } = useT();
   const [toast, setToast] = useState(null);
 
   // Dynamic Toast trigger
@@ -16,27 +34,14 @@ export const LandingPage = () => {
     setToast(null);
   };
 
-  const handleUnderConstruction = (featureName) => {
-    showToast(`Fitur "${featureName}" sedang dalam proses pengerjaan (On Progress).`, 'info');
+  const handleUnderConstruction = (labelKey) => {
+    showToast(t('landing.underConstruction', { feature: t(labelKey) }), 'info');
   };
 
-  // Reusable Simple Brand Logo
-  const Logo = () => (
-    <div className="flex items-center gap-2 select-none">
-      <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center text-white font-black text-base shadow-md shadow-violet-500/10">
-        L
-      </div>
-      <span className="text-base font-extrabold tracking-tight text-slate-850">
-        LMS
-      </span>
-    </div>
-  );
-
-  // Feature cards data matching screenshots exactly
+  /* Keys, not sentences — the same six cards read in either language. */
   const features = [
     {
-      title: 'Course Builder',
-      desc: 'Create and organize content.',
+      key: 'builder',
       bgColor: 'bg-emerald-50',
       textColor: 'text-emerald-500',
       icon: (
@@ -46,8 +51,7 @@ export const LandingPage = () => {
       )
     },
     {
-      title: 'Quiz & Exams',
-      desc: 'Build quizzes and assessments.',
+      key: 'quiz',
       bgColor: 'bg-purple-50',
       textColor: 'text-purple-500',
       icon: (
@@ -57,8 +61,7 @@ export const LandingPage = () => {
       )
     },
     {
-      title: 'Progress Tracking',
-      desc: 'Monitor learner milestones.',
+      key: 'progress',
       bgColor: 'bg-blue-50',
       textColor: 'text-blue-500',
       icon: (
@@ -68,8 +71,7 @@ export const LandingPage = () => {
       )
     },
     {
-      title: 'Discussion Forum',
-      desc: 'Engage in discussion.',
+      key: 'forum',
       bgColor: 'bg-yellow-50',
       textColor: 'text-yellow-500',
       icon: (
@@ -79,8 +81,7 @@ export const LandingPage = () => {
       )
     },
     {
-      title: 'Smart Learning Insights',
-      desc: 'Personalized feedback based on performance.',
+      key: 'insights',
       bgColor: 'bg-orange-50',
       textColor: 'text-orange-500',
       icon: (
@@ -90,8 +91,7 @@ export const LandingPage = () => {
       )
     },
     {
-      title: 'Chatbot',
-      desc: 'Solve your problem with Chatbot.',
+      key: 'chatbot',
       bgColor: 'bg-pink-50',
       textColor: 'text-pink-500',
       icon: (
@@ -122,27 +122,37 @@ export const LandingPage = () => {
 
         {/* Links */}
         <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-500">
-          <button onClick={() => showToast('Anda berada di halaman utama.', 'info')} className="hover:text-slate-900 transition-colors cursor-pointer">Home</button>
-          <button onClick={() => handleUnderConstruction('Course')} className="hover:text-slate-900 transition-colors cursor-pointer">Course</button>
-          <button onClick={() => handleUnderConstruction('Mentor')} className="hover:text-slate-900 transition-colors cursor-pointer">Mentor</button>
-          <button onClick={() => handleUnderConstruction('About us')} className="hover:text-slate-900 transition-colors cursor-pointer">About us</button>
+          {/* This nav only ever serves the landing page, so Home is always the
+              current one. aria-current carries that to a screen reader, which
+              the colour alone cannot. */}
+          <button
+            aria-current="page"
+            onClick={() => showToast(t('landing.onHomeAlready'), 'info')}
+            className="text-[#7047EB] font-bold cursor-pointer"
+          >
+            {t('landing.nav.home')}
+          </button>
+          <button onClick={() => handleUnderConstruction('landing.nav.course')} className="hover:text-slate-900 transition-colors cursor-pointer">{t('landing.nav.course')}</button>
+          <button onClick={() => handleUnderConstruction('landing.nav.mentor')} className="hover:text-slate-900 transition-colors cursor-pointer">{t('landing.nav.mentor')}</button>
+          <button onClick={() => handleUnderConstruction('landing.nav.about')} className="hover:text-slate-900 transition-colors cursor-pointer">{t('landing.nav.about')}</button>
         </nav>
 
         {/* Action Buttons */}
         <div className="flex items-center gap-4">
+          <LanguageSwitch />
           <button
             type="button"
             onClick={() => navigate('/login', { state: { step: 'sign_in' } })}
             className="text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
           >
-            Sign In
+            {t('landing.nav.signIn')}
           </button>
           <Button
             size="sm"
             onClick={() => navigate('/login', { state: { step: 'sign_up' } })}
             className="rounded-xl px-4 py-2 text-sm font-bold shadow-md shadow-violet-500/10 cursor-pointer"
           >
-            Register
+            {t('landing.nav.register')}
           </Button>
         </div>
       </header>
@@ -153,11 +163,11 @@ export const LandingPage = () => {
       <section className="max-w-6xl mx-auto px-6 pt-8 pb-16 lg:pb-24 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-20">
         <div className="lg:col-span-7 space-y-6 text-left">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 leading-tight">
-            Unlock a <span className="text-[#7047EB]">World of</span> <br />
-            <span className="text-[#7047EB]">Learning</span> Opportunities
+            {t('landing.hero.lead')} <span className="text-[#7047EB]">{t('landing.hero.accentOne')}</span> <br />
+            <span className="text-[#7047EB]">{t('landing.hero.accentTwo')}</span> {t('landing.hero.trail')}
           </h1>
           <p className="text-slate-500 text-sm sm:text-base leading-relaxed max-w-lg font-medium">
-            Develop your skills with our class online courses and expert mentors. Your path to success start here.
+            {t('landing.hero.subtitle')}
           </p>
 
           <div className="flex items-center gap-4 pt-2">
@@ -165,14 +175,14 @@ export const LandingPage = () => {
               onClick={() => navigate('/login', { state: { step: 'sign_up' } })}
               className="py-3 px-6 rounded-xl font-bold bg-[#7047EB] hover:bg-[#5E3BD2] shadow-lg shadow-violet-500/20 active:scale-95 transition-transform text-white cursor-pointer"
             >
-              Get Started
+              {t('landing.hero.getStarted')}
             </Button>
             <button
               type="button"
-              onClick={() => handleUnderConstruction('Discover More')}
+              onClick={() => handleUnderConstruction('landing.hero.contact')}
               className="py-3 px-6 rounded-xl font-bold bg-white text-[#7047EB] border border-slate-200 hover:bg-slate-50 active:scale-95 transition-transform shadow-sm cursor-pointer"
             >
-              Discover More
+              {t('landing.hero.contact')}
             </button>
           </div>
         </div>
@@ -213,7 +223,7 @@ export const LandingPage = () => {
             </div>
             <div>
               <div className="text-xl font-black text-slate-800">17k+</div>
-              <div className="text-xs text-slate-400 font-bold mt-0.5">Classes Managed</div>
+              <div className="text-xs text-slate-400 font-bold mt-0.5">{t('landing.stats.classes')}</div>
             </div>
           </div>
 
@@ -225,7 +235,7 @@ export const LandingPage = () => {
             </div>
             <div>
               <div className="text-xl font-black text-slate-800">20+</div>
-              <div className="text-xs text-slate-400 font-bold mt-0.5">Partner Schools</div>
+              <div className="text-xs text-slate-400 font-bold mt-0.5">{t('landing.stats.schools')}</div>
             </div>
           </div>
 
@@ -237,7 +247,7 @@ export const LandingPage = () => {
             </div>
             <div>
               <div className="text-xl font-black text-slate-800">350k+</div>
-              <div className="text-xs text-slate-400 font-bold mt-0.5">Global Users</div>
+              <div className="text-xs text-slate-400 font-bold mt-0.5">{t('landing.stats.users')}</div>
             </div>
           </div>
 
@@ -250,25 +260,25 @@ export const LandingPage = () => {
       <section className="max-w-6xl mx-auto px-6 py-16 text-center">
         <div className="space-y-2">
           <h2 className="text-3xl font-extrabold text-slate-900 leading-tight">
-            Powerful Features for <span className="text-[#7047EB]">Modern Learning</span>
+            {t('landing.features.title')} <span className="text-[#7047EB]">{t('landing.features.titleAccent')}</span>
           </h2>
           <p className="text-sm text-slate-400 font-semibold select-none">
-            Explore our beloved features
+            {t('landing.features.subtitle')}
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
-          {features.map((feature, idx) => (
+          {features.map((feature) => (
             <div
-              key={idx}
+              key={feature.key}
               className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow flex items-center text-left"
             >
               <div className={`w-14 h-14 ${feature.bgColor} ${feature.textColor} rounded-2xl flex items-center justify-center shrink-0 mr-4`}>
                 {feature.icon}
               </div>
               <div className="space-y-0.5">
-                <h4 className="text-base font-extrabold text-slate-800">{feature.title}</h4>
-                <p className="text-xs text-slate-400 font-medium leading-relaxed">{feature.desc}</p>
+                <h4 className="text-base font-extrabold text-slate-800">{t(`landing.feature.${feature.key}.title`)}</h4>
+                <p className="text-xs text-slate-400 font-medium leading-relaxed">{t(`landing.feature.${feature.key}.desc`)}</p>
               </div>
             </div>
           ))}
@@ -285,52 +295,52 @@ export const LandingPage = () => {
             <div className="lg:col-span-4 space-y-4">
               <Logo />
               <p className="text-xs text-slate-400 leading-relaxed font-semibold max-w-xs">
-                A modern LMS platform to create, manage, and deliver engaging learning experiences for everyone.
+                {t('landing.footer.tagline')}
               </p>
             </div>
 
             <div className="lg:col-span-2 space-y-3">
-              <h5 className="text-xs font-black text-slate-850 uppercase tracking-wider">Platform</h5>
+              <h5 className="text-xs font-black text-slate-850 uppercase tracking-wider">{t('landing.footer.platform')}</h5>
               <ul className="space-y-2 text-xs text-slate-400 font-semibold">
-                <li><button onClick={() => handleUnderConstruction('Features')} className="hover:text-violet-600 transition-colors cursor-pointer">Features</button></li>
-                <li><button onClick={() => handleUnderConstruction('Pricing')} className="hover:text-violet-600 transition-colors cursor-pointer">Pricing</button></li>
-                <li><button onClick={() => handleUnderConstruction('Integrations')} className="hover:text-violet-600 transition-colors cursor-pointer">Integrations</button></li>
-                <li><button onClick={() => handleUnderConstruction('Updates')} className="hover:text-violet-600 transition-colors cursor-pointer">Updates</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.features')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.features')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.pricing')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.pricing')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.integrations')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.integrations')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.updates')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.updates')}</button></li>
               </ul>
             </div>
 
             <div className="lg:col-span-2 space-y-3">
-              <h5 className="text-xs font-black text-slate-850 uppercase tracking-wider">Support</h5>
+              <h5 className="text-xs font-black text-slate-850 uppercase tracking-wider">{t('landing.footer.support')}</h5>
               <ul className="space-y-2 text-xs text-slate-400 font-semibold">
-                <li><button onClick={() => handleUnderConstruction('Help Center')} className="hover:text-violet-600 transition-colors cursor-pointer">Help Center</button></li>
-                <li><button onClick={() => handleUnderConstruction('Contact Us')} className="hover:text-violet-600 transition-colors cursor-pointer">Contact Us</button></li>
-                <li><button onClick={() => handleUnderConstruction('FAQ')} className="hover:text-violet-600 transition-colors cursor-pointer">FAQ</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.helpCenter')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.helpCenter')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.contact')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.contact')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.faq')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.faq')}</button></li>
               </ul>
             </div>
 
             <div className="lg:col-span-2 space-y-3">
-              <h5 className="text-xs font-black text-slate-850 uppercase tracking-wider">Resources</h5>
+              <h5 className="text-xs font-black text-slate-850 uppercase tracking-wider">{t('landing.footer.resources')}</h5>
               <ul className="space-y-2 text-xs text-slate-400 font-semibold">
-                <li><button onClick={() => handleUnderConstruction('Guides')} className="hover:text-violet-600 transition-colors cursor-pointer">Guides</button></li>
-                <li><button onClick={() => handleUnderConstruction('API Docs')} className="hover:text-violet-600 transition-colors cursor-pointer">API Docs</button></li>
-                <li><button onClick={() => handleUnderConstruction('Webinars')} className="hover:text-violet-600 transition-colors cursor-pointer">Webinars</button></li>
-                <li><button onClick={() => handleUnderConstruction('Community')} className="hover:text-violet-600 transition-colors cursor-pointer">Community</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.guides')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.guides')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.apiDocs')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.apiDocs')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.webinars')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.webinars')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.community')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.community')}</button></li>
               </ul>
             </div>
 
             <div className="lg:col-span-2 space-y-3">
-              <h5 className="text-xs font-black text-slate-850 uppercase tracking-wider">Legal</h5>
+              <h5 className="text-xs font-black text-slate-850 uppercase tracking-wider">{t('landing.footer.legal')}</h5>
               <ul className="space-y-2 text-xs text-slate-400 font-semibold">
-                <li><button onClick={() => handleUnderConstruction('Terms of Service')} className="hover:text-violet-600 transition-colors cursor-pointer">Terms of Service</button></li>
-                <li><button onClick={() => handleUnderConstruction('Privacy Policy')} className="hover:text-violet-600 transition-colors cursor-pointer">Privacy Policy</button></li>
-                <li><button onClick={() => handleUnderConstruction('Cookie Policy')} className="hover:text-violet-600 transition-colors cursor-pointer">Cookie Policy</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.terms')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.terms')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.privacy')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.privacy')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.cookies')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.cookies')}</button></li>
               </ul>
             </div>
           </div>
 
           <div className="border-t border-slate-100 pt-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-400 font-semibold text-center md:text-left">
             <div>
-              © 2026 LMS - All Rights Reserved.
+              {t('landing.footer.rights')}
             </div>
             
             <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 text-slate-500">

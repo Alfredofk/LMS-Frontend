@@ -1,13 +1,16 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { LanguageProvider } from './i18n/LanguageContext';
 import ProtectedRoute, { RequireAuth } from './components/ProtectedRoute';
 import MainLayout from './layouts/MainLayout';
 import LandingPage from './views/Landing/LandingPage';
 import LoginPage from './views/Login/LoginPage';
 import SelectRolePage from './views/Role/SelectRolePage';
-import NoSchoolPage from './views/NoSchool/NoSchoolPage';
+import GetStartedPage from './views/Role/GetStartedPage';
 import VerifyEmailPage from './views/Verify/VerifyEmailPage';
+import ForgotPasswordPage from './views/Password/ForgotPasswordPage';
+import ResetPasswordPage from './views/Password/ResetPasswordPage';
 import { ROLES } from './constants/roles';
 import StudentDashboard from './views/Dashboard/StudentDashboard';
 import TeacherDashboard from './views/Dashboard/TeacherDashboard';
@@ -29,20 +32,30 @@ import AttendancePage from './views/Attendance/AttendancePage';
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
+    /*
+      Language wraps authentication, not the other way round. The signed-out
+      screens need it, and AuthProvider renders nothing at all until it has read
+      storage — so anything inside it would have no language during that moment.
+    */
+    <LanguageProvider>
+      <AuthProvider>
+        <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-          {/* Public on purpose: somebody opening the link from their inbox has
-              no session yet, and claiming the token does not need one. */}
+          {/* Public on purpose: somebody opening a link from their inbox has no
+              session yet, and neither claiming a token nor choosing a new
+              password needs one. */}
           <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-          {/* Signed in, but with no role to enter as or no school to enter.
-              Guarded by RequireAuth, not ProtectedRoute: these two are where
-              ProtectedRoute sends people, so guarding them with it would loop. */}
+          {/* Signed in, with or without a role to enter as — the page itself
+              says which. Guarded by RequireAuth, not ProtectedRoute: this is
+              where ProtectedRoute sends people, so guarding it with it would
+              loop. */}
           <Route
             path="/select-role"
             element={
@@ -51,11 +64,14 @@ function App() {
               </RequireAuth>
             }
           />
+
+          {/* Where a card on /select-role leads when its role is not held yet:
+              registering a school, or asking to join one. */}
           <Route
-            path="/no-school"
+            path="/get-started/:intent"
             element={
               <RequireAuth>
-                <NoSchoolPage />
+                <GetStartedPage />
               </RequireAuth>
             }
           />
@@ -115,8 +131,9 @@ function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+        </BrowserRouter>
+      </AuthProvider>
+    </LanguageProvider>
   );
 }
 

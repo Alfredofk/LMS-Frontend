@@ -1,13 +1,18 @@
 /**
  * The backend's own field rules, restated for the browser.
  *
- * Every rule here mirrors LMS-Backend/src/modules/auth/auth.schema.js line for
- * line, including the wording. That is the point: a form that passes here and is
- * then rejected by the server teaches people that the messages lie. When those
- * schemas change, this file changes with them.
+ * Every rule here mirrors LMS-Backend/src/modules/auth/auth.schema.js. The
+ * *rules* are what must match, not the wording: these functions return
+ * translation keys rather than sentences, so the same rule can be read in
+ * Indonesian or English while still rejecting exactly what the server rejects.
  *
  * None of this is a security measure — the server validates regardless. It only
- * spares a round-trip and says why sooner.
+ * spares a round-trip and says why sooner. If a check here ever disagrees with
+ * the server's, the server wins and somebody learns that our messages lie, so
+ * when those schemas change this file changes with them.
+ *
+ * Every validator returns `null` when the value is fine, or `{ key, vars? }` for
+ * the caller to run through `t()`.
  */
 
 export const MIN_PASSWORD = 8;
@@ -30,25 +35,27 @@ const byteLength = (value) => new TextEncoder().encode(value).length;
   its own.
 */
 const PASSWORD_CHECKS = [
-  [/[A-Z]/, 'Password must contain an uppercase letter'],
-  [/[a-z]/, 'Password must contain a lowercase letter'],
-  [/[0-9]/, 'Password must contain a number'],
-  [/[^A-Za-z0-9\s]/, 'Password must contain a symbol'],
+  [/[A-Z]/, 'upper'],
+  [/[a-z]/, 'lower'],
+  [/[0-9]/, 'digit'],
+  [/[^A-Za-z0-9\s]/, 'symbol'],
 ];
 
 /**
- * @returns {string|null} the first failure, or null when the password is fine
+ * @returns {null | { key: string, vars?: object }} the first failure
  */
 export function validatePassword(value) {
-  if (!value) return 'Password is required.';
-  if (value.length < MIN_PASSWORD) return `Password must be at least ${MIN_PASSWORD} characters`;
+  if (!value) return { key: 'validation.password.required' };
+  if (value.length < MIN_PASSWORD) {
+    return { key: 'validation.password.min', vars: { min: MIN_PASSWORD } };
+  }
 
-  for (const [pattern, message] of PASSWORD_CHECKS) {
-    if (!pattern.test(value)) return message;
+  for (const [pattern, name] of PASSWORD_CHECKS) {
+    if (!pattern.test(value)) return { key: `validation.password.${name}` };
   }
 
   if (byteLength(value) > MAX_PASSWORD_BYTES) {
-    return `Password must be at most ${MAX_PASSWORD_BYTES} bytes`;
+    return { key: 'validation.password.maxBytes', vars: { max: MAX_PASSWORD_BYTES } };
   }
 
   return null;
@@ -57,26 +64,30 @@ export function validatePassword(value) {
 /** Every rule the password must satisfy, with whether `value` satisfies it yet. */
 export function passwordChecklist(value = '') {
   return [
-    { label: `At least ${MIN_PASSWORD} characters`, met: value.length >= MIN_PASSWORD },
-    ...PASSWORD_CHECKS.map(([pattern, message]) => ({
-      label: message.replace('Password must contain ', 'Contains '),
+    {
+      key: 'validation.rule.min',
+      vars: { min: MIN_PASSWORD },
+      met: value.length >= MIN_PASSWORD,
+    },
+    ...PASSWORD_CHECKS.map(([pattern, name]) => ({
+      key: `validation.rule.${name}`,
       met: pattern.test(value),
     })),
   ];
 }
 
 export function validateEmail(value) {
-  if (!value.trim()) return 'Email is required.';
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Enter a valid email address';
-  if (value.length > MAX_EMAIL) return 'Enter a valid email address';
+  if (!value.trim()) return { key: 'validation.email.required' };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return { key: 'validation.email.invalid' };
+  if (value.length > MAX_EMAIL) return { key: 'validation.email.invalid' };
   return null;
 }
 
 export function validateFullName(value) {
   const trimmed = value.trim();
-  if (!trimmed) return 'Full name is required.';
-  if (trimmed.length < MIN_FULL_NAME) return 'Full name is too short';
-  if (trimmed.length > MAX_FULL_NAME) return 'Full name is too long';
+  if (!trimmed) return { key: 'validation.fullName.required' };
+  if (trimmed.length < MIN_FULL_NAME) return { key: 'validation.fullName.short' };
+  if (trimmed.length > MAX_FULL_NAME) return { key: 'validation.fullName.long' };
   return null;
 }
 
@@ -85,7 +96,13 @@ export function validateFullName(value) {
  *
  * The backend's zod middleware sends an array of { path, message, code }, where
  * path is dotted and its first segment is the field. Anything that does not name
- * a field this form owns is dropped — the caller still has err.message for that.
+ * a field this form owns is dropped — the caller still has the error's own
+ * message for that.
+ *
+ * These messages stay in the server's English. They only appear when our own
+ * checks passed and the server's did not, which means the two disagree — a rare
+ * case, and one where the server's exact words are the more useful thing to
+ * show.
  */
 export function fieldErrorsFrom(details, ownedFields) {
   if (!Array.isArray(details)) return {};

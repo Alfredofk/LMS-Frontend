@@ -18,3 +18,50 @@
 .animate-slide-in {
   animation: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/*
+  The Google sign-in button, made to sit level with the Continue button above it.
+
+  Google Identity Services renders this one itself, and it renders it at a fixed
+  pixel width capped at 400 — measured, not assumed: asking for 420 writes 420
+  into the inline style and still lays out at 400. A 420px card can therefore
+  never be matched through their API alone, and a fixed width overflows the card
+  outright once the window is narrower than that number.
+
+  What they render is ordinary DOM, not an iframe, so CSS can finish the job.
+  Only the box is touched. The logo, the wording and the colours are Google's and
+  stay exactly as they draw them.
+
+  If Google ever stops rendering a div[role="button"] here, these rules quietly
+  stop applying and the button falls back to the 400px GoogleButton.jsx asks for:
+  narrower than Continue, but whole.
+*/
+.google-button > div,
+.google-button div[role="button"] {
+  /* !important earns its place: Google sets width as an inline style, and an
+     inline style outranks any class. Nothing else here needs it — their own
+     rules are single-class, and these selectors already outrank those. */
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.google-button div[role="button"] {
+  /* Mirrors the Continue button: py-3 with text-sm, then py-3.5 with text-base
+     from md up. Same numbers, so the two stay the same height at every width. */
+  height: 44px;
+
+  /*
+    12px, measured off the Continue button rather than read off its class list.
+    That button is written `rounded-2xl`, but the Button component also carries
+    `rounded-xl` from its size preset, and between two utilities of equal
+    specificity the stylesheet's order decides — `rounded-xl` wins. 12px is also
+    what the email and password fields use, so this is the card's real radius.
+  */
+  border-radius: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .google-button div[role="button"] {
+    height: 52px;
+  }
+}

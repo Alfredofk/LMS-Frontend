@@ -21,24 +21,30 @@ export const ROLES = {
   The three this frontend has pages for, in the order the role picker shows them.
   GUARDIAN is deliberately absent: the backend grants it, but no screen here
   serves a guardian yet, so offering the card would promise something that does
-  not exist. Somebody holding only GUARDIAN lands on /no-school.
+  not exist. Somebody holding only GUARDIAN lands on /select-role with nothing
+  they can pick.
 */
 export const SELECTABLE_ROLES = [ROLES.STUDENT, ROLES.TEACHER, ROLES.PRINCIPAL];
 
-/** What a role is called on screen. */
-export const ROLE_LABEL = {
-  [ROLES.STUDENT]: 'Student',
-  [ROLES.TEACHER]: 'Teacher',
-  [ROLES.PRINCIPAL]: 'Organization',
-  [ROLES.GUARDIAN]: 'Guardian',
+/*
+  Translation keys, not words. A role's name differs by more than spelling
+  between the two languages: PRINCIPAL is the card that *registers a school*, so
+  Indonesian reads it as "Sekolah" rather than a literal rendering of
+  "Organization". Keeping keys here lets each dictionary say what the card means.
+*/
+export const ROLE_LABEL_KEY = {
+  [ROLES.STUDENT]: 'role.STUDENT.label',
+  [ROLES.TEACHER]: 'role.TEACHER.label',
+  [ROLES.PRINCIPAL]: 'role.PRINCIPAL.label',
+  [ROLES.GUARDIAN]: 'role.GUARDIAN.label',
 };
 
 /** The one-line pitch under each label on the role picker. */
-export const ROLE_TAGLINE = {
-  [ROLES.STUDENT]: 'Join a class and start learning',
-  [ROLES.TEACHER]: 'Create and manage your courses',
-  [ROLES.PRINCIPAL]: 'Set up MikeKwok for your school',
-  [ROLES.GUARDIAN]: 'Follow your child’s progress',
+export const ROLE_TAGLINE_KEY = {
+  [ROLES.STUDENT]: 'role.STUDENT.tagline',
+  [ROLES.TEACHER]: 'role.TEACHER.tagline',
+  [ROLES.PRINCIPAL]: 'role.PRINCIPAL.tagline',
+  [ROLES.GUARDIAN]: 'role.GUARDIAN.tagline',
 };
 
 /*
@@ -81,4 +87,4 @@ export function activeRolesOf(membership) {
 }
 
 /** Where to send somebody who holds these roles and has picked `activeRole`. */
-export const homeFor = (role) => ROLE_HOME[role] ?? '/no-school';
+export const homeFor = (role) => ROLE_HOME[role] ?? '/select-role';

@@ -14,12 +14,14 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { classroomData } from '../../Classroom/classroomData';
+import { useT } from '../../../i18n/LanguageContext';
 
 export const Navbar = ({ showToast }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { t } = useT();
 
   // Notification States
   const [notifications, setNotifications] = useState([]);
@@ -127,7 +129,7 @@ export const Navbar = ({ showToast }) => {
       if (res.ok) {
         setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
         setUnreadCount(0);
-        if (showToast) showToast('Semua notifikasi ditandai sebagai terbaca.', 'success');
+        if (showToast) showToast(t('shell.allMarkedRead'), 'success');
       }
     } catch (err) {
       console.error(err);
@@ -188,12 +190,12 @@ export const Navbar = ({ showToast }) => {
     try {
       const diffMs = new Date() - new Date(dateStr);
       const diffMins = Math.floor(diffMs / 60000);
-      if (diffMins < 1) return 'Baru saja';
-      if (diffMins < 60) return `${diffMins}m yang lalu`;
+      if (diffMins < 1) return t('shell.time.justNow');
+      if (diffMins < 60) return t('shell.time.minutes', { n: diffMins });
       const diffHours = Math.floor(diffMins / 60);
-      if (diffHours < 24) return `${diffHours}j yang lalu`;
+      if (diffHours < 24) return t('shell.time.hours', { n: diffHours });
       const diffDays = Math.floor(diffHours / 24);
-      return `${diffDays}h yang lalu`;
+      return t('shell.time.days', { n: diffDays });
     } catch (e) {
       return '';
     }
@@ -239,14 +241,14 @@ export const Navbar = ({ showToast }) => {
       if (!course) {
         return (
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 select-none">
-            <span className="font-extrabold">My Courses</span>
+            <span className="font-extrabold">{t('shell.myCourses')}</span>
           </div>
         );
       }
 
       return (
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 select-none">
-          <span className="hover:text-slate-655 transition-colors">My Courses</span>
+          <span className="hover:text-slate-655 transition-colors">{t('shell.myCourses')}</span>
           <span className="text-slate-300 text-[10px] font-bold">/</span>
           <span className="hover:text-slate-655 transition-colors">{course.className}</span>
           <span className="text-slate-300 text-[10px] font-bold">/</span>
@@ -279,7 +281,7 @@ export const Navbar = ({ showToast }) => {
 
       return (
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 select-none">
-          <span className="hover:text-slate-655 transition-colors">My Courses</span>
+          <span className="hover:text-slate-655 transition-colors">{t('shell.myCourses')}</span>
           <span className="text-slate-300 text-[10px] font-bold">/</span>
           <span className="hover:text-slate-655 transition-colors">{activeCourse.className}</span>
           <span className="text-slate-300 text-[10px] font-bold">/</span>
@@ -292,7 +294,7 @@ export const Navbar = ({ showToast }) => {
 
     switch (location.pathname) {
       case '/dashboard':
-        return <span className="text-lg font-bold text-slate-900">Dashboard</span>;
+        return <span className="text-lg font-bold text-slate-900">{t('shell.dashboard')}</span>;
       case '/classroom':
         return (
           <div className="flex items-center gap-3">
@@ -300,11 +302,11 @@ export const Navbar = ({ showToast }) => {
               type="button"
               onClick={() => navigate('/dashboard')}
               className="w-8 h-8 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
-              title="Kembali ke Dashboard"
+              title={t('shell.backToDashboard')}
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="text-xl font-bold text-slate-900 tracking-tight">My Courses</span>
+            <span className="text-xl font-bold text-slate-900 tracking-tight">{t('shell.myCourses')}</span>
           </div>
         );
       case '/scores':
@@ -314,23 +316,23 @@ export const Navbar = ({ showToast }) => {
               type="button"
               onClick={() => navigate('/dashboard')}
               className="w-8 h-8 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
-              title="Kembali ke Dashboard"
+              title={t('shell.backToDashboard')}
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="text-xl font-bold text-slate-900 tracking-tight">Scores</span>
+            <span className="text-xl font-bold text-slate-900 tracking-tight">{t('shell.scores')}</span>
           </div>
         );
       case '/teacher/dashboard':
-        return <span className="text-lg font-bold text-slate-900">Teacher Dashboard</span>;
+        return <span className="text-lg font-bold text-slate-900">{t('shell.title.teacherDashboard')}</span>;
       case '/teacher/gradebook':
-        return <span className="text-lg font-bold text-slate-900">Gradebook</span>;
+        return <span className="text-lg font-bold text-slate-900">{t('shell.gradebook')}</span>;
       case '/teacher/create-assignment':
-        return <span className="text-lg font-bold text-slate-900">Create Assignment</span>;
+        return <span className="text-lg font-bold text-slate-900">{t('shell.title.createAssignment')}</span>;
       case '/profile':
-        return <span className="text-lg font-bold text-slate-900">My Profile</span>;
+        return <span className="text-lg font-bold text-slate-900">{t('shell.myProfile')}</span>;
       default:
-        return <span className="text-lg font-bold text-slate-900">Dashboard</span>;
+        return <span className="text-lg font-bold text-slate-900">{t('shell.dashboard')}</span>;
     }
   };
 
@@ -364,7 +366,7 @@ export const Navbar = ({ showToast }) => {
                 const val = e.target.value;
                 setSearchParams(val ? { q: val } : {});
               }}
-              placeholder="Search..."
+              placeholder={t('shell.search')}
               className="w-full bg-[#F1EEFF] text-slate-800 text-xs font-medium pl-10 pr-4 py-2 rounded-full focus:outline-none focus:ring-1 focus:ring-purple-400 placeholder:text-slate-400 transition-all"
             />
           </div>
@@ -381,7 +383,7 @@ export const Navbar = ({ showToast }) => {
             className={`p-2 rounded-xl transition-all relative cursor-pointer
               ${isDropdownOpen ? 'bg-violet-50 text-violet-650' : 'hover:bg-slate-50 text-slate-700 hover:text-[#7047EB]'}
             `}
-            aria-label="View notifications"
+            aria-label={t('shell.viewNotifications')}
           >
             <Bell className="w-5 h-5" />
             {/* Red indicator dot if unread notifications exist */}
@@ -396,13 +398,13 @@ export const Navbar = ({ showToast }) => {
               
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-2 border-b border-slate-50">
-                <h3 className="text-xs font-black text-slate-805 uppercase tracking-wider">Notifikasi</h3>
+                <h3 className="text-xs font-black text-slate-805 uppercase tracking-wider">{t('shell.notifications')}</h3>
                 {unreadCount > 0 && (
                   <button 
                     onClick={handleMarkAllAsRead}
                     className="text-[10px] font-extrabold text-[#7047EB] hover:text-[#5E3BD2] cursor-pointer"
                   >
-                    Tandai semua terbaca
+                    {t('shell.markAllRead')}
                   </button>
                 )}
               </div>
@@ -411,7 +413,7 @@ export const Navbar = ({ showToast }) => {
               <div className="max-h-96 overflow-y-auto divide-y divide-slate-50">
                 {notifications.length === 0 ? (
                   <div className="py-8 text-center text-slate-450 font-semibold text-xs">
-                    Tidak ada notifikasi untuk Anda.
+                    {t('shell.noNotifications')}
                   </div>
                 ) : (
                   notifications.map((notif) => (
@@ -451,7 +453,7 @@ export const Navbar = ({ showToast }) => {
                       <button
                         onClick={(e) => handleDeleteNotif(e, notif.id)}
                         className="absolute top-3 right-3 p-1 hover:bg-slate-100 text-slate-400 hover:text-red-500 rounded-md transition-colors cursor-pointer"
-                        title="Hapus"
+                        title={t('shell.delete')}
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>

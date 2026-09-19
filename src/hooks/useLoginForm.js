@@ -2,6 +2,8 @@ import { useState } from 'react';
 
 import { authService } from '../services/authService';
 import { useAuth } from '../context/AuthContext';
+import { useT } from '../i18n/LanguageContext';
+import { apiErrorMessage } from '../i18n/apiError';
 import {
   validateEmail,
   validateFullName,
@@ -10,6 +12,17 @@ import {
 } from '../utils/validation';
 
 const SIGN_UP_FIELDS = ['fullName', 'email', 'password', 'confirmPassword'];
+
+/*
+  What UNAUTHORIZED means on each of this hook's calls.
+
+  The same code, two different sentences: a password this app sent and the
+  backend refused, or a Google token Google itself would not vouch for. Neither
+  is the default — "your session has ended" — because on this screen there is no
+  session yet to end.
+*/
+const WRONG_PASSWORD = { UNAUTHORIZED: 'error.badCredentials' };
+const GOOGLE_REFUSED = { UNAUTHORIZED: 'error.googleRejected' };
 
 /**
  * All state and submit logic for the sign-up / sign-in form.
@@ -33,7 +46,8 @@ const SIGN_UP_FIELDS = ['fullName', 'email', 'password', 'confirmPassword'];
  * @param {(session: { user, membership, roles, activeRole }) => void} onAuthSuccess
  */
 export const useLoginForm = (initialAuthStep = 'sign_in', onAuthSuccess) => {
-  const { signIn } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
+  const { t } = useT();
 
   const [authStep, setAuthStep] = useState(
     initialAuthStep === 'sign_up' ? 'sign_up' : 'sign_in'
@@ -47,6 +61,16 @@ export const useLoginForm = (initialAuthStep = 'sign_in', onAuthSuccess) => {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState(null);
+
+  /*
+    "Remember me", off by default.
+
+    All it decides is where the session is kept: checked, it survives closing the
+    browser; unchecked, it dies with the tab. Off by default because these are
+    school machines as often as personal ones, and leaving somebody signed in on
+    a shared computer should be a choice, not what happens when nobody looks.
+  */
+  const [remember, setRemember] = useState(false);
 
   /*
     The address an account was just created for.
@@ -75,25 +99,28 @@ export const useLoginForm = (initialAuthStep = 'sign_in', onAuthSuccess) => {
   const validateForm = () => {
     const next = {};
 
+    /* Every validator returns a key, so the same rule reads in either language. */
+    const say = (fail) => t(fail.key, fail.vars);
+
     const emailError = validateEmail(email);
-    if (emailError) next.email = emailError;
+    if (emailError) next.email = say(emailError);
 
     if (isSignUp) {
       const nameError = validateFullName(fullName);
-      if (nameError) next.fullName = nameError;
+      if (nameError) next.fullName = say(nameError);
 
       const passwordError = validatePassword(password);
-      if (passwordError) next.password = passwordError;
+      if (passwordError) next.password = say(passwordError);
 
-      if (!confirmPassword) next.confirmPassword = 'Confirm password is required.';
-      else if (password !== confirmPassword) next.confirmPassword = 'Passwords do not match.';
+      if (!confirmPassword) next.confirmPassword = t('validation.confirm.required');
+      else if (password !== confirmPassword) next.confirmPassword = t('validation.confirm.mismatch');
     } else {
       /*
         Sign-in checks that a password was typed and nothing more. An account
         created before a rule changed must still be able to authenticate — and
         then change it. The backend takes the same view (auth.schema.js:61-63).
       */
-      if (!password) next.password = 'Password is required.';
+      if (!password) next.password = t('validation.password.required');
     }
 
     setErrors(next);
@@ -105,34 +132,40 @@ export const useLoginForm = (initialAuthStep = 'sign_in', onAuthSuccess) => {
     Branching on that rather than on the message is what keeps this readable when
     the prose is reworded, translated, or made deliberately vague — which
     forgot-password and resend-verification both are, on purpose.
+
+    `overrides` says what UNAUTHORIZED means on this particular call — see
+    i18n/apiError.js. Nothing else about the mapping varies.
   */
-  const handleApiError = (err) => {
+  const handleApiError = (err, overrides) => {
     const details = fieldErrorsFrom(err.details, SIGN_UP_FIELDS);
 
     switch (err.code) {
       case 'EMAIL_NOT_VERIFIED':
         setUnverifiedEmail(email);
-        setErrors({
-          global: 'This email has not been confirmed yet. Check your inbox, or send the link again.',
-        });
+        setErrors({ global: t('error.emailNotVerified') });
         return;
 
       case 'CONFLICT':
-        setErrors({ email: 'An account with this email already exists.', ...details });
+        setErrors({ email: t('error.conflict'), ...details });
         return;
 
       case 'UNAUTHORIZED':
-        setErrors({ global: 'Email or password is incorrect.' });
+        setErrors({ global: apiErrorMessage(err, t, overrides) });
         return;
 
+      /*
+        Field-level details keep the server's own English: they only appear when
+        our checks passed and its did not, and in that disagreement its exact
+        words are the more useful thing to read.
+      */
       case 'BAD_REQUEST':
         setErrors(
-          Object.keys(details).length ? details : { global: err.message }
+          Object.keys(details).length ? details : { global: apiErrorMessage(err, t, overrides) }
         );
         return;
 
       default:
-        setErrors({ global: err.message || 'Authentication failed. Please try again.' });
+        setErrors({ global: apiErrorMessage(err, t, overrides) });
     }
   };
 
@@ -165,14 +198,14 @@ export const useLoginForm = (initialAuthStep = 'sign_in', onAuthSuccess) => {
         return;
       }
 
-      const session = await signIn({ email, password });
-      showToast(`Welcome back, ${session.user.fullName}.`, 'success');
+      const session = await signIn({ email, password, remember });
+      showToast(t('auth.welcomeBack', { name: session.user.fullName }), 'success');
       resetForm();
       if (onAuthSuccess) onAuthSuccess(session);
     } catch (err) {
-      handleApiError(err);
+      handleApiError(err, WRONG_PASSWORD);
       if (!err.code || err.code !== 'EMAIL_NOT_VERIFIED') {
-        showToast(err.message || 'Authentication failed.', 'error');
+        showToast(apiErrorMessage(err, t, WRONG_PASSWORD), 'error');
       }
     } finally {
       setIsLoading(false);
@@ -193,18 +226,18 @@ export const useLoginForm = (initialAuthStep = 'sign_in', onAuthSuccess) => {
     setErrors({});
 
     try {
-      const session = await signIn({ email, password });
-      showToast(`Welcome, ${session.user.fullName}.`, 'success');
+      const session = await signIn({ email, password, remember });
+      showToast(t('auth.welcome', { name: session.user.fullName }), 'success');
       resetForm();
       if (onAuthSuccess) onAuthSuccess(session);
     } catch (err) {
       if (err.code === 'EMAIL_NOT_VERIFIED') {
         setErrors({
-          global: 'That link has not been opened yet. Check your inbox, then try again.',
+          global: t('checkEmail.notOpened'),
         });
       } else {
-        handleApiError(err);
-        showToast(err.message || 'Could not sign you in.', 'error');
+        handleApiError(err, WRONG_PASSWORD);
+        showToast(apiErrorMessage(err, t, WRONG_PASSWORD), 'error');
       }
     } finally {
       setIsLoading(false);
@@ -224,22 +257,37 @@ export const useLoginForm = (initialAuthStep = 'sign_in', onAuthSuccess) => {
     setIsResending(true);
     try {
       await authService.resendVerification(target);
-      showToast(`If ${target} has an account, a new link is on its way.`, 'success');
-    } catch (err) {
-      showToast(err.message || 'Could not send the link. Please try again.', 'error');
+      showToast(t('checkEmail.resent', { email: target }), 'success');
+    } catch {
+      showToast(t('checkEmail.resendFailed'), 'error');
     } finally {
       setIsResending(false);
     }
   };
 
-  /*
-    Google sign-in has no backend yet — authService.loginWithGoogle() still
-    resolves a hand-made token after a timeout, and feeding that to signIn would
-    put a fabricated user into the session and a meaningless token into storage.
-    Saying so is better than pretending it worked.
-  */
-  const handleGoogleAuth = () => {
-    showToast('Google sign-in is not connected yet. Use your email and password.', 'info');
+  /**
+   * The ID token Google Identity Services just handed the browser.
+   *
+   * Everything after this point is the same as an ordinary sign-in — same
+   * response shape, same session, same Remember me. What differs is that there
+   * is no EMAIL_NOT_VERIFIED branch to worry about: Google only issues a token
+   * for an address it has verified itself, and the backend refuses the rest.
+   */
+  const handleGoogleCredential = async (idToken) => {
+    setIsLoading(true);
+    setErrors({});
+
+    try {
+      const session = await signInWithGoogle({ idToken, remember });
+      showToast(t('auth.welcome', { name: session.user.fullName }), 'success');
+      resetForm();
+      if (onAuthSuccess) onAuthSuccess(session);
+    } catch (err) {
+      handleApiError(err, GOOGLE_REFUSED);
+      showToast(apiErrorMessage(err, t, GOOGLE_REFUSED), 'error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const resetForm = () => {
@@ -276,6 +324,8 @@ export const useLoginForm = (initialAuthStep = 'sign_in', onAuthSuccess) => {
     setConfirmPassword,
     errors,
     isLoading,
+    remember,
+    setRemember,
     registeredEmail,
     unverifiedEmail,
     isResending,
@@ -285,7 +335,7 @@ export const useLoginForm = (initialAuthStep = 'sign_in', onAuthSuccess) => {
     showToast,
     closeToast,
     handleAuthSubmit,
-    handleGoogleAuth,
+    handleGoogleCredential,
     resetForm,
   };
 };

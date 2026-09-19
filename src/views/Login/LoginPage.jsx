@@ -5,6 +5,8 @@ import useLoginForm from '../../hooks/useLoginForm';
 import LoginForm from './LoginForm';
 import Toast from '../../components/ui/Toast';
 import { homeFor } from '../../constants/roles';
+import { useT } from '../../i18n/LanguageContext';
+import LanguageSwitch from '../../components/ui/LanguageSwitch';
 
 /*
   The role cards that used to open this page now live at /select-role, after
@@ -14,50 +16,48 @@ import { homeFor } from '../../constants/roles';
 */
 const BRANDING = {
   sign_up: {
-    heading: 'Create your MikeKwok account',
-    bullets: [
-      'One account, whatever your school calls you',
-      'Your role is granted once a school approves you',
-      'Classes, grades and schedules in one place',
-    ],
+    heading: 'auth.panel.signUp.heading',
+    bullets: ['auth.panel.signUp.a', 'auth.panel.signUp.b', 'auth.panel.signUp.c'],
   },
   check_email: {
-    heading: 'One link away from MikeKwok',
-    bullets: [
-      'Open the link we just emailed you',
-      'Come back here and continue — no retyping',
-      'The link is good for 24 hours',
-    ],
+    heading: 'auth.panel.checkEmail.heading',
+    bullets: ['auth.panel.checkEmail.a', 'auth.panel.checkEmail.b', 'auth.panel.checkEmail.c'],
   },
   sign_in: {
-    heading: 'Welcome back to MikeKwok',
-    bullets: [
-      'Pick up exactly where you left off',
-      'Switch between your roles without signing out',
-      'Everything from your school in one place',
-    ],
+    heading: 'auth.panel.signIn.heading',
+    bullets: ['auth.panel.signIn.a', 'auth.panel.signIn.b', 'auth.panel.signIn.c'],
   },
 };
 
 export const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useT();
   const initialAuthStep = location.state?.step === 'sign_up' ? 'sign_up' : 'sign_in';
 
   /*
     Where somebody lands is decided by what they actually hold, not by anything
     they typed. No usable role at all — no school, or a membership still waiting
-    on approval — means /no-school. Exactly one role is entered without asking.
+    on approval — means /select-role, where every card is locked and says why.
+    Exactly one usable role is entered without asking.
     More than one, and only then, is worth a question.
   */
   const formState = useLoginForm(initialAuthStep, ({ roles, activeRole }) => {
-    if (roles.length === 0) navigate('/no-school', { replace: true });
+    if (roles.length === 0) navigate('/select-role', { replace: true });
     else if (activeRole) navigate(homeFor(activeRole), { replace: true });
     else navigate('/select-role', { replace: true });
   });
 
   const { authStep, setAuthStep, isSignUp, isCheckEmail, toast, closeToast } = formState;
   const branding = BRANDING[authStep];
+
+  /*
+    /verify-email sends people straight here once it has claimed their token, so
+    this is where the good news has to land. A banner rather than a toast: the
+    person has just come back from their inbox and may not be looking at the
+    screen the moment it appears.
+  */
+  const verified = location.state?.verified === true;
 
   return (
     <div className="min-h-screen lg:h-screen w-screen bg-[#6D43EC] flex flex-col lg:flex-row font-sans selection:bg-violet-500 selection:text-white relative lg:overflow-hidden">
@@ -74,12 +74,12 @@ export const LoginPage = () => {
       {/* --- PURPLE SIDEBAR COLUMN --- */}
       <div className="w-full text-white flex-col justify-between p-8 sm:p-12 relative shrink-0 z-0 text-left select-none bg-[#6D43EC] hidden lg:flex lg:w-[38%] lg:h-full lg:order-2 lg:overflow-hidden">
         <div className="text-2xl font-black tracking-tight text-right">
-          MikeKwok
+          EduForID
         </div>
 
         <div className="my-auto space-y-6 max-w-sm ml-0 lg:ml-auto text-left lg:text-right pr-0 lg:pr-4 z-10 shrink-0">
           <h2 className="text-3xl font-extrabold leading-tight tracking-tight">
-            {branding.heading}
+            {t(branding.heading)}
           </h2>
 
           <ul className="space-y-4">
@@ -91,7 +91,7 @@ export const LoginPage = () => {
                 <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0 mt-0.5 shadow-sm text-white font-bold text-xs select-none">
                   ✓
                 </span>
-                <span>{bullet}</span>
+                <span>{t(bullet)}</span>
               </li>
             ))}
           </ul>
@@ -115,26 +115,45 @@ export const LoginPage = () => {
         <div className="absolute top-1/4 left-[-16px] w-12 h-12 bg-[#ECE9FE] rounded-full pointer-events-none" />
         <div className="absolute top-16 right-10 w-14 h-14 bg-[#ECE9FE] rounded-full pointer-events-none opacity-80" />
 
-        {/* Back to the landing page */}
-        <div className="absolute top-6 left-6 sm:left-12 z-20">
+        {/* Back to the landing page.
+
+            A white pill rather than bare text: this sits on top of the purple
+            corner above, and grey-on-purple was all but invisible. The pill
+            reads on either background, and its height and radius are the
+            language switch's, so the two corners match. */}
+        <div className="absolute top-6 left-6 sm:left-12 z-20 flex">
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="group flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-400 hover:text-[#7047EB] transition-colors focus:outline-none focus:text-[#7047EB] cursor-pointer"
-            aria-label="Back to home"
+            className="group inline-flex items-center gap-1.5 pl-2.5 pr-3.5 py-1.5 rounded-full bg-white shadow-sm ring-1 ring-slate-200 text-xs font-bold text-slate-600 hover:text-[#7047EB] hover:ring-[#7047EB]/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7047EB] cursor-pointer"
+            aria-label={t('auth.backToHome')}
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 transition-transform group-hover:-translate-x-0.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
             </svg>
-            Back
+            {t('auth.back')}
           </button>
+        </div>
+
+        {/* Opposite the Back button, in the white card rather than the purple
+            panel — that panel is hidden below lg, and a language switch nobody
+            on a phone can reach is not a language switch. */}
+        <div className="absolute top-6 right-6 sm:right-12 z-20 flex">
+          <LanguageSwitch />
         </div>
 
         {/* Spacer to balance vertical height */}
         <div className="h-[40px] z-10 shrink-0" />
 
         <div className="my-auto w-full z-10 py-2 shrink-0">
-          <LoginForm formState={formState} />
+          <LoginForm
+            formState={formState}
+            notice={
+              verified && !isSignUp && !isCheckEmail
+                ? t('auth.verifiedNotice')
+                : null
+            }
+          />
         </div>
 
         {/* Bottom Footer Section */}
@@ -143,22 +162,22 @@ export const LoginPage = () => {
               and the only thing left is the link in somebody's inbox. */}
           {!isCheckEmail && (
           <p className="text-sm text-slate-500 font-semibold select-none">
-            {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+            {isSignUp ? t('auth.haveAccount') : t('auth.noAccount')}{' '}
             <button
               type="button"
               onClick={() => setAuthStep(isSignUp ? 'sign_in' : 'sign_up')}
               className="text-[#7047EB] hover:text-[#5E3BD2] hover:underline font-extrabold focus:outline-none focus:underline cursor-pointer"
             >
-              {isSignUp ? 'Sign In' : 'Sign Up'}
+              {isSignUp ? t('auth.signInLink') : t('auth.signUpLink')}
             </button>
           </p>
           )}
 
           <div className="text-[11px] text-slate-400 select-none">
-            By clicking button above, you agree to our{' '}
-            <a href="#terms" className="text-[#7047EB] hover:underline font-bold">terms of use</a>{' '}
-            and{' '}
-            <a href="#privacy" className="text-[#7047EB] hover:underline font-bold">privacy policies</a>
+            {t('auth.terms')}{' '}
+            <a href="#terms" className="text-[#7047EB] hover:underline font-bold">{t('auth.termsOfUse')}</a>{' '}
+            {t('auth.and')}{' '}
+            <a href="#privacy" className="text-[#7047EB] hover:underline font-bold">{t('auth.privacy')}</a>
           </div>
         </div>
 

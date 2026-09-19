@@ -1,27 +1,42 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import AuthLayout from '../../layouts/AuthLayout';
 import { useAuth } from '../../context/AuthContext';
 import Toast from '../../components/ui/Toast';
 import {
   ROLES,
-  ROLE_LABEL,
-  ROLE_TAGLINE,
+  ROLE_LABEL_KEY,
+  ROLE_TAGLINE_KEY,
   SELECTABLE_ROLES,
   homeFor,
 } from '../../constants/roles';
+import { useT } from '../../i18n/LanguageContext';
+import { apiErrorMessage } from '../../i18n/apiError';
 
 /*
-  The "Get Started" screen, moved here from /login and given something real to do.
+  The one screen between signing in and working.
 
-  Before, it asked which role somebody wanted before they had an account, and the
-  answer went nowhere — registration does not take a role. Here it asks which of
-  the roles they have been granted they want to work as, which is a question the
-  server can actually answer.
+  It used to be two. This page showed the roles somebody held, and /no-school
+  told everybody else that there was nothing for them yet — which meant a newly
+  verified account, the commonest kind there is, never saw the three cards at
+  all. They are the clearest statement of what this app is, so everyone sees
+  them now.
 
-  All three cards stay on screen whether or not they are held. A card that is
-  simply missing teaches nothing; a card that says "waiting for approval", or why
-  it was refused, tells somebody exactly where they stand.
+  It also used to lock every card somebody did not already hold, which was the
+  deeper mistake: it assumed all three are roles a school grants. Two of them
+  are not the same thing at all.
+
+    Organization  registers a NEW school. No school can grant it, because there
+                  is no school yet — that is a chicken and an egg, and locking
+                  the card leaves a principal with nowhere to begin.
+    Student       joins a school that exists, by its School Code.
+    Teacher
+
+  So a card is selectable whenever choosing it leads somewhere. Holding the role
+  means entering it; not holding it means continuing to /get-started, which says
+  what that path will ask for. Only PENDING is unselectable, and only because a
+  request is already in flight and the database allows exactly one.
 */
 
 const roleIcons = {
@@ -58,232 +73,287 @@ const statusOf = (membership, role) => {
   return { state: entry.status, reason: entry.rejectionReason };
 };
 
-const CARD_NOTE = {
-  ACTIVE: null,
-  PENDING: 'Waiting for your school to approve this',
-  REJECTED: 'Your school did not approve this',
-  NONE: 'You have not been given this access',
+const CARD_NOTE_KEY = {
+  PENDING: 'selectRole.note.pending',
+  REJECTED: 'selectRole.note.rejected',
 };
+
+const STATUS_BADGE = {
+  PENDING: 'bg-amber-50 text-amber-600',
+  REJECTED: 'bg-red-50 text-red-600',
+};
+
+/* Where a card leads when its role is not already held. */
+const NEXT_STEP = {
+  [ROLES.STUDENT]: '/get-started/student',
+  [ROLES.TEACHER]: '/get-started/teacher',
+  [ROLES.PRINCIPAL]: '/get-started/organization',
+};
+
+/*
+  A card can be chosen unless a request for it is already in flight. PENDING is
+  the one dead end: the database allows a single PENDING-or-ACTIVE membership per
+  person, so asking twice is not a thing anybody can do.
+*/
+const isSelectable = (membership, role) => statusOf(membership, role).state !== 'PENDING';
+
+/*
+  What Continue should point at before anybody has touched anything: a role they
+  already hold, or failing that the first card that leads somewhere. Never null
+  while any card is live — a disabled Continue under three clickable cards reads
+  as a broken screen.
+*/
+const defaultChoice = (membership, held) =>
+  held[0] ?? SELECTABLE_ROLES.find((role) => isSelectable(membership, role)) ?? null;
 
 export const SelectRolePage = () => {
   const navigate = useNavigate();
-  const { membership, roles, activeRole, refreshMe, selectRole } = useAuth();
+  const { user, membership, roles, activeRole, refreshMe, selectRole, logout } = useAuth();
+  const { t } = useT();
 
   /*
     Start from what is already known, so a failed refresh still leaves something
     selected rather than a disabled Continue button and no explanation. The
     refresh below corrects it when it succeeds.
   */
-  const [selected, setSelected] = useState(() => activeRole ?? roles[0] ?? null);
+  const [selected, setSelected] = useState(() => activeRole ?? defaultChoice(membership, roles));
   const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState(null);
 
   /*
-    Always re-read on arrival. An approval granted since the last sign-in is
-    invisible in the cached membership, and this is the one screen where that
-    difference is the whole point.
-  */
-  useEffect(() => {
-    let cancelled = false;
+    Re-read on arrival, and again whenever asked.
 
-    (async () => {
+    An approval granted since the last sign-in is invisible in the cached
+    membership, and this is the one screen where that difference is the whole
+    point: somebody waiting on their school sits here until the answer arrives.
+  */
+  const check = useCallback(
+    async ({ announce = false } = {}) => {
+      setIsLoading(true);
       try {
         const session = await refreshMe();
-        if (cancelled) return;
-
-        if (session.roles.length === 0) {
-          navigate('/no-school', { replace: true });
-          return;
-        }
 
         setSelected((current) =>
-          current && session.roles.includes(current) ? current : session.roles[0]
+          current && isSelectable(session.membership, current)
+            ? current
+            : defaultChoice(session.membership, session.roles)
         );
-      } catch (err) {
-        if (!cancelled) {
-          setToast({ message: err.message || 'Could not load your roles.', type: 'error' });
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
 
-    return () => {
-      cancelled = true;
-    };
-    // Runs once on arrival: refreshMe changes identity whenever activeRole does,
-    // and re-running on that would fight the selection being made here.
+        if (announce && session.roles.length === 0) {
+          setToast({ message: t('selectRole.nothingChanged'), type: 'info' });
+        }
+      } catch (err) {
+        setToast({ message: apiErrorMessage(err, t), type: 'error' });
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [refreshMe, t]
+  );
+
+  useEffect(() => {
+    check();
+    // Once on arrival; the Check again button covers every look after that.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /*
+    Continue means two different things, decided by what the chosen card is.
+    A role already held is entered; anything else is a path still to be walked,
+    and /get-started explains where it leads.
+  */
   const handleContinue = () => {
     if (!selected) return;
 
+    if (!roles.includes(selected)) {
+      navigate(NEXT_STEP[selected]);
+      return;
+    }
+
     if (!selectRole(selected)) {
-      setToast({ message: 'That role is not available on your account.', type: 'error' });
+      setToast({ message: t('selectRole.notAvailable'), type: 'error' });
       return;
     }
 
     navigate(homeFor(selected), { replace: true });
   };
 
+  const hasRoles = roles.length > 0;
+  const isPending = membership?.status === 'PENDING';
   const schoolName = membership?.school?.name ?? membership?.schoolName;
 
-  return (
-    <div className="min-h-screen lg:h-screen w-screen bg-[#6D43EC] flex flex-col lg:flex-row font-sans selection:bg-violet-500 selection:text-white relative lg:overflow-hidden">
+  const blurb = hasRoles
+    ? t('selectRole.blurb.hasRoles', { school: schoolName })
+    : isPending
+      ? t('selectRole.blurb.pending')
+      : t('selectRole.blurb.fresh');
 
+  /*
+    Just the way out. The invitation-code line that used to live here is gone:
+    the Student and Teacher cards now lead to the same place, and two doors onto
+    one road only make people wonder which is the right one.
+  */
+  const footer = (
+    <>
+      <button
+        type="button"
+        onClick={async () => {
+          await logout();
+          navigate('/login', { replace: true });
+        }}
+        className="text-xs text-slate-400 hover:text-[#7047EB] font-bold transition-colors focus:outline-none cursor-pointer"
+      >
+        {t('common.signOut')}
+      </button>
+    </>
+  );
+
+  return (
+    <>
       {toast && (
         <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
       )}
 
-      {/* --- PURPLE SIDEBAR COLUMN --- */}
-      <div className="w-full text-white flex flex-col justify-between p-8 sm:p-12 relative shrink-0 z-0 text-left select-none bg-[#6D43EC] lg:w-[35%] lg:h-full lg:order-1 lg:overflow-hidden">
-        <div className="text-2xl font-black tracking-tight text-left">
-          MikeKwok
-        </div>
-
-        <div className="relative my-auto space-y-6 max-w-sm z-10 shrink-0">
-          <h2 className="text-4xl sm:text-5xl font-extrabold leading-tight tracking-tight">
-            Smarter Learning Starts Here
-          </h2>
-          <p className="text-sm sm:text-base text-violet-100/90 leading-relaxed font-medium">
-            {schoolName
-              ? `You are signed in at ${schoolName}. Choose how you want to continue.`
-              : 'Manage, track, and improve learning with an all-in-one platform designed for schools, teachers, and students.'}
+      <AuthLayout
+        heading={t(hasRoles ? 'selectRole.panel.hasRoles' : isPending ? 'selectRole.panel.pending' : 'selectRole.panel.fresh')}
+        blurb={blurb}
+        footer={footer}
+      >
+        <div>
+          <h1 className="text-3xl sm:text-[34px] font-extrabold text-[#7047EB] leading-tight select-none">
+            {t('selectRole.title')}
+          </h1>
+          <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold break-all">
+            {user?.fullName ? t('selectRole.signedInAs', { name: user.fullName }) : ''}
+            {user?.email ? ` · ${user.email}` : ''}
           </p>
         </div>
 
-        {/* Hidden below lg: stacked on a phone the purple panel is a short band,
-            and a white disc behind white copy simply erases it. */}
-        <div className="hidden lg:block absolute bottom-[-130px] left-[-130px] w-64 h-64 rounded-full bg-white pointer-events-none" />
-      </div>
-
-      {/* --- WHITE CARD COLUMN --- */}
-      <div className="w-full bg-white min-h-screen lg:h-full lg:overflow-y-auto flex flex-col justify-between p-6 sm:p-8 lg:py-8 lg:px-12 relative shrink-0 z-10 shadow-2xl lg:w-[65%] lg:order-2 lg:rounded-l-[48px] lg:rounded-r-none">
-
-        {/* Decorative Shapes inside White Card */}
-        <div className="absolute top-0 left-0 w-28 h-28 bg-[#6D43EC] rounded-br-full pointer-events-none" />
-        <div className="absolute top-10 left-36 w-3 h-3 bg-[#6D43EC] rounded-full opacity-60 pointer-events-none" />
-        <div className="absolute top-1/4 left-[-16px] w-12 h-12 bg-[#ECE9FE] rounded-full pointer-events-none" />
-        <div className="absolute top-16 right-10 w-14 h-14 bg-[#ECE9FE] rounded-full pointer-events-none opacity-80" />
-
-        <div className="h-[40px] z-10 shrink-0" />
-
-        <div className="my-auto w-full z-10 py-2 shrink-0">
-          <div className="w-full max-w-[420px] mx-auto text-center space-y-6">
-            <div>
-              <h1 className="text-3xl sm:text-[34px] font-extrabold text-[#7047EB] leading-tight select-none">
-                Get Started
-              </h1>
-              <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold select-none">
-                Choose how you want to use MikeKwok
-              </p>
-            </div>
-
-            <div className="space-y-3.5">
-              {SELECTABLE_ROLES.map((role) => {
-                const { state, reason } = statusOf(membership, role);
-                const available = state === 'ACTIVE';
-                const isSelected = available && selected === role;
-                const note = state === 'REJECTED' && reason ? reason : CARD_NOTE[state];
-
-                return (
-                  <button
-                    key={role}
-                    type="button"
-                    onClick={() => available && setSelected(role)}
-                    disabled={!available || isLoading}
-                    aria-pressed={isSelected}
-                    className={`
-                      w-full border rounded-2xl p-4 flex items-center justify-between text-left transition-all duration-200 select-none
-                      ${isSelected
-                        ? 'border-[#7047EB] border-2 shadow-lg shadow-[#7047EB]/5 bg-white cursor-pointer'
-                        : available
-                          ? 'border-slate-200 bg-white hover:border-slate-300 cursor-pointer'
-                          : 'border-slate-100 bg-slate-50/60 opacity-60 cursor-not-allowed'
-                      }
-                    `}
-                  >
-                    <div className="flex items-center min-w-0">
-                      <div
-                        className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 mr-4 ${
-                          available ? 'bg-[#F1EEFF] text-[#7047EB]' : 'bg-slate-100 text-slate-400'
-                        }`}
-                      >
-                        {roleIcons[role]}
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className={`text-base font-extrabold ${available ? 'text-slate-800' : 'text-slate-500'}`}>
-                          {ROLE_LABEL[role]}
-                        </h3>
-                        <p className="text-xs text-slate-400 font-semibold mt-0.5 break-words">
-                          {available ? ROLE_TAGLINE[role] : note}
-                        </p>
-                      </div>
-                    </div>
-
-                    {available ? (
-                      <span className="w-8 h-8 rounded-full border border-[#7047EB]/20 flex items-center justify-center text-[#7047EB] text-sm shrink-0">
-                        ➔
-                      </span>
-                    ) : (
-                      <span
-                        className={`text-[9px] font-bold px-2 py-1 rounded-full shrink-0 ml-2 ${
-                          state === 'PENDING'
-                            ? 'bg-amber-50 text-amber-600'
-                            : state === 'REJECTED'
-                              ? 'bg-red-50 text-red-600'
-                              : 'bg-slate-100 text-slate-400'
-                        }`}
-                      >
-                        {state === 'PENDING' ? 'PENDING' : state === 'REJECTED' ? 'REJECTED' : 'LOCKED'}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            <button
-              type="button"
-              onClick={handleContinue}
-              disabled={!selected || isLoading}
-              className="w-full py-3.5 rounded-2xl justify-center font-bold text-base bg-[#7047EB] hover:bg-[#5E3BD2] text-white active:scale-95 transition-transform shadow-lg shadow-[#7047EB]/20 flex items-center gap-1 select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
-            >
-              {isLoading ? 'Loading…' : 'Continue'}
-              {!isLoading && (
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 mt-0.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                </svg>
+        {/* What the three cards mean for somebody who holds none of them yet —
+            the difference between joining a school and starting one is the whole
+            point, and three boxes alone do not make it. */}
+        {!hasRoles && (
+          <div className="border border-slate-200 rounded-2xl p-4 text-left bg-white shadow-sm">
+            <p className="text-sm text-slate-600 font-medium leading-relaxed">
+              {isPending ? (
+                t('selectRole.explain.pending', { school: schoolName })
+              ) : (
+                <>
+                  <span className="font-extrabold text-slate-800">{t('selectRole.explain.fresh.a')}</span>{' '}
+                  {t('auth.and')}{' '}
+                  <span className="font-extrabold text-slate-800">{t('selectRole.explain.fresh.b')}</span>{' '}
+                  {t('selectRole.explain.fresh.middle')}{' '}
+                  <span className="font-extrabold text-slate-800">{t('selectRole.explain.fresh.c')}</span>{' '}
+                  {t('selectRole.explain.fresh.end')}
+                </>
               )}
-            </button>
-          </div>
-        </div>
-
-        {/* Bottom Footer Section */}
-        <div className="mt-4 z-10 text-center space-y-3 shrink-0">
-          <div className="text-sm text-slate-500 select-none">
-            <div className="flex items-center justify-center gap-3 mb-3">
-              <span className="h-px bg-slate-100 flex-1" />
-              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">or</span>
-              <span className="h-px bg-slate-100 flex-1" />
-            </div>
-            <p className="font-semibold">
-              Need access you do not have?{' '}
-              <button
-                type="button"
-                onClick={() => navigate('/no-school')}
-                className="text-[#7047EB] hover:underline font-extrabold focus:outline-none cursor-pointer"
-              >
-                Join your school
-              </button>
             </p>
           </div>
+        )}
+
+        <div className="space-y-3.5">
+          {SELECTABLE_ROLES.map((role) => {
+            const { state, reason } = statusOf(membership, role);
+            const selectable = state !== 'PENDING';
+            const isSelected = selectable && selected === role;
+            const badge = STATUS_BADGE[state];
+
+            /*
+              A rejection carries the school's own words; everything else gets
+              the card's ordinary pitch, because for a role somebody does not
+              hold that pitch is exactly what they are being offered.
+            */
+            const note =
+              state === 'REJECTED'
+                ? (reason ?? t(CARD_NOTE_KEY.REJECTED))
+                : state === 'PENDING'
+                  ? t(CARD_NOTE_KEY.PENDING)
+                  : t(ROLE_TAGLINE_KEY[role]);
+
+            return (
+              <button
+                key={role}
+                type="button"
+                onClick={() => selectable && setSelected(role)}
+                disabled={!selectable || isLoading}
+                aria-pressed={isSelected}
+                className={`
+                  w-full border rounded-2xl p-4 flex items-center justify-between text-left transition-all duration-200 select-none
+                  ${isSelected
+                    ? 'border-[#7047EB] border-2 shadow-lg shadow-[#7047EB]/5 bg-white cursor-pointer'
+                    : selectable
+                      ? 'border-slate-200 bg-white hover:border-slate-300 cursor-pointer'
+                      : 'border-slate-100 bg-slate-50/60 opacity-60 cursor-not-allowed'
+                  }
+                `}
+              >
+                <div className="flex items-center min-w-0">
+                  <div
+                    className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 mr-4 ${
+                      selectable ? 'bg-[#F1EEFF] text-[#7047EB]' : 'bg-slate-100 text-slate-400'
+                    }`}
+                  >
+                    {roleIcons[role]}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className={`text-base font-extrabold ${selectable ? 'text-slate-800' : 'text-slate-500'}`}>
+                      {t(ROLE_LABEL_KEY[role])}
+                    </h3>
+                    <p className="text-xs text-slate-400 font-semibold mt-0.5 break-words">{note}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  {badge && (
+                    <span className={`text-[9px] font-bold px-2 py-1 rounded-full ${badge}`}>
+                      {t(`selectRole.badge.${state}`)}
+                    </span>
+                  )}
+                  {selectable && (
+                    <span className="w-8 h-8 rounded-full border border-[#7047EB]/20 flex items-center justify-center text-[#7047EB] text-sm">
+                      ➔
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
 
-      </div>
+        {/*
+          Continue is always the way forward now, whether that means entering a
+          role or starting to ask for one. Check again is a second, quieter
+          button and only for somebody whose request is already in flight —
+          looking again is genuinely all they can do.
+        */}
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={handleContinue}
+            disabled={!selected || isLoading}
+            className="w-full py-3.5 rounded-2xl justify-center font-bold text-base bg-[#7047EB] hover:bg-[#5E3BD2] text-white active:scale-95 transition-transform shadow-lg shadow-[#7047EB]/20 flex items-center gap-1 select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+          >
+            {isLoading ? t('common.loading') : t('common.continue')}
+            {!isLoading && (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 mt-0.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
+            )}
+          </button>
 
-    </div>
+          {isPending && (
+            <button
+              type="button"
+              onClick={() => check({ announce: true })}
+              disabled={isLoading}
+              className="w-full justify-center border border-slate-200 py-3 rounded-2xl hover:bg-slate-50 transition-colors shadow-sm text-slate-700 font-semibold text-sm flex items-center gap-2 select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? t('common.checking') : t('selectRole.checkAgain')}
+            </button>
+          )}
+        </div>
+      </AuthLayout>
+    </>
   );
 };
 

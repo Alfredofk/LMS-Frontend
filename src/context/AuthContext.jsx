@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 
 import { authService } from '../services/authService';
 import { usersService } from '../services/usersService';
+import { activeStore } from '../services/apiClient';
 import { activeRolesOf } from '../constants/roles';
 
 const AuthContext = createContext(null);
@@ -14,6 +15,11 @@ const AuthContext = createContext(null);
   while /users/me is in flight. It is a cache and nothing more: refreshMe()
   replaces it with the server's answer, and every authorization decision the
   backend makes is made from the token's own claims, never from this.
+
+  All three follow the tokens into whichever storage Remember me chose, through
+  activeStore(). Leaving them in localStorage while the session sits in
+  sessionStorage would strand somebody's name and school on a shared machine
+  after the session they belong to is gone.
 */
 const USER_KEY = 'lms_user';
 const MEMBERSHIP_KEY = 'lms_membership';
@@ -21,17 +27,53 @@ const ACTIVE_ROLE_KEY = 'lms_active_role';
 
 const readJson = (key) => {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = activeStore().getItem(key);
     return raw ? JSON.parse(raw) : null;
   } catch {
-    localStorage.removeItem(key);
     return null;
   }
 };
 
 const writeJson = (key, value) => {
-  if (value === null || value === undefined) localStorage.removeItem(key);
-  else localStorage.setItem(key, JSON.stringify(value));
+  try {
+    const store = activeStore();
+    if (value === null || value === undefined) store.removeItem(key);
+    else store.setItem(key, JSON.stringify(value));
+  } catch {
+    // Storage can be blocked entirely. The session still works for this page.
+  }
+};
+
+/*
+  The active role is a bare string, not JSON. Reading and writing it raw keeps it
+  readable in devtools and avoids the quoted "TEACHER" that JSON.stringify would
+  leave behind for the next reader to trip over.
+*/
+const readRaw = (key) => {
+  try {
+    return activeStore().getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const writeRaw = (key, value) => {
+  try {
+    activeStore().setItem(key, value);
+  } catch {
+    // Storage can be blocked entirely.
+  }
+};
+
+/** Forget a key wherever it ended up, whichever storage that turned out to be. */
+const forget = (key) => {
+  for (const store of [localStorage, sessionStorage]) {
+    try {
+      store.removeItem(key);
+    } catch {
+      // Nothing to remove if the store cannot be reached.
+    }
+  }
 };
 
 export const AuthProvider = ({ children }) => {
@@ -43,7 +85,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     setUser(readJson(USER_KEY));
     setMembership(readJson(MEMBERSHIP_KEY));
-    setActiveRoleState(localStorage.getItem(ACTIVE_ROLE_KEY));
+    setActiveRoleState(readRaw(ACTIVE_ROLE_KEY));
     setLoading(false);
   }, []);
 
@@ -72,8 +114,8 @@ export const AuthProvider = ({ children }) => {
 
     writeJson(USER_KEY, nextUser);
     writeJson(MEMBERSHIP_KEY, nextMembership);
-    if (nextRole) localStorage.setItem(ACTIVE_ROLE_KEY, nextRole);
-    else localStorage.removeItem(ACTIVE_ROLE_KEY);
+    if (nextRole) writeRaw(ACTIVE_ROLE_KEY, nextRole);
+    else forget(ACTIVE_ROLE_KEY);
 
     return { user: nextUser, membership: nextMembership, roles: available, activeRole: nextRole };
   }, []);
@@ -81,14 +123,35 @@ export const AuthProvider = ({ children }) => {
   /**
    * Sign in. Tokens are stored by authService; this stores the person.
    *
+   * `remember` reaches saveTokens first and settles which storage this session
+   * lives in, so everything applySession writes afterwards lands in the same
+   * place. Order matters here, and this is that order.
+   *
    * @throws {ApiError} UNAUTHORIZED on bad credentials, EMAIL_NOT_VERIFIED (403)
    *   when the address was never confirmed.
    */
   const signIn = useCallback(
-    async ({ email, password }) => {
-      const auth = await authService.login({ email, password });
+    async ({ email, password, remember = false }) => {
+      const auth = await authService.login({ email, password, remember });
       // A fresh sign-in starts with no prior choice: whoever just typed their
       // password may not be whoever used this browser last.
+      return applySession(auth.user, auth.membership, null);
+    },
+    [applySession]
+  );
+
+  /**
+   * Sign in with a Google ID token.
+   *
+   * Different credential, identical outcome: the backend answers /auth/google
+   * exactly as it answers /auth/login, so the session is built the same way and
+   * `remember` means the same thing.
+   *
+   * @throws {ApiError} UNAUTHORIZED when Google refuses the token
+   */
+  const signInWithGoogle = useCallback(
+    async ({ idToken, remember = false }) => {
+      const auth = await authService.signInWithGoogle({ idToken, remember });
       return applySession(auth.user, auth.membership, null);
     },
     [applySession]
@@ -99,7 +162,7 @@ export const AuthProvider = ({ children }) => {
    *
    * Sign-in reports only ACTIVE roles, so a request still waiting on approval is
    * invisible in its answer. /users/me carries each role's status, which is why
-   * the role picker and the no-school screen both refresh through here rather
+   * the role picker refreshes through here rather
    * than trusting what sign-in cached.
    */
   const refreshMe = useCallback(async () => {
@@ -115,7 +178,7 @@ export const AuthProvider = ({ children }) => {
     (role) => {
       if (!roles.includes(role)) return false;
       setActiveRoleState(role);
-      localStorage.setItem(ACTIVE_ROLE_KEY, role);
+      writeRaw(ACTIVE_ROLE_KEY, role);
       return true;
     },
     [roles]
@@ -137,9 +200,11 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       setMembership(null);
       setActiveRoleState(null);
-      localStorage.removeItem(USER_KEY);
-      localStorage.removeItem(MEMBERSHIP_KEY);
-      localStorage.removeItem(ACTIVE_ROLE_KEY);
+      // Clear both storages: signing out must not depend on guessing which one
+      // this session happened to use.
+      forget(USER_KEY);
+      forget(MEMBERSHIP_KEY);
+      forget(ACTIVE_ROLE_KEY);
     }
   }, []);
 
@@ -152,12 +217,13 @@ export const AuthProvider = ({ children }) => {
       loading,
       isAuthenticated: !!user,
       signIn,
+      signInWithGoogle,
       logout,
       refreshMe,
       selectRole,
       register: authService.register,
     }),
-    [user, membership, roles, activeRole, loading, signIn, logout, refreshMe, selectRole]
+    [user, membership, roles, activeRole, loading, signIn, signInWithGoogle, logout, refreshMe, selectRole]
   );
 
   return (

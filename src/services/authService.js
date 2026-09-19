@@ -49,6 +49,18 @@ export const authService = {
   /**
    * Sign in and store the token pair.
    *
+   * `remember` decides two things at once, and both matter.
+   *
+   * Here it picks where the tokens are kept: true survives closing the browser,
+   * false ends the session with the tab. Sent on as `rememberMe`, it also tells
+   * the server how long to honour the refresh token — 14 days against 1
+   * (LMS-Backend shared/auth.js:26-27). The choice is then signed into the token
+   * as `rem` and survives every rotation, so it is asked once and never again.
+   *
+   * Storing tokens permanently while the server only honours them for a day
+   * would be a checkbox that promises more than it delivers, which is why both
+   * halves move together.
+   *
    * `membership` is null for someone who belongs to no school yet — a real
    * state, not an error: their token carries no school, so nothing school-owned
    * is reachable with it.
@@ -57,9 +69,9 @@ export const authService = {
    * @throws {ApiError} UNAUTHORIZED on bad credentials, or EMAIL_NOT_VERIFIED
    *   (403) when the address was never confirmed — offer resendVerification().
    */
-  async login({ email, password }) {
-    const auth = await api.post('/auth/login', { email, password }, { auth: false });
-    saveTokens(auth);
+  async login({ email, password, remember = false }) {
+    const auth = await api.post('/auth/login', { email, password, rememberMe: remember }, { auth: false });
+    saveTokens(auth, remember);
     return auth;
   },
 
@@ -73,6 +85,7 @@ export const authService = {
   async refresh() {
     const refreshToken = getRefreshToken();
     const auth = await api.post('/auth/refresh', { refreshToken }, { auth: false });
+    // No second argument: a refresh keeps the session wherever it already lives.
     saveTokens(auth);
     return auth;
   },
@@ -119,59 +132,26 @@ export const authService = {
   },
 
   /**
-   * Sign in with Google.
+   * Sign in with the ID token Google Identity Services handed the browser.
    *
-   * TODO — still a mock. The backend has no OAuth endpoint yet; someone else is
-   * building it. To wire this up, replace the body with a call to whatever the
-   * endpoint turns out to be and keep the return shape identical to login():
-   * { accessToken, refreshToken, user, membership }, then saveTokens() it. The
-   * rest of this module will not need to change.
+   * The backend verifies that token itself — Google's signature, the expiry, the
+   * issuer, and above all the audience, so a token minted for somebody else's
+   * app cannot sign anyone in here. It then answers exactly as /auth/login does,
+   * which is why nothing downstream needs a special case for Google.
+   *
+   * No client secret is involved anywhere in this flow.
+   *
+   * @param {{ idToken: string, remember?: boolean }} input
+   * @returns {Promise<{ accessToken, refreshToken, user, membership }>}
+   * @throws {ApiError} UNAUTHORIZED when Google refuses the token, or when the
+   *   address behind it is not verified on Google's side
    */
-  async loginWithGoogle(role) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          token: `mock-jwt-token-google-${role || 'teacher'}`,
-          user: {
-            role: role || 'teacher',
-            email: role === 'student' ? 'student.teladan@gmail.com' : 'guru.teladan@gmail.com',
-            name: role === 'student' ? 'Student User' : 'Teacher User',
-          },
-        });
-      }, 1500);
-    });
+  async signInWithGoogle({ idToken, remember = false }) {
+    const auth = await api.post('/auth/google', { idToken, rememberMe: remember }, { auth: false });
+    saveTokens(auth, remember);
+    return auth;
   },
 
-  /*
-    Three stubs, kept only so the old call sites in useLoginForm fail legibly
-    instead of raising "authService.loginWithNpsn is not a function". They go
-    when the login UI is rewritten.
-
-    signUp is now register(): it took a role, and a role is not something a
-    person picks for themselves at registration.
-
-    Neither an NPSN nor a School Code is a credential in the backend. An NPSN
-    identifies a school; a School Code only locates one so a person can ask to
-    join it, and a human still approves the request. Signing in is always email
-    and password.
-  */
-  signUp() {
-    throw new Error(
-      'authService.signUp has been replaced by register({ email, password, fullName }).'
-    );
-  },
-
-  loginWithNpsn() {
-    throw new Error(
-      'Signing in with an NPSN is no longer supported. Use email and password.'
-    );
-  },
-
-  loginWithSchoolCode() {
-    throw new Error(
-      'Signing in with a School Code is no longer supported. Use email and password.'
-    );
-  },
 };
 
 export default authService;
