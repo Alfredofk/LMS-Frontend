@@ -17,10 +17,12 @@ export const MainLayout = () => {
     setToast(null);
   };
 
-  const handleLogout = () => {
-    logout();
-    showToast('Logged out successfully.', 'success');
-  };
+  /*
+    No confirmation toast here: clearing the session unmounts this layout —
+    ProtectedRoute sends the now-signed-out person to /login — so anything shown
+    at this point would disappear in the same frame.
+  */
+  const handleLogout = () => logout();
 
   return (
     <div className="h-screen w-screen flex flex-row overflow-hidden bg-[#F8F9FD] font-sans antialiased text-slate-800">

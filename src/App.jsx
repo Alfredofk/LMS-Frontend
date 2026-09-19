@@ -1,10 +1,14 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
+import ProtectedRoute, { RequireAuth } from './components/ProtectedRoute';
 import MainLayout from './layouts/MainLayout';
 import LandingPage from './views/Landing/LandingPage';
 import LoginPage from './views/Login/LoginPage';
+import SelectRolePage from './views/Role/SelectRolePage';
+import NoSchoolPage from './views/NoSchool/NoSchoolPage';
+import VerifyEmailPage from './views/Verify/VerifyEmailPage';
+import { ROLES } from './constants/roles';
 import StudentDashboard from './views/Dashboard/StudentDashboard';
 import TeacherDashboard from './views/Dashboard/TeacherDashboard';
 import TeacherGradebook from './views/Gradebook/TeacherGradebook';
@@ -32,9 +36,33 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
+          {/* Public on purpose: somebody opening the link from their inbox has
+              no session yet, and claiming the token does not need one. */}
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+
+          {/* Signed in, but with no role to enter as or no school to enter.
+              Guarded by RequireAuth, not ProtectedRoute: these two are where
+              ProtectedRoute sends people, so guarding them with it would loop. */}
+          <Route
+            path="/select-role"
+            element={
+              <RequireAuth>
+                <SelectRolePage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/no-school"
+            element={
+              <RequireAuth>
+                <NoSchoolPage />
+              </RequireAuth>
+            }
+          />
+
           <Route
             element={
-              <ProtectedRoute allowedRoles={['student']}>
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
                 <MainLayout />
               </ProtectedRoute>
             }
@@ -50,7 +78,7 @@ function App() {
 
           <Route
             element={
-              <ProtectedRoute allowedRoles={['teacher']}>
+              <ProtectedRoute allowedRoles={[ROLES.TEACHER]}>
                 <MainLayout />
               </ProtectedRoute>
             }
@@ -65,7 +93,7 @@ function App() {
 
           <Route
             element={
-              <ProtectedRoute allowedRoles={['headmaster']}>
+              <ProtectedRoute allowedRoles={[ROLES.PRINCIPAL]}>
                 <MainLayout />
               </ProtectedRoute>
             }
@@ -75,7 +103,7 @@ function App() {
 
           <Route
             element={
-              <ProtectedRoute allowedRoles={['student', 'teacher', 'headmaster']}>
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT, ROLES.TEACHER, ROLES.PRINCIPAL]}>
                 <MainLayout />
               </ProtectedRoute>
             }

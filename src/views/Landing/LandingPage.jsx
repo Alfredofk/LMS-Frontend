@@ -162,7 +162,7 @@ export const LandingPage = () => {
 
           <div className="flex items-center gap-4 pt-2">
             <Button
-              onClick={() => navigate('/login', { state: { step: 'role_selection' } })}
+              onClick={() => navigate('/login', { state: { step: 'sign_up' } })}
               className="py-3 px-6 rounded-xl font-bold bg-[#7047EB] hover:bg-[#5E3BD2] shadow-lg shadow-violet-500/20 active:scale-95 transition-transform text-white cursor-pointer"
             >
               Get Started

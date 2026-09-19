@@ -10,10 +10,11 @@ import {
   Award 
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { ROLES } from '../../constants/roles';
 
 export const SchedulePage = () => {
-  const { user } = useAuth();
-  const role = user?.role || 'student';
+  const { activeRole } = useAuth();
+  const role = activeRole || ROLES.STUDENT;
 
   // State Management
   const [weeklySchedules, setWeeklySchedules] = useState([]);
@@ -39,7 +40,10 @@ export const SchedulePage = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const endpoint = `/api/schedule/${role}`;
+      // Lowercased only here: the role name is uppercase everywhere in this app,
+      // but this path segment is a URL, and this endpoint does not exist yet
+      // anyway — its real shape is the backend's to decide.
+      const endpoint = `/api/schedule/${role.toLowerCase()}`;
       const res = await fetch(endpoint, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -339,7 +343,7 @@ export const SchedulePage = () => {
                       <div className="flex items-center gap-1.5 text-[9px] text-slate-450 font-bold pt-1">
                         <User className="w-3.5 h-3.5 text-slate-450 shrink-0" />
                         <span className="truncate">
-                          {role === 'teacher' ? `Mengajar Kelas: ${cls.className}` : `Guru: ${cls.teacherName}`}
+                          {role === ROLES.TEACHER ? `Mengajar Kelas: ${cls.className}` : `Guru: ${cls.teacherName}`}
                         </span>
                       </div>
                     </div>

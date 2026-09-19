@@ -336,8 +336,8 @@ export const Navbar = ({ showToast }) => {
 
   // Get Initials dynamically
   const getInitials = () => {
-    if (!user || !user.name) return 'AR';
-    return user.name
+    if (!user?.fullName) return 'AR';
+    return user.fullName
       .split(' ')
       .map(n => n[0])
       .join('')

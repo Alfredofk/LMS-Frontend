@@ -1,235 +1,286 @@
 import { useState } from 'react';
+
 import { authService } from '../services/authService';
 import { useAuth } from '../context/AuthContext';
+import {
+  validateEmail,
+  validateFullName,
+  validatePassword,
+  fieldErrorsFrom,
+} from '../utils/validation';
+
+const SIGN_UP_FIELDS = ['fullName', 'email', 'password', 'confirmPassword'];
 
 /**
- * Custom hook to handle state and logic of the LMS login/signup form.
- * Keeps UI components pure and focused on layout/rendering.
+ * All state and submit logic for the sign-up / sign-in form.
+ *
+ * Three steps, not two. Registering does not sign anybody in — the backend
+ * returns no token and refuses sign-in until the emailed link is clicked — so
+ * `check_email` sits between the two forms and says so. Without it, somebody who
+ * has just created an account is dropped back onto a login form with no
+ * explanation of why their brand-new password does not work yet.
+ *
+ * Registration takes an email, a password and a name, and nothing else. It does
+ * not take a role: a role is granted by a school's approval after somebody joins
+ * one, so it cannot be chosen by the person signing up. The role picker lives
+ * after sign-in, at /select-role.
+ *
+ * Neither an NPSN nor a School Code is a credential. An NPSN identifies a school
+ * and a School Code only locates one so a person can ask to join it. Both
+ * sign-in paths that used them are gone.
+ *
+ * @param {'sign_up'|'sign_in'} initialAuthStep
+ * @param {(session: { user, membership, roles, activeRole }) => void} onAuthSuccess
  */
-export const useLoginForm = (initialAuthStep = 'role_selection', onAuthSuccess) => {
-  const { login } = useAuth();
-  // Navigation step: 'role_selection' (Get Started), 'sign_up', 'sign_in'
-  const [authStep, setAuthStep] = useState(initialAuthStep);
+export const useLoginForm = (initialAuthStep = 'sign_in', onAuthSuccess) => {
+  const { signIn } = useAuth();
 
-  // Active role can be: 'student', 'teacher', 'headmaster' (maps to Organization)
-  const [activeRole, setActiveRole] = useState('student');
-  
-  // Teacher-specific sign-in method: 'google' or 'school_code'
-  const [teacherMethod, setTeacherMethod] = useState('google');
+  const [authStep, setAuthStep] = useState(
+    initialAuthStep === 'sign_up' ? 'sign_up' : 'sign_in'
+  );
 
-  // Input states for SIGN UP
-  const [name, setName] = useState('');
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Input states for SIGN IN (Login)
-  const [npsn, setNpsn] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [schoolCode, setSchoolCode] = useState('');
-  const [username, setUsername] = useState('');
-
-  // UI state
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Reusable custom Toast state
   const [toast, setToast] = useState(null);
 
-  const showToast = (message, type = 'info') => {
-    setToast({ message, type });
-  };
+  /*
+    The address an account was just created for.
 
-  const closeToast = () => {
-    setToast(null);
-  };
+    Held apart from `email` so the check-email screen keeps naming the right
+    address even if the field is edited afterwards, and so resending has a
+    definite target rather than whatever happens to be typed at the time.
+  */
+  const [registeredEmail, setRegisteredEmail] = useState(null);
 
-  // Field validation
+  /*
+    Signing in before confirming the address answers 403 EMAIL_NOT_VERIFIED
+    rather than 401, precisely so the UI can offer the link again instead of
+    saying "wrong password". Holding the address here is what makes that offer
+    possible without asking the person to type it a second time.
+  */
+  const [unverifiedEmail, setUnverifiedEmail] = useState(null);
+  const [isResending, setIsResending] = useState(false);
+
+  const showToast = (message, type = 'info') => setToast({ message, type });
+  const closeToast = () => setToast(null);
+
+  const isSignUp = authStep === 'sign_up';
+  const isCheckEmail = authStep === 'check_email';
+
   const validateForm = () => {
-    const tempErrors = {};
+    const next = {};
 
-    if (authStep === 'sign_up') {
-      // SIGN UP validations
-      if (!name.trim()) {
-        tempErrors.name = activeRole === 'headmaster' 
-          ? 'School name is required.' 
-          : 'Full name is required.';
-      }
-      if (!email.trim()) {
-        tempErrors.email = 'Email is required.';
-      } else if (!/\S+@\S+\.\S+/.test(email)) {
-        tempErrors.email = 'Email format is invalid.';
-      }
-      if (!password) {
-        tempErrors.password = 'Password is required.';
-      } else if (password.length < 6) {
-        tempErrors.password = 'Password must be at least 6 characters.';
-      }
-      if (!confirmPassword) {
-        tempErrors.confirmPassword = 'Confirm password is required.';
-      } else if (password !== confirmPassword) {
-        tempErrors.confirmPassword = 'Passwords do not match.';
-      }
-    } else if (authStep === 'sign_in') {
-      // SIGN IN validations
-      if (activeRole === 'headmaster') {
-        if (!npsn) {
-          tempErrors.npsn = 'NPSN is required.';
-        } else if (!/^\d{8}$/.test(npsn)) {
-          tempErrors.npsn = 'NPSN must be an 8-digit number.';
-        }
-        if (!loginPassword) {
-          tempErrors.loginPassword = 'Password is required.';
-        } else if (loginPassword.length < 6) {
-          tempErrors.loginPassword = 'Password must be at least 6 characters.';
-        }
-      }
+    const emailError = validateEmail(email);
+    if (emailError) next.email = emailError;
 
-      if (activeRole === 'teacher' && teacherMethod === 'school_code') {
-        if (!schoolCode) tempErrors.schoolCode = 'School Code is required.';
-        if (!username) tempErrors.username = 'Username/Email is required.';
-        if (!loginPassword) tempErrors.loginPassword = 'Password is required.';
-      }
+    if (isSignUp) {
+      const nameError = validateFullName(fullName);
+      if (nameError) next.fullName = nameError;
 
-      if (activeRole === 'student') {
-        if (!schoolCode) tempErrors.schoolCode = 'School Code is required.';
-        if (!username) tempErrors.username = 'NISN/Username is required.';
-        if (!loginPassword) tempErrors.loginPassword = 'Password is required.';
-      }
+      const passwordError = validatePassword(password);
+      if (passwordError) next.password = passwordError;
+
+      if (!confirmPassword) next.confirmPassword = 'Confirm password is required.';
+      else if (password !== confirmPassword) next.confirmPassword = 'Passwords do not match.';
+    } else {
+      /*
+        Sign-in checks that a password was typed and nothing more. An account
+        created before a rule changed must still be able to authenticate — and
+        then change it. The backend takes the same view (auth.schema.js:61-63).
+      */
+      if (!password) next.password = 'Password is required.';
     }
 
-    setErrors(tempErrors);
-    return Object.keys(tempErrors).length === 0;
+    setErrors(next);
+    return Object.keys(next).length === 0;
   };
 
-  // Submit handler
+  /*
+    Every failure arrives as an ApiError carrying the backend's own `code`.
+    Branching on that rather than on the message is what keeps this readable when
+    the prose is reworded, translated, or made deliberately vague — which
+    forgot-password and resend-verification both are, on purpose.
+  */
+  const handleApiError = (err) => {
+    const details = fieldErrorsFrom(err.details, SIGN_UP_FIELDS);
+
+    switch (err.code) {
+      case 'EMAIL_NOT_VERIFIED':
+        setUnverifiedEmail(email);
+        setErrors({
+          global: 'This email has not been confirmed yet. Check your inbox, or send the link again.',
+        });
+        return;
+
+      case 'CONFLICT':
+        setErrors({ email: 'An account with this email already exists.', ...details });
+        return;
+
+      case 'UNAUTHORIZED':
+        setErrors({ global: 'Email or password is incorrect.' });
+        return;
+
+      case 'BAD_REQUEST':
+        setErrors(
+          Object.keys(details).length ? details : { global: err.message }
+        );
+        return;
+
+      default:
+        setErrors({ global: err.message || 'Authentication failed. Please try again.' });
+    }
+  };
+
   const handleAuthSubmit = async (e) => {
     if (e) e.preventDefault();
     if (!validateForm()) return;
 
     setIsLoading(true);
     setErrors({});
+    setUnverifiedEmail(null);
 
     try {
-      if (authStep === 'sign_up') {
-        // Sign Up Flow
-        const response = await authService.signUp(activeRole, name, email, password);
-        console.log('API Response (Sign Up):', response);
-        showToast('Registration successful! Your account is created.', 'success');
-        
-        // Reset and redirect back to role selection
-        resetForm();
-        setAuthStep('role_selection');
-      } else {
-        // Sign In Flow
-        let response;
-        if (activeRole === 'headmaster') {
-          response = await authService.loginWithNpsn(npsn, loginPassword);
-        } else if (activeRole === 'teacher') {
-          if (teacherMethod === 'google') {
-            response = await authService.loginWithGoogle();
-          } else {
-            response = await authService.loginWithSchoolCode(schoolCode, 'teacher', username, loginPassword);
-          }
-        } else if (activeRole === 'student') {
-          response = await authService.loginWithSchoolCode(schoolCode, 'student', username, loginPassword);
-        }
-        
-        console.log('API Response (Sign In):', response);
-        showToast(`Welcome back, ${response.user.name}! Login successful.`, 'success');
-        
-        if (response && response.token) {
-          localStorage.setItem('token', response.token);
-        }
-        
-        const userPayload = { ...response.user, role: response.user.role || activeRole };
-        login(userPayload);
+      if (isSignUp) {
+        await authService.register({ email, password, fullName });
 
-        // Reset and redirect back to role selection
-        resetForm();
-        setAuthStep('role_selection');
-        if (onAuthSuccess) onAuthSuccess(userPayload);
+        /*
+          Registering does not sign anybody in. The backend sends a verification
+          link and refuses sign-in until it is clicked, so landing on a dashboard
+          here would be a lie — the very next request would 403.
+
+          The password deliberately stays in state. The check-email step signs in
+          with it once the link has been opened, which spares somebody typing it
+          again for no reason. It lives in this component's memory only: never a
+          URL, never history.state, never localStorage, and gone the moment this
+          page unmounts.
+        */
+        setRegisteredEmail(email);
+        setConfirmPassword('');
+        setAuthStep('check_email');
+        return;
       }
+
+      const session = await signIn({ email, password });
+      showToast(`Welcome back, ${session.user.fullName}.`, 'success');
+      resetForm();
+      if (onAuthSuccess) onAuthSuccess(session);
     } catch (err) {
-      if (err.field) {
-        const fieldName = err.field === 'password' ? 'loginPassword' : err.field;
-        const fieldLabel = err.field === 'schoolCode' ? 'Kode Sekolah' : err.field === 'username' ? 'Username/NISN' : err.field === 'npsn' ? 'NPSN' : 'Password';
-        setErrors({ 
-          [fieldName]: err.message,
-          global: `Kolom ${fieldLabel} tidak sesuai kriteria: ${err.message}`
-        });
-      } else {
-        setErrors({ global: err.message || 'Authentication failed. Please try again.' });
+      handleApiError(err);
+      if (!err.code || err.code !== 'EMAIL_NOT_VERIFIED') {
+        showToast(err.message || 'Authentication failed.', 'error');
       }
-      showToast(err.message || 'Authentication failed.', 'error');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Google Login direct trigger
-  const handleGoogleAuth = async () => {
+  /**
+   * "I have verified — continue", from the check-email step.
+   *
+   * Signs in with the credentials just typed. No endpoint reports whether an
+   * address has been verified without authenticating first, so attempting the
+   * sign-in *is* the check: a 403 means the link has not been opened yet, which
+   * here is the ordinary case rather than an edge one — and it says so, instead
+   * of reading like a rejection.
+   */
+  const handleVerifiedContinue = async () => {
     setIsLoading(true);
     setErrors({});
+
     try {
-      const response = await authService.loginWithGoogle(activeRole);
-      console.log('API Response (Google):', response);
-      showToast(`Logged in successfully via Google as ${response.user.name}`, 'success');
+      const session = await signIn({ email, password });
+      showToast(`Welcome, ${session.user.fullName}.`, 'success');
       resetForm();
-      setAuthStep('role_selection');
-      
-      if (response && response.token) {
-        localStorage.setItem('token', response.token);
-      }
-      
-      const userPayload = { ...response.user, role: activeRole };
-      login(userPayload);
-      if (onAuthSuccess) onAuthSuccess(userPayload);
+      if (onAuthSuccess) onAuthSuccess(session);
     } catch (err) {
-      setErrors({ global: err.message || 'Google Auth failed.' });
-      showToast(err.message || 'Google authentication failed.', 'error');
+      if (err.code === 'EMAIL_NOT_VERIFIED') {
+        setErrors({
+          global: 'That link has not been opened yet. Check your inbox, then try again.',
+        });
+      } else {
+        handleApiError(err);
+        showToast(err.message || 'Could not sign you in.', 'error');
+      }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  /**
+   * Send the confirmation link again.
+   *
+   * The backend answers the same whether or not the address has an account, so
+   * this can never be read as proof that one exists — and neither can the toast.
+   */
+  const handleResendVerification = async () => {
+    const target = registeredEmail || unverifiedEmail || email;
+    if (!target) return;
+
+    setIsResending(true);
+    try {
+      await authService.resendVerification(target);
+      showToast(`If ${target} has an account, a new link is on its way.`, 'success');
+    } catch (err) {
+      showToast(err.message || 'Could not send the link. Please try again.', 'error');
+    } finally {
+      setIsResending(false);
+    }
+  };
+
+  /*
+    Google sign-in has no backend yet — authService.loginWithGoogle() still
+    resolves a hand-made token after a timeout, and feeding that to signIn would
+    put a fabricated user into the session and a meaningless token into storage.
+    Saying so is better than pretending it worked.
+  */
+  const handleGoogleAuth = () => {
+    showToast('Google sign-in is not connected yet. Use your email and password.', 'info');
   };
 
   const resetForm = () => {
-    setName('');
+    setFullName('');
     setEmail('');
     setPassword('');
     setConfirmPassword('');
-    setNpsn('');
-    setLoginPassword('');
-    setSchoolCode('');
-    setUsername('');
     setErrors({});
+    setUnverifiedEmail(null);
+    setRegisteredEmail(null);
+  };
+
+  const switchStep = (step) => {
+    setAuthStep(step);
+    setErrors({});
+    setUnverifiedEmail(null);
+    setRegisteredEmail(null);
+    setPassword('');
+    setConfirmPassword('');
   };
 
   return {
     authStep,
-    setAuthStep,
-    activeRole,
-    setActiveRole,
-    teacherMethod,
-    setTeacherMethod,
-    name,
-    setName,
+    setAuthStep: switchStep,
+    isSignUp,
+    isCheckEmail,
+    fullName,
+    setFullName,
     email,
     setEmail,
     password,
     setPassword,
     confirmPassword,
     setConfirmPassword,
-    npsn,
-    setNpsn,
-    loginPassword,
-    setLoginPassword,
-    schoolCode,
-    setSchoolCode,
-    username,
-    setUsername,
     errors,
     isLoading,
+    registeredEmail,
+    unverifiedEmail,
+    isResending,
+    handleResendVerification,
+    handleVerifiedContinue,
     toast,
     showToast,
     closeToast,

@@ -5,15 +5,19 @@ import Button from '../../components/ui/Button';
 
 export const UnauthorizedPage = () => {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { roles, logout } = useAuth();
 
-  const handleBackToHome = () => {
-    logout();
-    navigate('/', { replace: true });
-  };
+  /*
+    Landing here no longer means the wrong account. Somebody may hold several
+    roles and simply be working as the wrong one, so signing them out — which is
+    all this page used to offer — would be a punishment for a wrong turn.
+  */
+  const canSwitchRole = roles.length > 1;
 
-  const handleSwitchAccount = () => {
-    logout();
+  const handleBackToHome = () => navigate('/', { replace: true });
+
+  const handleSwitchAccount = async () => {
+    await logout();
     navigate('/login', { replace: true });
   };
 
@@ -31,7 +35,9 @@ export const UnauthorizedPage = () => {
         <div className="space-y-2">
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Access Denied</h1>
           <p className="text-xs sm:text-sm text-slate-400 font-bold leading-relaxed">
-            Anda tidak memiliki otorisasi untuk mengakses rute/dashboard ini. Silakan masuk menggunakan akun yang sesuai.
+            {canSwitchRole
+              ? 'Halaman ini tidak dilayani oleh peran yang sedang Anda pakai. Ganti peran, atau kembali ke beranda.'
+              : 'Anda tidak memiliki otorisasi untuk mengakses rute/dashboard ini. Silakan masuk menggunakan akun yang sesuai.'}
           </p>
         </div>
 
@@ -44,12 +50,21 @@ export const UnauthorizedPage = () => {
           >
             Go to Home
           </Button>
-          <Button
-            onClick={handleSwitchAccount}
-            className="flex-1 rounded-xl py-3 text-sm font-bold bg-[#7047EB] hover:bg-[#5E3BD2] text-white shadow-md cursor-pointer"
-          >
-            Switch Account
-          </Button>
+          {canSwitchRole ? (
+            <Button
+              onClick={() => navigate('/select-role')}
+              className="flex-1 rounded-xl py-3 text-sm font-bold bg-[#7047EB] hover:bg-[#5E3BD2] text-white shadow-md cursor-pointer"
+            >
+              Switch Role
+            </Button>
+          ) : (
+            <Button
+              onClick={handleSwitchAccount}
+              className="flex-1 rounded-xl py-3 text-sm font-bold bg-[#7047EB] hover:bg-[#5E3BD2] text-white shadow-md cursor-pointer"
+            >
+              Switch Account
+            </Button>
+          )}
         </div>
       </div>
     </div>
