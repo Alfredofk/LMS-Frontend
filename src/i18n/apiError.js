@@ -36,4 +36,55 @@ export function apiErrorMessage(err, t, overrides) {
   return err?.message || t('error.unknown');
 }
 
+/*
+  School registration: one code, four meanings — and the one place this app
+  reads the server's prose.
+
+  `POST /school-registrations` answers CONFLICT for four unrelated things: you
+  already have a registration under review, you already belong to a school, that
+  NPSN is taken, or you have submitted too often today. Only the last is
+  distinguishable without touching the words — it is the only one carrying
+  `details.attempts`.
+
+  Branching on prose is what `apiClient` tells callers never to do, and the rule
+  is right: prose is the part that gets reworded. It is broken here on purpose,
+  because the alternative is worse. The generic `error.conflict` says "an account
+  with this email already exists" — the registration meaning, wrong for all four
+  — and falling through to `err.message` would put a lone English sentence in the
+  middle of an Indonesian form.
+
+  The match is on a stable prefix of a string literal in
+  `school.service.js:169,171,186`, and an unrecognised sentence lands on
+  `reg.conflict.other`. So if those words change, this degrades to a vaguer
+  sentence rather than breaking.
+
+  The real fix belongs upstream: four conflicts deserve four codes. Delete this
+  the day they get them.
+*/
+const CONFLICT_BY_MESSAGE = [
+  ['already have a school registration', 'reg.conflict.pending'],
+  ['already belong to a school', 'reg.conflict.member'],
+  ['NPSN is already registered', 'reg.conflict.npsn'],
+];
+
+/**
+ * @param {{ code?: string, message?: string, details?: object }} err
+ * @param {(key: string, vars?: object) => string} t
+ */
+export function registrationErrorMessage(err, t) {
+  if (err?.code !== 'CONFLICT') return apiErrorMessage(err, t);
+
+  // The only conflict that identifies itself without prose.
+  if (err.details && !Array.isArray(err.details) && err.details.attempts !== undefined) {
+    return t('reg.conflict.tooMany', {
+      attempts: err.details.attempts,
+      hours: err.details.windowHours ?? 24,
+    });
+  }
+
+  const message = err.message ?? '';
+  const hit = CONFLICT_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  return t(hit ? hit[1] : 'reg.conflict.other');
+}
+
 export default apiErrorMessage;

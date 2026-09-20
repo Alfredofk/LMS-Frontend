@@ -8,6 +8,10 @@ import LandingPage from './views/Landing/LandingPage';
 import LoginPage from './views/Login/LoginPage';
 import SelectRolePage from './views/Role/SelectRolePage';
 import GetStartedPage from './views/Role/GetStartedPage';
+import AccountPage from './views/Account/AccountPage';
+import AccountChrome from './views/Account/AccountChrome';
+import AdminLayout from './layouts/AdminLayout';
+import AdminRegistrationsPage from './views/Admin/AdminRegistrationsPage';
 import VerifyEmailPage from './views/Verify/VerifyEmailPage';
 import ForgotPasswordPage from './views/Password/ForgotPasswordPage';
 import ResetPasswordPage from './views/Password/ResetPasswordPage';
@@ -75,6 +79,41 @@ function App() {
               </RequireAuth>
             }
           />
+
+          {/* Changing one's own name and password. RequireAuth, deliberately:
+              every role-guarded screen below is unreachable for a real account
+              until a school registration can be approved, and this one must not
+              be.
+
+              Its shell is chosen at render time rather than fixed here, because
+              the two people it serves are in different places — see
+              AccountChrome. Pinning it to MainLayout would shut out everybody
+              without a role; pinning it to AuthLayout threw everybody who has
+              one out of the app to change their own name. */}
+          <Route
+            element={
+              <RequireAuth>
+                <AccountChrome />
+              </RequireAuth>
+            }
+          >
+            <Route path="/account" element={<AccountPage />} />
+          </Route>
+
+          {/* The platform admin, who stands above every school. RequireAuth and
+              nothing more: PlatformAdmin is its own table rather than a
+              SchoolRole, so it is absent from constants/roles.js and
+              ProtectedRoute has nothing to compare. The server decides, and the
+              page renders its 403 as an answer rather than as a fault. */}
+          <Route
+            element={
+              <RequireAuth>
+                <AdminLayout />
+              </RequireAuth>
+            }
+          >
+            <Route path="/admin/school-registrations" element={<AdminRegistrationsPage />} />
+          </Route>
 
           <Route
             element={

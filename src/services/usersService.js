@@ -57,6 +57,25 @@ export const usersService = {
    * @throws {ApiError} UNAUTHORIZED when currentPassword is wrong
    */
   async changePassword({ currentPassword, newPassword }) {
+    /*
+      Refresh-and-retry stays ON here, and it is worth saying why, because
+      turning it off looks right and is not.
+
+      This endpoint answers 401 for two unrelated things, under one code: a wrong
+      `currentPassword`, and an access token that has expired. Those pull in
+      opposite directions.
+
+      Switching the retry off makes the wrong-password case tidy — no refresh
+      token rotated for a request that was never going to succeed. But an access
+      token only lives fifteen minutes, so somebody who opens this screen, is
+      interrupted, and comes back to type their correct password gets a 401 for
+      the *other* reason and is told their password is wrong. Leaving the retry
+      on costs one wasted rotation per typo; switching it off breaks a case that
+      happens on its own, without anybody making a mistake.
+
+      Which of the two happened is worked out at the call site, from whether the
+      tokens survived — see PasswordForm.
+    */
     const auth = await api.post('/users/me/change-password', {
       currentPassword,
       newPassword,

@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { 
+import { useT } from '../../i18n/LanguageContext';
+import { isNotBuiltYet } from '../../services/apiClient';
+import { headmasterService } from '../../services/headmasterService';
+import { buildSampleHeadmasterData } from './sampleHeadmasterData';
+import { SampleDataBanner } from './components/SampleDataNotice';
+import {
   Users, 
   GraduationCap, 
   BookOpen, 
@@ -15,6 +20,7 @@ import {
 
 export const HeadmasterDashboard = () => {
   const { showToast } = useOutletContext();
+  const { t, lang } = useT();
   
   // Navigation active tab: 'dashboard', 'teachers', 'students', 'courses', 'announcements'
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -22,6 +28,7 @@ export const HeadmasterDashboard = () => {
   // Stats
   const [stats, setStats] = useState({ totalTeachers: 0, totalStudents: 0, totalCourses: 0 });
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [isSampleStats, setIsSampleStats] = useState(false);
 
   // Lists
   const [teachers, setTeachers] = useState([]);
@@ -44,21 +51,36 @@ export const HeadmasterDashboard = () => {
   const [courseForm, setCourseForm] = useState({ code: '', name: '', description: '', grade_level: '', teacher_id: '' });
   const [announcementForm, setAnnouncementForm] = useState({ title: '', content: '' });
 
-  // 1. Fetch Overview Stats
+  /*
+    1. Overview stats.
+
+    This used to swallow its failure and leave the three cards showing the zeros
+    they were initialised with — so a 404 read as **0 teachers, 0 students,
+    0 subjects**, which is a confident statement about the school rather than an
+    admission that nothing was asked. Worse than an error message.
+
+    A 404 means the route is not written yet (the backend mounts four
+    namespaces; this is not one of them), so the cards show labelled sample
+    numbers. Any other failure keeps the old quiet behaviour, because the four
+    management tabs below still handle their own errors the old way and one
+    screen should not have two personalities.
+
+    All three numbers are countable from tables that already exist, so this is
+    among the cheapest endpoints for the backend to deliver.
+  */
   const fetchStats = async () => {
+    setIsLoadingStats(true);
     try {
-      setIsLoadingStats(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/headmaster/stats', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
-      setIsLoadingStats(false);
+      setStats(await headmasterService.stats());
+      setIsSampleStats(false);
     } catch (err) {
-      console.error(err);
+      if (isNotBuiltYet(err)) {
+        setStats(buildSampleHeadmasterData().stats);
+        setIsSampleStats(true);
+      } else {
+        console.error(err);
+      }
+    } finally {
       setIsLoadingStats(false);
     }
   };
@@ -114,7 +136,7 @@ export const HeadmasterDashboard = () => {
         body: JSON.stringify(teacherForm)
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Gagal menambahkan guru.');
+      if (!response.ok) throw new Error(data.error || t('principal.teachers.addFailed'));
 
       showToast(data.message, 'success');
       setTeacherForm({ name: '', email: '', password: '', nip: '' });
@@ -127,7 +149,7 @@ export const HeadmasterDashboard = () => {
   };
 
   const handleDeleteTeacher = async (id, name) => {
-    if (!window.confirm(`Apakah Anda yakin ingin menghapus akun guru "${name}"?`)) return;
+    if (!window.confirm(t('principal.teachers.confirmDelete', { name }))) return;
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/headmaster/teachers/${id}`, {
@@ -135,7 +157,7 @@ export const HeadmasterDashboard = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Gagal menghapus guru.');
+      if (!response.ok) throw new Error(data.error || t('principal.teachers.deleteFailed'));
 
       showToast(data.message, 'success');
       fetchStats();
@@ -156,7 +178,7 @@ export const HeadmasterDashboard = () => {
         body: JSON.stringify(studentForm)
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Gagal menambahkan siswa.');
+      if (!response.ok) throw new Error(data.error || t('principal.students.addFailed'));
 
       showToast(data.message, 'success');
       setStudentForm({ name: '', email: '', password: '', nis: '' });
@@ -169,7 +191,7 @@ export const HeadmasterDashboard = () => {
   };
 
   const handleDeleteStudent = async (id, name) => {
-    if (!window.confirm(`Apakah Anda yakin ingin menghapus akun siswa "${name}"?`)) return;
+    if (!window.confirm(t('principal.students.confirmDelete', { name }))) return;
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/headmaster/students/${id}`, {
@@ -177,7 +199,7 @@ export const HeadmasterDashboard = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Gagal menghapus siswa.');
+      if (!response.ok) throw new Error(data.error || t('principal.students.deleteFailed'));
 
       showToast(data.message, 'success');
       fetchStats();
@@ -198,7 +220,7 @@ export const HeadmasterDashboard = () => {
         body: JSON.stringify(courseForm)
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Gagal menambahkan mata pelajaran.');
+      if (!response.ok) throw new Error(data.error || t('principal.courses.addFailed'));
 
       showToast(data.message, 'success');
       setCourseForm({ code: '', name: '', description: '', grade_level: '', teacher_id: '' });
@@ -211,7 +233,7 @@ export const HeadmasterDashboard = () => {
   };
 
   const handleDeleteCourse = async (id, name) => {
-    if (!window.confirm(`Apakah Anda yakin ingin menghapus mata pelajaran "${name}"?`)) return;
+    if (!window.confirm(t('principal.courses.confirmDelete', { name }))) return;
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/courses/${id}`, {
@@ -219,7 +241,7 @@ export const HeadmasterDashboard = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Gagal menghapus mata pelajaran.');
+      if (!response.ok) throw new Error(data.error || t('principal.courses.deleteFailed'));
 
       showToast(data.message, 'success');
       fetchStats();
@@ -240,7 +262,7 @@ export const HeadmasterDashboard = () => {
         body: JSON.stringify(announcementForm)
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Gagal menerbitkan pengumuman.');
+      if (!response.ok) throw new Error(data.error || t('principal.ann.addFailed'));
 
       showToast(data.message, 'success');
       setAnnouncementForm({ title: '', content: '' });
@@ -252,7 +274,7 @@ export const HeadmasterDashboard = () => {
   };
 
   const handleDeleteAnnouncement = async (id, title) => {
-    if (!window.confirm(`Apakah Anda yakin ingin menghapus pengumuman "${title}"?`)) return;
+    if (!window.confirm(t('principal.ann.confirmDelete', { name: title }))) return;
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/announcements/${id}`, {
@@ -260,7 +282,7 @@ export const HeadmasterDashboard = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Gagal menghapus pengumuman.');
+      if (!response.ok) throw new Error(data.error || t('principal.ann.deleteFailed'));
 
       showToast(data.message, 'success');
       fetchTabData();
@@ -275,24 +297,24 @@ export const HeadmasterDashboard = () => {
       {/* 1. Header welcome */}
       <div className="space-y-1 select-none">
         <span className="px-2.5 py-1 bg-purple-100 text-brand text-xs font-extrabold rounded-lg uppercase">
-          Dasbor Administrator
+          {t('dash.principal.badge')}
         </span>
         <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight mt-2">
-          Sistem Tata Kelola Sekolah
+          {t('dash.principal.title')}
         </h1>
         <p className="text-sm text-slate-500 font-medium">
-          Daftarkan akun staf pengajar, siswa, dan atur pemetaan kelas serta mata pelajaran akademik sekolah secara digital.
+          {t('dash.principal.subtitle')}
         </p>
       </div>
 
       {/* 2. Navigation tabs row */}
       <div className="border-b border-slate-100 flex gap-6 select-none">
         {[
-          { id: 'dashboard', label: 'Dasbor Utama', icon: School },
-          { id: 'teachers', label: 'Kelola Guru', icon: Users },
-          { id: 'students', label: 'Kelola Siswa', icon: GraduationCap },
-          { id: 'courses', label: 'Kelola Kelas & Pelajaran', icon: BookOpen },
-          { id: 'announcements', label: 'Kelola Pengumuman', icon: Megaphone }
+          { id: 'dashboard', label: t('dash.principal.tab.dashboard'), icon: School },
+          { id: 'teachers', label: t('dash.principal.tab.teachers'), icon: Users },
+          { id: 'students', label: t('dash.principal.tab.students'), icon: GraduationCap },
+          { id: 'courses', label: t('dash.principal.tab.courses'), icon: BookOpen },
+          { id: 'announcements', label: t('dash.principal.tab.announcements'), icon: Megaphone }
         ].map((tab) => {
           const TabIcon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -320,13 +342,14 @@ export const HeadmasterDashboard = () => {
         {/* Tab 1: Dashboard overview */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
+            {isSampleStats && <SampleDataBanner />}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 select-none">
               <div 
                 onClick={() => setActiveTab('teachers')} 
                 className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-slate-200 transition-all cursor-pointer flex items-center justify-between"
               >
                 <div>
-                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Total Staf Guru</p>
+                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('dash.principal.stat.teachers')}</p>
                   <p className="text-3xl font-extrabold text-slate-800 mt-1">{stats.totalTeachers}</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-purple-50 text-brand flex items-center justify-center">
@@ -339,7 +362,7 @@ export const HeadmasterDashboard = () => {
                 className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-slate-200 transition-all cursor-pointer flex items-center justify-between"
               >
                 <div>
-                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Total Siswa Terdaftar</p>
+                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('dash.principal.stat.students')}</p>
                   <p className="text-3xl font-extrabold text-slate-800 mt-1">{stats.totalStudents}</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -352,7 +375,7 @@ export const HeadmasterDashboard = () => {
                 className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-slate-200 transition-all cursor-pointer flex items-center justify-between"
               >
                 <div>
-                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Mata Pelajaran Aktif</p>
+                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('dash.principal.stat.courses')}</p>
                   <p className="text-3xl font-extrabold text-slate-800 mt-1">{stats.totalCourses}</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -366,9 +389,9 @@ export const HeadmasterDashboard = () => {
                 🏢
               </div>
               <div>
-                <h4 className="text-sm font-extrabold text-slate-800">Panduan Pengelolaan Multi-Tenant SaaS</h4>
+                <h4 className="text-sm font-extrabold text-slate-800">{t('dash.principal.guide.title')}</h4>
                 <p className="text-xs text-slate-400 font-semibold mt-1 leading-relaxed">
-                  Sebagai Kepala Sekolah (Tenant Administrator), Anda bertanggung jawab untuk mendaftarkan akun guru dan murid sekolah Anda. Setelah didaftarkan, silakan tambahkan Kelas & Mata Pelajaran baru dan tunjuk guru yang bersangkutan untuk mengaktifkan kelas virtual.
+                  {t('dash.principal.guide.body')}
                 </p>
               </div>
             </div>
@@ -379,13 +402,13 @@ export const HeadmasterDashboard = () => {
         {activeTab === 'teachers' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center select-none">
-              <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Daftar Tenaga Pendidik</h3>
+              <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.teachers.title')}</h3>
               <button 
                 onClick={() => setIsTeacherModalOpen(true)}
                 className="px-4 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
               >
                 <UserPlus className="w-4 h-4" />
-                Tambah Guru Baru
+                {t('principal.teachers.add')}
               </button>
             </div>
 
@@ -396,11 +419,11 @@ export const HeadmasterDashboard = () => {
                 <table className="w-full text-xs font-medium text-slate-600">
                   <thead>
                     <tr className="border-b border-slate-100 text-slate-400 font-extrabold text-left">
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">Nama Lengkap</th>
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">NIP</th>
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">Email</th>
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">Username</th>
-                      <th className="pb-3 text-right font-extrabold text-[10px] uppercase">Aksi</th>
+                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.th.fullName')}</th>
+                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.teachers.th.nip')}</th>
+                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.th.email')}</th>
+                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.teachers.th.username')}</th>
+                      <th className="pb-3 text-right font-extrabold text-[10px] uppercase">{t('principal.th.action')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
@@ -414,7 +437,7 @@ export const HeadmasterDashboard = () => {
                           <button
                             onClick={() => handleDeleteTeacher(row.id, row.name)}
                             className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
-                            title="Hapus Akun"
+                            title={t('principal.teachers.delete')}
                           >
                             <Trash2 className="w-4.5 h-4.5" />
                           </button>
@@ -432,13 +455,13 @@ export const HeadmasterDashboard = () => {
         {activeTab === 'students' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center select-none">
-              <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Daftar Siswa Terdaftar</h3>
+              <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.students.title')}</h3>
               <button 
                 onClick={() => setIsStudentModalOpen(true)}
                 className="px-4 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
               >
                 <UserPlus className="w-4 h-4" />
-                Tambah Siswa Baru
+                {t('principal.students.add')}
               </button>
             </div>
 
@@ -449,11 +472,11 @@ export const HeadmasterDashboard = () => {
                 <table className="w-full text-xs font-medium text-slate-600">
                   <thead>
                     <tr className="border-b border-slate-100 text-slate-400 font-extrabold text-left">
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">Nama Lengkap</th>
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">NIS</th>
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">Email</th>
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">Level / XP</th>
-                      <th className="pb-3 text-right font-extrabold text-[10px] uppercase">Aksi</th>
+                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.th.fullName')}</th>
+                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.students.th.nis')}</th>
+                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.th.email')}</th>
+                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.students.th.level')}</th>
+                      <th className="pb-3 text-right font-extrabold text-[10px] uppercase">{t('principal.th.action')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
@@ -469,7 +492,7 @@ export const HeadmasterDashboard = () => {
                           <button
                             onClick={() => handleDeleteStudent(row.id, row.name)}
                             className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
-                            title="Hapus Akun"
+                            title={t('principal.students.delete')}
                           >
                             <Trash2 className="w-4.5 h-4.5" />
                           </button>
@@ -487,13 +510,13 @@ export const HeadmasterDashboard = () => {
         {activeTab === 'courses' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center select-none">
-              <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Pemetaan Mata Pelajaran</h3>
+              <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.courses.title')}</h3>
               <button 
                 onClick={() => setIsCourseModalOpen(true)}
                 className="px-4 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
               >
                 <PlusCircle className="w-4 h-4" />
-                Tambah Kelas Pelajaran
+                {t('principal.courses.add')}
               </button>
             </div>
 
@@ -504,11 +527,11 @@ export const HeadmasterDashboard = () => {
                 <table className="w-full text-xs font-medium text-slate-600">
                   <thead>
                     <tr className="border-b border-slate-100 text-slate-400 font-extrabold text-left">
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">Kode Mapel</th>
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">Nama Pelajaran</th>
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">Tingkat Kelas</th>
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">Guru Pengampu</th>
-                      <th className="pb-3 text-right font-extrabold text-[10px] uppercase">Aksi</th>
+                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.courses.th.code')}</th>
+                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.courses.th.name')}</th>
+                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.courses.th.grade')}</th>
+                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.courses.th.teacher')}</th>
+                      <th className="pb-3 text-right font-extrabold text-[10px] uppercase">{t('principal.th.action')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
@@ -518,17 +541,17 @@ export const HeadmasterDashboard = () => {
                         <td className="py-3.5 font-extrabold text-slate-800">{row.name}</td>
                         <td className="py-3.5">
                           <span className="px-2 py-0.5 rounded bg-purple-50 text-brand text-[10px] font-extrabold">
-                            {row.grade_level || 'Umum'}
+                            {row.grade_level || t('principal.courses.noGrade')}
                           </span>
                         </td>
                         <td className="py-3.5 text-slate-500 font-semibold">
-                          {teachers.find(t => t.id === row.teacher_id)?.name || 'Belum Ditugaskan'}
+                          {teachers.find((guru) => guru.id === row.teacher_id)?.name || t('principal.courses.noTeacher')}
                         </td>
                         <td className="py-3.5 text-right">
                           <button
                             onClick={() => handleDeleteCourse(row.id, row.name)}
                             className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
-                            title="Hapus Mapel"
+                            title={t('principal.courses.delete')}
                           >
                             <Trash2 className="w-4.5 h-4.5" />
                           </button>
@@ -545,13 +568,13 @@ export const HeadmasterDashboard = () => {
         {activeTab === 'announcements' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center select-none">
-              <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Daftar Pengumuman Sekolah</h3>
+              <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.ann.title')}</h3>
               <button 
                 onClick={() => setIsAnnouncementModalOpen(true)}
                 className="px-4 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
               >
                 <Plus className="w-4 h-4" />
-                Tambah Pengumuman
+                {t('principal.ann.add')}
               </button>
             </div>
 
@@ -560,16 +583,16 @@ export const HeadmasterDashboard = () => {
             ) : (
               <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm overflow-x-auto">
                 {announcements.length === 0 ? (
-                  <p className="text-xs text-slate-400 font-bold italic py-4 text-center">Belum ada pengumuman sekolah terbit.</p>
+                  <p className="text-xs text-slate-400 font-bold italic py-4 text-center">{t('principal.ann.empty')}</p>
                 ) : (
                   <table className="w-full text-xs font-medium text-slate-600">
                     <thead>
                       <tr className="border-b border-slate-100 text-slate-400 font-extrabold text-left">
-                        <th className="pb-3 font-extrabold text-[10px] uppercase">Judul Pengumuman</th>
-                        <th className="pb-3 font-extrabold text-[10px] uppercase">Isi Pengumuman</th>
-                        <th className="pb-3 font-extrabold text-[10px] uppercase">Penerbit</th>
-                        <th className="pb-3 font-extrabold text-[10px] uppercase">Tanggal Terbit</th>
-                        <th className="pb-3 text-right font-extrabold text-[10px] uppercase">Aksi</th>
+                        <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.ann.th.title')}</th>
+                        <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.ann.th.content')}</th>
+                        <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.ann.th.author')}</th>
+                        <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.ann.th.date')}</th>
+                        <th className="pb-3 text-right font-extrabold text-[10px] uppercase">{t('principal.th.action')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
@@ -577,15 +600,15 @@ export const HeadmasterDashboard = () => {
                         <tr key={row.id} className="hover:bg-slate-50/20 transition-colors">
                           <td className="py-3.5 font-extrabold text-slate-900 pr-4">{row.title}</td>
                           <td className="py-3.5 text-slate-500 font-semibold max-w-sm truncate pr-4">{row.content}</td>
-                          <td className="py-3.5 text-slate-500 font-bold">{row.author_name || 'Kepala Sekolah'}</td>
+                          <td className="py-3.5 text-slate-500 font-bold">{row.author_name || t('principal.ann.defaultAuthor')}</td>
                           <td className="py-3.5 text-slate-400 font-bold">
-                            {new Date(row.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            {new Date(row.created_at).toLocaleDateString(lang === 'en' ? 'en-GB' : 'id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
                           </td>
                           <td className="py-3.5 text-right">
                             <button
                               onClick={() => handleDeleteAnnouncement(row.id, row.title)}
                               className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
-                              title="Hapus Pengumuman"
+                              title={t('principal.ann.delete')}
                             >
                               <Trash2 className="w-4.5 h-4.5" />
                             </button>
@@ -607,7 +630,7 @@ export const HeadmasterDashboard = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <form onSubmit={handleCreateTeacher} className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center select-none">
-              <h3 className="text-sm font-extrabold text-slate-800">Tambah Akun Guru Baru</h3>
+              <h3 className="text-sm font-extrabold text-slate-800">{t('principal.modal.teacher.title')}</h3>
               <button type="button" onClick={() => setIsTeacherModalOpen(false)} className="p-1 hover:bg-slate-50 text-slate-400 hover:text-slate-900 rounded-lg cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
@@ -615,11 +638,11 @@ export const HeadmasterDashboard = () => {
             
             <div className="p-6 space-y-4 text-left">
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Nama Lengkap Guru</label>
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.teacher.name')}</label>
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: Budi Santoso, S.Pd."
+                  placeholder={t('principal.modal.teacher.name.hint')}
                   value={teacherForm.name}
                   onChange={(e) => setTeacherForm(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
@@ -627,11 +650,11 @@ export const HeadmasterDashboard = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Nomor Induk Pegawai (NIP)</label>
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.teacher.nip')}</label>
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: 197805122003122002"
+                  placeholder={t('principal.modal.teacher.nip.hint')}
                   value={teacherForm.nip}
                   onChange={(e) => setTeacherForm(prev => ({ ...prev, nip: e.target.value }))}
                   className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
@@ -639,11 +662,11 @@ export const HeadmasterDashboard = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Email Dinas</label>
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.teacher.email')}</label>
                 <input
                   type="email"
                   required
-                  placeholder="Contoh: budi.guru@sekolah.sch.id"
+                  placeholder={t('principal.modal.teacher.email.hint')}
                   value={teacherForm.email}
                   onChange={(e) => setTeacherForm(prev => ({ ...prev, email: e.target.value }))}
                   className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
@@ -651,12 +674,12 @@ export const HeadmasterDashboard = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Password Akun</label>
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.password')}</label>
                 <input
                   type="password"
                   required
                   minLength={6}
-                  placeholder="Minimal 6 karakter"
+                  placeholder={t('principal.modal.password.hint')}
                   value={teacherForm.password}
                   onChange={(e) => setTeacherForm(prev => ({ ...prev, password: e.target.value }))}
                   className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
@@ -665,8 +688,8 @@ export const HeadmasterDashboard = () => {
             </div>
 
             <div className="p-6 border-t border-slate-100 flex justify-end gap-2 select-none">
-              <button type="button" onClick={() => setIsTeacherModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-lg cursor-pointer">Batal</button>
-              <button type="submit" className="px-5 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl cursor-pointer">Daftarkan Guru</button>
+              <button type="button" onClick={() => setIsTeacherModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-lg cursor-pointer">{t('principal.common.cancel')}</button>
+              <button type="submit" className="px-5 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl cursor-pointer">{t('principal.modal.teacher.submit')}</button>
             </div>
           </form>
         </div>
@@ -677,7 +700,7 @@ export const HeadmasterDashboard = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <form onSubmit={handleCreateStudent} className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center select-none">
-              <h3 className="text-sm font-extrabold text-slate-800">Tambah Akun Siswa Baru</h3>
+              <h3 className="text-sm font-extrabold text-slate-800">{t('principal.modal.student.title')}</h3>
               <button type="button" onClick={() => setIsStudentModalOpen(false)} className="p-1 hover:bg-slate-50 text-slate-400 hover:text-slate-900 rounded-lg cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
@@ -685,11 +708,11 @@ export const HeadmasterDashboard = () => {
             
             <div className="p-6 space-y-4 text-left">
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Nama Lengkap Siswa</label>
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.student.name')}</label>
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: Alfredo"
+                  placeholder={t('principal.modal.student.name.hint')}
                   value={studentForm.name}
                   onChange={(e) => setStudentForm(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
@@ -697,11 +720,11 @@ export const HeadmasterDashboard = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Nomor Induk Siswa (NIS)</label>
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.student.nis')}</label>
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: NIS-10029"
+                  placeholder={t('principal.modal.student.nis.hint')}
                   value={studentForm.nis}
                   onChange={(e) => setStudentForm(prev => ({ ...prev, nis: e.target.value }))}
                   className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
@@ -709,11 +732,11 @@ export const HeadmasterDashboard = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Email Siswa</label>
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.student.email')}</label>
                 <input
                   type="email"
                   required
-                  placeholder="Contoh: alfredo.siswa@sekolah.sch.id"
+                  placeholder={t('principal.modal.student.email.hint')}
                   value={studentForm.email}
                   onChange={(e) => setStudentForm(prev => ({ ...prev, email: e.target.value }))}
                   className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
@@ -721,12 +744,12 @@ export const HeadmasterDashboard = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Password Akun</label>
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.password')}</label>
                 <input
                   type="password"
                   required
                   minLength={6}
-                  placeholder="Minimal 6 karakter"
+                  placeholder={t('principal.modal.password.hint')}
                   value={studentForm.password}
                   onChange={(e) => setStudentForm(prev => ({ ...prev, password: e.target.value }))}
                   className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
@@ -735,8 +758,8 @@ export const HeadmasterDashboard = () => {
             </div>
 
             <div className="p-6 border-t border-slate-100 flex justify-end gap-2 select-none">
-              <button type="button" onClick={() => setIsStudentModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-lg cursor-pointer">Batal</button>
-              <button type="submit" className="px-5 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl cursor-pointer">Daftarkan Siswa</button>
+              <button type="button" onClick={() => setIsStudentModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-lg cursor-pointer">{t('principal.common.cancel')}</button>
+              <button type="submit" className="px-5 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl cursor-pointer">{t('principal.modal.student.submit')}</button>
             </div>
           </form>
         </div>
@@ -747,7 +770,7 @@ export const HeadmasterDashboard = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <form onSubmit={handleCreateCourse} className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center select-none">
-              <h3 className="text-sm font-extrabold text-slate-800">Tambah Kelas & Pelajaran</h3>
+              <h3 className="text-sm font-extrabold text-slate-800">{t('principal.modal.course.title')}</h3>
               <button type="button" onClick={() => setIsCourseModalOpen(false)} className="p-1 hover:bg-slate-50 text-slate-400 hover:text-slate-900 rounded-lg cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
@@ -755,11 +778,11 @@ export const HeadmasterDashboard = () => {
             
             <div className="p-6 space-y-4 text-left">
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Kode Mata Pelajaran</label>
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.course.code')}</label>
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: MAT-XII-L"
+                  placeholder={t('principal.modal.course.code.hint')}
                   value={courseForm.code}
                   onChange={(e) => setCourseForm(prev => ({ ...prev, code: e.target.value }))}
                   className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
@@ -767,11 +790,11 @@ export const HeadmasterDashboard = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Nama Mata Pelajaran</label>
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.course.name')}</label>
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: Matematika Lanjut"
+                  placeholder={t('principal.modal.course.name.hint')}
                   value={courseForm.name}
                   onChange={(e) => setCourseForm(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
@@ -779,11 +802,11 @@ export const HeadmasterDashboard = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Tingkat Kelas</label>
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.course.grade')}</label>
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: XII IPA 2"
+                  placeholder={t('principal.modal.course.grade.hint')}
                   value={courseForm.grade_level}
                   onChange={(e) => setCourseForm(prev => ({ ...prev, grade_level: e.target.value }))}
                   className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
@@ -791,24 +814,24 @@ export const HeadmasterDashboard = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Guru Pengampu</label>
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.course.teacher')}</label>
                 <select
                   required
                   value={courseForm.teacher_id}
                   onChange={(e) => setCourseForm(prev => ({ ...prev, teacher_id: e.target.value }))}
                   className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors bg-white cursor-pointer"
                 >
-                  <option value="">-- Pilih Guru --</option>
-                  {teachers.map(t => (
-                    <option key={t.id} value={t.id}>{t.name} (NIP {t.nip})</option>
+                  <option value="">{t('principal.modal.course.teacher.none')}</option>
+                  {teachers.map((guru) => (
+                    <option key={guru.id} value={guru.id}>{guru.name} (NIP {guru.nip})</option>
                   ))}
                 </select>
               </div>
             </div>
 
             <div className="p-6 border-t border-slate-100 flex justify-end gap-2 select-none">
-              <button type="button" onClick={() => setIsCourseModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-lg cursor-pointer">Batal</button>
-              <button type="submit" className="px-5 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl cursor-pointer">Buat Kelas Pelajaran</button>
+              <button type="button" onClick={() => setIsCourseModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-lg cursor-pointer">{t('principal.common.cancel')}</button>
+              <button type="submit" className="px-5 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl cursor-pointer">{t('principal.modal.course.submit')}</button>
             </div>
           </form>
         </div>
@@ -819,7 +842,7 @@ export const HeadmasterDashboard = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <form onSubmit={handleCreateAnnouncement} className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center select-none">
-              <h3 className="text-sm font-extrabold text-slate-900">Terbitkan Pengumuman Sekolah</h3>
+              <h3 className="text-sm font-extrabold text-slate-900">{t('principal.modal.ann.title')}</h3>
               <button type="button" onClick={() => setIsAnnouncementModalOpen(false)} className="p-1 hover:bg-slate-50 text-slate-400 hover:text-slate-900 rounded-lg cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
@@ -827,11 +850,11 @@ export const HeadmasterDashboard = () => {
             
             <div className="p-6 space-y-4 text-left">
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Judul Pengumuman</label>
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.ann.heading')}</label>
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: Jadwal Ujian Akhir Semester"
+                  placeholder={t('principal.modal.ann.heading.hint')}
                   value={announcementForm.title}
                   onChange={(e) => setAnnouncementForm(prev => ({ ...prev, title: e.target.value }))}
                   className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
@@ -839,11 +862,11 @@ export const HeadmasterDashboard = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Isi Pengumuman / Maklumat</label>
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.ann.body')}</label>
                 <textarea
                   required
                   rows="5"
-                  placeholder="Tuliskan maklumat pengumuman di sini..."
+                  placeholder={t('principal.modal.ann.body.hint')}
                   value={announcementForm.content}
                   onChange={(e) => setAnnouncementForm(prev => ({ ...prev, content: e.target.value }))}
                   className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors resize-none"
@@ -852,8 +875,8 @@ export const HeadmasterDashboard = () => {
             </div>
 
             <div className="p-6 border-t border-slate-100 flex justify-end gap-2 select-none">
-              <button type="button" onClick={() => setIsAnnouncementModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-lg cursor-pointer">Batal</button>
-              <button type="submit" className="px-5 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl cursor-pointer">Terbitkan Pengumuman</button>
+              <button type="button" onClick={() => setIsAnnouncementModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-lg cursor-pointer">{t('principal.common.cancel')}</button>
+              <button type="submit" className="px-5 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl cursor-pointer">{t('principal.modal.ann.submit')}</button>
             </div>
           </form>
         </div>

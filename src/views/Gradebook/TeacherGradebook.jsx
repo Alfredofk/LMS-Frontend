@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useOutletContext } from 'react-router-dom';
 import { Save, Filter, AlertCircle, CheckCircle, GraduationCap, BookOpen, Inbox, Download } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import NotBuiltYet from '../../components/ui/NotBuiltYet';
+import { isNotBuiltYet } from '../../services/apiClient';
+import { coursesService } from '../../services/coursesService';
+import { gradebookService } from '../../services/gradebookService';
 
 export const TeacherGradebook = () => {
   const { showToast } = useOutletContext();
-  const navigate = useNavigate();
 
   // 1. Core State Management
   const [courses, setCourses] = useState([]);
@@ -17,6 +20,7 @@ export const TeacherGradebook = () => {
   
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [notBuilt, setNotBuilt] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Protests states
@@ -29,40 +33,25 @@ export const TeacherGradebook = () => {
   useEffect(() => {
     let isMounted = true;
     
+    /* The 401 branch that used to be here signed out people whose sessions were
+       still alive — see the note in TeacherCourses.jsx. */
     const fetchCourses = async () => {
+      setIsLoading(true);
+
       try {
-        setIsLoading(true);
-        const token = localStorage.getItem('token');
-        const response = await fetch('/api/courses', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        const data = await coursesService.list();
+        if (!isMounted) return;
 
-        if (!response.ok) {
-          if (response.status === 401) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('lms_user');
-            navigate('/login');
-            return;
-          }
-          throw new Error('Gagal mengambil daftar mata pelajaran.');
-        }
-
-        const data = await response.json();
-        if (isMounted) {
-          setCourses(data);
-          if (data.length > 0) {
-            setSelectedCourseId(data[0].id);
-          } else {
-            setIsLoading(false);
-          }
-        }
+        setCourses(data);
+        /* Loading stays on only when a course was picked: effect 3 below owns
+           the rest of that load and clears it. */
+        if (data.length > 0) setSelectedCourseId(data[0].id);
+        else setIsLoading(false);
       } catch (err) {
-        if (isMounted) {
-          setError(err.message);
-          setIsLoading(false);
-        }
+        if (!isMounted) return;
+        if (isNotBuiltYet(err)) setNotBuilt(true);
+        else setError(err.message);
+        setIsLoading(false);
       }
     };
 
@@ -70,22 +59,17 @@ export const TeacherGradebook = () => {
     return () => {
       isMounted = false;
     };
-  }, [navigate]);
+  }, []);
 
-  // Load Protests list
+  /* Load the appeals list. Stays quiet on failure, as it did before: this is a
+     badge count beside a button, not the page. */
   const fetchProtests = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/protests/teacher', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setProtests(data);
-        setProtestsCount(data.filter(p => p.status === 'Pending').length);
-      }
+      const data = await gradebookService.protests.forTeacher();
+      setProtests(data);
+      setProtestsCount(data.filter((p) => p.status === 'Pending').length);
     } catch (err) {
-      console.error('Fetch protests failed:', err);
+      if (!isNotBuiltYet(err)) console.error('Fetch protests failed:', err);
     }
   };
 
@@ -99,41 +83,29 @@ export const TeacherGradebook = () => {
 
     let isMounted = true;
     const fetchGradebook = async () => {
+      setIsLoading(true);
+      setError(null);
+      setPendingGrades([]); // reset pending changes
+
       try {
-        setIsLoading(true);
-        setError(null);
-        setPendingGrades([]); // reset pending changes
-        
-        const token = localStorage.getItem('token');
-        const response = await fetch(`/api/gradebook/${selectedCourseId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+        const data = await gradebookService.forCourse(selectedCourseId);
+        if (!isMounted) return;
+
+        setAssignments(data.assignments);
+        setStudents(data.students);
+
+        // Map initial weights
+        const initialWeights = {};
+        data.assignments.forEach((asm) => {
+          initialWeights[asm.id] = asm.weight || 0;
         });
-
-        if (!response.ok) {
-          throw new Error('Gagal memuat data buku nilai dari server.');
-        }
-
-        const data = await response.json();
-        if (isMounted) {
-          setAssignments(data.assignments);
-          setStudents(data.students);
-          
-          // Map initial weights
-          const initialWeights = {};
-          data.assignments.forEach(asm => {
-            initialWeights[asm.id] = asm.weight || 0;
-          });
-          setWeights(initialWeights);
-          
-          setIsLoading(false);
-        }
+        setWeights(initialWeights);
       } catch (err) {
-        if (isMounted) {
-          setError(err.message);
-          setIsLoading(false);
-        }
+        if (!isMounted) return;
+        if (isNotBuiltYet(err)) setNotBuilt(true);
+        else setError(err.message || 'Gagal memuat data buku nilai dari server.');
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
     };
 
@@ -239,6 +211,10 @@ export const TeacherGradebook = () => {
   };
 
   // Review protest beslut handler
+  /* Still a raw fetch, and still reading the wrong storage for a session
+     without "Remember me". Deferred for the same reason as the handlers in
+     CourseDetail: no 401 branch, a 404 endpoint, and no way to reach it.
+     `gradebookService.protests.review` and `.save` are waiting. */
   const handleReviewProtest = async (protestId, decision, feedback) => {
     try {
       const token = localStorage.getItem('token');
@@ -345,6 +321,10 @@ export const TeacherGradebook = () => {
       </div>
     );
   }
+
+  /* Neither the class list nor the marking sheet has a route yet. A grid of
+     empty cells would invite somebody to type marks into nothing. */
+  if (notBuilt) return <NotBuiltYet />;
 
   if (error) {
     return (

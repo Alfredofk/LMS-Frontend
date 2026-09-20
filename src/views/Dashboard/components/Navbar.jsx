@@ -36,6 +36,10 @@ const TITLES = {
   '/attendance': { key: 'shell.attendance', back: true },
   '/announcements': { key: 'shell.announcement', back: true },
   '/profile': { key: 'shell.myProfile' },
+  /* No `back`: the button that flag renders goes to /dashboard, hardcoded, which
+     is the wrong dashboard for a teacher and a principal. This page is reached
+     from the sidebar, which is still on screen. */
+  '/account': { key: 'account.title' },
 
   '/teacher/dashboard': { key: 'shell.title.teacherDashboard' },
   '/teacher/courses': { key: 'shell.myCourses' },

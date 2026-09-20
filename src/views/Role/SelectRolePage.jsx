@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 
 import AuthLayout from '../../layouts/AuthLayout';
 import { useAuth } from '../../context/AuthContext';
@@ -14,6 +14,9 @@ import {
 } from '../../constants/roles';
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage } from '../../i18n/apiError';
+import { schoolService } from '../../services/schoolService';
+import { authService } from '../../services/authService';
+import { adminService } from '../../services/adminService';
 
 /*
   The one screen between signing in and working.
@@ -79,6 +82,40 @@ const CARD_NOTE_KEY = {
   REJECTED: 'selectRole.note.rejected',
 };
 
+/*
+  What a card knows about itself, including the one thing memberships cannot say.
+
+  Founding a school is a SchoolRegistration, not a MembershipRole, so
+  `statusOf` — which reads `membership.roles` — sees nothing at all while one is
+  under review, and the Organization card would offer itself as though the
+  applicant had never applied.
+
+  The registration's three statuses map onto the same states the other two cards
+  already use, so every badge, note and lock below is reused rather than
+  duplicated. APPROVED is deliberately absent: by then the membership carries
+  PRINCIPAL and `statusOf` is right again — getting the session to that point is
+  what the refresh in `check()` is for.
+*/
+const REGISTRATION_STATE = {
+  PENDING: { state: 'PENDING', noteKey: 'reg.note.pending' },
+  REJECTED: { state: 'REJECTED', noteKey: null },
+};
+
+const cardStatusOf = (membership, role, registration) => {
+  if (role === ROLES.PRINCIPAL && registration) {
+    const mapped = REGISTRATION_STATE[registration.status];
+    if (mapped) {
+      return {
+        state: mapped.state,
+        reason: registration.rejectionReason ?? null,
+        noteKey: mapped.noteKey,
+      };
+    }
+  }
+
+  return { ...statusOf(membership, role), noteKey: null };
+};
+
 const STATUS_BADGE = {
   PENDING: 'bg-amber-50 text-amber-600',
   REJECTED: 'bg-red-50 text-red-600',
@@ -109,7 +146,8 @@ const defaultChoice = (membership, held) =>
 
 export const SelectRolePage = () => {
   const navigate = useNavigate();
-  const { user, membership, roles, activeRole, refreshMe, selectRole, logout } = useAuth();
+  const { user, membership, roles, activeRole, isPlatformAdmin, refreshMe, selectRole, logout } =
+    useAuth();
   const { t } = useT();
 
   /*
@@ -119,8 +157,22 @@ export const SelectRolePage = () => {
   */
   const [selected, setSelected] = useState(() => activeRole ?? defaultChoice(membership, roles));
   const [isLoading, setIsLoading] = useState(true);
+  /*
+    Separate from `isLoading`, and only ever set once.
+
+    The cards used to paint immediately from the cached membership while the
+    first check was still in flight. For a platform admin that meant seeing
+    three roles they cannot hold, and then being moved away — the flash. But it
+    was wrong for everybody: the whole reason `check()` exists is that the
+    cached membership can be out of date, so those first cards were an answer
+    given before the question had been asked.
+
+    "Check again" must not blank the page, so this stays true afterwards.
+  */
+  const [hasChecked, setHasChecked] = useState(false);
   const [toast, setToast] = useState(null);
   const [isSignOutOpen, setIsSignOutOpen] = useState(false);
+  const [registration, setRegistration] = useState(null);
 
   /*
     Re-read on arrival, and again whenever asked.
@@ -133,7 +185,73 @@ export const SelectRolePage = () => {
     async ({ announce = false } = {}) => {
       setIsLoading(true);
       try {
-        const session = await refreshMe();
+        let session = await refreshMe();
+
+        /*
+          A separate surface: /users/me reports memberships and knows nothing
+          about registrations. A failure here is not fatal — the roles above are
+          what this screen is mainly for — so it is swallowed rather than
+          replacing them with an error.
+        */
+        /*
+          Both at once. The registration and the platform-admin probe are
+          independent, and running them in sequence made the pause before the
+          redirect twice as long as it needed to be.
+        */
+        const noRoles = session.roles.length === 0;
+        const [mine, adminProbe] = await Promise.allSettled([
+          schoolService.listMyRegistrations(),
+          noRoles ? adminService.list('PENDING') : Promise.reject(new Error('skipped')),
+        ]);
+
+        const latest =
+          mine.status === 'fulfilled' ? (mine.value.registrations?.[0] ?? null) : null;
+
+        /*
+          Approved, but this session has not caught up.
+
+          Approval writes the School, the membership and the PRINCIPAL role in
+          one transaction — and leaves the applicant's access token behind,
+          still carrying schoolId: null. The backend author says so at
+          school.service.js:302. Without trading it in, somebody whose school was
+          just approved is locked out of every tenant-scoped route, which reads
+          as "it was approved and the app is broken".
+
+          One extra round trip, only on the one visit where the answer arrived.
+        */
+        if (latest?.status === 'APPROVED' && !session.roles.includes(ROLES.PRINCIPAL)) {
+          await authService.refresh();
+          session = await refreshMe();
+        }
+
+        /*
+          A platform admin has no business on this screen.
+
+          They stand above every school: no membership, no SchoolRole, nothing
+          to pick. Left alone they would land here and be offered three cards —
+          join as a student, join as a teacher, register a school — none of
+          which is their job.
+
+          There is no flag to read. `/users/me` answers `publicUser`, which
+          carries id, email, fullName, emailVerifiedAt and createdAt and nothing
+          about platform admins; the only place that knowledge lives is the
+          PlatformAdmin table, which `requirePlatformAdmin` consults on every
+          request. So the question is asked the only way it can be — by calling
+          an admin route and seeing whether it refuses.
+
+          Only asked when there are no roles at all, which is exactly the case
+          this screen cannot serve. Somebody with a school to enter is not
+          probed, and pays nothing for this.
+        */
+        if (noRoles && adminProbe.status === 'fulfilled') {
+          /* Returns without clearing `isLoading` or setting `hasChecked`, so
+             this screen keeps its loading state for the frame or two before the
+             route changes — no flash of cards nobody can use. */
+          navigate('/admin/school-registrations', { replace: true });
+          return;
+        }
+
+        setRegistration(latest);
 
         setSelected((current) =>
           current && isSelectable(session.membership, current)
@@ -148,9 +266,12 @@ export const SelectRolePage = () => {
         setToast({ message: apiErrorMessage(err, t), type: 'error' });
       } finally {
         setIsLoading(false);
+        /* Even on failure: a screen that never stops loading is worse than one
+           showing what it last knew, with the error beside it. */
+        setHasChecked(true);
       }
     },
-    [refreshMe, t]
+    [refreshMe, navigate, t]
   );
 
   useEffect(() => {
@@ -180,6 +301,21 @@ export const SelectRolePage = () => {
     navigate(homeFor(selected), { replace: true });
   };
 
+  /*
+    Decided before anything is drawn.
+
+    The answer was learned at sign-in and cached, so a platform admin leaves
+    here without this screen ever appearing. Rendering first and redirecting
+    afterwards — which is what the probe inside `check()` used to do on its own —
+    put the whole purple page on screen and then took it away again.
+
+    `check()` still probes as a fallback, for a session that predates this flag
+    or one whose admin rights were granted mid-session.
+  */
+  if (isPlatformAdmin && roles.length === 0) {
+    return <Navigate to="/admin/school-registrations" replace />;
+  }
+
   const hasRoles = roles.length > 0;
   const isPending = membership?.status === 'PENDING';
   const schoolName = membership?.school?.name ?? membership?.schoolName;
@@ -191,12 +327,23 @@ export const SelectRolePage = () => {
       : t('selectRole.blurb.fresh');
 
   /*
-    Just the way out. The invitation-code line that used to live here is gone:
-    the Student and Teacher cards now lead to the same place, and two doors onto
-    one road only make people wonder which is the right one.
+    The ways out, and the one way sideways.
+
+    Account & Security belongs here rather than only in the signed-in shell:
+    somebody whose school is still PENDING never reaches that shell, and this
+    screen is where they wait. It is the only link on this page that leads
+    somewhere they can actually use today.
   */
   const footer = (
-    <>
+    <div className="flex items-center justify-center gap-4">
+      <button
+        type="button"
+        onClick={() => navigate('/account')}
+        className="text-xs text-slate-400 hover:text-brand font-bold transition-colors focus:outline-none cursor-pointer"
+      >
+        {t('account.title')}
+      </button>
+      <span className="text-slate-200 select-none" aria-hidden="true">·</span>
       <button
         type="button"
         onClick={() => setIsSignOutOpen(true)}
@@ -204,7 +351,7 @@ export const SelectRolePage = () => {
       >
         {t('common.signOut')}
       </button>
-    </>
+    </div>
   );
 
   return (
@@ -228,10 +375,22 @@ export const SelectRolePage = () => {
           </p>
         </div>
 
+        {/* Nothing below is decided until the first check answers. Until then
+            this stands in for it, rather than the cards guessing from a cache
+            that may be a school approval out of date. */}
+        {!hasChecked && (
+          <div className="space-y-3.5 animate-pulse select-none" aria-label={t('common.loading')}>
+            <div className="h-16 bg-white border border-slate-100 rounded-2xl shadow-sm" />
+            <div className="h-20 bg-white border border-slate-100 rounded-2xl shadow-sm" />
+            <div className="h-20 bg-white border border-slate-100 rounded-2xl shadow-sm" />
+            <div className="h-20 bg-white border border-slate-100 rounded-2xl shadow-sm" />
+          </div>
+        )}
+
         {/* What the three cards mean for somebody who holds none of them yet —
             the difference between joining a school and starting one is the whole
             point, and three boxes alone do not make it. */}
-        {!hasRoles && (
+        {hasChecked && !hasRoles && (
           <div className="border border-slate-200 rounded-2xl p-4 text-left bg-white shadow-sm">
             <p className="text-sm text-slate-600 font-medium leading-relaxed">
               {isPending ? (
@@ -250,9 +409,9 @@ export const SelectRolePage = () => {
           </div>
         )}
 
-        <div className="space-y-3.5">
+        <div className={`space-y-3.5 ${hasChecked ? '' : 'hidden'}`}>
           {SELECTABLE_ROLES.map((role) => {
-            const { state, reason } = statusOf(membership, role);
+            const { state, reason, noteKey } = cardStatusOf(membership, role, registration);
             const selectable = state !== 'PENDING';
             const isSelected = selectable && selected === role;
             const badge = STATUS_BADGE[state];
@@ -262,8 +421,9 @@ export const SelectRolePage = () => {
               the card's ordinary pitch, because for a role somebody does not
               hold that pitch is exactly what they are being offered.
             */
-            const note =
-              state === 'REJECTED'
+            const note = noteKey
+              ? t(noteKey)
+              : state === 'REJECTED'
                 ? (reason ?? t(CARD_NOTE_KEY.REJECTED))
                 : state === 'PENDING'
                   ? t(CARD_NOTE_KEY.PENDING)

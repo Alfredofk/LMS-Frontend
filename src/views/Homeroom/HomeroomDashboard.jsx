@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { 
+import { useT } from '../../i18n/LanguageContext';
+import NotBuiltYet from '../../components/ui/NotBuiltYet';
+import { isNotBuiltYet } from '../../services/apiClient';
+import { homeroomService } from '../../services/homeroomService';
+import {
   Users, 
   GraduationCap, 
   CheckSquare, 
@@ -14,45 +18,66 @@ import {
 
 export const HomeroomDashboard = () => {
   const { showToast } = useOutletContext();
+  const { t, lang } = useT();
   const [students, setStudents] = useState([]);
   const [classInfo, setClassInfo] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [notBuilt, setNotBuilt] = useState(false);
+  /* Kept apart from `error`: being denied is not the same as something going
+     wrong, and this screen used to show both under one heading. */
+  const [denied, setDenied] = useState(false);
 
   // Selected student for detail report modal
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [studentReport, setStudentReport] = useState(null);
   const [isLoadingReport, setIsLoadingReport] = useState(false);
 
+  /*
+    Three outcomes, which this screen used to collapse into one.
+
+    Before: any failure — including a 404 for a route nobody has written — threw
+    a sentence that was rendered under a hardcoded heading reading **"Akses
+    Ditolak"**. So "this feature does not exist yet" was shown to a teacher as a
+    confident statement that they are not a homeroom teacher. A 404 never even
+    reached the isHomeroomTeacher check; it failed one line earlier.
+
+    Now they are told apart:
+
+      404                         the route is not written    → NotBuiltYet
+      isHomeroomTeacher === false the server said no          → Akses Ditolak
+      anything else               something actually broke    → error panel
+
+    Only the middle one is a denial, and it is the only one that keeps that
+    heading.
+  */
   const fetchHomeroomData = async () => {
+    setIsLoading(true);
+    setError(null);
+    setNotBuilt(false);
+    setDenied(false);
+
     try {
-      setIsLoading(true);
-      const token = localStorage.getItem('token');
-      
-      // Fetch class info first
-      const classRes = await fetch('/api/homeroom/class', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!classRes.ok) throw new Error('Gagal memuat informasi kelas perwalian.');
-      const classData = await classRes.json();
-      
+      const classData = await homeroomService.class();
+
       if (!classData.isHomeroomTeacher) {
-        throw new Error('Anda tidak terdaftar sebagai Wali Kelas untuk kelas mana pun.');
+        setDenied(true);
+        return;
       }
       setClassInfo(classData.classInfo);
 
-      // Fetch students list with metrics
-      const studentsRes = await fetch('/api/homeroom/students', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!studentsRes.ok) throw new Error('Gagal memuat rekap murid kelas perwalian.');
-      const studentsData = await studentsRes.json();
-      
-      setStudents(studentsData);
-      setIsLoading(false);
+      setStudents(await homeroomService.students());
     } catch (err) {
-      console.error(err);
-      setError(err.message);
+      if (isNotBuiltYet(err)) setNotBuilt(true);
+      else {
+        console.error(err);
+        /* No `|| t(…)` fallback: apiClient's ApiError always carries a message
+           (it falls back to one of its own), so the alternative was dead — and
+           capturing `t` here would make this loader re-run on every language
+           switch, refetching two endpoints for a word change. */
+        setError(err.message);
+      }
+    } finally {
       setIsLoading(false);
     }
   };
@@ -63,24 +88,22 @@ export const HomeroomDashboard = () => {
 
   const handleViewReport = async (student) => {
     setSelectedStudent(student);
+    /* Cleared up front: without this, a failed second view left the previous
+       student's report in state, ready to be shown under the wrong name the
+       moment anything kept the modal mounted. */
+    setStudentReport(null);
+
     try {
       setIsLoadingReport(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/homeroom/student/${student.id}/report`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (!response.ok) {
-        throw new Error('Gagal memuat detail rapor siswa.');
-      }
-
-      const data = await response.json();
-      setStudentReport(data);
-      setIsLoadingReport(false);
+      setStudentReport(await homeroomService.report(student.id));
     } catch (err) {
       console.error(err);
-      showToast(err.message, 'error');
+      showToast(
+        isNotBuiltYet(err) ? t('common.notBuilt.title') : t('homeroom.report.failed'),
+        'error'
+      );
       setSelectedStudent(null);
+    } finally {
       setIsLoadingReport(false);
     }
   };
@@ -94,11 +117,28 @@ export const HomeroomDashboard = () => {
     );
   }
 
+  /* The route does not exist. Nothing has been denied and nothing has broken. */
+  if (notBuilt) return <NotBuiltYet />;
+
+  /* The one real denial: the server answered, and the answer was no. */
+  if (denied) {
+    return (
+      <div className="p-5 bg-amber-50 border border-amber-100 rounded-2xl flex items-center gap-3 text-amber-800 text-xs font-semibold select-none text-left w-full">
+        <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" aria-hidden="true" />
+        <div>
+          <p className="font-bold">{t('homeroom.denied.title')}</p>
+          <p className="text-amber-700 font-medium mt-0.5">{t('homeroom.denied.body')}</p>
+        </div>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="p-5 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-700 text-xs font-semibold select-none text-left w-full">
+        <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" aria-hidden="true" />
         <div>
-          <p className="font-bold">Akses Ditolak</p>
+          <p className="font-bold">{t('dash.error.title')}</p>
           <p className="text-red-600 font-medium mt-0.5">{error}</p>
         </div>
       </div>
@@ -122,13 +162,13 @@ export const HomeroomDashboard = () => {
       {/* 1. Header Block */}
       <div className="space-y-1 select-none">
         <span className="px-2.5 py-1 bg-purple-100 text-brand text-xs font-extrabold rounded-lg uppercase">
-          Dasbor Wali Kelas
+          {t('homeroom.badge')}
         </span>
         <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight mt-2">
-          Kelas Perwalian: {classInfo?.name}
+          {t('homeroom.title', { name: classInfo?.name ?? '' })}
         </h1>
         <p className="text-sm text-slate-500 font-medium">
-          Pantau perkembangan nilai akademik, statistik presensi kehadiran, serta deteksi dini anomali belajar murid.
+          {t('homeroom.subtitle')}
         </p>
       </div>
 
@@ -136,7 +176,7 @@ export const HomeroomDashboard = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 select-none">
         <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Total Murid</p>
+            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('homeroom.stat.students')}</p>
             <p className="text-2xl font-extrabold text-slate-800 mt-1">{totalStudents}</p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-purple-50 text-brand flex items-center justify-center">
@@ -146,7 +186,7 @@ export const HomeroomDashboard = () => {
 
         <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Rata-Rata Kelas</p>
+            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('homeroom.stat.avgGrade')}</p>
             <p className="text-2xl font-extrabold text-slate-800 mt-1">{classAvgGrade}</p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -156,7 +196,7 @@ export const HomeroomDashboard = () => {
 
         <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Rerata Presensi</p>
+            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('homeroom.stat.attendance')}</p>
             <p className="text-2xl font-extrabold text-slate-800 mt-1">{classAvgAttendance}%</p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -173,7 +213,7 @@ export const HomeroomDashboard = () => {
         `}>
           <div>
             <p className={`text-[10px] font-extrabold uppercase tracking-wider ${studentsAtRisk > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
-              Siswa Berisiko
+              {t('homeroom.stat.atRisk')}
             </p>
             <p className="text-2xl font-extrabold mt-1">{studentsAtRisk}</p>
           </div>
@@ -187,20 +227,20 @@ export const HomeroomDashboard = () => {
       {/* 3. Class Roster Monitoring Table */}
       <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
         <h3 className="text-sm font-extrabold text-slate-800 mb-4 select-none">
-          Lembar Pemantauan Perkembangan Murid
+          {t('homeroom.table.title')}
         </h3>
 
         <div className="overflow-x-auto">
           <table className="w-full text-xs font-medium text-slate-600">
             <thead>
               <tr className="border-b border-slate-100 text-slate-400 font-extrabold text-left">
-                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">Nama Siswa</th>
-                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">NIS</th>
-                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">Level / XP</th>
-                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px] text-center">Rerata Nilai</th>
-                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px] text-center">Tingkat Absensi</th>
-                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">Rekomendasi</th>
-                <th className="pb-3 text-right font-extrabold uppercase tracking-wider text-[10px]">Aksi</th>
+                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">{t('homeroom.th.name')}</th>
+                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">{t('homeroom.th.nis')}</th>
+                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">{t('homeroom.th.level')}</th>
+                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px] text-center">{t('homeroom.th.avgGrade')}</th>
+                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px] text-center">{t('homeroom.th.attendance')}</th>
+                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">{t('homeroom.th.recommendation')}</th>
+                <th className="pb-3 text-right font-extrabold uppercase tracking-wider text-[10px]">{t('homeroom.th.action')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -209,8 +249,8 @@ export const HomeroomDashboard = () => {
                   <td className="py-3.5 font-extrabold text-slate-800">{row.name}</td>
                   <td className="py-3.5 text-slate-400 font-bold">{row.nis}</td>
                   <td className="py-3.5">
-                    <span className="font-extrabold text-slate-700">Lvl {row.level}</span>
-                    <span className="text-[10px] font-bold text-slate-400 ml-1">({row.xp} XP)</span>
+                    <span className="font-extrabold text-slate-700">{t('homeroom.level', { n: row.level })}</span>
+                    <span className="text-[10px] font-bold text-slate-400 ml-1">{t('homeroom.xp', { n: row.xp })}</span>
                   </td>
                   <td className="py-3.5 text-center font-extrabold text-slate-900">
                     {row.averageGrade !== null ? (
@@ -238,7 +278,7 @@ export const HomeroomDashboard = () => {
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">
-                        Normal
+                        {t('homeroom.status.normal')}
                       </span>
                     )}
                   </td>
@@ -248,7 +288,7 @@ export const HomeroomDashboard = () => {
                       onClick={() => handleViewReport(row)}
                       className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/50 text-[10px] font-extrabold rounded-lg cursor-pointer transition-colors inline-flex items-center gap-1"
                     >
-                      Lihat Rapor
+                      {t('homeroom.viewReport')}
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </td>
@@ -272,10 +312,10 @@ export const HomeroomDashboard = () => {
                 </div>
                 <div className="text-left">
                   <h3 className="text-base font-extrabold text-slate-800 leading-snug">
-                    Rapor Perkembangan: {selectedStudent.name}
+                    {t('homeroom.modal.title', { name: selectedStudent.name })}
                   </h3>
                   <p className="text-xs text-slate-400 font-bold mt-0.5">
-                    NIS: {selectedStudent.nis} • Email: {selectedStudent.email}
+                    {t('homeroom.modal.meta', { nis: selectedStudent.nis, email: selectedStudent.email })}
                   </p>
                 </div>
               </div>
@@ -299,28 +339,28 @@ export const HomeroomDashboard = () => {
                   {/* Gamification stats row */}
                   <div className="grid grid-cols-2 gap-4 bg-slate-50/50 border border-slate-100 rounded-2xl p-4 select-none">
                     <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Level Belajar</span>
-                      <span className="text-lg font-extrabold text-slate-800 mt-1 block">Level {studentReport.student.level}</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{t('homeroom.modal.level')}</span>
+                      <span className="text-lg font-extrabold text-slate-800 mt-1 block">{t('homeroom.modal.levelValue', { n: studentReport.student.level })}</span>
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Pengalaman (XP)</span>
-                      <span className="text-lg font-extrabold text-slate-800 mt-1 block">{studentReport.student.xp} XP</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{t('homeroom.modal.xp')}</span>
+                      <span className="text-lg font-extrabold text-slate-800 mt-1 block">{t('homeroom.modal.xpValue', { n: studentReport.student.xp })}</span>
                     </div>
                   </div>
 
                   {/* Grades & Attendances list by Subject */}
                   <div className="space-y-3">
                     <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider select-none">
-                      Nilai & Presensi per Mata Pelajaran
+                      {t('homeroom.modal.subjects')}
                     </h4>
                     
                     <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
                       <table className="w-full text-xs font-medium text-slate-600">
                         <thead>
                           <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 font-extrabold text-left">
-                            <th className="py-2.5 px-4 font-extrabold text-[10px]">Mata Pelajaran</th>
-                            <th className="py-2.5 px-2 font-extrabold text-[10px] text-center">Rata-Rata Nilai</th>
-                            <th className="py-2.5 px-4 font-extrabold text-[10px] text-center">Tingkat Absensi</th>
+                            <th className="py-2.5 px-4 font-extrabold text-[10px]">{t('homeroom.modal.th.subject')}</th>
+                            <th className="py-2.5 px-2 font-extrabold text-[10px] text-center">{t('homeroom.modal.th.avgGrade')}</th>
+                            <th className="py-2.5 px-4 font-extrabold text-[10px] text-center">{t('homeroom.th.attendance')}</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -358,11 +398,11 @@ export const HomeroomDashboard = () => {
                   {/* Student Badges earned */}
                   <div className="space-y-3">
                     <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider select-none">
-                      Lencana Penghargaan Unlocked ({studentReport.badges.length})
+                      {t('homeroom.modal.badges', { n: studentReport.badges.length })}
                     </h4>
 
                     {studentReport.badges.length === 0 ? (
-                      <p className="text-xs text-slate-400 font-bold italic select-none">Belum memiliki lencana penghargaan.</p>
+                      <p className="text-xs text-slate-400 font-bold italic select-none">{t('homeroom.modal.badges.empty')}</p>
                     ) : (
                       <div className="flex flex-wrap gap-2">
                         {studentReport.badges.map((badge, idx) => (
@@ -374,7 +414,7 @@ export const HomeroomDashboard = () => {
                             <span className="text-base select-none">{badge.icon || '🏅'}</span>
                             <div>
                               <div className="text-xs font-extrabold text-slate-800">{badge.name}</div>
-                              <div className="text-[9px] text-slate-400 font-bold">Didapatkan: {new Date(badge.unlocked_at).toLocaleDateString('id-ID')}</div>
+                              <div className="text-[9px] text-slate-400 font-bold">{t('homeroom.modal.badge.earned', { date: new Date(badge.unlocked_at).toLocaleDateString(lang === 'en' ? 'en-GB' : 'id-ID') })}</div>
                             </div>
                           </div>
                         ))}
@@ -384,7 +424,7 @@ export const HomeroomDashboard = () => {
                 </>
               ) : (
                 <div className="py-12 text-center text-slate-400 text-xs font-bold select-none">
-                  Gagal memuat rekap laporan.
+                  {t('homeroom.modal.failed')}
                 </div>
               )}
             </div>
@@ -395,7 +435,7 @@ export const HomeroomDashboard = () => {
                 onClick={() => { setSelectedStudent(null); setStudentReport(null); }}
                 className="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-extrabold rounded-xl transition-all cursor-pointer shadow-sm"
               >
-                Tutup Rapor
+                {t('homeroom.modal.close')}
               </button>
             </div>
 

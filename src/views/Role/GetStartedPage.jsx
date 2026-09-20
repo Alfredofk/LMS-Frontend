@@ -3,6 +3,7 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom';
 
 import AuthLayout from '../../layouts/AuthLayout';
 import Input from '../../components/ui/Input';
+import SchoolRegistrationForm from './SchoolRegistrationForm';
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
 import { validateSchoolCode, validateNisn } from '../../utils/validation';
@@ -19,11 +20,13 @@ import { validateSchoolCode, validateNisn } from '../../utils/validation';
     Student       joins a school that already exists, with its School Code. That
     Teacher       school then approves the request and grants the role.
 
-  Neither can be submitted yet: the backend has the models, the rate limiters and
-  the approval guards, but no routes — `server.js` mounts only `auth` and
-  `users`. So these screens say exactly what will be asked and who will answer,
-  and their primary button is visibly inactive rather than alive and quietly
-  failing.
+  **Organization can now be submitted; the other two cannot.** The backend grew
+  `POST /api/school-registrations` (ticket 04), so that path is a real form that
+  posts a real registration. Joining a school with a School Code (ticket 05) is
+  still unrouted — `joinSchoolLimiter` and `assertMembershipRetryAllowed` exist
+  and are imported by nothing — so the student and teacher screens still say what
+  will be asked and keep a visibly inactive button rather than one that is alive
+  and quietly failing.
 
   Everything listed under "what you will need" comes from the schema, not from
   imagination: the Organization fields are the columns of `SchoolRegistration`.
@@ -73,6 +76,9 @@ const INTENTS = {
     ],
     approval: ['getStarted.org.approval'],
     action: 'getStarted.org.action',
+    /* The only intent with a route behind it. Everything else on this screen is
+       still a description of a path that cannot be walked yet. */
+    live: true,
   },
   /*
     Only the student path carries fields, and only because the schema says what
@@ -250,30 +256,36 @@ export const GetStartedPage = () => {
         </div>
       </div>
 
-      {content.fields && <JoinFields fields={content.fields} />}
+      {content.live ? (
+        <SchoolRegistrationForm />
+      ) : (
+        <>
+          {content.fields && <JoinFields fields={content.fields} />}
 
-      {/*
-        Deliberately dead, and saying so. The endpoint behind it does not exist
-        yet — a live button here would fail on press and teach somebody that the
-        app is broken rather than unfinished.
+          {/*
+            Deliberately dead, and saying so. The endpoint behind it does not
+            exist yet — a live button here would fail on press and teach somebody
+            that the app is broken rather than unfinished.
 
-        `disabled` unconditionally, never `disabled={!isValid}`, now that there
-        are fields above it. Enabling on a valid form would promise that filling
-        it in opens the path, and then hand over a live-looking button that does
-        nothing — which is the very outcome this policy exists to prevent.
-      */}
-      <div className="space-y-2">
-        <button
-          type="button"
-          disabled
-          className="w-full py-3.5 rounded-2xl justify-center font-bold text-base bg-slate-100 text-slate-400 flex items-center gap-2 select-none cursor-not-allowed"
-        >
-          {t(content.action)}
-        </button>
-        <p className="text-[11px] text-slate-400 font-semibold">
-          {t('getStarted.notOpen')}
-        </p>
-      </div>
+            `disabled` unconditionally, never `disabled={!isValid}`, because
+            there are fields above it. Enabling on a valid form would promise
+            that filling it in opens the path, then hand over a live-looking
+            button that does nothing — the very outcome this policy prevents.
+          */}
+          <div className="space-y-2">
+            <button
+              type="button"
+              disabled
+              className="w-full py-3.5 rounded-2xl justify-center font-bold text-base bg-slate-100 text-slate-400 flex items-center gap-2 select-none cursor-not-allowed"
+            >
+              {t(content.action)}
+            </button>
+            <p className="text-[11px] text-slate-400 font-semibold">
+              {t('getStarted.notOpen')}
+            </p>
+          </div>
+        </>
+      )}
     </AuthLayout>
   );
 };

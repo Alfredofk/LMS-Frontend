@@ -22,6 +22,9 @@ import {
   Send
 } from 'lucide-react';
 import { useT } from '../../i18n/LanguageContext';
+import NotBuiltYet from '../../components/ui/NotBuiltYet';
+import { isNotBuiltYet } from '../../services/apiClient';
+import { gradebookService } from '../../services/gradebookService';
 
 // Circular Percentage Gauge Component
 const CircularGauge = ({ percentage = 75, size = 56, strokeWidth = 5.5, color = '#7047EB' }) => {
@@ -78,6 +81,7 @@ export const StudentScores = () => {
   const [protests, setProtests] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [notBuilt, setNotBuilt] = useState(false);
 
   // Interaction States
   const [selectedCourseId, setSelectedCourseId] = useState(null);
@@ -99,36 +103,36 @@ export const StudentScores = () => {
   }, [searchParams]);
 
   // Fetch Scores and Protests
+  /*
+    Neither route exists yet, so this screen used to greet every student with a
+    red panel and a red toast reading "Gagal memuat rekapitulasi nilai" — a
+    failure announced twice, for something nobody had broken. It was the only
+    student screen doing that.
+
+    `allSettled` keeps the appeals list from taking the marks down with it: the
+    two are independent, and the appeals list is not even rendered anywhere yet.
+  */
   const fetchScoresData = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const token = localStorage.getItem('token');
-      
-      const [coursesRes, protestsRes] = await Promise.all([
-        fetch('/api/gradebook/student/summary', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/protests/student', { headers: { 'Authorization': `Bearer ${token}` } })
-      ]);
+    setIsLoading(true);
+    setError(null);
 
-      if (!coursesRes.ok) {
-        throw new Error(t('sc.loadFailed'));
-      }
+    const [summary, appeals] = await Promise.allSettled([
+      gradebookService.studentSummary(),
+      gradebookService.protests.mine(),
+    ]);
 
-      const coursesData = await coursesRes.json();
-      setCourses(coursesData);
+    if (appeals.status === 'fulfilled') setProtests(appeals.value);
 
-      if (protestsRes.ok) {
-        const protestsData = await protestsRes.json();
-        setProtests(protestsData);
-      }
-      
-      setIsLoading(false);
-    } catch (err) {
-      console.error(err);
-      setError(err.message);
+    if (summary.status === 'fulfilled') {
+      setCourses(summary.value);
+    } else if (isNotBuiltYet(summary.reason)) {
+      setNotBuilt(true);
+    } else {
+      setError(summary.reason?.message || t('sc.loadFailed'));
       if (showToast) showToast(t('sc.loadFailed'), 'error');
-      setIsLoading(false);
     }
+
+    setIsLoading(false);
   };
 
   useEffect(() => {
@@ -216,6 +220,11 @@ export const StudentScores = () => {
       return;
     }
 
+    /* Still a raw fetch reading the wrong storage for a session without
+       "Remember me". Deferred with the other mutation paths this slice left
+       alone: the endpoint 404s and the modal that opens this is unreachable
+       while the marks list is empty. `gradebookService.protests.raise` is
+       waiting, and so is the `submissionId` ambiguity noted in the contract. */
     try {
       setIsSubmittingProtest(true);
       const token = localStorage.getItem('token');
@@ -269,6 +278,10 @@ export const StudentScores = () => {
       </div>
     );
   }
+
+  /* No marks endpoint yet. The filter pills and the search box below would be
+     controls over an empty list. */
+  if (notBuilt) return <NotBuiltYet />;
 
   if (error) {
     return (

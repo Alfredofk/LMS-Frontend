@@ -1,8 +1,11 @@
 /**
  * The backend's own field rules, restated for the browser.
  *
- * Every rule here mirrors LMS-Backend/src/modules/auth/auth.schema.js. The
- * *rules* are what must match, not the wording: these functions return
+ * The rules mirror the backend's own zod: `modules/auth/auth.schema.js` for the
+ * account fields, `modules/school/school.schema.js` for founding a school. Two
+ * validators here mirror nothing at all, and say so where they sit.
+ *
+ * The *rules* are what must match, not the wording: these functions return
  * translation keys rather than sentences, so the same rule can be read in
  * Indonesian or English while still rejecting exactly what the server rejects.
  *
@@ -14,6 +17,8 @@
  * Every validator returns `null` when the value is fine, or `{ key, vars? }` for
  * the caller to run through `t()`.
  */
+
+import { SCHOOL_TYPES } from '../constants/schoolTypes.js';
 
 export const MIN_PASSWORD = 8;
 export const MAX_PASSWORD_BYTES = 72;
@@ -121,6 +126,101 @@ export function validateNisn(value) {
   const trimmed = value.trim();
   if (!trimmed) return { key: 'validation.nisn.required' };
   if (trimmed.length > MAX_JOIN_FIELD) return { key: 'validation.nisn.long' };
+  return null;
+}
+
+/*
+  Founding a school — and the first rules here that mirror something real.
+
+  `validateSchoolCode` and `validateNisn` above are deliberately weak because the
+  backend has no rule for either. These six are the opposite: every one of them
+  restates `LMS-Backend/src/modules/school/school.schema.js:27-67` line for line,
+  which is exactly what the header of this file asks for. When that zod changes,
+  these change with it.
+*/
+const MAX_SCHOOL_NAME = 150;
+const MIN_SCHOOL_NAME = 3;
+const MAX_CITY = 100;
+const MIN_CITY = 2;
+const MAX_KTP_BYTES = 2 * 1024 * 1024;
+
+export function validateNpsn(value) {
+  const trimmed = value.trim();
+  if (!trimmed) return { key: 'validation.npsn.required' };
+  // Exactly eight digits. Whether the number is a *real* NPSN is a platform
+  // admin's judgement, made by hand — nothing here can check that.
+  if (!/^\d{8}$/.test(trimmed)) return { key: 'validation.npsn.format' };
+  return null;
+}
+
+export function validateSchoolName(value) {
+  const trimmed = value.trim();
+  if (!trimmed) return { key: 'validation.schoolName.required' };
+  if (trimmed.length < MIN_SCHOOL_NAME) return { key: 'validation.schoolName.short' };
+  if (trimmed.length > MAX_SCHOOL_NAME) return { key: 'validation.schoolName.long' };
+  return null;
+}
+
+export function validateCity(value) {
+  const trimmed = value.trim();
+  if (!trimmed) return { key: 'validation.city.required' };
+  if (trimmed.length < MIN_CITY) return { key: 'validation.city.short' };
+  if (trimmed.length > MAX_CITY) return { key: 'validation.city.long' };
+  return null;
+}
+
+/*
+  Spaces and dashes are how people write phone numbers, so the server strips them
+  before checking and so does this. Checking the raw string would reject
+  "0812 3456 7890", which the server accepts.
+
+  Beyond "digits, an optional leading +, 8 to 15 of them" nothing is assumed —
+  operator prefixes change, and a stricter rule here would refuse a real
+  applicant the server would have taken.
+*/
+export function validateApplicantPhone(value) {
+  const cleaned = value.replace(/[\s-]/g, '').trim();
+  if (!cleaned) return { key: 'validation.phone.required' };
+  if (!/^\+?\d{8,15}$/.test(cleaned)) return { key: 'validation.phone.format' };
+  return null;
+}
+
+/*
+  Only an SMK chooses, and it must. Every other type has one legal value that the
+  server fills in itself, and sending a different one is a 400 rather than a
+  correction — so a form should not send the field at all for those.
+*/
+export function validateDurationYears(schoolType, value) {
+  const spec = SCHOOL_TYPES[schoolType];
+  if (!spec) return null;
+
+  const choice = spec.allowedDurationYears;
+  if (choice.length <= 1) return null;
+
+  if (value === '' || value === undefined || value === null) {
+    return { key: 'validation.duration.required' };
+  }
+
+  const years = Number(value);
+  if (!Number.isInteger(years) || !choice.includes(years)) {
+    return { key: 'validation.duration.invalid', vars: { choices: choice.join(' / ') } };
+  }
+
+  return null;
+}
+
+/*
+  Size and type, as a courtesy — not as a guarantee.
+
+  The server reads the type from the file's first bytes (`shared/upload.js`), so
+  a PDF renamed to .png passes here and is refused there. That is the right way
+  round: this check saves somebody a 2 MB upload that was never going to work,
+  and claims nothing more.
+*/
+export function validateKtpFile(file) {
+  if (!file) return { key: 'validation.ktp.required' };
+  if (file.size > MAX_KTP_BYTES) return { key: 'validation.ktp.tooLarge', vars: { max: '2 MB' } };
+  if (!['image/jpeg', 'image/png'].includes(file.type)) return { key: 'validation.ktp.type' };
   return null;
 }
 

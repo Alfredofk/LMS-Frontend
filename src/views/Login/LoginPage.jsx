@@ -42,8 +42,17 @@ export const LoginPage = () => {
     Exactly one usable role is entered without asking.
     More than one, and only then, is worth a question.
   */
-  const formState = useLoginForm(initialAuthStep, ({ roles, activeRole }) => {
-    if (roles.length === 0) navigate('/select-role', { replace: true });
+  const formState = useLoginForm(initialAuthStep, ({ roles, activeRole, isPlatformAdmin }) => {
+    /*
+      A platform admin holds no school role and never will — they stand above
+      every school. Sending them to /select-role would offer three cards that
+      are none of their business, and then take the page away again once it
+      worked out who they were. `signIn` has already asked by the time this
+      runs, so the answer is here rather than a round trip away.
+    */
+    if (roles.length === 0 && isPlatformAdmin) {
+      navigate('/admin/school-registrations', { replace: true });
+    } else if (roles.length === 0) navigate('/select-role', { replace: true });
     else if (activeRole) navigate(homeFor(activeRole), { replace: true });
     else navigate('/select-role', { replace: true });
   });

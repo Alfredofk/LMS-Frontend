@@ -1,48 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Users } from 'lucide-react';
 
+import NotBuiltYet from '../../../components/ui/NotBuiltYet';
+import { isNotBuiltYet } from '../../../services/apiClient';
+import { coursesService } from '../../../services/coursesService';
+
 export const StudentListTab = ({ courseId }) => {
-  const navigate = useNavigate();
   const [students, setStudents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [notBuilt, setNotBuilt] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
 
+    /* The 401 branch that used to be here signed people out who were still
+       signed in — see the note in TeacherCourses.jsx. apiClient refreshes and
+       replays instead, and ProtectedRoute owns the redirect. */
     const fetchStudents = async () => {
+      setIsLoading(true);
+      setError(null);
+
       try {
-        setIsLoading(true);
-        setError(null);
-
-        const token = localStorage.getItem('token');
-        const response = await fetch(`/api/courses/${courseId}/students`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          if (response.status === 401) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('lms_user');
-            navigate('/login');
-            return;
-          }
-          throw new Error('Gagal mengambil daftar siswa dari server.');
-        }
-
-        const data = await response.json();
-        if (isMounted) {
-          setStudents(data);
-          setIsLoading(false);
-        }
+        const data = await coursesService.students(courseId);
+        if (isMounted) setStudents(data);
       } catch (err) {
-        if (isMounted) {
-          setError(err.message || 'Gagal memuat daftar siswa. Silakan coba lagi.');
-          setIsLoading(false);
-        }
+        if (!isMounted) return;
+        if (isNotBuiltYet(err)) setNotBuilt(true);
+        else setError(err.message || 'Gagal memuat daftar siswa. Silakan coba lagi.');
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
     };
 
@@ -53,7 +40,7 @@ export const StudentListTab = ({ courseId }) => {
     return () => {
       isMounted = false;
     };
-  }, [courseId, navigate]);
+  }, [courseId]);
 
   if (isLoading) {
     return (
@@ -69,6 +56,10 @@ export const StudentListTab = ({ courseId }) => {
       </div>
     );
   }
+
+  /* Before the empty state: "no students enrolled" would be a claim about this
+     class, and nobody has asked the database anything yet. */
+  if (notBuilt) return <NotBuiltYet />;
 
   if (error) {
     return (

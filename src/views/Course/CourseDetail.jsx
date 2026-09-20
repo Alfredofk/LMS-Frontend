@@ -13,6 +13,9 @@ import {
   Trash2
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import NotBuiltYet from '../../components/ui/NotBuiltYet';
+import { isNotBuiltYet } from '../../services/apiClient';
+import { coursesService } from '../../services/coursesService';
 import StudentListTab from './components/StudentListTab';
 import CreateTaskModal from './components/CreateTaskModal';
 import AddMaterialModal from './components/AddMaterialModal';
@@ -37,6 +40,7 @@ export const CourseDetail = () => {
   const [materials, setMaterials] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [notBuilt, setNotBuilt] = useState(false);
 
   // Course details state
   const [courseData, setCourseData] = useState({
@@ -44,62 +48,61 @@ export const CourseDetail = () => {
     code: '',
     name: 'Memuat...',
     grade: '',
-    description: 'Mata pelajaran ini disinkronisasikan dari database relasional KelasKita.'
+    /* No description column exists on Subject, so there is nothing to put here.
+       It used to hold a fixed sentence naming "KelasKita", a brand this app
+       does not use, shown under every class as though it were real. */
+    description: null
   });
 
   useEffect(() => {
     let isMounted = true;
 
+    /*
+      Three requests, and `allSettled` rather than `all` so a failure can be told
+      apart from the others: a 404 means the route has not been written, which is
+      not a fault; anything else is.
+
+      The 401 branch that used to sit here signed out people whose sessions were
+      still alive — the full account of why is in TeacherCourses.jsx. apiClient
+      refreshes once and replays, and ProtectedRoute owns the redirect.
+    */
     const fetchCourseDetails = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const token = localStorage.getItem('token');
+      setIsLoading(true);
+      setError(null);
 
-        const [courseInfoRes, assignmentsRes, materialsRes] = await Promise.all([
-          fetch(`/api/courses/${courseId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          }),
-          fetch(`/api/courses/${courseId}/assignments`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          }),
-          fetch(`/api/courses/${courseId}/materials`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          })
-        ]);
+      const results = await Promise.allSettled([
+        coursesService.get(courseId),
+        coursesService.assignments(courseId),
+        coursesService.materials(courseId),
+      ]);
 
-        if (!courseInfoRes.ok || !assignmentsRes.ok || !materialsRes.ok) {
-          if (courseInfoRes.status === 401 || assignmentsRes.status === 401 || materialsRes.status === 401) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('lms_user');
-            navigate('/login');
-            return;
-          }
-          throw new Error('Gagal memuat data penugasan atau materi kelas.');
-        }
+      if (!isMounted) return;
 
-        const courseInfo = await courseInfoRes.json();
-        const assignmentsData = await assignmentsRes.json();
-        const materialsData = await materialsRes.json();
+      const failures = results.filter((r) => r.status === 'rejected').map((r) => r.reason);
 
-        if (isMounted) {
-          setCourseData({
-            id: courseId,
-            code: courseInfo.code,
-            name: courseInfo.name,
-            grade: courseInfo.grade_level,
-            description: 'Mata pelajaran ini disinkronisasikan dari database relasional KelasKita.'
-          });
-          setAssignments(assignmentsData);
-          setMaterials(materialsData);
-          setIsLoading(false);
-        }
-      } catch (err) {
-        if (isMounted) {
-          setError(err.message);
-          setIsLoading(false);
-        }
+      if (failures.length > 0) {
+        const real = failures.find((err) => !isNotBuiltYet(err));
+        if (real) setError(real.message || 'Gagal memuat data penugasan atau materi kelas.');
+        else setNotBuilt(true);
+        setIsLoading(false);
+        return;
       }
+
+      const [courseInfo, assignmentsData, materialsData] = results.map((r) => r.value);
+
+      setCourseData({
+        id: courseId,
+        code: courseInfo.code,
+        name: courseInfo.name,
+        grade: courseInfo.grade_level,
+        /* No Subject.description column exists, so there is nothing to show.
+           This used to be a fixed sentence naming a brand this app does not
+           use. */
+        description: null,
+      });
+      setAssignments(assignmentsData);
+      setMaterials(materialsData);
+      setIsLoading(false);
     };
 
     if (courseId) {
@@ -109,8 +112,19 @@ export const CourseDetail = () => {
     return () => {
       isMounted = false;
     };
-  }, [courseId, navigate]);
+  }, [courseId]);
 
+  /*
+    The four handlers below still call `fetch` directly and still read
+    `localStorage.getItem('token')` — which is the wrong store for a session
+    without "Remember me". Left that way on purpose for now: none of them has the
+    401 branch this slice removed, every endpoint they call answers 404, and no
+    path through the UI reaches them, so changing them would add risk without
+    changing anything anybody can see.
+
+    `coursesService` already carries their replacements —
+    `createAssignment`, `createMaterial`, `updateMaterial`, `removeMaterial`.
+  */
   const handleCreateTask = async (taskData) => {
     try {
       const token = localStorage.getItem('token');
@@ -303,6 +317,10 @@ export const CourseDetail = () => {
     );
   }
 
+  /* Nothing about this class can be shown, because nothing was answered — the
+     tabs below would each be an empty room. */
+  if (notBuilt) return <NotBuiltYet />;
+
   if (error) {
     return (
       <div className="p-5 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-700 text-xs font-semibold select-none text-left">
@@ -339,9 +357,11 @@ export const CourseDetail = () => {
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
             {courseData.name}
           </h1>
-          <p className="text-sm text-slate-500 max-w-2xl font-medium mt-1">
-            {courseData.description}
-          </p>
+          {courseData.description && (
+            <p className="text-sm text-slate-500 max-w-2xl font-medium mt-1">
+              {courseData.description}
+            </p>
+          )}
         </div>
       </div>
 

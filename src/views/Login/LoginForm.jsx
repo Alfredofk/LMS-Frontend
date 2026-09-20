@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import BrandMark from '../../components/ui/BrandMark';
-import { passwordChecklist } from '../../utils/validation';
+import PasswordRules from '../../components/ui/PasswordRules';
 import { useT } from '../../i18n/LanguageContext';
 import CheckEmailStep from './CheckEmailStep';
 import GoogleButton from './GoogleButton';
@@ -37,29 +37,6 @@ const icons = {
     </svg>
   ),
 };
-
-const PasswordRules = ({ value, t }) => (
-  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 pt-0.5" aria-live="polite">
-    {passwordChecklist(value).map((rule) => (
-      <li
-        key={rule.key}
-        className={`flex items-center gap-1.5 text-[11px] font-semibold transition-colors ${
-          rule.met ? 'text-emerald-600' : 'text-slate-400'
-        }`}
-      >
-        <span
-          className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] shrink-0 ${
-            rule.met ? 'bg-emerald-100' : 'bg-slate-100'
-          }`}
-          aria-hidden="true"
-        >
-          {rule.met ? '✓' : '•'}
-        </span>
-        {t(rule.key, rule.vars)}
-      </li>
-    ))}
-  </ul>
-);
 
 export const LoginForm = ({ formState, notice }) => {
   const {
@@ -197,7 +174,7 @@ export const LoginForm = ({ formState, notice }) => {
 
         {isSignUp ? (
           <>
-            <PasswordRules value={password} t={t} />
+            <PasswordRules value={password} />
 
             <Input
               id="confirmPassword"

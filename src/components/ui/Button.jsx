@@ -71,10 +71,20 @@ export const Button = React.forwardRef(({
       className={`${baseStyles} ${sizes[size]} ${variants[variant]} ${className}`}
       {...props}
     >
+      {/*
+        The spinner joins the label; it does not replace it.
+
+        This used to render a hardcoded `Loading...` instead of `children`, in an
+        app whose default language is Indonesian — so all six call sites showed
+        an English word the moment they became busy, and the localized busy label
+        several of them already pass (`t('reg.submitting')`, "Mengirim…") was
+        thrown away unseen. Keeping the children also stops the button changing
+        width mid-press.
+      */}
       {isLoading ? (
         <span className="flex items-center gap-2">
           <svg
-            className="animate-spin h-5 w-5 text-current"
+            className="animate-spin h-5 w-5 text-current shrink-0"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
@@ -95,7 +105,7 @@ export const Button = React.forwardRef(({
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
             />
           </svg>
-          Loading...
+          {children}
         </span>
       ) : (
         children

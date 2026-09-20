@@ -3,6 +3,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { authService } from '../services/authService';
 import { usersService } from '../services/usersService';
 import { activeStore } from '../services/apiClient';
+import { adminService } from '../services/adminService';
 import { activeRolesOf } from '../constants/roles';
 
 const AuthContext = createContext(null);
@@ -24,6 +25,24 @@ const AuthContext = createContext(null);
 const USER_KEY = 'lms_user';
 const MEMBERSHIP_KEY = 'lms_membership';
 const ACTIVE_ROLE_KEY = 'lms_active_role';
+
+/*
+  Whether this account is a platform admin, cached like the rest.
+
+  It has to be cached, and the reason is a gap in the API rather than a
+  preference: `/users/me` answers `publicUser` — id, email, fullName,
+  emailVerifiedAt, createdAt — and says nothing about platform admins. That
+  knowledge lives only in the PlatformAdmin table, which `requirePlatformAdmin`
+  reads on every request. So the only way to ask is to call an admin route and
+  see whether it refuses.
+
+  Asking once, at sign-in, is what lets /select-role decide before it paints.
+  Asking from inside that screen instead made the whole page appear and then
+  vanish — the flash this key exists to remove.
+
+  Delete it the day the backend puts `isPlatformAdmin` on /users/me.
+*/
+const PLATFORM_ADMIN_KEY = 'lms_platform_admin';
 
 const readJson = (key) => {
   try {
@@ -80,13 +99,38 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [membership, setMembership] = useState(null);
   const [activeRole, setActiveRoleState] = useState(null);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setUser(readJson(USER_KEY));
     setMembership(readJson(MEMBERSHIP_KEY));
     setActiveRoleState(readRaw(ACTIVE_ROLE_KEY));
+    setIsPlatformAdmin(readRaw(PLATFORM_ADMIN_KEY) === '1');
     setLoading(false);
+  }, []);
+
+  /*
+    Ask whether this account is a platform admin, and remember the answer.
+
+    Only asked when there is no role to enter with — a person with a school to
+    work in is never probed and pays nothing for this. A 403 is the ordinary
+    answer and means exactly what it says.
+
+    Returns the answer so callers can route on it without waiting for the state
+    update to land.
+  */
+  const checkPlatformAdmin = useCallback(async () => {
+    try {
+      await adminService.list('PENDING');
+      setIsPlatformAdmin(true);
+      writeRaw(PLATFORM_ADMIN_KEY, '1');
+      return true;
+    } catch {
+      setIsPlatformAdmin(false);
+      forget(PLATFORM_ADMIN_KEY);
+      return false;
+    }
   }, []);
 
   /* The roles this person may actually enter with, right now. */
@@ -135,9 +179,14 @@ export const AuthProvider = ({ children }) => {
       const auth = await authService.login({ email, password, remember });
       // A fresh sign-in starts with no prior choice: whoever just typed their
       // password may not be whoever used this browser last.
-      return applySession(auth.user, auth.membership, null);
+      const session = applySession(auth.user, auth.membership, null);
+      /* Only when there is nothing to enter with — see checkPlatformAdmin.
+         Returned on the session rather than read from state by the caller:
+         a state update has not landed by the time the caller routes. */
+      const admin = session.roles.length === 0 ? await checkPlatformAdmin() : false;
+      return { ...session, isPlatformAdmin: admin };
     },
-    [applySession]
+    [applySession, checkPlatformAdmin]
   );
 
   /**
@@ -152,9 +201,11 @@ export const AuthProvider = ({ children }) => {
   const signInWithGoogle = useCallback(
     async ({ idToken, remember = false }) => {
       const auth = await authService.signInWithGoogle({ idToken, remember });
-      return applySession(auth.user, auth.membership, null);
+      const session = applySession(auth.user, auth.membership, null);
+      const admin = session.roles.length === 0 ? await checkPlatformAdmin() : false;
+      return { ...session, isPlatformAdmin: admin };
     },
-    [applySession]
+    [applySession, checkPlatformAdmin]
   );
 
   /**
@@ -169,6 +220,27 @@ export const AuthProvider = ({ children }) => {
     const me = await usersService.getMe();
     return applySession(me.user, me.membership, activeRole);
   }, [applySession, activeRole]);
+
+  /**
+   * Change one's own name.
+   *
+   * PATCH /users/me answers with the same { user, membership } pair that
+   * /users/me returns, so the result is applied straight away rather than
+   * followed by a refreshMe() — one round trip, not two.
+   *
+   * `activeRole` is passed through because this call changes a name, not a
+   * membership: whoever was working as a Teacher is still working as a Teacher
+   * afterwards, and applySession would otherwise drop them back to the picker.
+   *
+   * @throws {ApiError} BAD_REQUEST when the name fails the server's own rule
+   */
+  const updateProfile = useCallback(
+    async ({ fullName }) => {
+      const me = await usersService.updateMe({ fullName });
+      return applySession(me.user, me.membership, activeRole);
+    },
+    [applySession, activeRole]
+  );
 
   /**
    * Enter as one of the roles this person holds.
@@ -205,6 +277,8 @@ export const AuthProvider = ({ children }) => {
       forget(USER_KEY);
       forget(MEMBERSHIP_KEY);
       forget(ACTIVE_ROLE_KEY);
+      setIsPlatformAdmin(false);
+      forget(PLATFORM_ADMIN_KEY);
     }
   }, []);
 
@@ -215,15 +289,18 @@ export const AuthProvider = ({ children }) => {
       roles,
       activeRole,
       loading,
+      isPlatformAdmin,
       isAuthenticated: !!user,
       signIn,
       signInWithGoogle,
       logout,
       refreshMe,
+      updateProfile,
+      checkPlatformAdmin,
       selectRole,
       register: authService.register,
     }),
-    [user, membership, roles, activeRole, loading, signIn, signInWithGoogle, logout, refreshMe, selectRole]
+    [user, membership, roles, activeRole, loading, isPlatformAdmin, signIn, signInWithGoogle, logout, refreshMe, updateProfile, checkPlatformAdmin, selectRole]
   );
 
   return (

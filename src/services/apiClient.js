@@ -149,8 +149,23 @@ async function readBody(response) {
 }
 
 async function send(path, { method = 'GET', body, query, auth = true } = {}) {
+  /*
+    A FormData body goes out untouched, and without a Content-Type.
+
+    Both halves matter, and getting either wrong fails silently. `JSON.stringify`
+    of a FormData is the string "{}" — the fields and the file vanish with no
+    error anywhere. And multipart needs a boundary token in its Content-Type
+    that only the browser knows; writing the header ourselves leaves it off and
+    the server cannot parse the body.
+
+    School registration is the only caller so far: it carries a KTP photo
+    alongside the form, in one request, because the backend has no separate
+    upload endpoint.
+  */
+  const isForm = body instanceof FormData;
+
   const headers = {};
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
 
   if (auth) {
     const token = getAccessToken();
@@ -160,7 +175,7 @@ async function send(path, { method = 'GET', body, query, auth = true } = {}) {
   const response = await fetch(buildUrl(path, query), {
     method,
     headers,
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    ...(body !== undefined ? { body: isForm ? body : JSON.stringify(body) } : {}),
   });
 
   return { response, payload: await readBody(response) };
@@ -257,9 +272,71 @@ export async function request(path, options = {}) {
   return payload.data;
 }
 
+/**
+ * A route that has not been written yet, as opposed to a request that failed.
+ *
+ * Most of this app's endpoints do not exist: the backend mounts four namespaces
+ * and the screens call thirty-seven. A screen that cannot tell the difference
+ * has two bad options — a red panel that blames the reader for something nobody
+ * did, or silence that reads as "there is nothing here".
+ *
+ * So a screen whose endpoint is missing says it is not available yet, and the
+ * day the route lands the same code shows the data. Nothing has to be undone.
+ *
+ * Only 404. A 500 is a real failure and must stay loud.
+ */
+export const isNotBuiltYet = (err) => err?.status === 404;
+
+/**
+ * Fetch bytes rather than JSON, with the same session handling as `request`.
+ *
+ * One endpoint in this API does not speak the envelope: the KTP photo attached
+ * to a school registration comes back as the image itself, so an admin's
+ * browser can display it. `readBody` would run `JSON.parse` over a JPEG and
+ * throw INVALID_RESPONSE.
+ *
+ * Everything else is deliberately identical — the bearer token comes from
+ * `activeStore()`, and a 401 goes through the same single-flight refresh — so
+ * this cannot drift into a second, weaker way of being signed in.
+ *
+ * The caller owns the Blob. For the KTP that matters: it is a photograph of
+ * somebody's national ID, and whoever turns it into an object URL is
+ * responsible for revoking it.
+ *
+ * @throws {ApiError} including 404 once the file has been deleted, which is
+ *   what happens the moment a registration is decided.
+ */
+export async function requestBlob(path, options = {}) {
+  const { retryOnUnauthorized = true, ...rest } = options;
+
+  const fetchOnce = async () => {
+    const headers = {};
+    const token = getAccessToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return fetch(buildUrl(path, rest.query), { method: 'GET', headers });
+  };
+
+  let response = await fetchOnce();
+
+  if (response.status === 401 && retryOnUnauthorized && getRefreshToken()) {
+    if (await refreshTokens()) response = await fetchOnce();
+  }
+
+  if (!response.ok) {
+    /* An error body IS the envelope, even here — only success is raw bytes. */
+    throw toApiError(response, await readBody(response).catch(() => null));
+  }
+
+  return response.blob();
+}
+
 export const api = {
   get: (path, options) => request(path, { ...options, method: 'GET' }),
   post: (path, body, options) => request(path, { ...options, method: 'POST', body }),
+  /* PUT as well as PATCH: the screens ahead of the backend use PUT for whole
+     replacements (/materials/:id, /notifications/:id/read, /protests/:id/review)
+     while /users/me uses PATCH for a partial one. Both are in the contract. */
+  put: (path, body, options) => request(path, { ...options, method: 'PUT', body }),
   patch: (path, body, options) => request(path, { ...options, method: 'PATCH', body }),
   del: (path, options) => request(path, { ...options, method: 'DELETE' }),
 };

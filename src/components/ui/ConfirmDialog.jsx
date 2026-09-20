@@ -37,6 +37,10 @@ const TONES = {
  * @param {string} confirmLabel already translated
  * @param {string} cancelLabel  already translated
  * @param {'danger'|'brand'} [tone]
+ * @param {boolean} [busy]        the confirmed work is still running: both
+ *                                buttons, Escape and the backdrop stop answering,
+ *                                so the question cannot be answered twice
+ * @param {string} [busyLabel]    already translated; falls back to confirmLabel
  * @param {() => void} onConfirm
  * @param {() => void} onCancel  also called by Escape and by a backdrop click
  */
@@ -47,6 +51,8 @@ export const ConfirmDialog = ({
   confirmLabel,
   cancelLabel,
   tone = 'danger',
+  busy = false,
+  busyLabel,
   onConfirm,
   onCancel,
 }) => {
@@ -61,6 +67,9 @@ export const ConfirmDialog = ({
     cancelRef.current?.focus();
 
     const onKeyDown = (e) => {
+      // Escape is a way to answer "no". While the "yes" is still running there
+      // is no longer a question to answer.
+      if (busy) return;
       if (e.key === 'Escape') {
         e.preventDefault();
         onCancel();
@@ -77,20 +86,21 @@ export const ConfirmDialog = ({
       */
       if (openerRef.current?.isConnected) openerRef.current.focus();
     };
-  }, [open, onCancel]);
+  }, [open, onCancel, busy]);
 
   if (!open) return null;
 
   return createPortal(
     <div
       className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-      onClick={onCancel}
+      onClick={busy ? undefined : onCancel}
     >
       <div
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-body"
+        aria-busy={busy}
         /* The backdrop closes on click; the panel must not pass its own clicks up. */
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 sm:p-7 space-y-3 text-left"
@@ -107,18 +117,29 @@ export const ConfirmDialog = ({
             ref={cancelRef}
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 rounded-xl text-xs font-extrabold text-slate-600 hover:bg-slate-50 border border-slate-200 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+            disabled={busy}
+            /*
+              The disabled state is spelled out rather than left to Tailwind's
+              `disabled:` variant. Utilities share one layer at equal specificity
+              and a tie goes to stylesheet order, so `disabled:cursor-not-allowed`
+              beating `cursor-pointer` would be luck. Only one of the two is
+              emitted, which needs no luck.
+            */
+            className={`px-4 py-2 rounded-xl text-xs font-extrabold text-slate-600 border border-slate-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
+              busy ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer'
+            }`}
           >
             {cancelLabel}
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className={`px-5 py-2 rounded-xl text-xs font-extrabold text-white shadow-sm transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+            disabled={busy}
+            className={`px-5 py-2 rounded-xl text-xs font-extrabold text-white shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
               TONES[tone] ?? TONES.danger
-            }`}
+            } ${busy ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
           >
-            {confirmLabel}
+            {busy ? busyLabel ?? confirmLabel : confirmLabel}
           </button>
         </div>
       </div>

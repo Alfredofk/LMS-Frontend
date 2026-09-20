@@ -13,10 +13,12 @@ import {
   ChevronDown
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import { useT } from '../../i18n/LanguageContext';
 
 export const CreateAssignmentForm = () => {
   const navigate = useNavigate();
   const { showToast } = useOutletContext();
+  const { t } = useT();
 
   // Form input states
   const [title, setTitle] = useState('');
@@ -27,7 +29,8 @@ export const CreateAssignmentForm = () => {
   const [uploadedFiles, setUploadedFiles] = useState([]);
 
   const [isDragActive, setIsDragActive] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  /* No isSubmitting state: nothing is submitted. It used to drive a 1.5s
+     fake delay before an alert that claimed success. */
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -47,7 +50,7 @@ export const CreateAssignmentForm = () => {
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const files = Array.from(e.dataTransfer.files);
       setUploadedFiles(prev => [...prev, ...files.map(f => f.name)]);
-      showToast(`Berhasil melampirkan ${files.length} file.`, 'success');
+      showToast(t('asg.attached', { n: files.length }), 'success');
     }
   };
 
@@ -55,38 +58,41 @@ export const CreateAssignmentForm = () => {
     if (e.target.files && e.target.files[0]) {
       const files = Array.from(e.target.files);
       setUploadedFiles(prev => [...prev, ...files.map(f => f.name)]);
-      showToast(`Berhasil melampirkan ${files.length} file.`, 'success');
+      showToast(t('asg.attached', { n: files.length }), 'success');
     }
   };
 
   const removeFile = (fileName) => {
     setUploadedFiles(prev => prev.filter(f => f !== fileName));
-    showToast('Lampiran dihapus.', 'info');
+    showToast(t('asg.removed'), 'info');
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!title.trim()) {
-      showToast('Judul Tugas wajib diisi.', 'warning');
+      showToast(t('asg.require.title'), 'warning');
       return;
     }
     if (!deadline) {
-      showToast('Tenggat waktu wajib ditentukan.', 'warning');
+      showToast(t('asg.require.deadline'), 'warning');
       return;
     }
     if (!description.trim()) {
-      showToast('Instruksi deskripsi tugas wajib diisi.', 'warning');
+      showToast(t('asg.require.description'), 'warning');
       return;
     }
 
-    setIsSubmitting(true);
-    showToast('Menerbitkan tugas baru...', 'info');
-    
-    setTimeout(() => {
-      alert("Tugas berhasil diterbitkan!");
-      setIsSubmitting(false);
-      navigate('/classroom/matematika-lanjut');
-    }, 1500);
+    /*
+      Nothing is published. There is no endpoint to publish to — no
+      Assignment model exists in the schema at all — and this used to hide
+      that behind a setTimeout, an alert saying it had worked, and a walk to
+      /classroom/matematika-lanjut, a course id nothing has ever served.
+
+      Somebody would have written a real assignment into this form, been
+      told it went out, and found nothing. Saying so plainly costs a feature
+      nobody had.
+    */
+    showToast(t('common.notBuilt.title'), 'info');
   };
 
   return (
@@ -99,13 +105,13 @@ export const CreateAssignmentForm = () => {
           className="flex items-center gap-1.5 text-xs font-extrabold text-slate-400 hover:text-brand transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
-          Kembali
+          {t('asg.back')}
         </button>
         <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight mt-2.5">
-          Buat Tugas Baru
+          {t('asg.title')}
         </h1>
         <p className="text-xs text-slate-400 font-bold mt-0.5">
-          Tentukan parameter tugas, tenggat, instruksi, dan poin XP untuk siswa.
+          {t('asg.subtitle')}
         </p>
       </div>
 
@@ -119,12 +125,12 @@ export const CreateAssignmentForm = () => {
             {/* Title Input */}
             <div className="md:col-span-2 space-y-1.5">
               <label className="text-xs font-extrabold text-slate-700 flex items-center gap-1 select-none">
-                Judul Tugas <span className="text-red-500">*</span>
+                {t('asg.field.title')} <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Contoh: Laporan Praktikum Asam Basa"
+                  placeholder={t('asg.field.title.hint')}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full text-xs font-semibold border border-slate-200 rounded-xl pl-4 pr-10 py-3 focus:outline-none focus:border-brand transition-colors bg-white shadow-sm"
@@ -136,7 +142,7 @@ export const CreateAssignmentForm = () => {
             {/* Type Selector */}
             <div className="space-y-1.5">
               <label className="text-xs font-extrabold text-slate-700 select-none">
-                Tipe Tugas
+                {t('asg.field.type')}
               </label>
               <div className="relative">
                 <select
@@ -144,9 +150,9 @@ export const CreateAssignmentForm = () => {
                   onChange={(e) => setType(e.target.value)}
                   className="w-full text-xs font-extrabold text-slate-800 border border-slate-200 rounded-xl px-4 py-3 bg-white focus:outline-none focus:border-brand transition-colors cursor-pointer appearance-none shadow-sm"
                 >
-                  <option value="Tugas Mandiri">Tugas Mandiri</option>
-                  <option value="Kuis">Kuis / Ujian</option>
-                  <option value="Laporan Praktikum">Laporan Praktikum</option>
+                  <option value="Tugas Mandiri">{t('asg.type.independent')}</option>
+                  <option value="Kuis">{t('asg.type.quiz')}</option>
+                  <option value="Laporan Praktikum">{t('asg.type.report')}</option>
                 </select>
                 <ChevronDown className="absolute right-3.5 top-4 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
@@ -160,7 +166,7 @@ export const CreateAssignmentForm = () => {
             {/* Datetime deadline picker */}
             <div className="space-y-1.5">
               <label className="text-xs font-extrabold text-slate-700 flex items-center gap-1 select-none">
-                Tenggat Waktu (Deadline) <span className="text-red-500">*</span>
+                {t('asg.field.deadline')} <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <input
@@ -175,7 +181,7 @@ export const CreateAssignmentForm = () => {
             {/* XP reward points */}
             <div className="space-y-1.5">
               <label className="text-xs font-extrabold text-slate-700 flex items-center gap-1 select-none">
-                Reward XP <span className="text-[10px] text-slate-400 font-semibold">(Gamifikasi)</span>
+                {t('asg.field.xp')} <span className="text-[10px] text-slate-400 font-semibold">{t('asg.field.xp.hint')}</span>
               </label>
               <div className="relative">
                 <input
@@ -195,7 +201,7 @@ export const CreateAssignmentForm = () => {
           {/* Row 3: Rich Editor simulated toolbar & Textarea instructions */}
           <div className="space-y-1.5">
             <label className="text-xs font-extrabold text-slate-700 flex items-center gap-1 select-none">
-              Deskripsi Instruksi Tugas <span className="text-red-500">*</span>
+              {t('asg.field.description')} <span className="text-red-500">*</span>
             </label>
             
             <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
@@ -203,26 +209,26 @@ export const CreateAssignmentForm = () => {
               <div className="bg-slate-50 border-b border-slate-200 px-3.5 py-2 flex items-center gap-1 select-none">
                 <button
                   type="button"
-                  onClick={() => showToast('Aksi Bold terpilih.', 'info')}
+                  onClick={() => showToast(t('asg.toolAction', { tool: t('asg.tool.bold') }), 'info')}
                   className="p-1.5 hover:bg-slate-200/60 rounded text-slate-700 transition-colors focus:outline-none cursor-pointer"
-                  title="Tebalkan"
+                  title={t('asg.tool.bold')}
                 >
                   <Bold className="w-3.5 h-3.5" />
                 </button>
                 <button
                   type="button"
-                  onClick={() => showToast('Aksi Italic terpilih.', 'info')}
+                  onClick={() => showToast(t('asg.toolAction', { tool: t('asg.tool.italic') }), 'info')}
                   className="p-1.5 hover:bg-slate-200/60 rounded text-slate-700 transition-colors focus:outline-none cursor-pointer"
-                  title="Miringkan"
+                  title={t('asg.tool.italic')}
                 >
                   <Italic className="w-3.5 h-3.5" />
                 </button>
                 <span className="w-px h-4 bg-slate-300 mx-1"></span>
                 <button
                   type="button"
-                  onClick={() => showToast('Aksi List terpilih.', 'info')}
+                  onClick={() => showToast(t('asg.toolAction', { tool: t('asg.tool.list') }), 'info')}
                   className="p-1.5 hover:bg-slate-200/60 rounded text-slate-700 transition-colors focus:outline-none cursor-pointer"
-                  title="Daftar Poin"
+                  title={t('asg.tool.list')}
                 >
                   <List className="w-3.5 h-3.5" />
                 </button>
@@ -231,7 +237,7 @@ export const CreateAssignmentForm = () => {
               {/* Textarea editor */}
               <textarea
                 rows={5}
-                placeholder="Tuliskan instruksi tugas secara rinci dan langkah pengerjaannya di sini..."
+                placeholder={t('asg.field.description.hint')}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full text-xs font-semibold p-4 focus:outline-none bg-white transition-colors border-0"
@@ -242,7 +248,7 @@ export const CreateAssignmentForm = () => {
           {/* Row 4: Attachment Upload Area */}
           <div className="space-y-1.5">
             <label className="text-xs font-extrabold text-slate-700 select-none">
-              Lampiran Materi / Soal <span className="text-[10px] text-slate-400 font-semibold">(Opsional)</span>
+              {t('asg.field.attachment')} <span className="text-[10px] text-slate-400 font-semibold">{t('asg.field.attachment.hint')}</span>
             </label>
             
             {/* Drag & Drop dashed box */}
@@ -270,10 +276,10 @@ export const CreateAssignmentForm = () => {
                   <UploadCloud className="w-5 h-5" />
                 </div>
                 <p className="text-xs font-extrabold text-slate-800">
-                  Tarik & lepas berkas Anda di sini, atau <span className="text-brand hover:underline">Pilih berkas</span>
+                  {t('asg.drop.prompt')}<span className="text-brand hover:underline">{t('asg.drop.browse')}</span>
                 </p>
                 <p className="text-[10px] text-slate-400 font-bold">
-                  PDF, DOCX, XLS, PPTX (Maksimal 10MB)
+                  {t('asg.drop.limits')}
                 </p>
               </div>
             </div>
@@ -302,18 +308,16 @@ export const CreateAssignmentForm = () => {
           <div className="flex justify-end items-center gap-3 pt-4 border-t border-slate-100 select-none">
             <button
               type="button"
-              disabled={isSubmitting}
               onClick={() => navigate(-1)}
               className="px-5 py-2.5 border border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-xl font-extrabold text-xs cursor-pointer focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Batal
+              {t('asg.cancel')}
             </button>
             <Button
               type="submit"
-              disabled={isSubmitting}
               className="py-2.5 px-5 rounded-xl shadow-md shadow-brand/10 cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? 'Menyimpan...' : 'Terbitkan Tugas'}
+              {t('asg.submit')}
             </Button>
           </div>
 

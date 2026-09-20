@@ -3,6 +3,9 @@ import { useOutletContext, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { BookOpen, Calendar, Users, ArrowRight, AlertCircle, Search, Filter } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import NotBuiltYet from '../../components/ui/NotBuiltYet';
+import { isNotBuiltYet } from '../../services/apiClient';
+import { coursesService } from '../../services/coursesService';
 
 export const TeacherCourses = () => {
   const { user } = useAuth();
@@ -13,42 +16,38 @@ export const TeacherCourses = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [notBuilt, setNotBuilt] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
 
+    /*
+      The 401 branch that used to live here cleared `token` and `lms_user` and
+      pushed everybody to /login. It was wrong three ways: an access token lives
+      fifteen minutes, so it fired on its own; it never cleared
+      `lms_refresh_token`, so the session it "ended" was still alive; and it read
+      `localStorage` while a session without "Remember me" — the default — lives
+      in `sessionStorage`, so the request had gone out as `Bearer undefined` and
+      the 401 was guaranteed.
+
+      apiClient handles all three: it refreshes once, replays the request, and
+      only gives up if the refresh itself is refused — and then ProtectedRoute
+      does the redirecting, in one place rather than five.
+    */
     const fetchCourses = async () => {
+      setIsLoading(true);
+      setError(null);
+
       try {
-        setIsLoading(true);
-        setError(null);
-
-        const token = localStorage.getItem('token');
-        const response = await fetch('/api/courses', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          if (response.status === 401) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('lms_user');
-            navigate('/login');
-            return;
-          }
-          throw new Error('Gagal mengambil data kelas dari server.');
-        }
-
-        const data = await response.json();
-        if (isMounted) {
-          setCourses(data);
-          setIsLoading(false);
-        }
+        const data = await coursesService.list();
+        if (isMounted) setCourses(data);
       } catch (err) {
-        if (isMounted) {
-          setError(err.message || 'Gagal memuat daftar kelas. Silakan coba lagi.');
-          setIsLoading(false);
-        }
+        if (!isMounted) return;
+        /* 404 is not a failure here — the route is not written yet. */
+        if (isNotBuiltYet(err)) setNotBuilt(true);
+        else setError(err.message || 'Gagal memuat daftar kelas. Silakan coba lagi.');
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
     };
 
@@ -56,7 +55,7 @@ export const TeacherCourses = () => {
     return () => {
       isMounted = false;
     };
-  }, [navigate]);
+  }, []);
 
   // Filter courses based on search query
   const filteredCourses = courses.filter(cls => 
@@ -98,6 +97,24 @@ export const TeacherCourses = () => {
     );
   }
 
+  /*
+    The route is not written yet. The search box and the sort button would be
+    controls over nothing, so the page keeps its title and says what is actually
+    true instead.
+  */
+  if (notBuilt) {
+    return (
+      <div className="space-y-6 text-left">
+        <div className="select-none">
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+            Daftar Mata Pelajaran
+          </h1>
+        </div>
+        <NotBuiltYet />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 text-left">
       {/* Header */}
@@ -105,6 +122,10 @@ export const TeacherCourses = () => {
         <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
           Daftar Mata Pelajaran
         </h1>
+        {/* `user.schoolName` does not exist — the account object carries id,
+            email and fullName — so the fallback below was shown to everybody.
+            The school lives on the membership; left as it is for now because
+            this screen has no i18n yet and the fix belongs with that slice. */}
         <p className="text-xs sm:text-sm text-slate-400 font-bold mt-1">
           Kelola semua kelas dan penugasan yang Anda ampu di {user?.schoolName || 'SMA Negeri 1 Harapan'}
         </p>

@@ -19,6 +19,7 @@ import {
   Users,
   GraduationCap,
   Repeat,
+  ShieldCheck,
   LogOut
 } from 'lucide-react';
 
@@ -155,7 +156,10 @@ export const Sidebar = ({ showToast, userRole }) => {
           /* The content alone would read as "Siti Rahma, siti@…, Siswa" and
              never say where it goes, so the label names the destination too. */
           aria-label={onProfile ? undefined : `${user?.fullName ?? ''} — ${t('shell.myProfile')}`}
-          className={`w-full p-3.5 mx-3 mt-4 mb-2 flex items-center gap-3 bg-white border rounded-2xl min-w-0 shadow-sm text-left transition-all ${
+          /* No w-full: it is 100% of the parent and ignores this element's own
+             margins, so w-full + mx-3 always overflows by 24px. `flex` is already
+             block-level, so auto width fills the parent minus the margins. */
+          className={`p-3.5 mx-3 mt-4 mb-2 flex items-center gap-3 bg-white border rounded-2xl min-w-0 shadow-sm text-left transition-all ${
             onProfile
               ? 'border-brand/40'
               : 'border-slate-100 hover:border-brand/40 hover:shadow-md cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand'
@@ -315,6 +319,18 @@ export const Sidebar = ({ showToast, userRole }) => {
               >
                 <User className={`w-4 h-4 shrink-0 transition-colors ${isActive('/profile') ? 'text-white' : 'text-brand'}`} />
                 {t('shell.myProfile')}
+              </button>
+
+              {/* Stays inside the shell, so it highlights like its neighbours.
+                  /account is guarded by RequireAuth alone and picks its own
+                  frame, which is what keeps it working for people who have no
+                  role to build this sidebar from — see AccountChrome. */}
+              <button
+                onClick={() => handleLinkClick('account.title', '/account')}
+                className={isActive('/account') ? activeBtnClass : inactiveBtnClass}
+              >
+                <ShieldCheck className={`w-4 h-4 shrink-0 transition-colors ${isActive('/account') ? 'text-white' : 'text-brand'}`} />
+                {t('account.title')}
               </button>
 
               {/* Only somebody holding more than one role has anything to switch
