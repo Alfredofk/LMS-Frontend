@@ -348,7 +348,7 @@ export const TeacherGradebook = () => {
 
   if (error) {
     return (
-      <div className="p-6 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-750 text-sm font-semibold select-none text-left w-full">
+      <div className="p-6 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-700 text-sm font-semibold select-none text-left w-full">
         <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
         <div>
           <p className="font-bold">Terjadi Kesalahan</p>
@@ -363,8 +363,8 @@ export const TeacherGradebook = () => {
       {/* 1. Header Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 select-none">
         <div className="space-y-1">
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight flex items-center gap-2">
-            <GraduationCap className="w-6 h-6 text-[#7047EB]" />
+          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight flex items-center gap-2">
+            <GraduationCap className="w-6 h-6 text-brand" />
             Buku Nilai (Gradebook)
           </h1>
           <p className="text-xs font-bold text-slate-500">
@@ -375,7 +375,7 @@ export const TeacherGradebook = () => {
         <Button
           onClick={handleSaveData}
           disabled={isSaving || (pendingGrades.length === 0 && totalWeight === assignments.reduce((sum, a) => sum + (a.weight || 0), 0))}
-          className="bg-[#7047EB] hover:bg-[#5E3BD2] text-white py-2.5 px-5 rounded-xl font-bold shadow-md shadow-violet-500/10 cursor-pointer text-xs flex items-center justify-center gap-1.5 disabled:opacity-50"
+          className="bg-brand hover:bg-brand-deep text-white py-2.5 px-5 rounded-xl font-bold shadow-md shadow-brand/10 cursor-pointer text-xs flex items-center justify-center gap-1.5 disabled:opacity-50"
         >
           <Save className="w-4 h-4" />
           {isSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
@@ -392,7 +392,7 @@ export const TeacherGradebook = () => {
           <select
             value={selectedCourseId}
             onChange={(e) => setSelectedCourseId(e.target.value)}
-            className="text-xs font-black text-slate-800 border border-slate-200 rounded-xl px-3.5 py-2.5 bg-white focus:outline-none focus:border-[#7047EB] transition-colors cursor-pointer shadow-sm mr-2"
+            className="text-xs font-extrabold text-slate-800 border border-slate-200 rounded-xl px-3.5 py-2.5 bg-white focus:outline-none focus:border-brand transition-colors cursor-pointer shadow-sm mr-2"
           >
             {courses.map(course => (
               <option key={course.id} value={course.id}>
@@ -404,10 +404,10 @@ export const TeacherGradebook = () => {
           {/* Remedial Filter Button */}
           <button
             onClick={() => setFilterRemedialOnly(!filterRemedialOnly)}
-            className={`text-xs font-black flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border transition-all cursor-pointer
+            className={`text-xs font-extrabold flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border transition-all cursor-pointer
               ${filterRemedialOnly 
-                ? 'bg-red-55 border-red-200 text-red-650 hover:bg-red-100/60 shadow-sm' 
-                : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50 hover:text-slate-800 shadow-sm'
+                ? 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100/60 shadow-sm' 
+                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800 shadow-sm'
               }
             `}
           >
@@ -418,7 +418,7 @@ export const TeacherGradebook = () => {
           {/* Export to CSV Button */}
           <button
             onClick={handleExportCSV}
-            className="text-xs font-black text-slate-655 hover:text-slate-800 flex items-center gap-1.5 bg-white border border-slate-200 px-3.5 py-2.5 rounded-xl transition-all cursor-pointer hover:bg-slate-50 shadow-sm"
+            className="text-xs font-extrabold text-slate-600 hover:text-slate-800 flex items-center gap-1.5 bg-white border border-slate-200 px-3.5 py-2.5 rounded-xl transition-all cursor-pointer hover:bg-slate-50 shadow-sm"
           >
             <Download className="w-4 h-4 text-slate-400" />
             Ekspor CSV
@@ -428,12 +428,12 @@ export const TeacherGradebook = () => {
         {/* Protests Inbox Button */}
         <button
           onClick={() => setIsProtestsOpen(true)}
-          className="text-xs font-black text-[#7047EB] hover:text-[#5E3BD2] flex items-center gap-2 bg-purple-50 hover:bg-purple-100/70 border border-purple-200/50 px-3.5 py-2.5 rounded-xl transition-all cursor-pointer"
+          className="text-xs font-extrabold text-brand hover:text-brand-deep flex items-center gap-2 bg-purple-50 hover:bg-purple-100/70 border border-purple-200/50 px-3.5 py-2.5 rounded-xl transition-all cursor-pointer"
         >
           <Inbox className="w-4 h-4" />
           Kotak Sanggahan Nilai
           {protestsCount > 0 && (
-            <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center border border-white">
+            <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-extrabold flex items-center justify-center border border-white">
               {protestsCount}
             </span>
           )}
@@ -442,7 +442,7 @@ export const TeacherGradebook = () => {
 
       {/* Weight Error Banner */}
       {assignments.length > 0 && totalWeight !== 100 && (
-        <div className="p-4 bg-amber-50 border border-amber-150 rounded-2xl flex items-center gap-3 text-amber-800 text-xs font-semibold select-none text-left">
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-3 text-amber-800 text-xs font-semibold select-none text-left">
           <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
           <div>
             Total bobot penugasan saat ini adalah <strong className="text-amber-900 font-extrabold">{totalWeight}%</strong>. 
@@ -454,8 +454,8 @@ export const TeacherGradebook = () => {
       {/* 3. Responsive Interactive Table */}
       {assignments.length === 0 ? (
         <div className="py-20 text-center border border-dashed border-slate-200 rounded-3xl bg-slate-50/20 select-none">
-          <BookOpen className="w-12 h-12 text-slate-350 mx-auto mb-3" />
-          <h3 className="text-sm font-black text-slate-500">Belum ada tugas dibuat</h3>
+          <BookOpen className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <h3 className="text-sm font-extrabold text-slate-500">Belum ada tugas dibuat</h3>
           <p className="text-xs text-slate-400 mt-1">Buat tugas baru terlebih dahulu di halaman kelas.</p>
         </div>
       ) : (
@@ -463,7 +463,7 @@ export const TeacherGradebook = () => {
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
-                <tr className="bg-slate-50/50 border-b border-slate-100 text-xs font-black text-slate-500 select-none">
+                <tr className="bg-slate-50/50 border-b border-slate-100 text-xs font-extrabold text-slate-500 select-none">
                   <th className="p-4 pl-6 text-left w-48">Nama Siswa</th>
                   <th className="p-4 text-center w-36">NIS</th>
                   
@@ -478,7 +478,7 @@ export const TeacherGradebook = () => {
                             value={weights[asm.id] !== undefined ? weights[asm.id] : ''}
                             onChange={(e) => handleWeightChange(asm.id, e.target.value)}
                             placeholder="0"
-                            className="w-12 text-center text-[10px] font-black border border-slate-200 rounded-md py-0.5 focus:outline-none focus:border-[#7047EB] bg-white text-slate-800"
+                            className="w-12 text-center text-[10px] font-extrabold border border-slate-200 rounded-md py-0.5 focus:outline-none focus:border-brand bg-white text-slate-800"
                           />
                           <span className="text-[10px] text-slate-400">%</span>
                         </div>
@@ -500,7 +500,7 @@ export const TeacherGradebook = () => {
                     <tr key={student.id} className="hover:bg-slate-50/20 transition-colors">
                       {/* Name */}
                       <td className="p-4 pl-6 text-left">
-                        <div className="truncate max-w-[160px] font-extrabold text-slate-905" title={student.name}>
+                        <div className="truncate max-w-[160px] font-extrabold text-slate-900" title={student.name}>
                           {student.name}
                         </div>
                         <span className="text-[10px] text-slate-400 font-semibold">{student.email}</span>
@@ -523,9 +523,9 @@ export const TeacherGradebook = () => {
                               value={gradeVal === null ? '' : gradeVal}
                               onChange={(e) => handleGradeChange(student.id, asm.id, e.target.value)}
                               placeholder="Belum"
-                              className={`w-16 text-center py-1.5 border rounded-xl focus:outline-none transition-all font-black text-xs
+                              className={`w-16 text-center py-1.5 border rounded-xl focus:outline-none transition-all font-extrabold text-xs
                                 ${isEdited 
-                                  ? 'border-[#7047EB] ring-2 ring-purple-100 bg-purple-50/10' 
+                                  ? 'border-brand ring-2 ring-purple-100 bg-purple-50/10' 
                                   : gradeVal === null
                                     ? 'border-slate-200/80 bg-slate-50/30 text-slate-400'
                                     : 'border-slate-200/80 bg-white text-slate-800'
@@ -538,7 +538,7 @@ export const TeacherGradebook = () => {
 
                       {/* Dynamic Weighted Average Total */}
                       <td className="p-4 text-center bg-slate-50/30 border-l border-slate-100">
-                        <span className={`text-sm font-black px-2 py-1 rounded-lg
+                        <span className={`text-sm font-extrabold px-2 py-1 rounded-lg
                           ${isPass ? 'text-slate-800' : 'text-red-600 bg-red-50/30'}
                         `}>
                           {finalAvg}
@@ -548,12 +548,12 @@ export const TeacherGradebook = () => {
                       {/* Status badge based on KKM (75) */}
                       <td className="p-4 pl-6 bg-slate-50/30">
                         {isPass ? (
-                          <span className="px-2.5 py-0.5 bg-emerald-50 border border-emerald-100 text-emerald-600 text-[10px] font-black rounded-md inline-flex items-center gap-1 uppercase select-none">
+                          <span className="px-2.5 py-0.5 bg-emerald-50 border border-emerald-100 text-emerald-600 text-[10px] font-extrabold rounded-md inline-flex items-center gap-1 uppercase select-none">
                             <CheckCircle className="w-3 h-3" />
                             Lulus
                           </span>
                         ) : (
-                          <span className="px-2.5 py-0.5 bg-red-50 border border-red-100 text-red-500 text-[10px] font-black rounded-md inline-flex items-center gap-1 uppercase select-none">
+                          <span className="px-2.5 py-0.5 bg-red-50 border border-red-100 text-red-500 text-[10px] font-extrabold rounded-md inline-flex items-center gap-1 uppercase select-none">
                             <AlertCircle className="w-3 h-3 text-red-400" />
                             Remedial
                           </span>
@@ -571,7 +571,7 @@ export const TeacherGradebook = () => {
       {/* Review Protests Modal */}
       {isProtestsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm select-none">
-          <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl border border-slate-100 flex flex-col max-h-[85vh] text-left animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl border border-slate-100 flex flex-col max-h-[85vh] text-left">
             {/* Modal Header */}
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
               <div>
@@ -593,9 +593,9 @@ export const TeacherGradebook = () => {
             {/* Modal Content */}
             <div className="p-6 overflow-y-auto flex-1 space-y-4">
               {protests.length === 0 ? (
-                <div className="py-12 text-center border border-dashed border-slate-150 rounded-2xl bg-slate-50/50">
+                <div className="py-12 text-center border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
                   <Inbox className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                  <p className="text-xs font-black text-slate-500">Belum ada sanggahan masuk</p>
+                  <p className="text-xs font-extrabold text-slate-500">Belum ada sanggahan masuk</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -608,19 +608,19 @@ export const TeacherGradebook = () => {
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-extrabold text-slate-900">{protest.student_name}</span>
-                            <span className="px-2 py-0.5 bg-slate-100 text-slate-550 text-[10px] font-black rounded-md">{protest.grade_level}</span>
+                            <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-extrabold rounded-md">{protest.grade_level}</span>
                           </div>
                           <span className="text-[10px] text-slate-400 font-bold block mt-0.5">{protest.assignment_title}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 text-xs font-black">
+                        <div className="flex items-center gap-1.5 text-xs font-extrabold">
                           <span className="text-slate-400">Nilai: {protest.original_grade}</span>
                           <span className="text-slate-300">→</span>
-                          <span className="text-[#7047EB] bg-purple-100/60 px-2 py-0.5 rounded-md">Harapan: {protest.requested_grade}</span>
+                          <span className="text-brand bg-purple-100/60 px-2 py-0.5 rounded-md">Harapan: {protest.requested_grade}</span>
                         </div>
                       </div>
 
                       <div className="bg-slate-50 rounded-xl p-3 text-xs font-semibold text-slate-600 leading-relaxed">
-                        <span className="text-[10px] text-slate-400 block font-black mb-1 select-none">Alasan Murid:</span>
+                        <span className="text-[10px] text-slate-400 block font-extrabold mb-1 select-none">Alasan Murid:</span>
                         "{protest.reason}"
                       </div>
 
@@ -628,33 +628,33 @@ export const TeacherGradebook = () => {
                         <div className="pt-2 flex flex-col gap-3">
                           {/* Feedback comment box */}
                           <div className="space-y-1">
-                            <span className="text-[10px] text-slate-405 block font-black">Catatan Review Guru:</span>
+                            <span className="text-[10px] text-slate-400 block font-extrabold">Catatan Review Guru:</span>
                             <input
                               type="text"
                               id={`feedback-${protest.id}`}
                               placeholder="Tulis umpan balik guru di sini..."
-                              className="w-full text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-[#7047EB] transition-colors"
+                              className="w-full text-xs font-semibold border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-brand transition-colors"
                             />
                           </div>
 
                           <div className="flex gap-2.5 justify-end">
                             <button
                               onClick={() => handleReviewProtest(protest.id, 'Ditolak', document.getElementById(`feedback-${protest.id}`)?.value)}
-                              className="bg-red-50 hover:bg-red-100/60 border border-red-200/50 text-red-650 text-xs font-black py-2 px-4 rounded-xl cursor-pointer"
+                              className="bg-red-50 hover:bg-red-100/60 border border-red-200/50 text-red-600 text-xs font-extrabold py-2 px-4 rounded-xl cursor-pointer"
                             >
                               Tolak Sanggahan
                             </button>
                             <button
                               onClick={() => handleReviewProtest(protest.id, 'Disetujui', document.getElementById(`feedback-${protest.id}`)?.value)}
-                              className="bg-[#7047EB] hover:bg-[#5E3BD2] text-white text-xs font-black py-2 px-4 rounded-xl shadow-md shadow-violet-500/10 cursor-pointer"
+                              className="bg-brand hover:bg-brand-deep text-white text-xs font-extrabold py-2 px-4 rounded-xl shadow-md shadow-brand/10 cursor-pointer"
                             >
                               Setujui Sanggahan
                             </button>
                           </div>
                         </div>
                       ) : (
-                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-550">
-                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-black
+                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-500">
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold
                             ${protest.status === 'Disetujui' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}
                           `}>
                             Keputusan: {protest.status}

@@ -101,7 +101,7 @@ export const AttendanceManagement = ({ courseId, showToast }) => {
     return (
       <div className="py-10 text-center animate-pulse select-none bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
         <div className="h-6 bg-slate-200 rounded w-1/4 mx-auto mb-4"></div>
-        <div className="h-20 bg-slate-150 rounded w-3/4 mx-auto"></div>
+        <div className="h-20 bg-slate-200 rounded w-3/4 mx-auto"></div>
       </div>
     );
   }
@@ -118,14 +118,14 @@ export const AttendanceManagement = ({ courseId, showToast }) => {
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="text-xs font-black border border-slate-200 focus:border-[#7047EB] focus:outline-none px-3.5 py-1.5 rounded-xl transition-colors cursor-pointer"
+            className="text-xs font-extrabold border border-slate-200 focus:border-brand focus:outline-none px-3.5 py-1.5 rounded-xl transition-colors cursor-pointer"
           />
         </div>
 
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="flex items-center justify-center gap-2 bg-[#7047EB] hover:bg-[#5b35d5] text-white text-xs font-black px-5 py-2.5 rounded-xl transition-all shadow-sm shadow-indigo-100 cursor-pointer disabled:opacity-50"
+          className="flex items-center justify-center gap-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold px-5 py-2.5 rounded-xl transition-all shadow-sm shadow-indigo-100 cursor-pointer disabled:opacity-50"
         >
           <Save className="w-4 h-4" />
           {isSaving ? 'Menyimpan...' : 'Simpan Presensi Kelas'}
@@ -142,10 +142,10 @@ export const AttendanceManagement = ({ courseId, showToast }) => {
         ].map((item, idx) => (
           <div key={idx} className={`rounded-xl p-4 flex items-center justify-between shadow-sm ${item.bg}`}>
             <div>
-              <p className="text-[10px] font-black uppercase tracking-wider opacity-80">{item.label}</p>
-              <p className="text-2xl font-black mt-1">{item.value}</p>
+              <p className="text-[10px] font-extrabold uppercase tracking-wider opacity-80">{item.label}</p>
+              <p className="text-2xl font-extrabold mt-1">{item.value}</p>
             </div>
-            <span className="text-lg font-black">{item.label[0]}</span>
+            <span className="text-lg font-extrabold">{item.label[0]}</span>
           </div>
         ))}
       </div>
@@ -158,29 +158,29 @@ export const AttendanceManagement = ({ courseId, showToast }) => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-xs font-medium text-slate-650">
+            <table className="w-full text-xs font-medium text-slate-600">
               <thead>
                 <tr className="border-b border-slate-100 text-slate-400 font-extrabold text-left">
-                  <th className="pb-3 font-black uppercase tracking-wider text-[10px]">Nama Siswa</th>
-                  <th className="pb-3 font-black uppercase tracking-wider text-[10px]">NIS</th>
-                  <th className="pb-3 font-black uppercase tracking-wider text-[10px] text-center">Status Kehadiran</th>
-                  <th className="pb-3 font-black uppercase tracking-wider text-[10px]">Keterangan Catatan</th>
+                  <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">Nama Siswa</th>
+                  <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">NIS</th>
+                  <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px] text-center">Status Kehadiran</th>
+                  <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">Keterangan Catatan</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {attendances.map((row) => (
                   <tr key={row.id} className="hover:bg-slate-50/30 transition-colors">
-                    <td className="py-4 font-extrabold text-slate-805">{row.name}</td>
-                    <td className="py-4 text-slate-450 font-bold">{row.nis}</td>
+                    <td className="py-4 font-extrabold text-slate-800">{row.name}</td>
+                    <td className="py-4 text-slate-400 font-bold">{row.nis}</td>
                     
                     {/* Interactive Capsule Toggles */}
                     <td className="py-4 text-center">
                       <div className="inline-flex gap-1.5 p-1 bg-slate-50 rounded-xl border border-slate-100">
                         {[
-                          { key: 'Hadir', active: 'bg-emerald-500 text-white shadow-sm font-black' },
-                          { key: 'Izin', active: 'bg-amber-500 text-white shadow-sm font-black' },
-                          { key: 'Sakit', active: 'bg-blue-500 text-white shadow-sm font-black' },
-                          { key: 'Alpa', active: 'bg-rose-500 text-white shadow-sm font-black' }
+                          { key: 'Hadir', active: 'bg-emerald-500 text-white shadow-sm font-extrabold' },
+                          { key: 'Izin', active: 'bg-amber-500 text-white shadow-sm font-extrabold' },
+                          { key: 'Sakit', active: 'bg-blue-500 text-white shadow-sm font-extrabold' },
+                          { key: 'Alpa', active: 'bg-rose-500 text-white shadow-sm font-extrabold' }
                         ].map((btn) => {
                           const isSelected = row.status === btn.key;
                           return (
@@ -209,7 +209,7 @@ export const AttendanceManagement = ({ courseId, showToast }) => {
                         placeholder="Keterangan singkat..."
                         value={row.notes}
                         onChange={(e) => handleNotesChange(row.id, e.target.value)}
-                        className="w-full text-xs font-semibold border border-slate-100 focus:border-[#7047EB] focus:outline-none px-3 py-1.5 rounded-xl transition-colors bg-slate-50/30"
+                        className="w-full text-xs font-semibold border border-slate-100 focus:border-brand focus:outline-none px-3 py-1.5 rounded-xl transition-colors bg-slate-50/30"
                       />
                     </td>
                   </tr>

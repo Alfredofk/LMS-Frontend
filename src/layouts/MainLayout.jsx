@@ -3,10 +3,8 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from '../views/Dashboard/components/Sidebar';
 import Navbar from '../views/Dashboard/components/Navbar';
 import Toast from '../components/ui/Toast';
-import { useAuth } from '../context/AuthContext';
 
 export const MainLayout = () => {
-  const { logout } = useAuth();
   const [toast, setToast] = useState(null);
 
   const showToast = (message, type = 'info') => {
@@ -17,15 +15,9 @@ export const MainLayout = () => {
     setToast(null);
   };
 
-  /*
-    No confirmation toast here: clearing the session unmounts this layout —
-    ProtectedRoute sends the now-signed-out person to /login — so anything shown
-    at this point would disappear in the same frame.
-  */
-  const handleLogout = () => logout();
 
   return (
-    <div className="h-screen w-screen flex flex-row overflow-hidden bg-[#F8F9FD] font-sans antialiased text-slate-800">
+    <div className="h-screen w-screen flex flex-row overflow-hidden bg-canvas font-sans antialiased text-slate-800">
       {/* Toast Alert Notifier container */}
       {toast && (
         <Toast
@@ -36,15 +28,15 @@ export const MainLayout = () => {
       )}
 
       {/* 1. Sidebar Component (Fixed on Left) */}
-      <Sidebar onLogout={handleLogout} showToast={showToast} />
+      <Sidebar showToast={showToast} />
 
       {/* 2. Main content container */}
-      <div className="flex-1 h-full flex flex-col overflow-hidden bg-[#F8F9FD]">
+      <div className="flex-1 h-full flex flex-col overflow-hidden bg-canvas">
         {/* Navbar */}
         <Navbar showToast={showToast} />
 
         {/* Scrollable Content Body */}
-        <main className="flex-1 overflow-y-auto p-6 sm:p-8 bg-[#F8F9FD]">
+        <main className="flex-1 overflow-y-auto p-6 sm:p-8 bg-canvas">
           <div className="max-w-7xl mx-auto text-left">
             {/* Child routes rendered here */}
             <Outlet context={{ showToast }} />

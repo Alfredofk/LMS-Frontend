@@ -30,7 +30,7 @@ import Button from '../../components/ui/Button';
 const LockMark = ({ tone = 'brand' }) => (
   <div
     className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto shadow-sm ${
-      tone === 'error' ? 'bg-red-50 text-red-500' : 'bg-[#F1EEFF] text-[#7047EB]'
+      tone === 'error' ? 'bg-red-50 text-red-500' : 'bg-brand-tint text-brand'
     }`}
   >
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
@@ -144,7 +144,7 @@ export const ResetPasswordPage = () => {
   const footer = (
     <Link
       to="/login"
-      className="text-xs text-slate-400 hover:text-[#7047EB] font-bold transition-colors focus:outline-none"
+      className="text-xs text-slate-400 hover:text-brand font-bold transition-colors focus:outline-none"
     >
       {t('common.backToSignIn')}
     </Link>
@@ -174,14 +174,14 @@ export const ResetPasswordPage = () => {
 
         <div>
           <h1 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
-            {t('reset.rejected.title')} <span className="text-[#7047EB]">{t('reset.rejected.titleAccent')}</span>
+            {t('reset.rejected.title')} <span className="text-brand">{t('reset.rejected.titleAccent')}</span>
           </h1>
           <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold">{message}</p>
         </div>
 
         <Button
           onClick={() => navigate('/forgot-password')}
-          className="w-full py-3.5 rounded-2xl justify-center font-bold text-base bg-[#7047EB] hover:bg-[#5E3BD2] text-white active:scale-95 transition-transform shadow-lg shadow-[#7047EB]/20 select-none"
+          className="w-full py-3.5 rounded-2xl justify-center font-bold text-base bg-brand hover:bg-brand-deep text-white active:scale-95 transition-transform shadow-lg shadow-brand/20 select-none"
         >
           {t('reset.rejected.action')}
         </Button>
@@ -200,7 +200,7 @@ export const ResetPasswordPage = () => {
 
         <div>
           <h1 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
-            {t('reset.done.title')} <span className="text-[#7047EB]">{t('reset.done.titleAccent')}</span>
+            {t('reset.done.title')} <span className="text-brand">{t('reset.done.titleAccent')}</span>
           </h1>
           <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold">{message}</p>
         </div>
@@ -213,7 +213,7 @@ export const ResetPasswordPage = () => {
 
         <Button
           onClick={() => navigate('/login', { replace: true })}
-          className="w-full py-3.5 rounded-2xl justify-center font-bold text-base bg-[#7047EB] hover:bg-[#5E3BD2] text-white active:scale-95 transition-transform shadow-lg shadow-[#7047EB]/20 select-none"
+          className="w-full py-3.5 rounded-2xl justify-center font-bold text-base bg-brand hover:bg-brand-deep text-white active:scale-95 transition-transform shadow-lg shadow-brand/20 select-none"
         >
           <span className="flex items-center gap-1">
             {t('reset.done.action')}
@@ -236,7 +236,7 @@ export const ResetPasswordPage = () => {
 
       <div>
         <h1 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
-          {t('reset.form.title')} <span className="text-[#7047EB]">{t('reset.form.titleAccent')}</span>
+          {t('reset.form.title')} <span className="text-brand">{t('reset.form.titleAccent')}</span>
         </h1>
         <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold">
           {t('reset.form.subtitle')}
@@ -280,7 +280,7 @@ export const ResetPasswordPage = () => {
         <Button
           type="submit"
           isLoading={isSaving}
-          className="w-full py-3.5 rounded-2xl justify-center font-bold text-base bg-[#7047EB] hover:bg-[#5E3BD2] text-white active:scale-95 transition-transform shadow-lg shadow-[#7047EB]/20 select-none"
+          className="w-full py-3.5 rounded-2xl justify-center text-base active:scale-95 transition-transform shadow-lg shadow-brand/20 select-none"
         >
           <span className="flex items-center gap-1">
             {t('reset.form.action')}

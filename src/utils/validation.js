@@ -91,6 +91,39 @@ export function validateFullName(value) {
   return null;
 }
 
+/*
+  School Code and NISN — the two fields of the join request.
+
+  Unlike everything above, these mirror **nothing**. `prisma/schema.prisma:231`
+  and `:316` declare `schoolCode` and `nisn` as a bare `String` and `TEXT`, with
+  no length and no format, and there is no zod schema for either anywhere in the
+  backend: the join endpoint is not written yet. A grep for both names across
+  `LMS-Backend/src` finds nothing at all.
+
+  So the only honest rules are "you typed something" and a ceiling that stops a
+  pasted paragraph. Not digits-only, not ten digits, not any prefix — a NISN is
+  conventionally ten digits, but convention is not the server's rule, and this
+  file's own header says what happens when the two disagree: the server wins and
+  our messages turn out to be lies.
+
+  Revisit when ticket 05 lands.
+*/
+const MAX_JOIN_FIELD = 64;
+
+export function validateSchoolCode(value) {
+  const trimmed = value.trim();
+  if (!trimmed) return { key: 'validation.schoolCode.required' };
+  if (trimmed.length > MAX_JOIN_FIELD) return { key: 'validation.schoolCode.long' };
+  return null;
+}
+
+export function validateNisn(value) {
+  const trimmed = value.trim();
+  if (!trimmed) return { key: 'validation.nisn.required' };
+  if (trimmed.length > MAX_JOIN_FIELD) return { key: 'validation.nisn.long' };
+  return null;
+}
+
 /**
  * Turn an ApiError's `details` into { field: message }.
  *

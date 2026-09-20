@@ -57,15 +57,15 @@ export const AddMaterialModal = ({ isOpen, onClose, onSubmit, editingMaterial })
       />
 
       {/* Modal Card container */}
-      <div className="bg-white rounded-3xl w-full max-w-[500px] shadow-2xl relative z-10 border border-slate-100 transform transition-all p-6 sm:p-8 animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white rounded-3xl w-full max-w-[500px] shadow-2xl relative z-10 border border-slate-100 transform transition-all p-6 sm:p-8 duration-150">
         {/* Header section */}
         <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100 select-none">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-violet-50 text-[#7047EB] rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-violet-50 text-brand rounded-xl flex items-center justify-center">
               <BookOpen className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-black text-slate-900 leading-tight">
+              <h3 className="text-lg font-extrabold text-slate-900 leading-tight">
                 {editingMaterial ? 'Edit Materi' : 'Tambah Materi'}
               </h3>
               <p className="text-[10px] text-slate-400 font-bold mt-0.5">
@@ -84,7 +84,7 @@ export const AddMaterialModal = ({ isOpen, onClose, onSubmit, editingMaterial })
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4 text-left">
           <div className="space-y-1">
-            <label htmlFor="title" className="text-xs font-black text-slate-900 uppercase tracking-wider block">
+            <label htmlFor="title" className="text-xs font-extrabold text-slate-900 uppercase tracking-wider block">
               Judul Materi
             </label>
             <input
@@ -94,12 +94,12 @@ export const AddMaterialModal = ({ isOpen, onClose, onSubmit, editingMaterial })
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-[#7047EB] focus:ring-1 focus:ring-[#7047EB] outline-none text-xs font-semibold placeholder-slate-400 transition-all bg-slate-50/50"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand focus:ring-1 focus:ring-brand outline-none text-xs font-semibold placeholder-slate-400 transition-all bg-slate-50/50"
             />
           </div>
 
           <div className="space-y-1">
-            <label htmlFor="desc" className="text-xs font-black text-slate-900 uppercase tracking-wider block">
+            <label htmlFor="desc" className="text-xs font-extrabold text-slate-900 uppercase tracking-wider block">
               Deskripsi / Catatan
             </label>
             <textarea
@@ -108,13 +108,13 @@ export const AddMaterialModal = ({ isOpen, onClose, onSubmit, editingMaterial })
               placeholder="Tambahkan deskripsi materi atau petunjuk ringkas..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-[#7047EB] focus:ring-1 focus:ring-[#7047EB] outline-none text-xs font-semibold placeholder-slate-400 transition-all resize-none bg-slate-50/50"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand focus:ring-1 focus:ring-brand outline-none text-xs font-semibold placeholder-slate-400 transition-all resize-none bg-slate-50/50"
             />
           </div>
 
           {/* File Upload Area */}
           <div className="space-y-1">
-            <span className="text-xs font-black text-slate-900 uppercase tracking-wider block">
+            <span className="text-xs font-extrabold text-slate-900 uppercase tracking-wider block">
               File Materi {editingMaterial ? '(Opsional)' : ''}
             </span>
             <input
@@ -128,25 +128,25 @@ export const AddMaterialModal = ({ isOpen, onClose, onSubmit, editingMaterial })
             
             <div 
               onClick={() => fileInputRef.current && fileInputRef.current.click()}
-              className="border-2 border-dashed border-slate-200 hover:border-[#7047EB] bg-slate-50/50 hover:bg-slate-50 rounded-2xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2 group select-none"
+              className="border-2 border-dashed border-slate-200 hover:border-brand bg-slate-50/50 hover:bg-slate-50 rounded-2xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2 group select-none"
             >
-              <div className="w-10 h-10 rounded-full bg-violet-50 text-[#7047EB] group-hover:scale-110 transition-transform flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full bg-violet-50 text-brand group-hover:scale-110 transition-transform flex items-center justify-center">
                 <FileUp className="w-5 h-5" />
               </div>
               
               {file ? (
                 <div className="space-y-0.5">
-                  <p className="text-xs font-black text-slate-800 truncate max-w-[340px]">{file.name}</p>
+                  <p className="text-xs font-extrabold text-slate-800 truncate max-w-[340px]">{file.name}</p>
                   <p className="text-[10px] text-slate-400 font-bold">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
                 </div>
               ) : editingMaterial ? (
                 <div className="space-y-0.5 text-center">
-                  <p className="text-xs font-black text-slate-705 truncate max-w-[340px]">File tersimpan: {editingMaterial.title}.pdf</p>
-                  <p className="text-[9px] text-[#7047EB] font-black uppercase">Klik di sini untuk mengganti file (opsional)</p>
+                  <p className="text-xs font-extrabold text-slate-700 truncate max-w-[340px]">File tersimpan: {editingMaterial.title}.pdf</p>
+                  <p className="text-[9px] text-brand font-extrabold uppercase">Klik di sini untuk mengganti file (opsional)</p>
                 </div>
               ) : (
                 <div className="space-y-0.5">
-                  <p className="text-xs font-black text-slate-700">Pilih berkas dokumen Anda</p>
+                  <p className="text-xs font-extrabold text-slate-700">Pilih berkas dokumen Anda</p>
                   <p className="text-[9px] text-slate-400 font-bold uppercase">Format: PDF, Word, PPT, Excel, Zip (Maks. 20MB)</p>
                 </div>
               )}
@@ -157,13 +157,13 @@ export const AddMaterialModal = ({ isOpen, onClose, onSubmit, editingMaterial })
             <button
               type="button"
               onClick={onClose}
-              className="w-1/2 py-3 border border-slate-200 hover:bg-slate-50 text-slate-500 rounded-2xl justify-center font-black text-xs transition-colors cursor-pointer outline-none focus:outline-none"
+              className="w-1/2 py-3 border border-slate-200 hover:bg-slate-50 text-slate-500 rounded-2xl justify-center font-extrabold text-xs transition-colors cursor-pointer outline-none focus:outline-none"
             >
               Batal
             </button>
             <Button
               type="submit"
-              className="w-1/2 py-3 rounded-2xl justify-center font-black text-xs bg-[#7047EB] hover:bg-[#5E3BD2] text-white shadow-lg shadow-[#7047EB]/20 cursor-pointer"
+              className="w-1/2 py-3 rounded-2xl justify-center font-extrabold text-xs shadow-lg shadow-brand/20 cursor-pointer"
             >
               {editingMaterial ? 'Simpan Perubahan' : 'Simpan'}
             </Button>

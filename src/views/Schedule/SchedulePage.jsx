@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -10,10 +10,13 @@ import {
   Award 
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useT } from '../../i18n/LanguageContext';
 import { ROLES } from '../../constants/roles';
 
 export const SchedulePage = () => {
   const { activeRole } = useAuth();
+  const { t, lang } = useT();
+  const locale = lang === 'id' ? 'id-ID' : 'en-GB';
   const role = activeRole || ROLES.STUDENT;
 
   // State Management
@@ -27,11 +30,22 @@ export const SchedulePage = () => {
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [selectedDate, setSelectedDate] = useState(today);
 
-  // Month names Indonesian
-  const monthNames = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-  ];
+  const monthNames = useMemo(
+    () =>
+      Array.from({ length: 12 }, (_, m) =>
+        new Date(2000, m, 1).toLocaleDateString(locale, { month: 'long' })
+      ),
+    [locale]
+  );
+
+  /* 2 January 2000 was a Sunday, so this starts the week where the grid does. */
+  const weekdayNames = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, d) =>
+        new Date(2000, 0, 2 + d).toLocaleDateString(locale, { weekday: 'short' })
+      ),
+    [locale]
+  );
 
   // Fetch Schedules & Deadlines from Backend
   const fetchScheduleData = async () => {
@@ -162,8 +176,8 @@ export const SchedulePage = () => {
             <select
               value={currentMonth}
               onChange={(e) => setCurrentMonth(parseInt(e.target.value, 10))}
-              className="bg-white border border-slate-200 rounded-2xl px-4 py-2 text-sm font-black text-slate-800 focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 cursor-pointer shadow-sm"
-              aria-label="Pilih Bulan"
+              className="bg-white border border-slate-200 rounded-2xl px-4 py-2 text-sm font-extrabold text-slate-800 focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand cursor-pointer shadow-sm"
+              aria-label={t('sch.pickMonth')}
             >
               {monthNames.map((name, index) => (
                 <option key={index} value={index}>{name}</option>
@@ -174,8 +188,8 @@ export const SchedulePage = () => {
             <select
               value={currentYear}
               onChange={(e) => setCurrentYear(parseInt(e.target.value, 10))}
-              className="bg-white border border-slate-200 rounded-2xl px-4 py-2 text-sm font-black text-slate-800 focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 cursor-pointer shadow-sm"
-              aria-label="Pilih Tahun"
+              className="bg-white border border-slate-200 rounded-2xl px-4 py-2 text-sm font-extrabold text-slate-800 focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand cursor-pointer shadow-sm"
+              aria-label={t('sch.pickYear')}
             >
               {Array.from({ length: 11 }, (_, idx) => today.getFullYear() - 5 + idx).map((year) => (
                 <option key={year} value={year}>{year}</option>
@@ -185,7 +199,7 @@ export const SchedulePage = () => {
           
           <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
             <span className="text-xs text-slate-400 font-bold block sm:hidden">
-              Pilih tanggal di bawah
+              {t('sch.pickDate')}
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -195,21 +209,21 @@ export const SchedulePage = () => {
                   setCurrentYear(now.getFullYear());
                   setSelectedDate(now);
                 }}
-                className="px-3.5 py-2 text-xs font-black text-[#7047EB] hover:text-white bg-[#F1EEFF] hover:bg-[#7047EB] rounded-xl transition-all cursor-pointer active:scale-95 shadow-sm"
+                className="px-3.5 py-2 text-xs font-extrabold text-brand hover:text-white bg-brand-tint hover:bg-brand rounded-xl transition-all cursor-pointer active:scale-95 shadow-sm"
               >
-                Hari Ini
+                {t('att.today')}
               </button>
               <button
                 onClick={handlePrevMonth}
-                className="p-2 hover:bg-slate-50 text-slate-600 hover:text-violet-650 border border-slate-100 rounded-xl transition-all cursor-pointer"
-                aria-label="Previous month"
+                className="p-2 hover:bg-slate-50 text-slate-600 hover:text-brand border border-slate-100 rounded-xl transition-all cursor-pointer"
+                aria-label={t('att.prevMonth')}
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
               <button
                 onClick={handleNextMonth}
-                className="p-2 hover:bg-slate-50 text-slate-600 hover:text-violet-650 border border-slate-100 rounded-xl transition-all cursor-pointer"
-                aria-label="Next month"
+                className="p-2 hover:bg-slate-50 text-slate-600 hover:text-brand border border-slate-100 rounded-xl transition-all cursor-pointer"
+                aria-label={t('att.nextMonth')}
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
@@ -218,21 +232,17 @@ export const SchedulePage = () => {
         </div>
 
         {/* Days of Week Headers */}
-        <div className="grid grid-cols-7 gap-1 text-center border-b border-slate-100 pb-3 text-xs font-black text-slate-400 uppercase select-none">
-          <div>Min</div>
-          <div>Sen</div>
-          <div>Sel</div>
-          <div>Rab</div>
-          <div>Kam</div>
-          <div>Jum</div>
-          <div>Sab</div>
+        <div className="grid grid-cols-7 gap-1 text-center border-b border-slate-100 pb-3 text-xs font-extrabold text-slate-400 uppercase select-none">
+          {weekdayNames.map((name) => (
+            <div key={name}>{name}</div>
+          ))}
         </div>
 
         {/* Calendar Days Grid */}
         <div className="grid grid-cols-7 gap-1.5 mt-3 flex-1 select-none">
           {loading ? (
             <div className="col-span-7 py-24 text-center text-slate-400 font-semibold text-xs animate-pulse">
-              Memuat data kalender...
+              {t('sch.loading')}
             </div>
           ) : (
             calendarCells.map((cell, idx) => {
@@ -254,15 +264,15 @@ export const SchedulePage = () => {
                   onClick={() => setSelectedDate(new Date(cell.year, cell.month, cell.day))}
                   className={`
                     min-h-[70px] sm:min-h-[85px] border rounded-2xl p-2 flex flex-col justify-between cursor-pointer transition-all duration-200 relative group
-                    ${!cell.isCurrentMonth ? 'border-slate-50 bg-slate-50/20 text-slate-350' : 'border-slate-100 text-slate-800 hover:border-slate-300'}
+                    ${!cell.isCurrentMonth ? 'border-slate-50 bg-slate-50/20 text-slate-300' : 'border-slate-100 text-slate-800 hover:border-slate-300'}
                     ${isToday ? 'bg-violet-50/30 border-violet-100' : ''}
-                    ${isSelected ? 'border-violet-600 bg-white ring-2 ring-violet-500/10' : 'bg-white'}
+                    ${isSelected ? 'border-brand bg-white ring-2 ring-brand/10' : 'bg-white'}
                   `}
                 >
                   {/* Date Number */}
                   <span className={`text-xs font-bold leading-none
-                    ${isSelected ? 'text-[#7047EB] font-black' : ''}
-                    ${isToday ? 'w-5 h-5 rounded-full bg-[#7047EB] text-white flex items-center justify-center font-black' : ''}
+                    ${isSelected ? 'text-brand font-extrabold' : ''}
+                    ${isToday ? 'w-5 h-5 rounded-full bg-brand text-white flex items-center justify-center font-extrabold' : ''}
                   `}>
                     {cell.day}
                   </span>
@@ -271,11 +281,11 @@ export const SchedulePage = () => {
                   <div className="flex flex-col gap-1 items-start mt-auto">
                     {/* Class indicator: Purple banner */}
                     {hasClasses && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#7047EB] block" title="Jadwal Kelas" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-brand block" title={t('sch.dot.class')} />
                     )}
                     {/* Deadline indicator: Orange banner */}
                     {hasDeadlines && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-orange-500 block" title="Tenggat Tugas" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-orange-500 block" title={t('sch.dot.deadline')} />
                     )}
                   </div>
                 </div>
@@ -287,11 +297,16 @@ export const SchedulePage = () => {
 
       {/* RIGHT COLUMN: Selected Day's Agenda */}
       <div className="w-full xl:w-96 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col select-none">
-        <h2 className="text-base font-black text-slate-800 tracking-tight mb-1">
-          Agenda Harian
+        <h2 className="text-base font-extrabold text-slate-800 tracking-tight mb-1">
+          {t('sch.agenda')}
         </h2>
         <p className="text-xs text-slate-400 font-bold mb-6">
-          {selectedDate.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          {selectedDate.toLocaleDateString(locale, {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          })}
         </p>
 
         {loading ? (
@@ -304,9 +319,9 @@ export const SchedulePage = () => {
             <div className="w-14 h-14 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center mb-4">
               <CalendarIcon className="w-6 h-6" />
             </div>
-            <h3 className="text-xs font-black text-slate-700">Agenda Kosong</h3>
+            <h3 className="text-xs font-extrabold text-slate-700">{t('sch.agenda.empty')}</h3>
             <p className="text-[10px] text-slate-400 font-bold mt-1 max-w-[200px] leading-relaxed">
-              Tidak ada jadwal kelas kuliah maupun tenggat pengumpulan tugas pada tanggal ini.
+              {t('sch.agenda.emptyDetail')}
             </p>
           </div>
         ) : (
@@ -315,16 +330,16 @@ export const SchedulePage = () => {
             {/* 1. Classes Section */}
             {selectedClasses.length > 0 && (
               <div className="space-y-3">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Jadwal Kelas KBM</h4>
+                <h4 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('sch.classes')}</h4>
                 <div className="space-y-2.5">
                   {selectedClasses.map((cls) => (
                     <div key={cls.id} className="border border-slate-100 hover:border-slate-200 rounded-2xl p-4 shadow-sm space-y-3 transition-all">
                       <div className="flex items-start gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-violet-50 text-[#7047EB] flex items-center justify-center shrink-0">
+                        <div className="w-8 h-8 rounded-xl bg-violet-50 text-brand flex items-center justify-center shrink-0">
                           <BookOpen className="w-4 h-4" />
                         </div>
                         <div className="min-w-0">
-                          <h5 className="text-xs font-black text-slate-800 leading-tight truncate">{cls.subjectName}</h5>
+                          <h5 className="text-xs font-extrabold text-slate-800 leading-tight truncate">{cls.subjectName}</h5>
                           <span className="text-[9px] text-slate-400 font-bold block mt-0.5">{cls.subjectCode}</span>
                         </div>
                       </div>
@@ -340,10 +355,12 @@ export const SchedulePage = () => {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 text-[9px] text-slate-450 font-bold pt-1">
-                        <User className="w-3.5 h-3.5 text-slate-450 shrink-0" />
+                      <div className="flex items-center gap-1.5 text-[9px] text-slate-400 font-bold pt-1">
+                        <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         <span className="truncate">
-                          {role === ROLES.TEACHER ? `Mengajar Kelas: ${cls.className}` : `Guru: ${cls.teacherName}`}
+                          {role === ROLES.TEACHER
+                            ? t('sch.teaching', { class: cls.className })
+                            : t('sch.teacher', { name: cls.teacherName })}
                         </span>
                       </div>
                     </div>
@@ -355,7 +372,7 @@ export const SchedulePage = () => {
             {/* 2. Deadlines Section */}
             {selectedDeadlines.length > 0 && (
               <div className="space-y-3">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Tenggat Tugas (Deadlines)</h4>
+                <h4 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('sch.deadlines')}</h4>
                 <div className="space-y-2.5">
                   {selectedDeadlines.map((dl) => (
                     <div key={dl.id} className="border border-orange-100 bg-orange-50/10 rounded-2xl p-4 shadow-sm space-y-2.5 transition-all">
@@ -364,14 +381,23 @@ export const SchedulePage = () => {
                           <Award className="w-4 h-4" />
                         </div>
                         <div className="min-w-0">
-                          <h5 className="text-xs font-black text-slate-800 leading-tight truncate">{dl.title}</h5>
+                          <h5 className="text-xs font-extrabold text-slate-800 leading-tight truncate">{dl.title}</h5>
                           <span className="text-[9px] text-slate-400 font-bold block mt-0.5">{dl.subjectName}</span>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-1.5 text-[10px] text-orange-600 font-extrabold pt-1">
                         <Clock className="w-3.5 h-3.5" />
-                        <span>Batas akhir: {new Date(dl.deadline).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB</span>
+                        <span>
+                          {t('sch.dueAt', {
+                            time: new Date(dl.deadline).toLocaleTimeString(locale, {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              // The key says WIB, so the clock has to be WIB.
+                              timeZone: 'Asia/Jakarta',
+                            }),
+                          })}
+                        </span>
                       </div>
                     </div>
                   ))}

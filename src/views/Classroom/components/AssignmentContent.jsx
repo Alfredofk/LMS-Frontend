@@ -29,7 +29,7 @@ export const AssignmentContent = ({ sections, showToast }) => {
         const renderStatusBadge = () => {
           if (task.status === 'completed') {
             return (
-              <span className="px-2 py-0.5 bg-emerald-50 border border-emerald-100 text-emerald-600 text-[10px] font-black rounded-md inline-flex items-center gap-1">
+              <span className="px-2 py-0.5 bg-emerald-50 border border-emerald-100 text-emerald-600 text-[10px] font-extrabold rounded-md inline-flex items-center gap-1">
                 <CheckCircle className="w-3 h-3" />
                 Selesai
               </span>
@@ -37,13 +37,13 @@ export const AssignmentContent = ({ sections, showToast }) => {
           }
           if (task.status === 'late') {
             return (
-              <span className="px-2 py-0.5 bg-red-50 border border-red-100 text-red-500 text-[10px] font-black rounded-md inline-flex items-center gap-1">
+              <span className="px-2 py-0.5 bg-red-50 border border-red-100 text-red-500 text-[10px] font-extrabold rounded-md inline-flex items-center gap-1">
                 Terlambat
               </span>
             );
           }
           return (
-            <span className="px-2 py-0.5 bg-amber-50 border border-amber-100 text-amber-600 text-[10px] font-black rounded-md inline-flex items-center gap-1">
+            <span className="px-2 py-0.5 bg-amber-50 border border-amber-100 text-amber-600 text-[10px] font-extrabold rounded-md inline-flex items-center gap-1">
               Belum Dikerjakan
             </span>
           );
@@ -56,13 +56,13 @@ export const AssignmentContent = ({ sections, showToast }) => {
           >
             <div className="flex items-start gap-3.5 min-w-0">
               {/* Task Icon Grid */}
-              <div className="w-10 h-10 rounded-xl bg-violet-50 text-[#7047EB] flex items-center justify-center shrink-0 shadow-inner">
+              <div className="w-10 h-10 rounded-xl bg-violet-50 text-brand flex items-center justify-center shrink-0 shadow-inner">
                 <ClipboardList className="w-5 h-5" />
               </div>
               
               <div className="space-y-1.5 min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-xs font-black text-slate-805 truncate" title={task.title}>
+                  <h3 className="text-xs font-extrabold text-slate-800 truncate" title={task.title}>
                     {task.title}
                   </h3>
                   {renderStatusBadge()}
@@ -77,18 +77,18 @@ export const AssignmentContent = ({ sections, showToast }) => {
 
             {/* Action Buttons */}
             <div className="flex items-center gap-3 shrink-0 self-end md:self-auto">
-              <span className="text-[10px] font-black text-[#7047EB] bg-purple-100/60 px-2 py-0.5 rounded-md">
+              <span className="text-[10px] font-extrabold text-brand bg-purple-100/60 px-2 py-0.5 rounded-md">
                 +{task.xpReward} XP
               </span>
               <Button
                 size="sm"
                 onClick={() => handleAction(task, task.status)}
-                className={`px-4 py-1.5 rounded-xl text-xs font-black select-none cursor-pointer border shadow-sm
+                className={`px-4 py-1.5 rounded-xl text-xs font-extrabold select-none cursor-pointer border shadow-sm
                   ${task.status === 'completed'
                     ? 'bg-slate-50 hover:bg-slate-100 text-slate-500 border-slate-200/60'
                     : task.status === 'late'
                     ? 'bg-red-50 hover:bg-red-100 text-red-600 border-red-100'
-                    : 'bg-[#7047EB] hover:bg-[#5E3BD2] text-white border-transparent'
+                    : 'bg-brand hover:bg-brand-deep text-white border-transparent'
                   }
                 `}
               >

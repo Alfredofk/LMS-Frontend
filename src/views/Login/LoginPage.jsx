@@ -60,7 +60,7 @@ export const LoginPage = () => {
   const verified = location.state?.verified === true;
 
   return (
-    <div className="min-h-screen lg:h-screen w-screen bg-[#6D43EC] flex flex-col lg:flex-row font-sans selection:bg-violet-500 selection:text-white relative lg:overflow-hidden">
+    <div className="min-h-screen lg:h-screen w-screen bg-brand flex flex-col lg:flex-row font-sans selection:bg-brand selection:text-white relative lg:overflow-hidden">
 
       {/* Toast Alert Notifier container */}
       {toast && (
@@ -72,8 +72,8 @@ export const LoginPage = () => {
       )}
 
       {/* --- PURPLE SIDEBAR COLUMN --- */}
-      <div className="w-full text-white flex-col justify-between p-8 sm:p-12 relative shrink-0 z-0 text-left select-none bg-[#6D43EC] hidden lg:flex lg:w-[38%] lg:h-full lg:order-2 lg:overflow-hidden">
-        <div className="text-2xl font-black tracking-tight text-right">
+      <div className="w-full text-white flex-col justify-between p-8 sm:p-12 relative shrink-0 z-0 text-left select-none bg-brand hidden lg:flex lg:w-[38%] lg:h-full lg:order-2 lg:overflow-hidden">
+        <div className="text-2xl font-extrabold tracking-tight text-right">
           EduForID
         </div>
 
@@ -110,10 +110,10 @@ export const LoginPage = () => {
       <div className="w-full bg-white min-h-screen lg:h-full lg:overflow-y-auto flex flex-col justify-between p-6 sm:p-8 lg:py-8 lg:px-12 relative shrink-0 z-10 shadow-2xl lg:w-[62%] lg:order-1 lg:rounded-r-[48px] lg:rounded-l-none">
 
         {/* Decorative Shapes inside White Card */}
-        <div className="absolute top-0 left-0 w-28 h-28 bg-[#6D43EC] rounded-br-full pointer-events-none" />
-        <div className="absolute top-10 left-36 w-3 h-3 bg-[#6D43EC] rounded-full opacity-60 pointer-events-none" />
-        <div className="absolute top-1/4 left-[-16px] w-12 h-12 bg-[#ECE9FE] rounded-full pointer-events-none" />
-        <div className="absolute top-16 right-10 w-14 h-14 bg-[#ECE9FE] rounded-full pointer-events-none opacity-80" />
+        <div className="absolute top-0 left-0 w-28 h-28 bg-brand rounded-br-full pointer-events-none" />
+        <div className="absolute top-10 left-36 w-3 h-3 bg-brand rounded-full opacity-60 pointer-events-none" />
+        <div className="absolute top-1/4 left-[-16px] w-12 h-12 bg-brand-tint rounded-full pointer-events-none" />
+        <div className="absolute top-16 right-10 w-14 h-14 bg-brand-tint rounded-full pointer-events-none opacity-80" />
 
         {/* Back to the landing page.
 
@@ -125,7 +125,7 @@ export const LoginPage = () => {
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="group inline-flex items-center gap-1.5 pl-2.5 pr-3.5 py-1.5 rounded-full bg-white shadow-sm ring-1 ring-slate-200 text-xs font-bold text-slate-600 hover:text-[#7047EB] hover:ring-[#7047EB]/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7047EB] cursor-pointer"
+            className="group inline-flex items-center gap-1.5 pl-2.5 pr-3.5 py-1.5 rounded-full bg-white shadow-sm ring-1 ring-slate-200 text-xs font-bold text-slate-600 hover:text-brand hover:ring-brand/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand cursor-pointer"
             aria-label={t('auth.backToHome')}
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 transition-transform group-hover:-translate-x-0.5">
@@ -166,7 +166,7 @@ export const LoginPage = () => {
             <button
               type="button"
               onClick={() => setAuthStep(isSignUp ? 'sign_in' : 'sign_up')}
-              className="text-[#7047EB] hover:text-[#5E3BD2] hover:underline font-extrabold focus:outline-none focus:underline cursor-pointer"
+              className="text-brand hover:text-brand-deep hover:underline font-extrabold focus:outline-none focus:underline cursor-pointer"
             >
               {isSignUp ? t('auth.signInLink') : t('auth.signUpLink')}
             </button>
@@ -175,9 +175,9 @@ export const LoginPage = () => {
 
           <div className="text-[11px] text-slate-400 select-none">
             {t('auth.terms')}{' '}
-            <a href="#terms" className="text-[#7047EB] hover:underline font-bold">{t('auth.termsOfUse')}</a>{' '}
+            <a href="#terms" className="text-brand hover:underline font-bold">{t('auth.termsOfUse')}</a>{' '}
             {t('auth.and')}{' '}
-            <a href="#privacy" className="text-[#7047EB] hover:underline font-bold">{t('auth.privacy')}</a>
+            <a href="#privacy" className="text-brand hover:underline font-bold">{t('auth.privacy')}</a>
           </div>
         </div>
 

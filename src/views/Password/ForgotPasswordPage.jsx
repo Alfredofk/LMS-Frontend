@@ -22,7 +22,7 @@ import Button from '../../components/ui/Button';
 */
 
 const KeyMark = () => (
-  <div className="w-16 h-16 bg-[#F1EEFF] rounded-2xl flex items-center justify-center text-[#7047EB] mx-auto shadow-sm">
+  <div className="w-16 h-16 bg-brand-tint rounded-2xl flex items-center justify-center text-brand mx-auto shadow-sm">
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
       <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
     </svg>
@@ -30,7 +30,7 @@ const KeyMark = () => (
 );
 
 const SentMark = () => (
-  <div className="w-16 h-16 bg-[#F1EEFF] rounded-2xl flex items-center justify-center text-[#7047EB] mx-auto shadow-sm">
+  <div className="w-16 h-16 bg-brand-tint rounded-2xl flex items-center justify-center text-brand mx-auto shadow-sm">
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
       <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
     </svg>
@@ -73,7 +73,7 @@ export const ForgotPasswordPage = () => {
   const footer = (
     <Link
       to="/login"
-      className="text-xs text-slate-400 hover:text-[#7047EB] font-bold transition-colors focus:outline-none"
+      className="text-xs text-slate-400 hover:text-brand font-bold transition-colors focus:outline-none"
     >
       {t('common.backToSignIn')}
     </Link>
@@ -90,7 +90,7 @@ export const ForgotPasswordPage = () => {
 
         <div>
           <h1 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
-            {t('forgot.sent.title')} <span className="text-[#7047EB]">{t('forgot.sent.titleAccent')}</span>
+            {t('forgot.sent.title')} <span className="text-brand">{t('forgot.sent.titleAccent')}</span>
           </h1>
           <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold break-all">
             {email.trim()}
@@ -127,7 +127,7 @@ export const ForgotPasswordPage = () => {
 
       <div>
         <h1 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
-          {t('forgot.title')} <span className="text-[#7047EB]">{t('forgot.titleAccent')}</span>
+          {t('forgot.title')} <span className="text-brand">{t('forgot.titleAccent')}</span>
         </h1>
         <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold">
           {t('forgot.subtitle')}
@@ -152,7 +152,7 @@ export const ForgotPasswordPage = () => {
         <Button
           type="submit"
           isLoading={isLoading}
-          className="w-full py-3.5 rounded-2xl justify-center font-bold text-base bg-[#7047EB] hover:bg-[#5E3BD2] text-white active:scale-95 transition-transform shadow-lg shadow-[#7047EB]/20 select-none"
+          className="w-full py-3.5 rounded-2xl justify-center text-base active:scale-95 transition-transform shadow-lg shadow-brand/20 select-none"
         >
           <span className="flex items-center gap-1">
             {t('forgot.action')}

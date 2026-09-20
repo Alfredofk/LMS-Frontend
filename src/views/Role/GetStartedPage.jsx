@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 
 import AuthLayout from '../../layouts/AuthLayout';
+import Input from '../../components/ui/Input';
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
+import { validateSchoolCode, validateNisn } from '../../utils/validation';
 
 /*
   What happens after somebody picks one of the three cards.
@@ -72,8 +74,111 @@ const INTENTS = {
     approval: ['getStarted.org.approval'],
     action: 'getStarted.org.action',
   },
-  student: joinIntent('STUDENT'),
+  /*
+    Only the student path carries fields, and only because the schema says what
+    they are: `School.schoolCode` locates the school, and `StudentProfile.nisn`
+    is a required column that has to come from somewhere. A teacher's profile
+    columns — `TeacherProfile.nip` and `.nuptk` — are both optional, so there is
+    nothing this screen could truthfully insist on.
+
+    An intent without a `fields` key renders exactly as it did before.
+  */
+  student: {
+    ...joinIntent('STUDENT'),
+    needs: [
+      ['getStarted.join.need.code', 'getStarted.join.need.codeDetail', { role: 'role.STUDENT.label' }],
+      ['getStarted.join.need.nisn', 'getStarted.join.need.nisnDetail'],
+    ],
+    fields: [
+      {
+        name: 'schoolCode',
+        labelKey: 'getStarted.join.need.code',
+        validate: validateSchoolCode,
+        inputMode: undefined,
+      },
+      {
+        name: 'nisn',
+        labelKey: 'getStarted.join.need.nisn',
+        validate: validateNisn,
+        /*
+          A keyboard hint, not a claim. `type="number"` would strip the leading
+          zeros a NISN can carry, accept `e`, `+` and `-`, and put spinner arrows
+          on something that is an identifier rather than a quantity. And no
+          `pattern`: nothing in the backend says a NISN is digits.
+        */
+        inputMode: 'numeric',
+        hintKey: 'getStarted.join.form.nisnHint',
+      },
+    ],
+    action: 'getStarted.join.actionSubmit',
+  },
   teacher: joinIntent('TEACHER'),
+};
+
+/*
+  The fields, for the one intent that has them.
+
+  They are live and they validate, and the button below them stays dead — see
+  the comment on the button itself for why that is deliberate rather than an
+  oversight. Nothing typed here is kept: no localStorage, no URL, no
+  history.state. It goes nowhere and should leave nothing behind.
+*/
+const JoinFields = ({ fields }) => {
+  const { t } = useT();
+  const [values, setValues] = useState({});
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+
+  const check = (field, value) => {
+    const fail = field.validate(value ?? '');
+    setErrors((prev) => ({ ...prev, [field.name]: fail ? t(fail.key, fail.vars) : null }));
+  };
+
+  return (
+    <form
+      onSubmit={(e) => e.preventDefault()}
+      className="border border-slate-200 rounded-2xl p-5 text-left bg-white shadow-sm space-y-4"
+    >
+      {/* Above the fields, not only under the button: somebody should learn this
+          before spending the keystrokes, not after. */}
+      <p className="text-xs text-slate-500 font-medium leading-relaxed">
+        {t('getStarted.join.form.legend')}
+      </p>
+
+      {fields.map((field) => (
+        <div key={field.name} className="space-y-1">
+          <Input
+            id={field.name}
+            name={field.name}
+            label={t(field.labelKey)}
+            type="text"
+            inputMode={field.inputMode}
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            value={values[field.name] ?? ''}
+            error={errors[field.name] || undefined}
+            onChange={(e) => {
+              const next = e.target.value;
+              setValues((prev) => ({ ...prev, [field.name]: next }));
+              // Only once they have finished with it once — complaining at
+              // somebody mid-word is the other classic cruelty.
+              if (touched[field.name]) check(field, next);
+            }}
+            onBlur={(e) => {
+              setTouched((prev) => ({ ...prev, [field.name]: true }));
+              check(field, e.target.value);
+            }}
+          />
+          {field.hintKey && !errors[field.name] && (
+            <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+              {t(field.hintKey)}
+            </p>
+          )}
+        </div>
+      ))}
+    </form>
+  );
 };
 
 export const GetStartedPage = () => {
@@ -95,7 +200,7 @@ export const GetStartedPage = () => {
     <button
       type="button"
       onClick={() => navigate('/select-role')}
-      className="text-xs text-slate-400 hover:text-[#7047EB] font-bold transition-colors focus:outline-none cursor-pointer"
+      className="text-xs text-slate-400 hover:text-brand font-bold transition-colors focus:outline-none cursor-pointer"
     >
       {t('getStarted.back')}
     </button>
@@ -103,13 +208,13 @@ export const GetStartedPage = () => {
 
   return (
     <AuthLayout heading={t(content.panelHeading)} blurb={t(content.panelBlurb)} footer={footer}>
-      <div className="w-16 h-16 bg-[#F1EEFF] rounded-2xl flex items-center justify-center text-[#7047EB] mx-auto shadow-sm">
+      <div className="w-16 h-16 bg-brand-tint rounded-2xl flex items-center justify-center text-brand mx-auto shadow-sm">
         {content.icon}
       </div>
 
       <div>
         <h1 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
-          {t(content.heading[0])} <span className="text-[#7047EB]">{t(content.heading[1])}</span>
+          {t(content.heading[0])} <span className="text-brand">{t(content.heading[1])}</span>
         </h1>
         <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold">
           {t(content.subheading[0], fill(content.subheading[1]))}
@@ -125,7 +230,7 @@ export const GetStartedPage = () => {
           <ul className="mt-2 space-y-2">
             {content.needs.map(([label, detail, vars]) => (
               <li key={label} className="flex items-start gap-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#7047EB] shrink-0 mt-1.5" aria-hidden="true" />
+                <span className="w-1.5 h-1.5 rounded-full bg-brand shrink-0 mt-1.5" aria-hidden="true" />
                 <span className="min-w-0">
                   <span className="text-sm font-extrabold text-slate-800">{t(label)}</span>
                   <span className="block text-xs text-slate-400 font-medium leading-relaxed">{t(detail, fill(vars))}</span>
@@ -145,10 +250,17 @@ export const GetStartedPage = () => {
         </div>
       </div>
 
+      {content.fields && <JoinFields fields={content.fields} />}
+
       {/*
         Deliberately dead, and saying so. The endpoint behind it does not exist
         yet — a live button here would fail on press and teach somebody that the
         app is broken rather than unfinished.
+
+        `disabled` unconditionally, never `disabled={!isValid}`, now that there
+        are fields above it. Enabling on a valid form would promise that filling
+        it in opens the path, and then hand over a live-looking button that does
+        nothing — which is the very outcome this policy exists to prevent.
       */}
       <div className="space-y-2">
         <button

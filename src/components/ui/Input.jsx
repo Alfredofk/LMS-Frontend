@@ -49,7 +49,7 @@ export const Input = React.forwardRef(({
           required={required}
           className={`
             block w-full rounded-xl border transition-all duration-200 text-slate-900 placeholder-slate-400 text-sm md:text-base
-            py-2.5 md:py-3 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500
+            py-2.5 md:py-3 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand
             ${icon ? 'pl-11' : 'pl-4'}
             ${isPassword ? 'pr-11' : 'pr-4'}
             ${error 
@@ -65,7 +65,7 @@ export const Input = React.forwardRef(({
           <button
             type="button"
             onClick={() => setShowPassword((prev) => !prev)}
-            className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors focus:outline-none focus-visible:text-violet-600"
+            className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors focus:outline-none focus-visible:text-brand"
             aria-label={showPassword ? 'Hide password' : 'Show password'}
           >
             {showPassword ? (

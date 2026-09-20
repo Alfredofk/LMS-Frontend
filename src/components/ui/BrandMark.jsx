@@ -19,8 +19,8 @@ const SIZES = {
 };
 
 const TONES = {
-  solid: 'bg-[#7047EB] text-white shadow-md shadow-purple-500/20',
-  soft: 'bg-[#F1EEFF] text-[#7047EB] shadow-sm',
+  solid: 'bg-brand text-white shadow-md shadow-brand/20',
+  soft: 'bg-brand-tint text-brand shadow-sm',
 };
 
 export const BrandMark = ({ size = 'md', tone = 'solid', className = '' }) => {

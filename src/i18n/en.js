@@ -17,6 +17,9 @@ export default {
   'common.checking': 'Checking…',
   'common.sending': 'Sending…',
   'common.or': 'or',
+  'common.seeAll': 'See all',
+  'common.dismiss': 'Dismiss',
+  'common.cancel': 'Cancel',
 
   'lang.switch': 'Change language',
   'lang.id': 'Indonesia',
@@ -279,7 +282,15 @@ export default {
     'The code your school hands out to its {role}s. Ask the school office for it.',
   'getStarted.join.approval':
     'Your school receives the request and decides. Until somebody there approves it, the {Role} card stays locked — and you can only have one request open at a time.',
+  'getStarted.join.need.nisn': 'NISN',
+  'getStarted.join.need.nisnDetail':
+    'Your Nomor Induk Siswa Nasional. It is on your report card or student card.',
+  'getStarted.join.form.legend':
+    'Fill these in to see what will be asked. Nothing is sent anywhere yet.',
+  'getStarted.join.form.nisnHint':
+    'Its length rule has not been set yet, so this field takes it as typed.',
   'getStarted.join.action': 'Enter a school code',
+  'getStarted.join.actionSubmit': 'Send join request',
 
   // --- unauthorized ------------------------------------------------------
   'unauthorized.title': 'Access Denied',
@@ -290,6 +301,11 @@ export default {
   'unauthorized.home': 'Go to Home',
   'unauthorized.switchRole': 'Switch Role',
   'unauthorized.switchAccount': 'Switch Account',
+
+  // --- confirmation dialog ------------------------------------------------
+  'confirm.logOut.title': 'Log out of this account?',
+  'confirm.logOut.body':
+    'You will be sent back to the sign-in page and will need your password to return.',
 
   // --- app chrome --------------------------------------------------------
   'shell.mainMenu': 'Main Menu',
@@ -325,12 +341,200 @@ export default {
   'shell.time.days': '{n}d ago',
   'shell.title.teacherDashboard': 'Teacher Dashboard',
   'shell.title.createAssignment': 'Create Assignment',
+  'shell.title.principalDashboard': 'Principal Dashboard',
+  'shell.title.courseDetail': 'Subject Detail',
+  'shell.title.assignment': 'Assignment',
 
   'roleTitle.STUDENT': 'Student',
   'roleTitle.TEACHER': 'Teacher',
   'roleTitle.PRINCIPAL': 'Principal',
   'roleTitle.GUARDIAN': 'Guardian',
   'roleTitle.fallback': 'Member',
+
+  // --- sample data --------------------------------------------------------
+  'sample.notice':
+    'The numbers and lists on this page are sample data. None of it comes from your school yet.',
+  'sample.tag': 'Sample data',
+
+  // --- student dashboard --------------------------------------------------
+  'dash.greeting.morning': 'Good morning, {name}',
+  'dash.greeting.midday': 'Good afternoon, {name}',
+  'dash.greeting.afternoon': 'Good afternoon, {name}',
+  'dash.greeting.evening': 'Good evening, {name}',
+  'dash.greeting.fallback': 'Student',
+  'dash.subline.term': '{school} · {year} Semester {n}',
+
+  'dash.stat.subjects': 'Subjects',
+  'dash.stat.subjects.sub': 'This semester',
+  'dash.stat.todo': 'To-do',
+  'dash.stat.todo.sub': 'Not submitted yet',
+  'dash.stat.avgScore': 'Average Score',
+  'dash.stat.avgScore.sub': 'Overall',
+  'dash.stat.newMaterials': 'New Materials',
+  'dash.stat.newMaterials.sub': 'This week',
+
+  'dash.today.title': "Today's Activities",
+  'dash.today.empty': 'Nothing scheduled for today yet.',
+
+  'dash.assessment.title': 'Active Assessment',
+  'dash.assessment.empty': 'No active assignments left.',
+  'dash.assessment.dueToday': 'due today',
+  'dash.assessment.dueTomorrow': 'due tomorrow',
+  'dash.assessment.dueOn': 'due {date}',
+  'dash.assessment.badgeSoon': 'Soon',
+  'dash.assessment.subjectFallback': 'Subject',
+  'dash.assessment.urgent': '"{title}" is due {when}.',
+  'dash.assessment.urgentSub': 'Submit before 23:59.',
+  'dash.assessment.whenToday': 'today',
+  'dash.assessment.whenTomorrow': 'tomorrow',
+
+  'dash.progress.title': 'Subjects & Progress',
+  'dash.progress.empty': 'No subjects yet.',
+  'dash.progress.value': '{done} of {total} tasks',
+  'dash.progress.teacherFallback': 'Subject Teacher',
+
+  'dash.announcement.title': 'School Announcement',
+  'dash.announcement.empty': 'No announcements yet.',
+  'dash.announcement.authorFallback': 'Student Affairs',
+  'dash.time.today': 'Today',
+
+  // --- assignment detail --------------------------------------------------
+  'assignment.notFound': 'Assignment not found',
+  'assignment.notFoundDetail':
+    'This assignment does not exist, or the teacher has removed it.',
+
+  // --- scores -------------------------------------------------------------
+  'sc.search': 'Search subjects…',
+  'sc.filter.all': 'All',
+  'sc.filter.ongoing': 'Ongoing',
+  'sc.filter.completed': 'Completed',
+  'sc.loadFailed': 'Could not load your scores',
+  'sc.empty': 'No scores yet.',
+  'sc.emptySearch': 'Nothing matches "{query}". Try another word.',
+  'sc.emptyNone': 'No subjects in this category yet.',
+  'sc.teacherFallback': 'Subject Teacher',
+  'sc.viewDetail': 'View Detail',
+  'sc.gradeScale': 'Grade Scale Reference',
+  'sc.closeDetail': 'Close detail',
+  'sc.teacher': 'Teacher:',
+  'sc.class': 'Class:',
+  'sc.semester': 'Semester:',
+  'sc.overview': 'Score Overview',
+  'sc.weight': 'Weight: {n}%',
+  'sc.noAssignments': 'Nothing has been set for this class yet.',
+  'sc.autoCalculated': 'The final score is calculated automatically by the system.',
+  'sc.protest': 'Dispute a Score',
+  'sc.protest.badge': 'Score Dispute',
+  'sc.protest.title': 'Score Dispute Form',
+  'sc.protest.subtitle':
+    'Pick an assignment and explain to the teacher why you think the score should be reviewed.',
+  'sc.protest.pick': 'Pick an assignment or exam',
+  'sc.protest.current': '(currently {grade})',
+  'sc.protest.ungraded': '(not graded yet)',
+  'sc.protest.expected': 'Score you expected (0–100)',
+  'sc.protest.expectedPlaceholder': 'e.g. 85',
+  'sc.protest.reason': 'Your reason',
+  'sc.protest.reasonPlaceholder':
+    'Explain politely which part you think the teacher should look at again…',
+  'sc.protest.sending': 'Sending…',
+  'sc.protest.send': 'Send dispute',
+  'sc.protest.incomplete': 'Fill in the assignment, the reason and the score you expected.',
+  'sc.protest.failed': 'The dispute could not be sent.',
+  'sc.protest.sent': 'Your dispute has been sent.',
+
+  // --- classroom ----------------------------------------------------------
+  'cls.empty': 'No subjects yet.',
+  'cls.emptyDetail':
+    'Ask your homeroom teacher or a subject teacher to add you to a class.',
+
+  // --- assessment ---------------------------------------------------------
+  'asm.title': 'Assignments',
+  'asm.subtitle': 'Every assignment you have, in one place.',
+  'asm.search': 'Search assignments…',
+  'asm.tab.active': 'Active',
+  'asm.tab.submitted': 'Submitted',
+  'asm.tab.graded': 'Graded',
+  'asm.empty': 'No assignments',
+  'asm.emptySearch': 'Nothing matches that.',
+  'asm.emptyNone': 'This tab is empty.',
+  'asm.due': 'Due {date}',
+  'asm.overdue': 'Overdue',
+  'asm.remaining.days': '{n} days left',
+  'asm.remaining.hours': '{n} hours left',
+  'asm.remaining.minutes': '{n} minutes left',
+  'asm.grade': 'Grade',
+  'asm.grading': 'Being graded',
+  'asm.doIt': 'Open',
+
+  // --- announcements ------------------------------------------------------
+  'ann.title': 'School Announcements',
+  'ann.subtitle': 'Notices, policies and official word from your school.',
+  'ann.search': 'Search announcements…',
+  'ann.empty': 'No announcements',
+  'ann.emptySearch': 'Nothing matches that.',
+  'ann.emptyNone': 'Your school has not published anything yet.',
+  'ann.by': 'Published by:',
+  'ann.authorFallback': 'Principal',
+  'ann.back': 'Back',
+
+  // --- schedule -----------------------------------------------------------
+  'sch.pickMonth': 'Pick a month',
+  'sch.pickYear': 'Pick a year',
+  'sch.pickDate': 'Pick a date below',
+  'sch.loading': 'Loading the calendar…',
+  'sch.dot.class': 'Has a class',
+  'sch.dot.deadline': 'Something is due',
+  'sch.agenda': 'Daily Agenda',
+  'sch.agenda.empty': 'Nothing scheduled',
+  'sch.agenda.emptyDetail': 'No classes and nothing due on this date.',
+  'sch.classes': 'Classes',
+  'sch.deadlines': 'Deadlines',
+  'sch.teaching': 'Teaching {class}',
+  'sch.teacher': 'Teacher: {name}',
+  'sch.dueAt': 'Due at {time} WIB',
+
+  // --- attendance ---------------------------------------------------------
+  'att.title': 'Attendance History',
+  'att.subtitle': 'Track your attendance rate and your own check-in record.',
+  'att.search': 'Search subjects…',
+  'att.ratio': 'Attendance Rate',
+  'att.ratio.detail':
+    'How much of every subject class you have attended in person.',
+  'att.streak': 'Check-in Streak',
+  'att.streak.detail': 'Consecutive check-ins',
+  'att.totalLogs': 'Days Recorded',
+  'att.days': '{n} days',
+  'att.breakdown': 'P: {h} · E: {i} · S: {s} · A: {a}',
+  'att.today': 'Today',
+  'att.prevMonth': 'Previous month',
+  'att.nextMonth': 'Next month',
+  'att.legend.present': 'Present',
+  'att.legend.excused': 'Excused / Sick',
+  'att.legend.absent': 'Absent',
+  'att.log.title': 'Detailed Log',
+  'att.log.empty': 'Nothing logged',
+  'att.log.emptySearch': 'No attendance matches that.',
+  'att.log.emptyNone': 'No attendance has been recorded yet.',
+  'att.loading': 'Loading attendance history…',
+  'att.note': 'Note: {note}',
+  'att.status.Hadir': 'Present',
+  'att.status.Izin': 'Excused',
+  'att.status.Sakit': 'Sick',
+  'att.status.Alpa': 'Absent',
+  'att.error.title': 'This page could not be shown',
+  'att.error.body': 'Something went wrong while rendering the attendance view.',
+  'att.error.refresh': 'Reload the page',
+
+  // --- profile ------------------------------------------------------------
+  'profile.class': 'Class',
+  'profile.nisn': 'NISN',
+  'profile.xp': 'Total XP',
+  'profile.level': 'Level',
+  'profile.empty': 'Not in the database yet',
+  'profile.achievements': 'My Achievements',
+  'profile.achievements.empty': 'No achievements to show yet.',
+  'profile.leaderboard': 'Leaderboard',
+  'profile.leaderboard.empty': 'No ranking yet.',
 
   // --- errors from the server -------------------------------------------
   'error.unauthorized': 'Your session has ended. Please sign in again.',
@@ -372,4 +576,8 @@ export default {
   'validation.fullName.long': 'Full name is too long',
   'validation.confirm.required': 'Confirm password is required.',
   'validation.confirm.mismatch': 'Passwords do not match.',
+  'validation.schoolCode.required': 'School Code is required.',
+  'validation.schoolCode.long': 'School Code is too long.',
+  'validation.nisn.required': 'NISN is required.',
+  'validation.nisn.long': 'NISN is too long.',
 };

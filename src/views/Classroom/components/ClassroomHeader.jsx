@@ -5,7 +5,7 @@ export const ClassroomHeader = ({ course }) => {
   if (!course) return null;
 
   return (
-    <div className="bg-gradient-to-r from-violet-700 via-indigo-650 to-indigo-600 rounded-2xl p-6 sm:p-8 text-white shadow-md relative overflow-hidden select-none text-left">
+    <div className="bg-gradient-to-r from-brand to-brand-deep rounded-2xl p-6 sm:p-8 text-white shadow-md relative overflow-hidden select-none text-left">
       
       {/* Decorative abstract SVG overlay background */}
       <div className="absolute right-0 top-0 bottom-0 w-1/3 opacity-15 pointer-events-none hidden md:block">
@@ -18,17 +18,17 @@ export const ClassroomHeader = ({ course }) => {
       <div className="relative z-10 space-y-4">
         {/* Badges */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="px-2.5 py-0.5 bg-white/20 text-white text-[10px] font-black rounded-md tracking-wider uppercase backdrop-blur-sm">
+          <span className="px-2.5 py-0.5 bg-white/20 text-white text-[10px] font-extrabold rounded-md tracking-wider uppercase backdrop-blur-sm">
             {course.className}
           </span>
-          <span className="px-2.5 py-0.5 bg-emerald-500/80 text-white text-[10px] font-black rounded-md tracking-wider uppercase backdrop-blur-sm">
+          <span className="px-2.5 py-0.5 bg-emerald-500/80 text-white text-[10px] font-extrabold rounded-md tracking-wider uppercase backdrop-blur-sm">
             Aktif
           </span>
         </div>
 
         {/* Subject Name */}
         <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
             {course.name}
           </h1>
           <p className="text-xs sm:text-sm text-violet-100 font-semibold max-w-xl">

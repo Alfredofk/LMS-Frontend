@@ -14,7 +14,7 @@ import { useT } from '../../i18n/LanguageContext';
 const Logo = () => (
   <div className="flex items-center gap-2 select-none">
     <BrandMark size="sm" tone="solid" />
-    <span className="text-base font-extrabold tracking-tight text-slate-850">
+    <span className="text-base font-extrabold tracking-tight text-slate-900">
       EduForID
     </span>
   </div>
@@ -103,7 +103,7 @@ export const LandingPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 antialiased overflow-x-hidden selection:bg-violet-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 antialiased overflow-x-hidden selection:bg-brand selection:text-white">
       
       {/* Toast notifier container */}
       {toast && (
@@ -128,7 +128,7 @@ export const LandingPage = () => {
           <button
             aria-current="page"
             onClick={() => showToast(t('landing.onHomeAlready'), 'info')}
-            className="text-[#7047EB] font-bold cursor-pointer"
+            className="text-brand font-bold cursor-pointer"
           >
             {t('landing.nav.home')}
           </button>
@@ -150,7 +150,7 @@ export const LandingPage = () => {
           <Button
             size="sm"
             onClick={() => navigate('/login', { state: { step: 'sign_up' } })}
-            className="rounded-xl px-4 py-2 text-sm font-bold shadow-md shadow-violet-500/10 cursor-pointer"
+            className="rounded-xl px-4 py-2 text-sm font-bold shadow-md shadow-brand/10 cursor-pointer"
           >
             {t('landing.nav.register')}
           </Button>
@@ -162,9 +162,9 @@ export const LandingPage = () => {
       {/* ========================================== */}
       <section className="max-w-6xl mx-auto px-6 pt-8 pb-16 lg:pb-24 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-20">
         <div className="lg:col-span-7 space-y-6 text-left">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 leading-tight">
-            {t('landing.hero.lead')} <span className="text-[#7047EB]">{t('landing.hero.accentOne')}</span> <br />
-            <span className="text-[#7047EB]">{t('landing.hero.accentTwo')}</span> {t('landing.hero.trail')}
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 leading-tight">
+            {t('landing.hero.lead')} <span className="text-brand">{t('landing.hero.accentOne')}</span> <br />
+            <span className="text-brand">{t('landing.hero.accentTwo')}</span> {t('landing.hero.trail')}
           </h1>
           <p className="text-slate-500 text-sm sm:text-base leading-relaxed max-w-lg font-medium">
             {t('landing.hero.subtitle')}
@@ -173,14 +173,14 @@ export const LandingPage = () => {
           <div className="flex items-center gap-4 pt-2">
             <Button
               onClick={() => navigate('/login', { state: { step: 'sign_up' } })}
-              className="py-3 px-6 rounded-xl font-bold bg-[#7047EB] hover:bg-[#5E3BD2] shadow-lg shadow-violet-500/20 active:scale-95 transition-transform text-white cursor-pointer"
+              className="py-3 px-6 rounded-xl font-bold bg-brand hover:bg-brand-deep shadow-lg shadow-brand/20 active:scale-95 transition-transform text-white cursor-pointer"
             >
               {t('landing.hero.getStarted')}
             </Button>
             <button
               type="button"
               onClick={() => handleUnderConstruction('landing.hero.contact')}
-              className="py-3 px-6 rounded-xl font-bold bg-white text-[#7047EB] border border-slate-200 hover:bg-slate-50 active:scale-95 transition-transform shadow-sm cursor-pointer"
+              className="py-3 px-6 rounded-xl font-bold bg-white text-brand border border-slate-200 hover:bg-slate-50 active:scale-95 transition-transform shadow-sm cursor-pointer"
             >
               {t('landing.hero.contact')}
             </button>
@@ -190,21 +190,21 @@ export const LandingPage = () => {
         {/* Right Illustration Column (Reverted to the original clean circular chart illustration) */}
         <div className="lg:col-span-5 flex items-center justify-center relative">
           
-          <div className="w-72 h-72 sm:w-80 sm:h-80 lg:w-96 lg:h-96 rounded-full relative overflow-hidden bg-[#ECE9FE]/40 border-8 border-white shadow-xl flex items-center justify-center">
+          <div className="w-72 h-72 sm:w-80 sm:h-80 lg:w-96 lg:h-96 rounded-full relative overflow-hidden bg-brand-tint/40 border-8 border-white shadow-xl flex items-center justify-center">
             
             <svg viewBox="0 0 100 100" className="w-full h-full transform scale-95 select-none pointer-events-none">
               <circle cx="50" cy="50" r="46" fill="#F1EEFF" />
               <path 
                 d="M 50 4 A 46 46 0 0 1 96 50 L 50 50 Z" 
-                fill="#7047EB" 
+                fill="var(--color-brand)" 
                 transform="rotate(135 50 50)" 
               />
             </svg>
             
           </div>
 
-          <div className="absolute top-10 right-4 w-4 h-4 bg-[#7047EB] rounded-full pointer-events-none opacity-85 shadow-sm" />
-          <div className="absolute bottom-12 left-6 w-5 h-5 bg-[#7047EB] rounded-full pointer-events-none opacity-85 shadow-sm" />
+          <div className="absolute top-10 right-4 w-4 h-4 bg-brand rounded-full pointer-events-none opacity-85 shadow-sm" />
+          <div className="absolute bottom-12 left-6 w-5 h-5 bg-brand rounded-full pointer-events-none opacity-85 shadow-sm" />
           <div className="absolute top-1/2 left-[-10px] w-2.5 h-2.5 bg-violet-400 rounded-full pointer-events-none opacity-60" />
         </div>
       </section>
@@ -216,37 +216,37 @@ export const LandingPage = () => {
         <div className="bg-white rounded-3xl border border-slate-100/60 shadow-xl py-6 px-8 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
           
           <div className="flex items-center text-left md:border-r border-slate-100 last:border-0 py-2">
-            <div className="w-12 h-12 bg-[#F1EEFF] text-[#7047EB] rounded-2xl flex items-center justify-center shrink-0 mr-4">
+            <div className="w-12 h-12 bg-brand-tint text-brand rounded-2xl flex items-center justify-center shrink-0 mr-4">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
               </svg>
             </div>
             <div>
-              <div className="text-xl font-black text-slate-800">17k+</div>
+              <div className="text-xl font-extrabold text-slate-800">17k+</div>
               <div className="text-xs text-slate-400 font-bold mt-0.5">{t('landing.stats.classes')}</div>
             </div>
           </div>
 
           <div className="flex items-center text-left md:border-r border-slate-100 last:border-0 py-2">
-            <div className="w-12 h-12 bg-[#F1EEFF] text-[#7047EB] rounded-2xl flex items-center justify-center shrink-0 mr-4">
+            <div className="w-12 h-12 bg-brand-tint text-brand rounded-2xl flex items-center justify-center shrink-0 mr-4">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12v18H3V3z" />
               </svg>
             </div>
             <div>
-              <div className="text-xl font-black text-slate-800">20+</div>
+              <div className="text-xl font-extrabold text-slate-800">20+</div>
               <div className="text-xs text-slate-400 font-bold mt-0.5">{t('landing.stats.schools')}</div>
             </div>
           </div>
 
           <div className="flex items-center text-left py-2">
-            <div className="w-12 h-12 bg-[#F1EEFF] text-[#7047EB] rounded-2xl flex items-center justify-center shrink-0 mr-4">
+            <div className="w-12 h-12 bg-brand-tint text-brand rounded-2xl flex items-center justify-center shrink-0 mr-4">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.62 48.62 0 0112 20.904a48.62 48.62 0 018.231-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 017.918 5.841 50.58 50.58 0 00-2.658.814m-13.002 0L12 14.583l8.742-4.436M12 14.583v6.32" />
               </svg>
             </div>
             <div>
-              <div className="text-xl font-black text-slate-800">350k+</div>
+              <div className="text-xl font-extrabold text-slate-800">350k+</div>
               <div className="text-xs text-slate-400 font-bold mt-0.5">{t('landing.stats.users')}</div>
             </div>
           </div>
@@ -260,7 +260,7 @@ export const LandingPage = () => {
       <section className="max-w-6xl mx-auto px-6 py-16 text-center">
         <div className="space-y-2">
           <h2 className="text-3xl font-extrabold text-slate-900 leading-tight">
-            {t('landing.features.title')} <span className="text-[#7047EB]">{t('landing.features.titleAccent')}</span>
+            {t('landing.features.title')} <span className="text-brand">{t('landing.features.titleAccent')}</span>
           </h2>
           <p className="text-sm text-slate-400 font-semibold select-none">
             {t('landing.features.subtitle')}
@@ -288,7 +288,7 @@ export const LandingPage = () => {
       {/* ========================================== */}
       {/* 5. FOOTER SECTION                          */}
       {/* ========================================== */}
-      <footer className="bg-[#ECE9FE] pt-16 pb-8 px-6 sm:px-12 relative z-10 select-none">
+      <footer className="bg-brand-tint pt-16 pb-8 px-6 sm:px-12 relative z-10 select-none">
         <div className="max-w-6xl mx-auto bg-white rounded-[32px] p-8 sm:p-12 shadow-xl flex flex-col gap-12">
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 text-left">
@@ -300,40 +300,40 @@ export const LandingPage = () => {
             </div>
 
             <div className="lg:col-span-2 space-y-3">
-              <h5 className="text-xs font-black text-slate-850 uppercase tracking-wider">{t('landing.footer.platform')}</h5>
+              <h5 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">{t('landing.footer.platform')}</h5>
               <ul className="space-y-2 text-xs text-slate-400 font-semibold">
-                <li><button onClick={() => handleUnderConstruction('landing.footer.features')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.features')}</button></li>
-                <li><button onClick={() => handleUnderConstruction('landing.footer.pricing')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.pricing')}</button></li>
-                <li><button onClick={() => handleUnderConstruction('landing.footer.integrations')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.integrations')}</button></li>
-                <li><button onClick={() => handleUnderConstruction('landing.footer.updates')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.updates')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.features')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.features')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.pricing')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.pricing')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.integrations')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.integrations')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.updates')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.updates')}</button></li>
               </ul>
             </div>
 
             <div className="lg:col-span-2 space-y-3">
-              <h5 className="text-xs font-black text-slate-850 uppercase tracking-wider">{t('landing.footer.support')}</h5>
+              <h5 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">{t('landing.footer.support')}</h5>
               <ul className="space-y-2 text-xs text-slate-400 font-semibold">
-                <li><button onClick={() => handleUnderConstruction('landing.footer.helpCenter')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.helpCenter')}</button></li>
-                <li><button onClick={() => handleUnderConstruction('landing.footer.contact')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.contact')}</button></li>
-                <li><button onClick={() => handleUnderConstruction('landing.footer.faq')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.faq')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.helpCenter')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.helpCenter')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.contact')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.contact')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.faq')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.faq')}</button></li>
               </ul>
             </div>
 
             <div className="lg:col-span-2 space-y-3">
-              <h5 className="text-xs font-black text-slate-850 uppercase tracking-wider">{t('landing.footer.resources')}</h5>
+              <h5 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">{t('landing.footer.resources')}</h5>
               <ul className="space-y-2 text-xs text-slate-400 font-semibold">
-                <li><button onClick={() => handleUnderConstruction('landing.footer.guides')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.guides')}</button></li>
-                <li><button onClick={() => handleUnderConstruction('landing.footer.apiDocs')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.apiDocs')}</button></li>
-                <li><button onClick={() => handleUnderConstruction('landing.footer.webinars')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.webinars')}</button></li>
-                <li><button onClick={() => handleUnderConstruction('landing.footer.community')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.community')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.guides')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.guides')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.apiDocs')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.apiDocs')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.webinars')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.webinars')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.community')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.community')}</button></li>
               </ul>
             </div>
 
             <div className="lg:col-span-2 space-y-3">
-              <h5 className="text-xs font-black text-slate-850 uppercase tracking-wider">{t('landing.footer.legal')}</h5>
+              <h5 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">{t('landing.footer.legal')}</h5>
               <ul className="space-y-2 text-xs text-slate-400 font-semibold">
-                <li><button onClick={() => handleUnderConstruction('landing.footer.terms')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.terms')}</button></li>
-                <li><button onClick={() => handleUnderConstruction('landing.footer.privacy')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.privacy')}</button></li>
-                <li><button onClick={() => handleUnderConstruction('landing.footer.cookies')} className="hover:text-violet-600 transition-colors cursor-pointer">{t('landing.footer.cookies')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.terms')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.terms')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.privacy')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.privacy')}</button></li>
+                <li><button onClick={() => handleUnderConstruction('landing.footer.cookies')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.cookies')}</button></li>
               </ul>
             </div>
           </div>
@@ -344,13 +344,13 @@ export const LandingPage = () => {
             </div>
             
             <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 text-slate-500">
-              <a href="mailto:support@lms.com" className="flex items-center gap-1.5 hover:text-violet-600 transition-colors">
+              <a href="mailto:support@lms.com" className="flex items-center gap-1.5 hover:text-brand transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-400">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                 </svg>
                 support@lms.com
               </a>
-              <a href="https://www.lms.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-violet-600 transition-colors">
+              <a href="https://www.lms.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-brand transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-400">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9s2.015-9 4.5-9m0 0a9.015 9.015 0 018.72 6.253M12 3a9.015 9.015 0 00-8.72 6.253M4.27 13.75h15.46M5.22 8.75h13.56" />
                 </svg>
@@ -359,22 +359,22 @@ export const LandingPage = () => {
             </div>
 
             <div className="flex items-center gap-3">
-              <button onClick={() => handleUnderConstruction('Instagram')} className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-violet-600 hover:border-violet-200 hover:bg-violet-50 transition-all cursor-pointer" aria-label="Instagram">
+              <button onClick={() => handleUnderConstruction('Instagram')} className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-brand hover:border-violet-200 hover:bg-violet-50 transition-all cursor-pointer" aria-label="Instagram">
                 <svg fill="currentColor" viewBox="0 0 24 24" className="w-4 h-4">
                   <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.779-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
                 </svg>
               </button>
-              <button onClick={() => handleUnderConstruction('Facebook')} className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-violet-600 hover:border-violet-200 hover:bg-violet-50 transition-all cursor-pointer" aria-label="Facebook">
+              <button onClick={() => handleUnderConstruction('Facebook')} className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-brand hover:border-violet-200 hover:bg-violet-50 transition-all cursor-pointer" aria-label="Facebook">
                 <svg fill="currentColor" viewBox="0 0 24 24" className="w-4 h-4">
                   <path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z" />
                 </svg>
               </button>
-              <button onClick={() => handleUnderConstruction('Twitter')} className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-violet-600 hover:border-violet-200 hover:bg-violet-50 transition-all cursor-pointer" aria-label="Twitter">
+              <button onClick={() => handleUnderConstruction('Twitter')} className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-brand hover:border-violet-200 hover:bg-violet-50 transition-all cursor-pointer" aria-label="Twitter">
                 <svg fill="currentColor" viewBox="0 0 24 24" className="w-4 h-4">
                   <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                 </svg>
               </button>
-              <button onClick={() => handleUnderConstruction('LinkedIn')} className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-violet-600 hover:border-violet-200 hover:bg-violet-50 transition-all cursor-pointer" aria-label="LinkedIn">
+              <button onClick={() => handleUnderConstruction('LinkedIn')} className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-brand hover:border-violet-200 hover:bg-violet-50 transition-all cursor-pointer" aria-label="LinkedIn">
                 <svg fill="currentColor" viewBox="0 0 24 24" className="w-4 h-4">
                   <path d="M4.98 3.5c0 1.381-1.11 2.5-2.48 2.5s-2.48-1.119-2.48-2.5c0-1.38 1.11-2.5 2.48-2.5s2.48 1.12 2.48 2.5zm.02 4.5h-5v16h5v-16zm7.982 0h-4.968v16h4.969v-8.399c0-4.67 6.029-5.052 6.029 0v8.399h4.988v-10.131c0-7.88-8.922-7.593-11.018-3.714v-2.155z" />
                 </svg>

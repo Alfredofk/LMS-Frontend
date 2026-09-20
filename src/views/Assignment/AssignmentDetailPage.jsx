@@ -13,12 +13,19 @@ import {
   Trash2
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import { useT } from '../../i18n/LanguageContext';
 
 export const AssignmentDetailPage = () => {
   const { assignmentId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { showToast } = useOutletContext();
+  /*
+    Only the not-found state below uses this. The rest of the page is still
+    hardcoded Indonesian — it is outside the translated set, and CLAUDE.md says
+    so. New code here is translated regardless; the old is not worth half-doing.
+  */
+  const { t } = useT();
 
   // Find dynamic assignment info based on course ID or fallback
   let activeAssignment = null;
@@ -36,26 +43,44 @@ export const AssignmentDetailPage = () => {
     if (activeAssignment) break;
   }
 
-  // Fallback if no matching assignment is found in local classroomData
-  if (!activeAssignment) {
-    activeAssignment = {
-      id: assignmentId || 'default-id',
-      title: 'Laporan Praktikum Asam Basa',
-      deadline: 'Jumat, 3 Juli 2026, 23:59 WIB',
-      status: 'pending',
-      xpReward: 250
-    };
-    activeCourse = {
-      id: 'kimia-dasar',
-      name: 'Kimia Dasar',
-      className: 'XII IPA 2'
-    };
-  }
+  /*
+    Not finding the assignment used to mean inventing one — a title, a deadline,
+    an XP reward, a subject and a class, all written out and rendered as fact.
+    And since `classroomData` is `[]`, that branch was the only one that ever
+    ran, so this page showed the same fictional chemistry report to everybody
+    who opened it. One of its values, "XII IPA 2", also broke the IPA/IPS ban in
+    the backend's glossary.
+
+    Now it says it could not find it. The early return has to wait until after
+    the hooks below, which is why they take a safe default rather than being
+    skipped.
+  */
 
   // Track submission state
-  const [status, setStatus] = useState(activeAssignment.status); // pending, late, completed
+  const [status, setStatus] = useState(activeAssignment?.status ?? 'pending');
   const [attachedFile, setAttachedFile] = useState(null); // Simulated attached file
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (!activeAssignment) {
+    return (
+      <div className="py-20 flex flex-col items-center justify-center text-center bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+        <div className="w-14 h-14 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center mb-4">
+          <FileText className="w-6 h-6" aria-hidden="true" />
+        </div>
+        <p className="text-sm font-extrabold text-slate-900">{t('assignment.notFound')}</p>
+        <p className="text-xs text-slate-400 font-bold mt-1 max-w-sm leading-relaxed">
+          {t('assignment.notFoundDetail')}
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="mt-5 px-4 py-2 rounded-xl border border-slate-200 text-xs font-extrabold text-slate-600 hover:border-brand hover:text-brand transition-colors cursor-pointer"
+        >
+          {t('ann.back')}
+        </button>
+      </div>
+    );
+  }
 
   // Back navigation path helper
   const handleBack = () => {
@@ -101,7 +126,7 @@ export const AssignmentDetailPage = () => {
   const renderStatusBadge = () => {
     if (status === 'completed') {
       return (
-        <span className="px-2.5 py-0.5 bg-emerald-50 border border-emerald-100 text-emerald-600 text-[10px] font-black rounded-md inline-flex items-center gap-1 uppercase select-none">
+        <span className="px-2.5 py-0.5 bg-emerald-50 border border-emerald-100 text-emerald-600 text-[10px] font-extrabold rounded-md inline-flex items-center gap-1 uppercase select-none">
           <CheckCircle className="w-3 h-3" />
           Terkumpul
         </span>
@@ -109,14 +134,14 @@ export const AssignmentDetailPage = () => {
     }
     if (status === 'late') {
       return (
-        <span className="px-2.5 py-0.5 bg-red-50 border border-red-100 text-red-500 text-[10px] font-black rounded-md inline-flex items-center gap-1 uppercase select-none">
+        <span className="px-2.5 py-0.5 bg-red-50 border border-red-100 text-red-500 text-[10px] font-extrabold rounded-md inline-flex items-center gap-1 uppercase select-none">
           <AlertCircle className="w-3 h-3" />
           Terlambat
         </span>
       );
     }
     return (
-      <span className="px-2.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-500 text-[10px] font-black rounded-md inline-flex items-center gap-1 uppercase select-none">
+      <span className="px-2.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-500 text-[10px] font-extrabold rounded-md inline-flex items-center gap-1 uppercase select-none">
         Belum Mengumpulkan
       </span>
     );
@@ -128,7 +153,7 @@ export const AssignmentDetailPage = () => {
       {/* Back button link */}
       <button 
         onClick={handleBack}
-        className="flex items-center gap-1.5 text-xs font-black text-slate-500 hover:text-slate-900 transition-colors select-none cursor-pointer focus:outline-none"
+        className="flex items-center gap-1.5 text-xs font-extrabold text-slate-500 hover:text-slate-900 transition-colors select-none cursor-pointer focus:outline-none"
       >
         <ChevronLeft className="w-4 h-4 shrink-0" />
         Kembali ke Kelas
@@ -145,7 +170,7 @@ export const AssignmentDetailPage = () => {
             
             {/* Header info */}
             <div className="space-y-2 pb-5 border-b border-slate-100">
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight">
+              <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">
                 {activeAssignment.title}
               </h2>
               
@@ -154,8 +179,8 @@ export const AssignmentDetailPage = () => {
                   <Clock className="w-4 h-4 text-slate-400 shrink-0" />
                   <span>Tenggat: {activeAssignment.deadline}</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-[#7047EB]">
-                  <Award className="w-4 h-4 text-[#7047EB] shrink-0" />
+                <div className="flex items-center gap-1.5 text-brand">
+                  <Award className="w-4 h-4 text-brand shrink-0" />
                   <span>Reward: +{activeAssignment.xpReward} XP</span>
                 </div>
               </div>
@@ -173,34 +198,34 @@ export const AssignmentDetailPage = () => {
                 Silakan susun laporan praktikum ilmiah Anda dengan struktur formal sebagai berikut:
               </p>
               <ul className="list-decimal list-inside pl-2 space-y-2 font-medium">
-                <li><strong className="text-slate-850">Tujuan Percobaan:</strong> Deskripsikan tujuan utama pengujian kadar pH larutan.</li>
-                <li><strong className="text-slate-850">Alat dan Bahan:</strong> Rincikan daftar bahan larutan penguji dan porsi indikator kubis ungu.</li>
-                <li><strong className="text-slate-850">Langkah Kerja:</strong> Deskripsikan alur pencampuran indikator kubis ungu ke larutan uji langkah demi langkah.</li>
-                <li><strong className="text-slate-850">Tabel Pengamatan & Pembahasan:</strong> Catat perubahan warna indikator alami dan jelaskan alasannya berdasarkan teori asam-basa Arrhenius.</li>
-                <li><strong className="text-slate-850">Kesimpulan:</strong> Tarik kesimpulan final mengenai pembagian sifat larutan yang diuji.</li>
+                <li><strong className="text-slate-900">Tujuan Percobaan:</strong> Deskripsikan tujuan utama pengujian kadar pH larutan.</li>
+                <li><strong className="text-slate-900">Alat dan Bahan:</strong> Rincikan daftar bahan larutan penguji dan porsi indikator kubis ungu.</li>
+                <li><strong className="text-slate-900">Langkah Kerja:</strong> Deskripsikan alur pencampuran indikator kubis ungu ke larutan uji langkah demi langkah.</li>
+                <li><strong className="text-slate-900">Tabel Pengamatan & Pembahasan:</strong> Catat perubahan warna indikator alami dan jelaskan alasannya berdasarkan teori asam-basa Arrhenius.</li>
+                <li><strong className="text-slate-900">Kesimpulan:</strong> Tarik kesimpulan final mengenai pembagian sifat larutan yang diuji.</li>
               </ul>
               
               <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-2 mt-4 text-xs">
-                <span className="font-black text-slate-800 uppercase tracking-wider block">Format Pengumpulan Berkas:</span>
+                <span className="font-extrabold text-slate-800 uppercase tracking-wider block">Format Pengumpulan Berkas:</span>
                 <ul className="list-disc list-inside space-y-1 text-slate-500 font-semibold">
                   <li>Format file wajib dalam bentuk <strong className="text-red-500">PDF (.pdf)</strong>.</li>
                   <li>Ukuran berkas maksimum adalah <strong className="text-slate-800">10 MB</strong>.</li>
-                  <li>Format nama berkas: <code className="bg-white border border-slate-200 px-1 py-0.5 rounded text-[#7047EB]">NIS_NamaLengkap_LaporanAsamBasa.pdf</code>.</li>
+                  <li>Format nama berkas: <code className="bg-white border border-slate-200 px-1 py-0.5 rounded text-brand">NIS_NamaLengkap_LaporanAsamBasa.pdf</code>.</li>
                 </ul>
               </div>
             </div>
 
             {/* Assessment rubric criteria */}
             <div className="pt-6 border-t border-slate-100 space-y-4">
-              <h3 className="text-sm font-extrabold text-slate-855 tracking-tight flex items-center gap-1.5 select-none">
-                <BookOpen className="w-4 h-4 text-[#7047EB] shrink-0" />
+              <h3 className="text-sm font-extrabold text-slate-900 tracking-tight flex items-center gap-1.5 select-none">
+                <BookOpen className="w-4 h-4 text-brand shrink-0" />
                 Kriteria Penilaian (Rubrik)
               </h3>
               
               <div className="border border-slate-100 rounded-xl overflow-hidden shadow-sm">
                 <table className="w-full text-xs text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-100 font-black text-slate-800 select-none">
+                    <tr className="bg-slate-50 border-b border-slate-100 font-extrabold text-slate-800 select-none">
                       <th className="p-3.5 pl-4">Kriteria</th>
                       <th className="p-3.5">Bobot</th>
                       <th className="p-3.5 pr-4">Deskripsi Kompetensi</th>
@@ -209,17 +234,17 @@ export const AssignmentDetailPage = () => {
                   <tbody className="divide-y divide-slate-100 text-slate-500 font-semibold">
                     <tr className="hover:bg-slate-50/30">
                       <td className="p-3.5 pl-4 font-bold text-slate-800">Sistematika Laporan</td>
-                      <td className="p-3.5 text-[#7047EB] font-black">30%</td>
+                      <td className="p-3.5 text-brand font-extrabold">30%</td>
                       <td className="p-3.5 pr-4 leading-normal">Kelengkapan susunan laporan (Judul, Tujuan, Metode, Pengamatan, Pembahasan, Kesimpulan).</td>
                     </tr>
                     <tr className="hover:bg-slate-50/30">
                       <td className="p-3.5 pl-4 font-bold text-slate-800">Analisis & Pembahasan</td>
-                      <td className="p-3.5 text-[#7047EB] font-black">50%</td>
+                      <td className="p-3.5 text-brand font-extrabold">50%</td>
                       <td className="p-3.5 pr-4 leading-normal">Ketajaman analisis reaksi larutan, kesesuaian data perubahan warna, dan penerapan teori kimia.</td>
                     </tr>
                     <tr className="hover:bg-slate-50/30">
                       <td className="p-3.5 pl-4 font-bold text-slate-800">Kesimpulan & Sumber</td>
-                      <td className="p-3.5 text-[#7047EB] font-black">20%</td>
+                      <td className="p-3.5 text-brand font-extrabold">20%</td>
                       <td className="p-3.5 pr-4 leading-normal">Ketepatan penarikan kesimpulan akhir beserta pencantuman rujukan referensi pustaka ilmiah.</td>
                     </tr>
                   </tbody>
@@ -237,7 +262,7 @@ export const AssignmentDetailPage = () => {
           <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow duration-200 space-y-6">
             
             <div className="space-y-3 pb-5 border-b border-slate-100">
-              <h3 className="text-sm font-extrabold text-slate-855 tracking-tight select-none">
+              <h3 className="text-sm font-extrabold text-slate-900 tracking-tight select-none">
                 Status Pengumpulan
               </h3>
               <div>
@@ -249,19 +274,19 @@ export const AssignmentDetailPage = () => {
             {status !== 'completed' && (
               <div 
                 onClick={handleSimulateFileSelect}
-                className="border-2 border-dashed border-slate-200 hover:border-[#7047EB] bg-slate-50/30 hover:bg-violet-50/10 rounded-2xl p-6 text-center cursor-pointer transition-all group"
+                className="border-2 border-dashed border-slate-200 hover:border-brand bg-slate-50/30 hover:bg-violet-50/10 rounded-2xl p-6 text-center cursor-pointer transition-all group"
               >
                 <div className="flex flex-col items-center justify-center gap-3">
-                  <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-[#7047EB] group-hover:shadow-md transition-all duration-200">
+                  <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-brand group-hover:shadow-md transition-all duration-200">
                     <UploadCloud className="w-6 h-6" />
                   </div>
                   
                   <div className="space-y-1">
-                    <p className="text-xs font-black text-slate-800">
+                    <p className="text-xs font-extrabold text-slate-800">
                       Tarik & Lepas berkas di sini
                     </p>
                     <p className="text-[10px] text-slate-400 font-semibold">
-                      atau <span className="text-[#7047EB] underline">Klik untuk Mencari</span>
+                      atau <span className="text-brand underline">Klik untuk Mencari</span>
                     </p>
                   </div>
                 </div>
@@ -297,17 +322,17 @@ export const AssignmentDetailPage = () => {
 
                 {/* Progress bar container (60% loading draf, 100% completed) */}
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-[10px] font-black text-slate-800">
+                  <div className="flex items-center justify-between text-[10px] font-extrabold text-slate-800">
                     <span>
                       {attachedFile.progress === 100 ? 'Selesai diunggah' : 'Mengunggah berkas...'}
                     </span>
-                    <span className="text-[#7047EB]">
+                    <span className="text-brand">
                       {attachedFile.progress}%
                     </span>
                   </div>
                   <div className="w-full h-2 bg-slate-200/60 rounded-full overflow-hidden">
                     <div 
-                      className="bg-[#7047EB] h-full rounded-full transition-all duration-550"
+                      className="bg-brand h-full rounded-full transition-all duration-550"
                       style={{ width: `${attachedFile.progress}%` }}
                     />
                   </div>
@@ -320,7 +345,7 @@ export const AssignmentDetailPage = () => {
               <Button
                 onClick={handleSubmitTask}
                 disabled={status === 'completed' || isSubmitting}
-                className="w-full py-3.5 rounded-xl font-bold bg-[#7047EB] hover:bg-[#5E3BD2] text-white shadow-md shadow-violet-500/20 cursor-pointer text-xs"
+                className="w-full py-3.5 rounded-xl shadow-md shadow-brand/20 cursor-pointer text-xs"
               >
                 {isSubmitting ? 'Mengirim tugas...' : status === 'completed' ? 'Tugas Terkirim' : 'Kirim Tugas'}
               </Button>
@@ -332,7 +357,7 @@ export const AssignmentDetailPage = () => {
                     setAttachedFile(null);
                     showToast('Pengumpulan dibatalkan. Berkas diubah kembali ke draf.', 'info');
                   }}
-                  className="w-full py-2.5 rounded-xl text-xs font-black text-slate-500 hover:text-slate-800 border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-colors"
+                  className="w-full py-2.5 rounded-xl text-xs font-extrabold text-slate-500 hover:text-slate-800 border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-colors"
                 >
                   Batalkan Pengiriman
                 </button>

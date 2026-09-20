@@ -99,7 +99,7 @@ export const HomeroomDashboard = () => {
       <div className="p-5 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-700 text-xs font-semibold select-none text-left w-full">
         <div>
           <p className="font-bold">Akses Ditolak</p>
-          <p className="text-red-650 font-medium mt-0.5">{error}</p>
+          <p className="text-red-600 font-medium mt-0.5">{error}</p>
         </div>
       </div>
     );
@@ -121,10 +121,10 @@ export const HomeroomDashboard = () => {
       
       {/* 1. Header Block */}
       <div className="space-y-1 select-none">
-        <span className="px-2.5 py-1 bg-purple-100 text-[#7047EB] text-xs font-black rounded-lg uppercase">
+        <span className="px-2.5 py-1 bg-purple-100 text-brand text-xs font-extrabold rounded-lg uppercase">
           Dasbor Wali Kelas
         </span>
-        <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-tight mt-2">
+        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight mt-2">
           Kelas Perwalian: {classInfo?.name}
         </h1>
         <p className="text-sm text-slate-500 font-medium">
@@ -136,30 +136,30 @@ export const HomeroomDashboard = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 select-none">
         <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Murid</p>
-            <p className="text-2xl font-black text-slate-805 mt-1">{totalStudents}</p>
+            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Total Murid</p>
+            <p className="text-2xl font-extrabold text-slate-800 mt-1">{totalStudents}</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-650 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-purple-50 text-brand flex items-center justify-center">
             <Users className="w-5 h-5" />
           </div>
         </div>
 
         <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Rata-Rata Kelas</p>
-            <p className="text-2xl font-black text-slate-805 mt-1">{classAvgGrade}</p>
+            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Rata-Rata Kelas</p>
+            <p className="text-2xl font-extrabold text-slate-800 mt-1">{classAvgGrade}</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-650 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
             <GraduationCap className="w-5 h-5" />
           </div>
         </div>
 
         <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Rerata Presensi</p>
-            <p className="text-2xl font-black text-slate-805 mt-1">{classAvgAttendance}%</p>
+            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Rerata Presensi</p>
+            <p className="text-2xl font-extrabold text-slate-800 mt-1">{classAvgAttendance}%</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-650 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
             <CheckSquare className="w-5 h-5" />
           </div>
         </div>
@@ -172,10 +172,10 @@ export const HomeroomDashboard = () => {
           }
         `}>
           <div>
-            <p className={`text-[10px] font-black uppercase tracking-wider ${studentsAtRisk > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+            <p className={`text-[10px] font-extrabold uppercase tracking-wider ${studentsAtRisk > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
               Siswa Berisiko
             </p>
-            <p className="text-2xl font-black mt-1">{studentsAtRisk}</p>
+            <p className="text-2xl font-extrabold mt-1">{studentsAtRisk}</p>
           </div>
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center 
             ${studentsAtRisk > 0 ? 'bg-rose-100 text-rose-600' : 'bg-slate-50 text-slate-400'}`}>
@@ -186,44 +186,44 @@ export const HomeroomDashboard = () => {
 
       {/* 3. Class Roster Monitoring Table */}
       <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-        <h3 className="text-sm font-black text-slate-805 mb-4 select-none">
+        <h3 className="text-sm font-extrabold text-slate-800 mb-4 select-none">
           Lembar Pemantauan Perkembangan Murid
         </h3>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-xs font-medium text-slate-650">
+          <table className="w-full text-xs font-medium text-slate-600">
             <thead>
               <tr className="border-b border-slate-100 text-slate-400 font-extrabold text-left">
-                <th className="pb-3 font-black uppercase tracking-wider text-[10px]">Nama Siswa</th>
-                <th className="pb-3 font-black uppercase tracking-wider text-[10px]">NIS</th>
-                <th className="pb-3 font-black uppercase tracking-wider text-[10px]">Level / XP</th>
-                <th className="pb-3 font-black uppercase tracking-wider text-[10px] text-center">Rerata Nilai</th>
-                <th className="pb-3 font-black uppercase tracking-wider text-[10px] text-center">Tingkat Absensi</th>
-                <th className="pb-3 font-black uppercase tracking-wider text-[10px]">Rekomendasi</th>
-                <th className="pb-3 text-right font-black uppercase tracking-wider text-[10px]">Aksi</th>
+                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">Nama Siswa</th>
+                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">NIS</th>
+                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">Level / XP</th>
+                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px] text-center">Rerata Nilai</th>
+                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px] text-center">Tingkat Absensi</th>
+                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">Rekomendasi</th>
+                <th className="pb-3 text-right font-extrabold uppercase tracking-wider text-[10px]">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {students.map((row) => (
                 <tr key={row.id} className="hover:bg-slate-50/30 transition-colors">
-                  <td className="py-3.5 font-extrabold text-slate-805">{row.name}</td>
-                  <td className="py-3.5 text-slate-450 font-bold">{row.nis}</td>
+                  <td className="py-3.5 font-extrabold text-slate-800">{row.name}</td>
+                  <td className="py-3.5 text-slate-400 font-bold">{row.nis}</td>
                   <td className="py-3.5">
-                    <span className="font-black text-slate-700">Lvl {row.level}</span>
+                    <span className="font-extrabold text-slate-700">Lvl {row.level}</span>
                     <span className="text-[10px] font-bold text-slate-400 ml-1">({row.xp} XP)</span>
                   </td>
-                  <td className="py-3.5 text-center font-black text-slate-850">
+                  <td className="py-3.5 text-center font-extrabold text-slate-900">
                     {row.averageGrade !== null ? (
                       <span className={`px-2 py-0.5 rounded-lg
-                        ${row.averageGrade < 70 ? 'bg-red-50 text-red-650' : 'bg-slate-50 text-slate-700'}
+                        ${row.averageGrade < 70 ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-700'}
                       `}>
                         {row.averageGrade}
                       </span>
                     ) : '—'}
                   </td>
-                  <td className="py-3.5 text-center font-black">
+                  <td className="py-3.5 text-center font-extrabold">
                     <span className={`px-2 py-0.5 rounded-lg
-                      ${row.attendanceRate < 75 ? 'bg-amber-50 text-amber-650' : 'bg-slate-50 text-slate-700'}
+                      ${row.attendanceRate < 75 ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-700'}
                     `}>
                       {row.attendanceRate}%
                     </span>
@@ -232,12 +232,12 @@ export const HomeroomDashboard = () => {
                   {/* Warning Anomalies Capsule */}
                   <td className="py-3.5">
                     {row.warning ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-red-50 text-red-600 border border-red-100">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-red-50 text-red-600 border border-red-100">
                         <AlertTriangle className="w-3 h-3 shrink-0" />
                         {row.alertMessage}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">
                         Normal
                       </span>
                     )}
@@ -246,7 +246,7 @@ export const HomeroomDashboard = () => {
                   <td className="py-3.5 text-right">
                     <button
                       onClick={() => handleViewReport(row)}
-                      className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/50 text-[10px] font-black rounded-lg cursor-pointer transition-colors inline-flex items-center gap-1"
+                      className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/50 text-[10px] font-extrabold rounded-lg cursor-pointer transition-colors inline-flex items-center gap-1"
                     >
                       Lihat Rapor
                       <ArrowRight className="w-3.5 h-3.5" />
@@ -267,11 +267,11 @@ export const HomeroomDashboard = () => {
             {/* Modal Header */}
             <div className="p-6 border-b border-slate-100 flex justify-between items-start select-none">
               <div className="flex gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-650 flex items-center justify-center font-black text-sm">
+                <div className="w-12 h-12 rounded-2xl bg-purple-50 text-brand flex items-center justify-center font-extrabold text-sm">
                   {selectedStudent.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase()}
                 </div>
                 <div className="text-left">
-                  <h3 className="text-base font-black text-slate-805 leading-snug">
+                  <h3 className="text-base font-extrabold text-slate-800 leading-snug">
                     Rapor Perkembangan: {selectedStudent.name}
                   </h3>
                   <p className="text-xs text-slate-400 font-bold mt-0.5">
@@ -300,27 +300,27 @@ export const HomeroomDashboard = () => {
                   <div className="grid grid-cols-2 gap-4 bg-slate-50/50 border border-slate-100 rounded-2xl p-4 select-none">
                     <div>
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Level Belajar</span>
-                      <span className="text-lg font-black text-slate-805 mt-1 block">Level {studentReport.student.level}</span>
+                      <span className="text-lg font-extrabold text-slate-800 mt-1 block">Level {studentReport.student.level}</span>
                     </div>
                     <div>
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Pengalaman (XP)</span>
-                      <span className="text-lg font-black text-slate-805 mt-1 block">{studentReport.student.xp} XP</span>
+                      <span className="text-lg font-extrabold text-slate-800 mt-1 block">{studentReport.student.xp} XP</span>
                     </div>
                   </div>
 
                   {/* Grades & Attendances list by Subject */}
                   <div className="space-y-3">
-                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider select-none">
+                    <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider select-none">
                       Nilai & Presensi per Mata Pelajaran
                     </h4>
                     
                     <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
-                      <table className="w-full text-xs font-medium text-slate-650">
+                      <table className="w-full text-xs font-medium text-slate-600">
                         <thead>
                           <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 font-extrabold text-left">
-                            <th className="py-2.5 px-4 font-black text-[10px]">Mata Pelajaran</th>
-                            <th className="py-2.5 px-2 font-black text-[10px] text-center">Rata-Rata Nilai</th>
-                            <th className="py-2.5 px-4 font-black text-[10px] text-center">Tingkat Absensi</th>
+                            <th className="py-2.5 px-4 font-extrabold text-[10px]">Mata Pelajaran</th>
+                            <th className="py-2.5 px-2 font-extrabold text-[10px] text-center">Rata-Rata Nilai</th>
+                            <th className="py-2.5 px-4 font-extrabold text-[10px] text-center">Tingkat Absensi</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -330,19 +330,19 @@ export const HomeroomDashboard = () => {
                             return (
                               <tr key={idx} className="hover:bg-slate-50/20 transition-colors">
                                 <td className="py-3 px-4 text-left">
-                                  <div className="font-extrabold text-slate-805">{sub.name}</div>
+                                  <div className="font-extrabold text-slate-800">{sub.name}</div>
                                   <div className="text-[10px] text-slate-400 font-bold">{sub.code}</div>
                                 </td>
-                                <td className="py-3 px-2 text-center font-black">
+                                <td className="py-3 px-2 text-center font-extrabold">
                                   <span className={`px-2 py-0.5 rounded-lg
-                                    ${isLowGrade ? 'bg-red-50 text-red-650 font-black' : 'text-slate-800'}
+                                    ${isLowGrade ? 'bg-red-50 text-red-600 font-extrabold' : 'text-slate-800'}
                                   `}>
                                     {sub.averageGrade}
                                   </span>
                                 </td>
-                                <td className="py-3 px-4 text-center font-black">
+                                <td className="py-3 px-4 text-center font-extrabold">
                                   <span className={`px-2 py-0.5 rounded-lg
-                                    ${isLowAtt ? 'bg-amber-50 text-amber-650 font-black' : 'text-slate-800'}
+                                    ${isLowAtt ? 'bg-amber-50 text-amber-600 font-extrabold' : 'text-slate-800'}
                                   `}>
                                     {sub.attendanceRate}%
                                   </span>
@@ -357,7 +357,7 @@ export const HomeroomDashboard = () => {
 
                   {/* Student Badges earned */}
                   <div className="space-y-3">
-                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider select-none">
+                    <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider select-none">
                       Lencana Penghargaan Unlocked ({studentReport.badges.length})
                     </h4>
 
@@ -368,12 +368,12 @@ export const HomeroomDashboard = () => {
                         {studentReport.badges.map((badge, idx) => (
                           <div 
                             key={idx}
-                            className="flex items-center gap-2 bg-slate-50 border border-slate-150 rounded-xl px-3 py-2 text-left"
+                            className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-left"
                             title={badge.description}
                           >
                             <span className="text-base select-none">{badge.icon || '🏅'}</span>
                             <div>
-                              <div className="text-xs font-black text-slate-805">{badge.name}</div>
+                              <div className="text-xs font-extrabold text-slate-800">{badge.name}</div>
                               <div className="text-[9px] text-slate-400 font-bold">Didapatkan: {new Date(badge.unlocked_at).toLocaleDateString('id-ID')}</div>
                             </div>
                           </div>
@@ -393,7 +393,7 @@ export const HomeroomDashboard = () => {
             <div className="p-6 border-t border-slate-100 flex justify-end select-none">
               <button
                 onClick={() => { setSelectedStudent(null); setStudentReport(null); }}
-                className="px-5 py-2.5 bg-slate-805 hover:bg-slate-900 text-white text-xs font-black rounded-xl transition-all cursor-pointer shadow-sm"
+                className="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-extrabold rounded-xl transition-all cursor-pointer shadow-sm"
               >
                 Tutup Rapor
               </button>

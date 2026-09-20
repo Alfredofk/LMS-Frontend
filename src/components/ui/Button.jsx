@@ -3,6 +3,22 @@ import React from 'react';
 /**
  * Reusable and accessible Button component.
  * Supports primary (purple), secondary, outline, ghost, and social circle styles.
+ *
+ * A note that is easy to lose and expensive to rediscover: **a caller's
+ * `className` cannot override what this file writes.** Tailwind emits every
+ * utility into the same `@layer utilities` at the same specificity, so ties are
+ * broken by the order they appear in the stylesheet, which is alphabetical —
+ * not by who passed the class. The old `bg-violet-600` here sorted after the
+ * `bg-[#7047EB]` every call site passed, so every call site lost, silently.
+ *
+ * That is not theory. Measured on /login before this was fixed, the Continue
+ * button rendered `oklch(0.541 0.281 293.009)` — violet-600 — at weight 500 and
+ * a 12px radius, while its call site asked for `bg-[#7047EB] font-bold
+ * rounded-2xl`. All 23 `<Button>` in the app were the wrong purple.
+ *
+ * So the rule is: anything this component sets, it owns. If a variant needs to
+ * change, change it here. `src/index.css` already documents the same mechanism
+ * for the Google button's radius.
  */
 export const Button = React.forwardRef(({
   children,
@@ -16,8 +32,19 @@ export const Button = React.forwardRef(({
   ariaLabel,
   ...props
 }, ref) => {
-  const baseStyles = 'inline-flex items-center justify-center font-medium transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600 disabled:opacity-50 disabled:cursor-not-allowed';
+  /*
+    `font-bold`, not `font-medium`. Every call site already asked for bold or
+    heavier and was overruled; 500 on a filled CTA sat visibly lighter than the
+    150 hand-rolled buttons beside it.
+  */
+  const baseStyles = 'inline-flex items-center justify-center font-bold transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-50 disabled:cursor-not-allowed';
 
+  /*
+    `md` keeps its `rounded-xl` on purpose, even though it beats a call site
+    asking for `rounded-2xl`. `src/index.css` pins the Google sign-in button to
+    12px *because* this wins — changing it here would leave the two buttons on
+    the login card no longer matching. See the comment there before touching it.
+  */
   const sizes = {
     sm: 'px-3 py-1.5 text-sm rounded-lg',
     md: 'px-5 py-2.5 text-base rounded-xl',
@@ -26,7 +53,7 @@ export const Button = React.forwardRef(({
   };
 
   const variants = {
-    primary: 'bg-violet-600 hover:bg-violet-700 text-white shadow-sm active:scale-[0.98]',
+    primary: 'bg-brand hover:bg-brand-deep text-white shadow-md shadow-brand/30 active:scale-[0.98]',
     secondary: 'bg-slate-100 hover:bg-slate-200 text-slate-700 active:scale-[0.98]',
     outline: 'border border-slate-300 hover:bg-slate-50 text-slate-700 active:scale-[0.98]',
     ghost: 'hover:bg-slate-100 text-slate-700',

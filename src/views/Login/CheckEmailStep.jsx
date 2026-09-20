@@ -17,7 +17,7 @@ import { useT } from '../../i18n/LanguageContext';
 */
 
 const EnvelopeMark = () => (
-  <div className="w-16 h-16 bg-[#F1EEFF] rounded-2xl flex items-center justify-center text-[#7047EB] mb-5 mx-auto shadow-sm">
+  <div className="w-16 h-16 bg-brand-tint rounded-2xl flex items-center justify-center text-brand mb-5 mx-auto shadow-sm">
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
       <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
     </svg>
@@ -44,7 +44,7 @@ export const CheckEmailStep = ({ formState }) => {
       <EnvelopeMark />
 
       <h1 className="text-[26px] font-extrabold text-slate-800 leading-tight select-none">
-        {t('checkEmail.title')} <span className="text-[#7047EB]">{t('checkEmail.titleAccent')}</span>
+        {t('checkEmail.title')} <span className="text-brand">{t('checkEmail.titleAccent')}</span>
       </h1>
       <p className="text-slate-400 text-sm mt-2 mb-6 font-medium select-none">
         {t('checkEmail.subtitle')}
@@ -74,7 +74,7 @@ export const CheckEmailStep = ({ formState }) => {
 
       <Button
         onClick={handleVerifiedContinue}
-        className="w-full py-3 md:py-3.5 rounded-2xl justify-center font-bold text-sm md:text-base bg-[#7047EB] hover:bg-[#5E3BD2] active:scale-95 transition-transform mt-5 shadow-lg shadow-[#7047EB]/20 text-white select-none"
+        className="w-full py-3 md:py-3.5 rounded-2xl justify-center text-sm md:text-base active:scale-95 transition-transform mt-5 shadow-lg shadow-brand/20 select-none"
         isLoading={isLoading}
       >
         <span className="flex items-center gap-1">
@@ -97,7 +97,7 @@ export const CheckEmailStep = ({ formState }) => {
       <button
         type="button"
         onClick={() => setAuthStep('sign_in')}
-        className="mt-5 text-xs text-slate-400 hover:text-[#7047EB] font-bold transition-colors focus:outline-none cursor-pointer"
+        className="mt-5 text-xs text-slate-400 hover:text-brand font-bold transition-colors focus:outline-none cursor-pointer"
       >
         {t('common.backToSignIn')}
       </button>

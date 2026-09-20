@@ -21,7 +21,7 @@ import {
   FileText,
   Send
 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useT } from '../../i18n/LanguageContext';
 
 // Circular Percentage Gauge Component
 const CircularGauge = ({ percentage = 75, size = 56, strokeWidth = 5.5, color = '#7047EB' }) => {
@@ -56,7 +56,7 @@ const CircularGauge = ({ percentage = 75, size = 56, strokeWidth = 5.5, color = 
           className="transition-all duration-700 ease-out"
         />
       </svg>
-      <span className="absolute text-[11px] font-black text-slate-800 tracking-tight">
+      <span className="absolute text-[11px] font-extrabold text-slate-800 tracking-tight">
         {validPercentage}%
       </span>
     </div>
@@ -64,7 +64,7 @@ const CircularGauge = ({ percentage = 75, size = 56, strokeWidth = 5.5, color = 
 };
 
 export const StudentScores = () => {
-  const { user } = useAuth();
+  const { t } = useT();
   const { showToast } = useOutletContext();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -111,7 +111,7 @@ export const StudentScores = () => {
       ]);
 
       if (!coursesRes.ok) {
-        throw new Error('Gagal memuat rekapitulasi nilai.');
+        throw new Error(t('sc.loadFailed'));
       }
 
       const coursesData = await coursesRes.json();
@@ -126,7 +126,7 @@ export const StudentScores = () => {
     } catch (err) {
       console.error(err);
       setError(err.message);
-      if (showToast) showToast('Gagal memuat data nilai.', 'error');
+      if (showToast) showToast(t('sc.loadFailed'), 'error');
       setIsLoading(false);
     }
   };
@@ -138,7 +138,7 @@ export const StudentScores = () => {
   // Helper: Determine Letter Grade & Score Text
   const getGradeDetails = (averageGrade) => {
     if (averageGrade === '—' || averageGrade === null || averageGrade === undefined || isNaN(averageGrade)) {
-      return { letter: 'None', numeric: 75, text: '75 / 100', isAvailable: false };
+      return { letter: '—', numeric: 0, text: '—', isAvailable: false };
     }
     const num = Math.round(Number(averageGrade));
     let letter = 'E';
@@ -212,7 +212,7 @@ export const StudentScores = () => {
   const handleProtestSubmit = async (e) => {
     e.preventDefault();
     if (!selectedAssignmentForProtest || !protestReason || !requestedGrade) {
-      if (showToast) showToast('Mohon lengkapi tugas, alasan, dan nilai harapan.', 'warning');
+      if (showToast) showToast(t('sc.protest.incomplete'), 'warning');
       return;
     }
 
@@ -238,10 +238,10 @@ export const StudentScores = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Gagal mengirimkan sanggahan nilai.');
+        throw new Error(errorData.error || t('sc.protest.failed'));
       }
 
-      if (showToast) showToast('Sanggahan nilai berhasil dikirimkan!', 'success');
+      if (showToast) showToast(t('sc.protest.sent'), 'success');
       setIsProtestModalOpen(false);
       setProtestReason('');
       setRequestedGrade('');
@@ -275,7 +275,7 @@ export const StudentScores = () => {
       <div className="p-6 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-700 text-xs font-semibold select-none text-left w-full">
         <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
         <div>
-          <p className="font-bold">Gagal memuat rekapitulasi nilai</p>
+          <p className="font-bold">{t('sc.loadFailed')}</p>
           <p className="text-red-600 font-medium mt-0.5">{error}</p>
         </div>
       </div>
@@ -294,42 +294,42 @@ export const StudentScores = () => {
             onClick={() => setActiveFilter('all')}
             className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer shadow-sm
               ${activeFilter === 'all'
-                ? 'bg-[#7047EB] text-white shadow-purple-500/20'
-                : 'border border-[#7047EB] text-[#7047EB] bg-white hover:bg-purple-50/50'
+                ? 'bg-brand text-white shadow-brand/20'
+                : 'border border-brand text-brand bg-white hover:bg-purple-50/50'
               }
             `}
           >
-            All
+            {t('sc.filter.all')}
           </button>
           <button
             type="button"
             onClick={() => setActiveFilter('ongoing')}
             className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer shadow-sm
               ${activeFilter === 'ongoing'
-                ? 'bg-[#7047EB] text-white shadow-purple-500/20'
-                : 'border border-[#7047EB] text-[#7047EB] bg-white hover:bg-purple-50/50'
+                ? 'bg-brand text-white shadow-brand/20'
+                : 'border border-brand text-brand bg-white hover:bg-purple-50/50'
               }
             `}
           >
-            Ongoing
+            {t('sc.filter.ongoing')}
           </button>
           <button
             type="button"
             onClick={() => setActiveFilter('completed')}
             className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer shadow-sm
               ${activeFilter === 'completed'
-                ? 'bg-[#7047EB] text-white shadow-purple-500/20'
-                : 'border border-[#7047EB] text-[#7047EB] bg-white hover:bg-purple-50/50'
+                ? 'bg-brand text-white shadow-brand/20'
+                : 'border border-brand text-brand bg-white hover:bg-purple-50/50'
               }
             `}
           >
-            Completed
+            {t('sc.filter.completed')}
           </button>
         </div>
 
         {/* Search Input for Mobile View */}
         <div className="relative md:hidden w-full">
-          <Search className="w-4 h-4 text-[#7047EB] absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-brand absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
@@ -337,8 +337,8 @@ export const StudentScores = () => {
               setSearchQuery(e.target.value);
               setSearchParams(e.target.value ? { q: e.target.value } : {});
             }}
-            placeholder="Cari mata pelajaran..."
-            className="w-full bg-[#F1EEFF] text-slate-800 text-xs font-medium pl-10 pr-4 py-2 rounded-full focus:outline-none focus:ring-1 focus:ring-purple-400 placeholder:text-slate-400"
+            placeholder={t('sc.search')}
+            className="w-full bg-brand-tint text-slate-800 text-xs font-medium pl-10 pr-4 py-2 rounded-full focus:outline-none focus:ring-1 focus:ring-brand placeholder:text-slate-400"
           />
         </div>
       </div>
@@ -353,12 +353,12 @@ export const StudentScores = () => {
             <div className="py-20 flex flex-col items-center justify-center text-center bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
               <BookOpen className="w-10 h-10 text-slate-300 mb-3" />
               <h3 className="text-sm font-bold text-slate-800">
-                Tidak ada data nilai ditemukan.
+                {t('sc.empty')}
               </h3>
               <p className="text-xs text-slate-400 font-medium mt-1 max-w-sm leading-relaxed">
                 {searchQuery 
-                  ? `Tidak ada hasil pencarian untuk "${searchQuery}". Coba kata kunci lain.` 
-                  : 'Belum ada mata pelajaran terdaftar pada kategori ini.'}
+                  ? t('sc.emptySearch', { query: searchQuery })
+                  : t('sc.emptyNone')}
               </p>
             </div>
           ) : (
@@ -375,7 +375,7 @@ export const StudentScores = () => {
                     onClick={() => setSelectedCourseId(course.class_subject_id)}
                     className={`bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer group relative flex flex-col justify-between
                       ${isSelected 
-                        ? 'border-2 border-[#7047EB] ring-4 ring-purple-100/50 shadow-purple-100' 
+                        ? 'border-2 border-brand ring-4 ring-purple-100/50 shadow-purple-100' 
                         : 'border border-slate-100 hover:border-purple-200'
                       }
                     `}
@@ -386,16 +386,16 @@ export const StudentScores = () => {
                         <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full
                           ${completed 
                             ? 'bg-[#EBFBF2] text-[#059669]' 
-                            : 'bg-[#EDE9FE] text-[#7047EB]'
+                            : 'bg-brand-tint text-brand'
                           }
                         `}>
-                          {completed ? 'Completed' : 'Ongoing'}
+                          {completed ? t('sc.filter.completed') : t('sc.filter.ongoing')}
                         </span>
 
                         {/* Subject Graphic Illustration Badge */}
-                        <div className="w-9 h-9 rounded-xl bg-[#F5F2FF] flex items-center justify-center shrink-0 text-[#7047EB] shadow-inner -mt-1 -mr-1">
+                        <div className="w-9 h-9 rounded-xl bg-brand-tint flex items-center justify-center shrink-0 text-brand shadow-inner -mt-1 -mr-1">
                           <svg className="w-5 h-5" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect x="4" y="6" width="20" height="22" rx="4" fill="#7047EB" fillOpacity="0.85" />
+                            <rect x="4" y="6" width="20" height="22" rx="4" fill="var(--color-brand)" fillOpacity="0.85" />
                             <rect x="8" y="3" width="12" height="5" rx="2" fill="#5C36DB" />
                             <path d="M10 14C12 14 12 20 14 20M10 17H14M16 14L20 20M20 14L16 20" stroke="white" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
@@ -404,11 +404,11 @@ export const StudentScores = () => {
 
                       {/* Subject Name & Teacher */}
                       <div className="mt-1 pr-2">
-                        <h3 className="text-sm font-bold text-slate-900 group-hover:text-[#7047EB] transition-colors truncate">
+                        <h3 className="text-sm font-bold text-slate-900 group-hover:text-brand transition-colors truncate">
                           {course.subject_name}
                         </h3>
                         <p className="text-[11px] text-slate-400 font-medium mt-0.5 truncate">
-                          {course.teacher_name || 'Guru Pengampu'}
+                          {course.teacher_name || t('sc.teacherFallback')}
                         </p>
                       </div>
 
@@ -422,7 +422,7 @@ export const StudentScores = () => {
                         />
 
                         <div className="space-y-0.5">
-                          <span className="text-sm font-black text-slate-900 block leading-tight">
+                          <span className="text-sm font-extrabold text-slate-900 block leading-tight">
                             {gradeInfo.letter}
                           </span>
                           <span className="text-xs font-semibold text-slate-400 block">
@@ -440,9 +440,9 @@ export const StudentScores = () => {
                           e.stopPropagation();
                           setSelectedCourseId(course.class_subject_id);
                         }}
-                        className="text-[11px] font-bold text-[#7047EB] hover:text-[#5833c9] flex items-center gap-1 group-hover:underline cursor-pointer"
+                        className="text-[11px] font-bold text-brand hover:text-brand-deep flex items-center gap-1 group-hover:underline cursor-pointer"
                       >
-                        <span>View Detail</span>
+                        <span>{t('sc.viewDetail')}</span>
                         <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                       </button>
                     </div>
@@ -461,8 +461,8 @@ export const StudentScores = () => {
               onClick={() => setIsGradeScaleOpen(!isGradeScaleOpen)}
               className="w-full p-4.5 px-6 flex items-center justify-between text-left hover:bg-slate-50/50 transition-colors cursor-pointer select-none"
             >
-              <span className="text-xs font-black text-slate-800 tracking-tight">
-                Grade Scale Reference
+              <span className="text-xs font-extrabold text-slate-800 tracking-tight">
+                {t('sc.gradeScale')}
               </span>
               <div className="w-6 h-6 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
                 {isGradeScaleOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -478,14 +478,14 @@ export const StudentScores = () => {
                       key={item.letter}
                       className={`p-3 rounded-xl border ${item.bg} ${item.border} flex items-center justify-between font-bold text-xs shadow-xs transition-transform hover:scale-[1.02]`}
                     >
-                      <span className={`text-sm font-black ${item.text}`}>{item.letter}</span>
+                      <span className={`text-sm font-extrabold ${item.text}`}>{item.letter}</span>
                       <span className={`text-xs font-extrabold ${item.text}`}>{item.range}</span>
                     </div>
                   ))}
                 </div>
 
                 <p className="text-[11px] text-slate-400 font-semibold text-center mt-4">
-                  Final score is calculated automatically by the system.
+                  {t('sc.autoCalculated')}
                 </p>
               </div>
             )}
@@ -493,7 +493,7 @@ export const StudentScores = () => {
 
           {!isGradeScaleOpen && (
             <p className="text-[11px] text-slate-400 font-semibold text-center select-none pt-2">
-              Final score is calculated automatically by the system.
+              {t('sc.autoCalculated')}
             </p>
           )}
 
@@ -501,7 +501,7 @@ export const StudentScores = () => {
 
         {/* Right Side: Selected Course Detail Panel */}
         {selectedCourse && (
-          <div className="lg:col-span-4 bg-white border border-slate-100 rounded-2xl p-6 shadow-sm flex flex-col justify-between space-y-6 relative animate-in fade-in slide-in-from-right-2 duration-200">
+          <div className="lg:col-span-4 bg-white border border-slate-100 rounded-2xl p-6 shadow-sm flex flex-col justify-between space-y-6 relative">
             
             <div className="space-y-6">
               {/* Header: Close Button & Status Badge */}
@@ -510,7 +510,7 @@ export const StudentScores = () => {
                   type="button"
                   onClick={() => setSelectedCourseId(null)}
                   className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
-                  title="Tutup Detail"
+                  title={t('sc.closeDetail')}
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -518,10 +518,10 @@ export const StudentScores = () => {
                 <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full
                   ${isCourseCompleted(selectedCourse) 
                     ? 'bg-[#EBFBF2] text-[#059669]' 
-                    : 'bg-[#EDE9FE] text-[#7047EB]'
+                    : 'bg-brand-tint text-brand'
                   }
                 `}>
-                  {isCourseCompleted(selectedCourse) ? 'Completed' : 'Ongoing'}
+                  {isCourseCompleted(selectedCourse) ? t('sc.filter.completed') : t('sc.filter.ongoing')}
                 </span>
               </div>
 
@@ -529,18 +529,18 @@ export const StudentScores = () => {
               <div>
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                    <h3 className="text-lg font-extrabold text-slate-900 tracking-tight">
                       {selectedCourse.subject_name}
                     </h3>
-                    <p className="text-xs font-semibold text-[#7047EB] mt-0.5">
+                    <p className="text-xs font-semibold text-brand mt-0.5">
                       {selectedCourse.subject_code}
                     </p>
                   </div>
 
                   {/* Graphic Illustration */}
-                  <div className="w-12 h-12 rounded-2xl bg-[#F5F2FF] flex items-center justify-center shrink-0 text-[#7047EB] shadow-inner">
+                  <div className="w-12 h-12 rounded-2xl bg-brand-tint flex items-center justify-center shrink-0 text-brand shadow-inner">
                     <svg className="w-7 h-7" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <rect x="4" y="6" width="20" height="22" rx="4" fill="#7047EB" fillOpacity="0.85" />
+                      <rect x="4" y="6" width="20" height="22" rx="4" fill="var(--color-brand)" fillOpacity="0.85" />
                       <rect x="8" y="3" width="12" height="5" rx="2" fill="#5C36DB" />
                       <path d="M10 14C12 14 12 20 14 20M10 17H14M16 14L20 20M20 14L16 20" stroke="white" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
@@ -557,7 +557,7 @@ export const StudentScores = () => {
                   />
 
                   <div className="space-y-0.5">
-                    <span className="text-base font-black text-slate-900 block leading-tight">
+                    <span className="text-base font-extrabold text-slate-900 block leading-tight">
                       {getGradeDetails(selectedCourse.averageGrade).letter}
                     </span>
                     <span className="text-xs font-semibold text-slate-400 block">
@@ -571,25 +571,27 @@ export const StudentScores = () => {
               <div className="space-y-2.5 text-xs font-semibold text-slate-600 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
                 <div className="flex items-center gap-2.5">
                   <User className="w-4 h-4 text-slate-400 shrink-0" />
-                  <span className="text-slate-400 font-medium">Teacher:</span>
-                  <span className="font-bold text-slate-800 truncate">{selectedCourse.teacher_name || 'Guru Pengampu'}</span>
+                  <span className="text-slate-400 font-medium">{t('sc.teacher')}</span>
+                  <span className="font-bold text-slate-800 truncate">{selectedCourse.teacher_name || t('sc.teacherFallback')}</span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <School className="w-4 h-4 text-slate-400 shrink-0" />
-                  <span className="text-slate-400 font-medium">Class:</span>
-                  <span className="font-bold text-slate-800">{user?.grade_level || 'XII IPA 2'}</span>
+                  <span className="text-slate-400 font-medium">{t('sc.class')}</span>
+                  {/* No endpoint reports a student's class placement yet —
+                      `ClassMembership` is in the schema but nothing serves it. */}
+                  <span className="font-medium text-slate-300">—</span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
-                  <span className="text-slate-400 font-medium">Semester:</span>
-                  <span className="font-bold text-slate-800">Odd Semester 2025/2026</span>
+                  <span className="text-slate-400 font-medium">{t('sc.semester')}</span>
+                  <span className="font-medium text-slate-300">—</span>
                 </div>
               </div>
 
               {/* Score Overview List */}
               <div className="space-y-3">
-                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
-                  Score Overview
+                <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+                  {t('sc.overview')}
                 </h4>
 
                 <div className="space-y-2 text-xs">
@@ -602,17 +604,17 @@ export const StudentScores = () => {
                         className="p-3 bg-white border border-slate-100 hover:border-purple-200 rounded-xl flex items-center justify-between transition-colors cursor-pointer group shadow-xs"
                       >
                         <div className="min-w-0 pr-2">
-                          <p className="font-bold text-slate-800 group-hover:text-[#7047EB] transition-colors truncate">
+                          <p className="font-bold text-slate-800 group-hover:text-brand transition-colors truncate">
                             {assignment.title}
                           </p>
                           <span className="text-[10px] text-slate-400 font-medium">
-                            Bobot: {assignment.weight}%
+                            {t('sc.weight', { n: assignment.weight })}
                           </span>
                         </div>
 
                         <div className="text-right shrink-0">
                           {assignment.grade !== null ? (
-                            <span className="text-xs font-black text-slate-900 bg-purple-50 px-2 py-0.5 rounded-lg text-[#7047EB]">
+                            <span className="text-xs font-extrabold text-slate-900 bg-purple-50 px-2 py-0.5 rounded-lg text-brand">
                               {assignment.grade}
                             </span>
                           ) : (
@@ -623,7 +625,7 @@ export const StudentScores = () => {
                     ))
                   ) : (
                     <div className="py-4 text-center text-xs text-slate-400 font-medium bg-slate-50 rounded-xl">
-                      Belum ada tugas atau ujian untuk kelas ini.
+                      {t('sc.noAssignments')}
                     </div>
                   )}
                 </div>
@@ -636,10 +638,10 @@ export const StudentScores = () => {
               <button
                 type="button"
                 onClick={handleOpenProtestModal}
-                className="w-full py-3 bg-[#E11D48] hover:bg-[#BE123C] active:scale-[0.99] text-white text-xs font-black rounded-xl transition-all shadow-md shadow-red-500/20 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-3 bg-[#E11D48] hover:bg-[#BE123C] active:scale-[0.99] text-white text-xs font-extrabold rounded-xl transition-all shadow-md shadow-red-500/20 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <MessageSquare className="w-4 h-4" />
-                <span>Score Protest</span>
+                <span>{t('sc.protest')}</span>
               </button>
             </div>
 
@@ -650,20 +652,20 @@ export const StudentScores = () => {
 
       {/* 4. Score Protest Modal */}
       {isProtestModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs select-none animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5 text-left relative animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs select-none">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5 text-left relative">
             
             {/* Modal Header */}
             <div className="flex items-start justify-between">
               <div>
-                <span className="text-[10px] font-black tracking-wider uppercase bg-red-50 text-red-600 px-2.5 py-1 rounded-lg">
-                  Pengajuan Sanggahan
+                <span className="text-[10px] font-extrabold tracking-wider uppercase bg-red-50 text-red-600 px-2.5 py-1 rounded-lg">
+                  {t('sc.protest.badge')}
                 </span>
-                <h3 className="text-lg font-black text-slate-900 mt-2">
-                  Formulir Sanggahan Nilai
+                <h3 className="text-lg font-extrabold text-slate-900 mt-2">
+                  {t('sc.protest.title')}
                 </h3>
                 <p className="text-xs text-slate-400 font-medium mt-0.5">
-                  Pilih tugas dan sampaikan alasan sanggahan nilai kepada guru pengampu.
+                  {t('sc.protest.subtitle')}
                 </p>
               </div>
 
@@ -681,17 +683,20 @@ export const StudentScores = () => {
               {/* Select Assignment */}
               <div className="space-y-1.5">
                 <label className="text-slate-700 font-bold block">
-                  Pilih Tugas / Ujian
+                  {t('sc.protest.pick')}
                 </label>
                 <select
                   value={selectedAssignmentForProtest}
                   onChange={(e) => setSelectedAssignmentForProtest(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-[#7047EB] focus:border-transparent transition-all"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
                   required
                 >
                   {selectedCourse?.assignments?.map((a) => (
                     <option key={a.id} value={a.id}>
-                      {a.title} {a.grade !== null ? `(Nilai Saat Ini: ${a.grade})` : '(Belum dinilai)'}
+                      {a.title}{' '}
+                      {a.grade !== null
+                        ? t('sc.protest.current', { grade: a.grade })
+                        : t('sc.protest.ungraded')}
                     </option>
                   ))}
                 </select>
@@ -700,7 +705,7 @@ export const StudentScores = () => {
               {/* Requested Score */}
               <div className="space-y-1.5">
                 <label className="text-slate-700 font-bold block">
-                  Harapan Nilai (Skala 0 - 100)
+                  {t('sc.protest.expected')}
                 </label>
                 <input
                   type="number"
@@ -708,8 +713,8 @@ export const StudentScores = () => {
                   max="100"
                   value={requestedGrade}
                   onChange={(e) => setRequestedGrade(e.target.value)}
-                  placeholder="Contoh: 85"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-[#7047EB] focus:border-transparent transition-all"
+                  placeholder={t('sc.protest.expectedPlaceholder')}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
                   required
                 />
               </div>
@@ -717,14 +722,14 @@ export const StudentScores = () => {
               {/* Protest Reason */}
               <div className="space-y-1.5">
                 <label className="text-slate-700 font-bold block">
-                  Alasan Keberatan / Penjelasan
+                  {t('sc.protest.reason')}
                 </label>
                 <textarea
                   rows="4"
                   value={protestReason}
                   onChange={(e) => setProtestReason(e.target.value)}
-                  placeholder="Jelaskan secara sopan bagian mana yang Anda rasa perlu ditinjau ulang oleh guru..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#7047EB] focus:border-transparent transition-all placeholder:text-slate-400"
+                  placeholder={t('sc.protest.reasonPlaceholder')}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all placeholder:text-slate-400"
                   required
                 />
               </div>
@@ -736,7 +741,7 @@ export const StudentScores = () => {
                   onClick={() => setIsProtestModalOpen(false)}
                   className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer"
                 >
-                  Batal
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
@@ -744,11 +749,11 @@ export const StudentScores = () => {
                   className="px-5 py-2.5 bg-[#E11D48] hover:bg-[#BE123C] active:scale-95 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-red-500/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   {isSubmittingProtest ? (
-                    <span>Mengirimkan...</span>
+                    <span>{t('sc.protest.sending')}</span>
                   ) : (
                     <>
                       <Send className="w-3.5 h-3.5" />
-                      <span>Kirim Sanggahan</span>
+                      <span>{t('sc.protest.send')}</span>
                     </>
                   )}
                 </button>

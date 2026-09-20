@@ -16,6 +16,36 @@ import { useAuth } from '../../../context/AuthContext';
 import { classroomData } from '../../Classroom/classroomData';
 import { useT } from '../../../i18n/LanguageContext';
 
+/*
+  What the bar says on each route, and whether it carries a back arrow.
+
+  A table rather than a switch: the two "with a back arrow" cases were the same
+  twelve lines written twice, and every route added since was quietly forgotten.
+  A route missing from here is a route that claims to be the dashboard, so add
+  the entry when you add the route.
+
+  `back` is for the screens somebody reaches from a dashboard card and wants a
+  way out of. The role dashboards themselves have nowhere to go back to.
+*/
+const TITLES = {
+  '/dashboard': { key: 'shell.dashboard' },
+  '/classroom': { key: 'shell.myCourses', back: true },
+  '/scores': { key: 'shell.scores', back: true },
+  '/schedule': { key: 'shell.schedule', back: true },
+  '/assessment': { key: 'shell.assessment', back: true },
+  '/attendance': { key: 'shell.attendance', back: true },
+  '/announcements': { key: 'shell.announcement', back: true },
+  '/profile': { key: 'shell.myProfile' },
+
+  '/teacher/dashboard': { key: 'shell.title.teacherDashboard' },
+  '/teacher/courses': { key: 'shell.myCourses' },
+  '/teacher/gradebook': { key: 'shell.gradebook' },
+  '/teacher/homeroom': { key: 'shell.homeroom' },
+  '/teacher/create-assignment': { key: 'shell.title.createAssignment', back: true },
+
+  '/headmaster/dashboard': { key: 'shell.title.principalDashboard' },
+};
+
 export const Navbar = ({ showToast }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -205,7 +235,7 @@ export const Navbar = ({ showToast }) => {
   const getNotifIcon = (type) => {
     switch (type) {
       case 'tugas_baru':
-        return <BookOpen className="w-4 h-4 text-violet-500" />;
+        return <BookOpen className="w-4 h-4 text-brand" />;
       case 'nilai_masuk':
         return <Award className="w-4 h-4 text-emerald-500" />;
       case 'sanggahan_selesai':
@@ -248,9 +278,9 @@ export const Navbar = ({ showToast }) => {
 
       return (
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 select-none">
-          <span className="hover:text-slate-655 transition-colors">{t('shell.myCourses')}</span>
+          <span className="hover:text-slate-600 transition-colors">{t('shell.myCourses')}</span>
           <span className="text-slate-300 text-[10px] font-bold">/</span>
-          <span className="hover:text-slate-655 transition-colors">{course.className}</span>
+          <span className="hover:text-slate-600 transition-colors">{course.className}</span>
           <span className="text-slate-300 text-[10px] font-bold">/</span>
           <span className="text-slate-800 font-extrabold">{course.name}</span>
         </div>
@@ -274,71 +304,76 @@ export const Navbar = ({ showToast }) => {
         if (activeAssignment) break;
       }
 
+      /*
+        Nothing found used to mean inventing something: a title, a class and a
+        subject, all written out in full and rendered as fact in the shell. And
+        because `classroomData` is empty, that was the only branch that ever
+        ran — so every visit to /assignment/:id put three lies in the chrome,
+        unmarked, unlike the dashboard which at least says its data is sample.
+        One of them, "XII IPA 2", also broke the IPA/IPS ban in the backend's
+        own glossary.
+
+        A breadcrumb that does not know where it is should say so by saying
+        less.
+      */
       if (!activeAssignment) {
-        activeAssignment = { title: 'Latihan Soal Limit Trigonometri' };
-        activeCourse = { className: 'XII IPA 2', name: 'Matematika Lanjut' };
+        return (
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 select-none">
+            <span>{t('shell.myCourses')}</span>
+            <span className="text-slate-300 text-[10px] font-bold">/</span>
+            <span className="text-slate-800 font-extrabold">{t('shell.title.assignment')}</span>
+          </div>
+        );
       }
 
       return (
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 select-none">
-          <span className="hover:text-slate-655 transition-colors">{t('shell.myCourses')}</span>
+          <span className="hover:text-slate-600 transition-colors">{t('shell.myCourses')}</span>
           <span className="text-slate-300 text-[10px] font-bold">/</span>
-          <span className="hover:text-slate-655 transition-colors">{activeCourse.className}</span>
+          <span className="hover:text-slate-600 transition-colors">{activeCourse.className}</span>
           <span className="text-slate-300 text-[10px] font-bold">/</span>
-          <span className="hover:text-slate-655 transition-colors">{activeCourse.name}</span>
+          <span className="hover:text-slate-600 transition-colors">{activeCourse.name}</span>
           <span className="text-slate-300 text-[10px] font-bold">/</span>
           <span className="text-slate-800 font-extrabold">{activeAssignment.title}</span>
         </div>
       );
     }
 
-    switch (location.pathname) {
-      case '/dashboard':
-        return <span className="text-lg font-bold text-slate-900">{t('shell.dashboard')}</span>;
-      case '/classroom':
-        return (
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => navigate('/dashboard')}
-              className="w-8 h-8 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
-              title={t('shell.backToDashboard')}
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="text-xl font-bold text-slate-900 tracking-tight">{t('shell.myCourses')}</span>
-          </div>
-        );
-      case '/scores':
-        return (
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => navigate('/dashboard')}
-              className="w-8 h-8 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
-              title={t('shell.backToDashboard')}
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="text-xl font-bold text-slate-900 tracking-tight">{t('shell.scores')}</span>
-          </div>
-        );
-      case '/teacher/dashboard':
-        return <span className="text-lg font-bold text-slate-900">{t('shell.title.teacherDashboard')}</span>;
-      case '/teacher/gradebook':
-        return <span className="text-lg font-bold text-slate-900">{t('shell.gradebook')}</span>;
-      case '/teacher/create-assignment':
-        return <span className="text-lg font-bold text-slate-900">{t('shell.title.createAssignment')}</span>;
-      case '/profile':
-        return <span className="text-lg font-bold text-slate-900">{t('shell.myProfile')}</span>;
-      default:
-        return <span className="text-lg font-bold text-slate-900">{t('shell.dashboard')}</span>;
+    const entry = TITLES[location.pathname];
+
+    /*
+      Falling back to the dashboard's title is only right for a route that has
+      no title of its own. It used to be right for seven real routes as well,
+      because they were simply missing from the list — so /attendance announced
+      itself as "Dashboard" while the sidebar highlighted Attendance.
+    */
+    if (!entry) {
+      return <span className="text-lg font-bold text-slate-900">{t('shell.dashboard')}</span>;
     }
+
+    if (!entry.back) {
+      return <span className="text-lg font-bold text-slate-900">{t(entry.key)}</span>;
+    }
+
+    return (
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => navigate('/dashboard')}
+          className="w-8 h-8 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
+          title={t('shell.backToDashboard')}
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <span className="text-xl font-bold text-slate-900 tracking-tight">{t(entry.key)}</span>
+      </div>
+    );
   };
 
   // Get Initials dynamically
   const getInitials = () => {
-    if (!user?.fullName) return 'AR';
+    // 'AR' were Andi Rahmat's initials — the last of the sample person.
+    if (!user?.fullName) return '—';
     return user.fullName
       .split(' ')
       .map(n => n[0])
@@ -358,7 +393,7 @@ export const Navbar = ({ showToast }) => {
       {(location.pathname === '/classroom' || location.pathname === '/scores') && (
         <div className="flex-1 max-w-sm mx-6 hidden md:block">
           <div className="relative">
-            <Search className="w-4 h-4 text-[#7047EB] absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-brand absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchParams.get('q') || ''}
@@ -367,7 +402,7 @@ export const Navbar = ({ showToast }) => {
                 setSearchParams(val ? { q: val } : {});
               }}
               placeholder={t('shell.search')}
-              className="w-full bg-[#F1EEFF] text-slate-800 text-xs font-medium pl-10 pr-4 py-2 rounded-full focus:outline-none focus:ring-1 focus:ring-purple-400 placeholder:text-slate-400 transition-all"
+              className="w-full bg-brand-tint text-slate-800 text-xs font-medium pl-10 pr-4 py-2 rounded-full focus:outline-none focus:ring-1 focus:ring-brand placeholder:text-slate-400 transition-all"
             />
           </div>
         </div>
@@ -381,7 +416,7 @@ export const Navbar = ({ showToast }) => {
             type="button"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             className={`p-2 rounded-xl transition-all relative cursor-pointer
-              ${isDropdownOpen ? 'bg-violet-50 text-violet-650' : 'hover:bg-slate-50 text-slate-700 hover:text-[#7047EB]'}
+              ${isDropdownOpen ? 'bg-violet-50 text-brand' : 'hover:bg-slate-50 text-slate-700 hover:text-brand'}
             `}
             aria-label={t('shell.viewNotifications')}
           >
@@ -398,11 +433,11 @@ export const Navbar = ({ showToast }) => {
               
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-2 border-b border-slate-50">
-                <h3 className="text-xs font-black text-slate-805 uppercase tracking-wider">{t('shell.notifications')}</h3>
+                <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">{t('shell.notifications')}</h3>
                 {unreadCount > 0 && (
                   <button 
                     onClick={handleMarkAllAsRead}
-                    className="text-[10px] font-extrabold text-[#7047EB] hover:text-[#5E3BD2] cursor-pointer"
+                    className="text-[10px] font-extrabold text-brand hover:text-brand-deep cursor-pointer"
                   >
                     {t('shell.markAllRead')}
                   </button>
@@ -412,7 +447,7 @@ export const Navbar = ({ showToast }) => {
               {/* List */}
               <div className="max-h-96 overflow-y-auto divide-y divide-slate-50">
                 {notifications.length === 0 ? (
-                  <div className="py-8 text-center text-slate-450 font-semibold text-xs">
+                  <div className="py-8 text-center text-slate-400 font-semibold text-xs">
                     {t('shell.noNotifications')}
                   </div>
                 ) : (
@@ -421,7 +456,7 @@ export const Navbar = ({ showToast }) => {
                       key={notif.id}
                       onClick={() => handleNotifClick(notif)}
                       className={`flex items-start gap-3 p-4 hover:bg-slate-50/50 transition-colors cursor-pointer relative
-                        ${!notif.isRead ? 'bg-[#F9F8FF]' : ''}
+                        ${!notif.isRead ? 'bg-brand-tint/40' : ''}
                       `}
                     >
                       {/* Icon */}
@@ -431,12 +466,12 @@ export const Navbar = ({ showToast }) => {
 
                       {/* Content */}
                       <div className="flex-1 min-w-0 pr-6">
-                        <p className={`text-[11px] leading-tight text-slate-805 truncate
+                        <p className={`text-[11px] leading-tight text-slate-800 truncate
                           ${!notif.isRead ? 'font-extrabold' : 'font-semibold'}
                         `}>
                           {notif.title}
                         </p>
-                        <p className="text-[10px] text-slate-450 font-medium leading-relaxed mt-0.5 break-words">
+                        <p className="text-[10px] text-slate-400 font-medium leading-relaxed mt-0.5 break-words">
                           {notif.message}
                         </p>
                         <span className="text-[9px] text-slate-400 font-bold block mt-1">
@@ -446,7 +481,7 @@ export const Navbar = ({ showToast }) => {
 
                       {/* Dot for unread */}
                       {!notif.isRead && (
-                        <span className="absolute top-4 right-10 w-1.5 h-1.5 rounded-full bg-[#7047EB]" />
+                        <span className="absolute top-4 right-10 w-1.5 h-1.5 rounded-full bg-brand" />
                       )}
 
                       {/* Delete button */}
@@ -470,7 +505,7 @@ export const Navbar = ({ showToast }) => {
         <button
           type="button"
           onClick={() => navigate('/profile')}
-          className="w-8 h-8 rounded-full bg-[#EDE9FE] text-[#7047EB] flex items-center justify-center font-bold text-xs shadow-inner select-none cursor-pointer focus:outline-none hover:ring-2 hover:ring-purple-200 transition-all"
+          className="w-8 h-8 rounded-full bg-brand-tint text-brand flex items-center justify-center font-bold text-xs shadow-inner select-none cursor-pointer focus:outline-none hover:ring-2 hover:ring-purple-200 transition-all"
         >
           {getInitials()}
         </button>

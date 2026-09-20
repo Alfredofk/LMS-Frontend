@@ -323,20 +323,20 @@ export const CourseDetail = () => {
         <div className="space-y-1">
           <button 
             onClick={() => navigate('/teacher/dashboard')}
-            className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-[#7047EB] transition-colors focus:outline-none mb-2"
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-brand transition-colors focus:outline-none mb-2"
           >
             <ArrowLeft className="w-4 h-4" />
             Kembali ke Dasbor
           </button>
           <div className="flex items-center gap-3">
-            <span className="px-2.5 py-1 bg-purple-100 text-[#7047EB] text-xs font-black rounded-lg uppercase">
+            <span className="px-2.5 py-1 bg-purple-100 text-brand text-xs font-extrabold rounded-lg uppercase">
               {courseData.grade}
             </span>
-            <span className="text-xs text-slate-405 font-bold">
+            <span className="text-xs text-slate-400 font-bold">
               {courseData.code}
             </span>
           </div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-tight">
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
             {courseData.name}
           </h1>
           <p className="text-sm text-slate-500 max-w-2xl font-medium mt-1">
@@ -349,9 +349,9 @@ export const CourseDetail = () => {
       <div className="border-b border-slate-100 flex gap-6 select-none">
         <button
           onClick={() => setActiveTab('materi')}
-          className={`pb-3 text-sm font-black transition-all flex items-center gap-2 border-b-2 focus:outline-none cursor-pointer
+          className={`pb-3 text-sm font-extrabold transition-all flex items-center gap-2 border-b-2 focus:outline-none cursor-pointer
             ${activeTab === 'materi' 
-              ? 'border-[#7047EB] text-[#7047EB]' 
+              ? 'border-brand text-brand' 
               : 'border-transparent text-slate-400 hover:text-slate-600'
             }
           `}
@@ -362,9 +362,9 @@ export const CourseDetail = () => {
 
         <button
           onClick={() => setActiveTab('tugas')}
-          className={`pb-3 text-sm font-black transition-all flex items-center gap-2 border-b-2 focus:outline-none cursor-pointer
+          className={`pb-3 text-sm font-extrabold transition-all flex items-center gap-2 border-b-2 focus:outline-none cursor-pointer
             ${activeTab === 'tugas' 
-              ? 'border-[#7047EB] text-[#7047EB]' 
+              ? 'border-brand text-brand' 
               : 'border-transparent text-slate-400 hover:text-slate-600'
             }
           `}
@@ -375,9 +375,9 @@ export const CourseDetail = () => {
 
         <button
           onClick={() => setActiveTab('siswa')}
-          className={`pb-3 text-sm font-black transition-all flex items-center gap-2 border-b-2 focus:outline-none cursor-pointer
+          className={`pb-3 text-sm font-extrabold transition-all flex items-center gap-2 border-b-2 focus:outline-none cursor-pointer
             ${activeTab === 'siswa' 
-              ? 'border-[#7047EB] text-[#7047EB]' 
+              ? 'border-brand text-brand' 
               : 'border-transparent text-slate-400 hover:text-slate-600'
             }
           `}
@@ -388,9 +388,9 @@ export const CourseDetail = () => {
 
         <button
           onClick={() => setActiveTab('absensi')}
-          className={`pb-3 text-sm font-black transition-all flex items-center gap-2 border-b-2 focus:outline-none cursor-pointer
+          className={`pb-3 text-sm font-extrabold transition-all flex items-center gap-2 border-b-2 focus:outline-none cursor-pointer
             ${activeTab === 'absensi' 
-              ? 'border-[#7047EB] text-[#7047EB]' 
+              ? 'border-brand text-brand' 
               : 'border-transparent text-slate-400 hover:text-slate-600'
             }
           `}
@@ -406,10 +406,10 @@ export const CourseDetail = () => {
         {activeTab === 'materi' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center select-none">
-              <h2 className="text-sm font-black text-slate-500 uppercase tracking-wider">Modul & File Pembelajaran</h2>
+              <h2 className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">Modul & File Pembelajaran</h2>
               <button 
                 onClick={() => setIsMaterialModalOpen(true)}
-                className="px-3.5 py-2 bg-[#7047EB] hover:bg-[#5E3BD2] text-white text-xs font-black rounded-xl transition-colors cursor-pointer shadow-sm flex items-center gap-1.5"
+                className="px-3.5 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl transition-colors cursor-pointer shadow-sm flex items-center gap-1.5"
               >
                 <Plus className="w-4 h-4" />
                 Tambah Materi
@@ -427,18 +427,18 @@ export const CourseDetail = () => {
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-purple-50 text-[#7047EB] flex items-center justify-center shrink-0">
+                        <div className="w-10 h-10 rounded-xl bg-purple-50 text-brand flex items-center justify-center shrink-0">
                           <BookOpen className="w-5 h-5" />
                         </div>
                         <div className="space-y-0.5 text-left">
-                          <h4 className="text-sm font-black text-slate-800 leading-snug">{mat.title}</h4>
+                          <h4 className="text-sm font-extrabold text-slate-800 leading-snug">{mat.title}</h4>
                           <p className="text-[10px] text-slate-400 font-bold">
                             PDF · {mat.size} · {mat.date || 'Baru Saja'}
                           </p>
                         </div>
                       </div>
                       
-                      <span className="text-[10px] text-[#7047EB] font-black uppercase bg-purple-50 px-2 py-0.5 rounded-md">
+                      <span className="text-[10px] text-brand font-extrabold uppercase bg-purple-50 px-2 py-0.5 rounded-md">
                         {isExpanded ? 'Tutup' : 'Detail'}
                       </span>
                     </div>
@@ -446,11 +446,11 @@ export const CourseDetail = () => {
                     {isExpanded && (
                       <div 
                         onClick={(e) => e.stopPropagation()}
-                        className="pt-2 border-t border-slate-50 space-y-3 text-left animate-in fade-in slide-in-from-top-2 duration-150"
+                        className="pt-2 border-t border-slate-50 space-y-3 text-left"
                       >
                         {mat.description ? (
                           <div className="space-y-1">
-                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-wider">Catatan / Deskripsi</p>
+                            <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Catatan / Deskripsi</p>
                             <p className="text-xs text-slate-600 font-semibold leading-relaxed">{mat.description}</p>
                           </div>
                         ) : (
@@ -460,7 +460,7 @@ export const CourseDetail = () => {
                         <div className="flex items-center justify-end gap-2 pt-1.5">
                           <button
                             onClick={(e) => handleDownloadMaterial(e, mat.title)}
-                            className="px-3 py-2 bg-slate-50 hover:bg-violet-50 text-slate-600 hover:text-[#7047EB] rounded-xl text-[11px] font-bold transition-all flex items-center gap-1.5 border border-slate-100 cursor-pointer"
+                            className="px-3 py-2 bg-slate-50 hover:bg-violet-50 text-slate-600 hover:text-brand rounded-xl text-[11px] font-bold transition-all flex items-center gap-1.5 border border-slate-100 cursor-pointer"
                           >
                             <FileDown className="w-4 h-4" />
                             Unduh PDF
@@ -494,10 +494,10 @@ export const CourseDetail = () => {
         {activeTab === 'tugas' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center select-none">
-              <h2 className="text-sm font-black text-slate-500 uppercase tracking-wider">Daftar Penugasan Kelas</h2>
+              <h2 className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">Daftar Penugasan Kelas</h2>
               <button
                 onClick={() => setIsModalOpen(true)}
-                className="px-3.5 py-2 bg-[#7047EB] hover:bg-[#5E3BD2] text-white text-xs font-black rounded-xl transition-colors cursor-pointer shadow-sm flex items-center gap-1.5"
+                className="px-3.5 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl transition-colors cursor-pointer shadow-sm flex items-center gap-1.5"
               >
                 <Plus className="w-4 h-4" />
                 Buat Tugas Baru
@@ -515,7 +515,7 @@ export const CourseDetail = () => {
                         Deadline: {new Date(asm.deadline).toLocaleString('id-ID', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
                       </span>
                       <span className="flex items-center gap-1.5">
-                        <Users className="w-4 h-4 text-indigo-505" />
+                        <Users className="w-4 h-4 text-brand" />
                         Mengumpulkan: {asm.submittedCount} / {asm.totalCount} Siswa
                       </span>
                     </div>
@@ -524,7 +524,7 @@ export const CourseDetail = () => {
                   <div className="flex gap-2 shrink-0">
                     <Button 
                       onClick={() => navigate('/teacher/gradebook')}
-                      className="py-2 px-4 rounded-xl font-bold bg-[#7047EB] hover:bg-[#5E3BD2] text-white text-xs cursor-pointer"
+                      className="py-2 px-4 rounded-xl font-bold bg-brand hover:bg-brand-deep text-white text-xs cursor-pointer"
                     >
                       Nilai Tugas
                     </Button>

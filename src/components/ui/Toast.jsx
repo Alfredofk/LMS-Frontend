@@ -1,8 +1,13 @@
 import React, { useEffect } from 'react';
 
+import { useT } from '../../i18n/LanguageContext';
+
 /**
  * Reusable and accessible Toast Notification banner.
  * Replaces standard browser alerts with a high-fidelity sliding toast.
+ *
+ * `message` arrives already translated — every caller runs it through `t()`
+ * before handing it over. Only the close button's label belongs to this file.
  */
 export const Toast = ({
   message,
@@ -10,6 +15,8 @@ export const Toast = ({
   duration = 4000,
   onClose,
 }) => {
+  const { t } = useT();
+
   useEffect(() => {
     if (!message) return;
 
@@ -25,7 +32,7 @@ export const Toast = ({
   const bgColors = {
     success: 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-emerald-100',
     error: 'bg-red-50 border-red-500 text-red-800 shadow-red-100',
-    info: 'bg-violet-50 border-violet-500 text-violet-800 shadow-violet-100',
+    info: 'bg-violet-50 border-brand text-brand shadow-violet-100',
   };
 
   const icons = {
@@ -40,7 +47,7 @@ export const Toast = ({
       </svg>
     ),
     info: (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-violet-500 shrink-0">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-brand shrink-0">
         <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 111.063.852l-.708 2.836a.75.75 0 001.063.852l.041-.028M12 7.5h.008v.008H12V7.5z" />
       </svg>
     ),
@@ -66,7 +73,7 @@ export const Toast = ({
           type="button"
           onClick={onClose}
           className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg focus:outline-none"
-          aria-label="Dismiss notification"
+          aria-label={t('common.dismiss')}
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

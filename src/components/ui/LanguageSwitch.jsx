@@ -15,13 +15,13 @@ const TONES = {
   // On the landing page and inside the app: dark on light.
   light: {
     wrap: 'bg-slate-100',
-    on: 'bg-white text-[#7047EB] shadow-sm',
+    on: 'bg-white text-brand shadow-sm',
     off: 'text-slate-500 hover:text-slate-800',
   },
   // On the purple auth panels.
   dark: {
     wrap: 'bg-white/15',
-    on: 'bg-white text-[#7047EB] shadow-sm',
+    on: 'bg-white text-brand shadow-sm',
     off: 'text-white/80 hover:text-white',
   },
 };

@@ -1,7 +1,42 @@
 @import "tailwindcss";
 
+/*
+  The whole palette, named once.
+
+  Before this block the brand existed as twelve near-identical hex literals
+  scattered across forty-five files — two button-hover purples 1% apart, five
+  lavenders doing the identical job, and an auth column whose purple disagreed
+  with the links sitting beside it on the same screen. Naming them is what makes
+  the next colour change one line instead of four hundred.
+
+  Four tokens. Be suspicious of a fifth: every one of the twelve that got merged
+  was somebody adding a shade rather than reusing one.
+
+  Tailwind v4 turns each `--color-X` into the full family — `bg-X text-X
+  border-X ring-X shadow-X fill-X` — and every one accepts `/opacity`, so
+  `shadow-[#7047EB]/30` becomes `shadow-brand/30` with nothing lost.
+
+  `brand-deep` rather than `brand-hover`, because the hyphen is part of the
+  generated utility name and `hover:bg-brand-hover` stutters.
+
+  No numbered scale. A `brand-500` would commit this project to inventing ten
+  steps nobody has designed; there are two purples and one tint in real use.
+*/
 @theme {
   --font-sans: 'Plus Jakarta Sans', sans-serif;
+
+  /* absorbs #6D43EC — the auth column, 1.5% away and never a decision */
+  --color-brand: #7047EB;
+
+  /* button hover; absorbs #5B35D5 and #5833C9 */
+  --color-brand-deep: #5E3BD2;
+
+  /* icon tiles, pills, search fields; absorbs #EDE9FE #ECE9FE #F5F2FF #F3EEFF */
+  --color-brand-tint: #F1EEFF;
+
+  /* the app canvas behind every signed-in screen — not bg-slate-50, which is
+     a different colour this app never uses for it */
+  --color-canvas: #F8F9FD;
 }
 
 @keyframes slideInRight {

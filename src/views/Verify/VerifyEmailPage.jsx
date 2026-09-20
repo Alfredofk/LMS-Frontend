@@ -26,7 +26,7 @@ import Toast from '../../components/ui/Toast';
 const MailIcon = ({ state }) => (
   <div
     className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto shadow-sm ${
-      state === 'error' ? 'bg-red-50 text-red-500' : 'bg-[#F1EEFF] text-[#7047EB]'
+      state === 'error' ? 'bg-red-50 text-red-500' : 'bg-brand-tint text-brand'
     }`}
   >
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
@@ -119,7 +119,7 @@ export const VerifyEmailPage = () => {
     <button
       type="button"
       onClick={() => navigate('/login')}
-      className="text-xs text-slate-400 hover:text-[#7047EB] font-bold transition-colors focus:outline-none cursor-pointer"
+      className="text-xs text-slate-400 hover:text-brand font-bold transition-colors focus:outline-none cursor-pointer"
     >
       {t('common.backToSignIn')}
     </button>
@@ -140,7 +140,7 @@ export const VerifyEmailPage = () => {
 
         <div>
           <h1 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
-            {t(heading[0])} <span className="text-[#7047EB]">{t(heading[1])}</span>
+            {t(heading[0])} <span className="text-brand">{t(heading[1])}</span>
           </h1>
           <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold">
             {state === 'checking' ? t('verify.checking.note') : message}
@@ -170,7 +170,7 @@ export const VerifyEmailPage = () => {
             <Button
               type="submit"
               isLoading={isResending}
-              className="w-full py-3 rounded-2xl justify-center font-bold text-sm bg-[#7047EB] hover:bg-[#5E3BD2] text-white active:scale-95 transition-transform shadow-lg shadow-[#7047EB]/20 select-none"
+              className="w-full py-3 rounded-2xl justify-center text-sm active:scale-95 transition-transform shadow-lg shadow-brand/20 select-none"
             >
               {t('verify.resend.action')}
             </Button>

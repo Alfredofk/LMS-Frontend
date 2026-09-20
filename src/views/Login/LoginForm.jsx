@@ -7,6 +7,7 @@ import { passwordChecklist } from '../../utils/validation';
 import { useT } from '../../i18n/LanguageContext';
 import CheckEmailStep from './CheckEmailStep';
 import GoogleButton from './GoogleButton';
+import DevSignIn from '../../components/dev/DevSignIn';
 
 /*
   One form, two modes.
@@ -21,17 +22,17 @@ import GoogleButton from './GoogleButton';
 
 const icons = {
   user: (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-[#8F7CFF]">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-brand/70">
       <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
     </svg>
   ),
   email: (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-[#8F7CFF]">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-brand/70">
       <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
     </svg>
   ),
   lock: (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-[#8F7CFF]">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-brand/70">
       <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
     </svg>
   ),
@@ -98,9 +99,9 @@ export const LoginForm = ({ formState, notice }) => {
 
       <h1 className="text-[26px] font-extrabold text-slate-800 leading-tight select-none">
         {isSignUp ? (
-          <>{t('auth.signUp.title')} <span className="text-[#7047EB]">{t('auth.signUp.titleAccent')}</span></>
+          <>{t('auth.signUp.title')} <span className="text-brand">{t('auth.signUp.titleAccent')}</span></>
         ) : (
-          <>{t('auth.signIn.title')} <span className="text-[#7047EB]">{t('auth.signIn.titleAccent')}</span></>
+          <>{t('auth.signIn.title')} <span className="text-brand">{t('auth.signIn.titleAccent')}</span></>
         )}
       </h1>
       <p className="text-slate-400 text-sm mt-2 mb-8 font-medium select-none">
@@ -224,7 +225,7 @@ export const LoginForm = ({ formState, notice }) => {
                 type="checkbox"
                 checked={remember}
                 onChange={(e) => setRemember(e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 text-[#7047EB] accent-[#7047EB] focus:ring-2 focus:ring-violet-500/20 cursor-pointer"
+                className="w-4 h-4 rounded border-slate-300 text-brand accent-brand focus:ring-2 focus:ring-brand/20 cursor-pointer"
               />
               <span className="text-xs font-semibold text-slate-500 group-hover:text-slate-700 transition-colors">
                 {t('auth.rememberMe')}
@@ -233,7 +234,7 @@ export const LoginForm = ({ formState, notice }) => {
 
             <Link
               to="/forgot-password"
-              className="text-xs font-extrabold text-[#7047EB] hover:text-[#5E3BD2] hover:underline focus:outline-none focus:underline"
+              className="text-xs font-extrabold text-brand hover:text-brand-deep hover:underline focus:outline-none focus:underline"
             >
               {t('auth.forgotPassword')}
             </Link>
@@ -242,7 +243,7 @@ export const LoginForm = ({ formState, notice }) => {
 
         <Button
           type="submit"
-          className="w-full py-3 md:py-3.5 rounded-2xl justify-center font-bold text-sm md:text-base bg-[#7047EB] hover:bg-[#5E3BD2] active:scale-95 transition-transform mt-5 shadow-lg shadow-[#7047EB]/20 text-white select-none"
+          className="w-full py-3 md:py-3.5 rounded-2xl justify-center text-sm md:text-base active:scale-95 transition-transform mt-5 shadow-lg shadow-brand/20 select-none"
           isLoading={isLoading}
         >
           <span className="flex items-center gap-1">
@@ -276,6 +277,9 @@ export const LoginForm = ({ formState, notice }) => {
         */
         text={isSignUp ? 'signup_with' : 'continue_with'}
       />
+
+      {/* Renders nothing unless this is `npm run dev` — see the file. */}
+      <DevSignIn />
     </div>
   );
 };

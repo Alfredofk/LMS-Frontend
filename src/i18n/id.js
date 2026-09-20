@@ -16,6 +16,9 @@ export default {
   'common.checking': 'Memeriksa…',
   'common.sending': 'Mengirim…',
   'common.or': 'atau',
+  'common.seeAll': 'Lihat semua',
+  'common.dismiss': 'Tutup',
+  'common.cancel': 'Batal',
 
   'lang.switch': 'Ganti bahasa',
   'lang.id': 'Indonesia',
@@ -286,7 +289,15 @@ export default {
     'Kode yang dibagikan sekolah Anda kepada para {role}. Tanyakan kepada tata usaha sekolah.',
   'getStarted.join.approval':
     'Sekolah Anda menerima permintaan itu dan memutuskan. Sampai ada yang menyetujuinya di sana, kartu {Role} tetap terkunci — dan Anda hanya bisa memiliki satu permintaan berjalan.',
+  'getStarted.join.need.nisn': 'NISN',
+  'getStarted.join.need.nisnDetail':
+    'Nomor Induk Siswa Nasional Anda. Tertera di rapor atau kartu pelajar.',
+  'getStarted.join.form.legend':
+    'Isi kolom di bawah untuk melihat apa yang nanti diminta. Belum ada yang dikirim ke mana pun.',
+  'getStarted.join.form.nisnHint':
+    'Aturan panjangnya belum ditetapkan, jadi kolom ini menerima apa adanya.',
   'getStarted.join.action': 'Masukkan kode sekolah',
+  'getStarted.join.actionSubmit': 'Kirim permintaan bergabung',
 
   // --- tidak berwenang ---------------------------------------------------
   'unauthorized.title': 'Akses Ditolak',
@@ -297,6 +308,11 @@ export default {
   'unauthorized.home': 'Kembali ke Beranda',
   'unauthorized.switchRole': 'Ganti Peran',
   'unauthorized.switchAccount': 'Ganti Akun',
+
+  // --- dialog konfirmasi -------------------------------------------------
+  'confirm.logOut.title': 'Keluar dari akun ini?',
+  'confirm.logOut.body':
+    'Anda akan dikembalikan ke halaman masuk dan perlu memasukkan kata sandi lagi untuk kembali.',
 
   // --- kerangka aplikasi -------------------------------------------------
   'shell.mainMenu': 'Menu Utama',
@@ -332,12 +348,200 @@ export default {
   'shell.time.days': '{n} hari lalu',
   'shell.title.teacherDashboard': 'Dasbor Guru',
   'shell.title.createAssignment': 'Buat Tugas',
+  'shell.title.principalDashboard': 'Dasbor Kepala Sekolah',
+  'shell.title.courseDetail': 'Detail Mata Pelajaran',
+  'shell.title.assignment': 'Tugas',
 
   'roleTitle.STUDENT': 'Siswa',
   'roleTitle.TEACHER': 'Guru',
   'roleTitle.PRINCIPAL': 'Kepala Sekolah',
   'roleTitle.GUARDIAN': 'Wali Murid',
   'roleTitle.fallback': 'Anggota',
+
+  // --- data contoh -------------------------------------------------------
+  'sample.notice':
+    'Angka dan daftar di halaman ini adalah data contoh. Belum ada satu pun yang berasal dari sekolah Anda.',
+  'sample.tag': 'Data contoh',
+
+  // --- dasbor siswa ------------------------------------------------------
+  'dash.greeting.morning': 'Selamat pagi, {name}',
+  'dash.greeting.midday': 'Selamat siang, {name}',
+  'dash.greeting.afternoon': 'Selamat sore, {name}',
+  'dash.greeting.evening': 'Selamat malam, {name}',
+  'dash.greeting.fallback': 'Siswa',
+  'dash.subline.term': '{school} · {year} Semester {n}',
+
+  'dash.stat.subjects': 'Mata Pelajaran',
+  'dash.stat.subjects.sub': 'Semester ini',
+  'dash.stat.todo': 'Tugas',
+  'dash.stat.todo.sub': 'Belum dikumpulkan',
+  'dash.stat.avgScore': 'Rata-rata Nilai',
+  'dash.stat.avgScore.sub': 'Keseluruhan',
+  'dash.stat.newMaterials': 'Materi Baru',
+  'dash.stat.newMaterials.sub': 'Minggu ini',
+
+  'dash.today.title': 'Kegiatan Hari Ini',
+  'dash.today.empty': 'Belum ada jadwal kegiatan hari ini.',
+
+  'dash.assessment.title': 'Tugas Aktif',
+  'dash.assessment.empty': 'Tidak ada tugas aktif tersisa.',
+  'dash.assessment.dueToday': 'dikumpul hari ini',
+  'dash.assessment.dueTomorrow': 'dikumpul besok',
+  'dash.assessment.dueOn': 'dikumpul {date}',
+  'dash.assessment.badgeSoon': 'Segera',
+  'dash.assessment.subjectFallback': 'Mata Pelajaran',
+  'dash.assessment.urgent': 'Tugas "{title}" jatuh tempo {when}.',
+  'dash.assessment.urgentSub': 'Kumpulkan sebelum pukul 23.59.',
+  'dash.assessment.whenToday': 'hari ini',
+  'dash.assessment.whenTomorrow': 'besok',
+
+  'dash.progress.title': 'Mata Pelajaran & Kemajuan',
+  'dash.progress.empty': 'Belum ada mata pelajaran.',
+  'dash.progress.value': '{done} dari {total} tugas',
+  'dash.progress.teacherFallback': 'Guru Pengampu',
+
+  'dash.announcement.title': 'Pengumuman Sekolah',
+  'dash.announcement.empty': 'Belum ada pengumuman.',
+  'dash.announcement.authorFallback': 'Kesiswaan',
+  'dash.time.today': 'Hari ini',
+
+  // --- detail tugas ------------------------------------------------------
+  'assignment.notFound': 'Tugas tidak ditemukan',
+  'assignment.notFoundDetail':
+    'Tugas ini tidak ada, atau sudah dihapus oleh guru pengampunya.',
+
+  // --- nilai -------------------------------------------------------------
+  'sc.search': 'Cari mata pelajaran…',
+  'sc.filter.all': 'Semua',
+  'sc.filter.ongoing': 'Berjalan',
+  'sc.filter.completed': 'Selesai',
+  'sc.loadFailed': 'Gagal memuat rekapitulasi nilai',
+  'sc.empty': 'Tidak ada data nilai.',
+  'sc.emptySearch': 'Tidak ada hasil untuk "{query}". Coba kata kunci lain.',
+  'sc.emptyNone': 'Belum ada mata pelajaran pada kategori ini.',
+  'sc.teacherFallback': 'Guru Pengampu',
+  'sc.viewDetail': 'Lihat Detail',
+  'sc.gradeScale': 'Acuan Skala Nilai',
+  'sc.closeDetail': 'Tutup detail',
+  'sc.teacher': 'Guru:',
+  'sc.class': 'Kelas:',
+  'sc.semester': 'Semester:',
+  'sc.overview': 'Rincian Nilai',
+  'sc.weight': 'Bobot: {n}%',
+  'sc.noAssignments': 'Belum ada tugas atau ujian untuk kelas ini.',
+  'sc.autoCalculated': 'Nilai akhir dihitung otomatis oleh sistem.',
+  'sc.protest': 'Ajukan Sanggahan',
+  'sc.protest.badge': 'Pengajuan Sanggahan',
+  'sc.protest.title': 'Formulir Sanggahan Nilai',
+  'sc.protest.subtitle':
+    'Pilih tugas dan sampaikan alasan sanggahan nilai kepada guru pengampu.',
+  'sc.protest.pick': 'Pilih Tugas / Ujian',
+  'sc.protest.current': '(Nilai saat ini: {grade})',
+  'sc.protest.ungraded': '(Belum dinilai)',
+  'sc.protest.expected': 'Harapan Nilai (skala 0–100)',
+  'sc.protest.expectedPlaceholder': 'Contoh: 85',
+  'sc.protest.reason': 'Alasan Keberatan / Penjelasan',
+  'sc.protest.reasonPlaceholder':
+    'Jelaskan secara sopan bagian mana yang Anda rasa perlu ditinjau ulang oleh guru…',
+  'sc.protest.sending': 'Mengirimkan…',
+  'sc.protest.send': 'Kirim Sanggahan',
+  'sc.protest.incomplete': 'Mohon lengkapi tugas, alasan, dan nilai harapan.',
+  'sc.protest.failed': 'Gagal mengirimkan sanggahan nilai.',
+  'sc.protest.sent': 'Sanggahan nilai berhasil dikirimkan.',
+
+  // --- kelas virtual -----------------------------------------------------
+  'cls.empty': 'Belum ada mata pelajaran terdaftar.',
+  'cls.emptyDetail':
+    'Hubungi wali kelas atau guru pengajar Anda untuk didaftarkan ke kelas virtual.',
+
+  // --- penugasan ---------------------------------------------------------
+  'asm.title': 'Pusat Penugasan',
+  'asm.subtitle': 'Pantau dan kerjakan seluruh tugas sekolah Anda di satu tempat.',
+  'asm.search': 'Cari tugas…',
+  'asm.tab.active': 'Tugas Aktif',
+  'asm.tab.submitted': 'Terkumpul',
+  'asm.tab.graded': 'Sudah Dinilai',
+  'asm.empty': 'Tidak ada tugas',
+  'asm.emptySearch': 'Tidak ada tugas yang cocok.',
+  'asm.emptyNone': 'Daftar penugasan di tab ini kosong.',
+  'asm.due': 'Tenggat: {date}',
+  'asm.overdue': 'Terlewat',
+  'asm.remaining.days': '{n} hari lagi',
+  'asm.remaining.hours': '{n} jam lagi',
+  'asm.remaining.minutes': '{n} menit lagi',
+  'asm.grade': 'Nilai',
+  'asm.grading': 'Proses Penilaian',
+  'asm.doIt': 'Kerjakan',
+
+  // --- pengumuman --------------------------------------------------------
+  'ann.title': 'Pengumuman Sekolah',
+  'ann.subtitle': 'Informasi, kebijakan, dan maklumat resmi dari sekolah Anda.',
+  'ann.search': 'Cari pengumuman…',
+  'ann.empty': 'Tidak ada pengumuman',
+  'ann.emptySearch': 'Tidak ada hasil yang cocok.',
+  'ann.emptyNone': 'Belum ada pengumuman yang diterbitkan sekolah.',
+  'ann.by': 'Diterbitkan oleh:',
+  'ann.authorFallback': 'Kepala Sekolah',
+  'ann.back': 'Kembali',
+
+  // --- jadwal ------------------------------------------------------------
+  'sch.pickMonth': 'Pilih bulan',
+  'sch.pickYear': 'Pilih tahun',
+  'sch.pickDate': 'Pilih tanggal di bawah',
+  'sch.loading': 'Memuat kalender…',
+  'sch.dot.class': 'Ada kelas',
+  'sch.dot.deadline': 'Ada tenggat tugas',
+  'sch.agenda': 'Agenda Harian',
+  'sch.agenda.empty': 'Agenda Kosong',
+  'sch.agenda.emptyDetail': 'Tidak ada kelas maupun tenggat tugas pada tanggal ini.',
+  'sch.classes': 'Jadwal Kelas',
+  'sch.deadlines': 'Tenggat Tugas',
+  'sch.teaching': 'Mengajar kelas {class}',
+  'sch.teacher': 'Guru: {name}',
+  'sch.dueAt': 'Batas akhir: {time} WIB',
+
+  // --- kehadiran ---------------------------------------------------------
+  'att.title': 'Riwayat Kehadiran',
+  'att.subtitle': 'Pantau statistik kehadiran dan catatan presensi Anda sendiri.',
+  'att.search': 'Cari mata pelajaran…',
+  'att.ratio': 'Rasio Kehadiran',
+  'att.ratio.detail':
+    'Persentase kehadiran murni Anda dari seluruh kelas mata pelajaran yang terdaftar.',
+  'att.streak': 'Streak Presensi',
+  'att.streak.detail': 'Check-in berturut-turut',
+  'att.totalLogs': 'Total Log Masuk',
+  'att.days': '{n} Hari',
+  'att.breakdown': 'H: {h} · I: {i} · S: {s} · A: {a}',
+  'att.today': 'Hari Ini',
+  'att.prevMonth': 'Bulan sebelumnya',
+  'att.nextMonth': 'Bulan berikutnya',
+  'att.legend.present': 'Hadir',
+  'att.legend.excused': 'Izin / Sakit',
+  'att.legend.absent': 'Alpa',
+  'att.log.title': 'Log Riwayat Rinci',
+  'att.log.empty': 'Log Kosong',
+  'att.log.emptySearch': 'Tidak ada absensi yang cocok.',
+  'att.log.emptyNone': 'Belum ada pencatatan riwayat absensi.',
+  'att.loading': 'Memuat riwayat absensi…',
+  'att.note': 'Keterangan: {note}',
+  'att.status.Hadir': 'Hadir',
+  'att.status.Izin': 'Izin',
+  'att.status.Sakit': 'Sakit',
+  'att.status.Alpa': 'Alpa',
+  'att.error.title': 'Gagal menampilkan halaman',
+  'att.error.body': 'Terjadi kesalahan saat memproses tampilan kehadiran.',
+  'att.error.refresh': 'Muat ulang halaman',
+
+  // --- profil ------------------------------------------------------------
+  'profile.class': 'Kelas',
+  'profile.nisn': 'NISN',
+  'profile.xp': 'Total XP',
+  'profile.level': 'Level',
+  'profile.empty': 'Belum ada di basis data',
+  'profile.achievements': 'Pencapaian Saya',
+  'profile.achievements.empty': 'Belum ada pencapaian yang bisa ditampilkan.',
+  'profile.leaderboard': 'Papan Peringkat',
+  'profile.leaderboard.empty': 'Belum ada peringkat untuk saat ini.',
 
   // --- kesalahan dari server ---------------------------------------------
   'error.unauthorized': 'Sesi Anda sudah berakhir. Silakan masuk kembali.',
@@ -380,4 +584,8 @@ export default {
   'validation.fullName.long': 'Nama lengkap terlalu panjang',
   'validation.confirm.required': 'Konfirmasi kata sandi wajib diisi.',
   'validation.confirm.mismatch': 'Kata sandinya tidak cocok.',
+  'validation.schoolCode.required': 'Kode Sekolah wajib diisi.',
+  'validation.schoolCode.long': 'Kode Sekolah terlalu panjang.',
+  'validation.nisn.required': 'NISN wajib diisi.',
+  'validation.nisn.long': 'NISN terlalu panjang.',
 };

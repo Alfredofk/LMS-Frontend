@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Megaphone, Calendar, User, ChevronLeft, Search } from 'lucide-react';
+import { useT } from '../../i18n/LanguageContext';
 
 export const AnnouncementPage = () => {
+  const { t, lang } = useT();
+  const locale = lang === 'id' ? 'id-ID' : 'en-GB';
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -39,7 +42,7 @@ export const AnnouncementPage = () => {
   const formatDate = (dateStr) => {
     try {
       const date = new Date(dateStr);
-      return date.toLocaleDateString('id-ID', {
+      return date.toLocaleDateString(locale, {
         day: 'numeric',
         month: 'long',
         year: 'numeric',
@@ -60,16 +63,16 @@ export const AnnouncementPage = () => {
           <button
             onClick={() => navigate(-1)}
             className="p-2.5 bg-white border border-slate-100 hover:border-slate-200 text-slate-700 rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer"
-            aria-label="Back"
+            aria-label={t('ann.back')}
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-800 leading-tight">
-              Pengumuman Sekolah
+            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-800 leading-tight">
+              {t('ann.title')}
             </h1>
             <p className="text-xs text-slate-400 font-semibold mt-1">
-              Informasi, kebijakan, dan maklumat resmi dari sekolah Anda
+              {t('ann.subtitle')}
             </p>
           </div>
         </div>
@@ -79,10 +82,10 @@ export const AnnouncementPage = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Cari pengumuman..."
+            placeholder={t('ann.search')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white border border-slate-200 rounded-xl py-2 pl-9 pr-4 text-xs font-semibold text-slate-800 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all shadow-sm"
+            className="w-full bg-white border border-slate-200 rounded-xl py-2 pl-9 pr-4 text-xs font-semibold text-slate-800 focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all shadow-sm"
           />
         </div>
       </div>
@@ -103,13 +106,13 @@ export const AnnouncementPage = () => {
           ))}
         </div>
       ) : filteredAnnouncements.length === 0 ? (
-        <div className="bg-white border border-slate-150 rounded-2xl p-12 text-center shadow-sm select-none">
-          <div className="w-16 h-16 bg-[#F1EEFF] text-[#7047EB] rounded-2xl flex items-center justify-center mx-auto mb-4">
+        <div className="bg-white border border-slate-100 rounded-2xl p-12 text-center shadow-sm select-none">
+          <div className="w-16 h-16 bg-brand-tint text-brand rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Megaphone className="w-8 h-8" />
           </div>
-          <h3 className="text-sm font-black text-slate-800">Tidak ada pengumuman</h3>
+          <h3 className="text-sm font-extrabold text-slate-800">{t('ann.empty')}</h3>
           <p className="text-xs text-slate-400 font-semibold mt-1">
-            {searchQuery ? 'Tidak ada hasil pencarian yang cocok.' : 'Belum ada maklumat sekolah yang dipublikasikan.'}
+            {searchQuery ? t('ann.emptySearch') : t('ann.emptyNone')}
           </p>
         </div>
       ) : (
@@ -126,10 +129,10 @@ export const AnnouncementPage = () => {
 
               {/* Main content body */}
               <div className="flex-1 space-y-2.5">
-                <h3 className="text-base font-black text-slate-850 tracking-tight leading-snug group-hover:text-violet-650 transition-colors">
+                <h3 className="text-base font-extrabold text-slate-900 tracking-tight leading-snug group-hover:text-brand transition-colors">
                   {ann.title}
                 </h3>
-                <p className="text-xs text-slate-450 font-medium leading-relaxed whitespace-pre-wrap">
+                <p className="text-xs text-slate-400 font-medium leading-relaxed whitespace-pre-wrap">
                   {ann.content}
                 </p>
 
@@ -137,7 +140,12 @@ export const AnnouncementPage = () => {
                 <div className="flex flex-wrap items-center gap-y-1.5 gap-x-4 pt-3 border-t border-slate-50 text-[10px] text-slate-400 font-bold select-none">
                   <div className="flex items-center gap-1.5">
                     <User className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Diterbitkan oleh: <span className="text-slate-500">{ann.author_name || 'Kepala Sekolah'}</span></span>
+                    <span>
+                      {t('ann.by')}{' '}
+                      <span className="text-slate-500">
+                        {ann.author_name || t('ann.authorFallback')}
+                      </span>
+                    </span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-slate-400" />

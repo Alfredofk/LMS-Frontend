@@ -96,12 +96,12 @@ export const CreateAssignmentForm = () => {
       <div className="select-none text-left">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-xs font-black text-slate-400 hover:text-[#7047EB] transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 text-xs font-extrabold text-slate-400 hover:text-brand transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           Kembali
         </button>
-        <h1 className="text-xl sm:text-2xl font-black text-slate-905 tracking-tight leading-tight mt-2.5">
+        <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight mt-2.5">
           Buat Tugas Baru
         </h1>
         <p className="text-xs text-slate-400 font-bold mt-0.5">
@@ -118,7 +118,7 @@ export const CreateAssignmentForm = () => {
             
             {/* Title Input */}
             <div className="md:col-span-2 space-y-1.5">
-              <label className="text-xs font-black text-slate-700 flex items-center gap-1 select-none">
+              <label className="text-xs font-extrabold text-slate-700 flex items-center gap-1 select-none">
                 Judul Tugas <span className="text-red-500">*</span>
               </label>
               <div className="relative">
@@ -127,7 +127,7 @@ export const CreateAssignmentForm = () => {
                   placeholder="Contoh: Laporan Praktikum Asam Basa"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full text-xs font-semibold border border-slate-200 rounded-xl pl-4 pr-10 py-3 focus:outline-none focus:border-[#7047EB] transition-colors bg-white shadow-sm"
+                  className="w-full text-xs font-semibold border border-slate-200 rounded-xl pl-4 pr-10 py-3 focus:outline-none focus:border-brand transition-colors bg-white shadow-sm"
                 />
                 <FileText className="absolute right-3.5 top-3.5 w-4 h-4 text-slate-400" />
               </div>
@@ -135,20 +135,20 @@ export const CreateAssignmentForm = () => {
 
             {/* Type Selector */}
             <div className="space-y-1.5">
-              <label className="text-xs font-black text-slate-700 select-none">
+              <label className="text-xs font-extrabold text-slate-700 select-none">
                 Tipe Tugas
               </label>
               <div className="relative">
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value)}
-                  className="w-full text-xs font-black text-slate-800 border border-slate-200 rounded-xl px-4 py-3 bg-white focus:outline-none focus:border-[#7047EB] transition-colors cursor-pointer appearance-none shadow-sm"
+                  className="w-full text-xs font-extrabold text-slate-800 border border-slate-200 rounded-xl px-4 py-3 bg-white focus:outline-none focus:border-brand transition-colors cursor-pointer appearance-none shadow-sm"
                 >
                   <option value="Tugas Mandiri">Tugas Mandiri</option>
                   <option value="Kuis">Kuis / Ujian</option>
                   <option value="Laporan Praktikum">Laporan Praktikum</option>
                 </select>
-                <ChevronDown className="absolute right-3.5 top-4 w-4 h-4 text-slate-405 pointer-events-none" />
+                <ChevronDown className="absolute right-3.5 top-4 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
             </div>
 
@@ -159,7 +159,7 @@ export const CreateAssignmentForm = () => {
             
             {/* Datetime deadline picker */}
             <div className="space-y-1.5">
-              <label className="text-xs font-black text-slate-700 flex items-center gap-1 select-none">
+              <label className="text-xs font-extrabold text-slate-700 flex items-center gap-1 select-none">
                 Tenggat Waktu (Deadline) <span className="text-red-500">*</span>
               </label>
               <div className="relative">
@@ -167,14 +167,14 @@ export const CreateAssignmentForm = () => {
                   type="datetime-local"
                   value={deadline}
                   onChange={(e) => setDeadline(e.target.value)}
-                  className="w-full text-xs font-semibold border border-slate-200 rounded-xl pl-4 pr-4 py-3 focus:outline-none focus:border-[#7047EB] transition-colors bg-white shadow-sm"
+                  className="w-full text-xs font-semibold border border-slate-200 rounded-xl pl-4 pr-4 py-3 focus:outline-none focus:border-brand transition-colors bg-white shadow-sm"
                 />
               </div>
             </div>
 
             {/* XP reward points */}
             <div className="space-y-1.5">
-              <label className="text-xs font-black text-slate-700 flex items-center gap-1 select-none">
+              <label className="text-xs font-extrabold text-slate-700 flex items-center gap-1 select-none">
                 Reward XP <span className="text-[10px] text-slate-400 font-semibold">(Gamifikasi)</span>
               </label>
               <div className="relative">
@@ -184,9 +184,9 @@ export const CreateAssignmentForm = () => {
                   max="1000"
                   value={xpReward}
                   onChange={(e) => setXpReward(e.target.value)}
-                  className="w-full text-xs font-black text-slate-800 border border-slate-200 rounded-xl pl-4 pr-10 py-3 focus:outline-none focus:border-[#7047EB] transition-colors bg-white shadow-sm"
+                  className="w-full text-xs font-extrabold text-slate-800 border border-slate-200 rounded-xl pl-4 pr-10 py-3 focus:outline-none focus:border-brand transition-colors bg-white shadow-sm"
                 />
-                <Award className="absolute right-3.5 top-3.5 w-4 h-4 text-[#7047EB]" />
+                <Award className="absolute right-3.5 top-3.5 w-4 h-4 text-brand" />
               </div>
             </div>
 
@@ -194,7 +194,7 @@ export const CreateAssignmentForm = () => {
 
           {/* Row 3: Rich Editor simulated toolbar & Textarea instructions */}
           <div className="space-y-1.5">
-            <label className="text-xs font-black text-slate-700 flex items-center gap-1 select-none">
+            <label className="text-xs font-extrabold text-slate-700 flex items-center gap-1 select-none">
               Deskripsi Instruksi Tugas <span className="text-red-500">*</span>
             </label>
             
@@ -241,7 +241,7 @@ export const CreateAssignmentForm = () => {
 
           {/* Row 4: Attachment Upload Area */}
           <div className="space-y-1.5">
-            <label className="text-xs font-black text-slate-700 select-none">
+            <label className="text-xs font-extrabold text-slate-700 select-none">
               Lampiran Materi / Soal <span className="text-[10px] text-slate-400 font-semibold">(Opsional)</span>
             </label>
             
@@ -253,8 +253,8 @@ export const CreateAssignmentForm = () => {
               onDrop={handleDrop}
               className={`border-2 border-dashed rounded-xl p-6 text-center transition-all select-none relative cursor-pointer
                 ${isDragActive 
-                  ? 'border-[#7047EB] bg-purple-50/20' 
-                  : 'border-slate-200 hover:border-slate-350 bg-slate-50/30'
+                  ? 'border-brand bg-purple-50/20' 
+                  : 'border-slate-200 hover:border-slate-300 bg-slate-50/30'
                 }
               `}
             >
@@ -266,11 +266,11 @@ export const CreateAssignmentForm = () => {
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
               <div className="flex flex-col items-center justify-center space-y-1.5 pointer-events-none">
-                <div className="w-10 h-10 rounded-full bg-purple-50 text-[#7047EB] flex items-center justify-center shadow-inner">
+                <div className="w-10 h-10 rounded-full bg-purple-50 text-brand flex items-center justify-center shadow-inner">
                   <UploadCloud className="w-5 h-5" />
                 </div>
-                <p className="text-xs font-black text-slate-800">
-                  Tarik & lepas berkas Anda di sini, atau <span className="text-[#7047EB] hover:underline">Pilih berkas</span>
+                <p className="text-xs font-extrabold text-slate-800">
+                  Tarik & lepas berkas Anda di sini, atau <span className="text-brand hover:underline">Pilih berkas</span>
                 </p>
                 <p className="text-[10px] text-slate-400 font-bold">
                   PDF, DOCX, XLS, PPTX (Maksimal 10MB)
@@ -287,7 +287,7 @@ export const CreateAssignmentForm = () => {
                     <button
                       type="button"
                       onClick={() => removeFile(file)}
-                      className="p-1 hover:bg-slate-200 rounded text-slate-450 hover:text-red-500 transition-colors focus:outline-none cursor-pointer"
+                      className="p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-red-500 transition-colors focus:outline-none cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -311,7 +311,7 @@ export const CreateAssignmentForm = () => {
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="bg-[#7047EB] hover:bg-[#5E3BD2] text-white py-2.5 px-5 rounded-xl font-bold shadow-md shadow-violet-500/10 cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              className="py-2.5 px-5 rounded-xl shadow-md shadow-brand/10 cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? 'Menyimpan...' : 'Terbitkan Tugas'}
             </Button>

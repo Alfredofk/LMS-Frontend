@@ -16,14 +16,14 @@ import LanguageSwitch from '../components/ui/LanguageSwitch';
  * @param {React.ReactNode} [footer]  pinned to the bottom of the white card
  */
 export const AuthLayout = ({ heading, blurb, children, footer }) => (
-  <div className="min-h-screen lg:h-screen w-screen bg-[#6D43EC] flex flex-col lg:flex-row font-sans selection:bg-violet-500 selection:text-white relative lg:overflow-hidden">
+  <div className="min-h-screen lg:h-screen w-screen bg-brand flex flex-col lg:flex-row font-sans selection:bg-brand selection:text-white relative lg:overflow-hidden">
 
     {/* --- PURPLE COLUMN --- */}
-    <div className="w-full text-white flex flex-col justify-between p-8 sm:p-12 relative shrink-0 z-0 text-left select-none bg-[#6D43EC] lg:w-[35%] lg:h-full lg:order-1 lg:overflow-hidden">
+    <div className="w-full text-white flex flex-col justify-between p-8 sm:p-12 relative shrink-0 z-0 text-left select-none bg-brand lg:w-[35%] lg:h-full lg:order-1 lg:overflow-hidden">
       {/* The switch lives in this column because it is visible at every width —
           stacked above the card on a phone, beside it on a desktop. */}
       <div className="flex items-center justify-between gap-3">
-        <span className="text-2xl font-black tracking-tight">EduForID</span>
+        <span className="text-2xl font-extrabold tracking-tight">EduForID</span>
         <LanguageSwitch tone="dark" />
       </div>
 
@@ -45,10 +45,10 @@ export const AuthLayout = ({ heading, blurb, children, footer }) => (
     <div className="w-full bg-white min-h-screen lg:h-full lg:overflow-y-auto flex flex-col justify-between p-6 sm:p-8 lg:py-8 lg:px-12 relative shrink-0 z-10 shadow-2xl lg:w-[65%] lg:order-2 lg:rounded-l-[48px] lg:rounded-r-none">
 
       {/* Decorative shapes */}
-      <div className="absolute top-0 left-0 w-28 h-28 bg-[#6D43EC] rounded-br-full pointer-events-none" />
-      <div className="absolute top-10 left-36 w-3 h-3 bg-[#6D43EC] rounded-full opacity-60 pointer-events-none" />
-      <div className="absolute top-1/4 left-[-16px] w-12 h-12 bg-[#ECE9FE] rounded-full pointer-events-none" />
-      <div className="absolute top-16 right-10 w-14 h-14 bg-[#ECE9FE] rounded-full pointer-events-none opacity-80" />
+      <div className="absolute top-0 left-0 w-28 h-28 bg-brand rounded-br-full pointer-events-none" />
+      <div className="absolute top-10 left-36 w-3 h-3 bg-brand rounded-full opacity-60 pointer-events-none" />
+      <div className="absolute top-1/4 left-[-16px] w-12 h-12 bg-brand-tint rounded-full pointer-events-none" />
+      <div className="absolute top-16 right-10 w-14 h-14 bg-brand-tint rounded-full pointer-events-none opacity-80" />
 
       {/* Balances the card vertically against the decorative corner above */}
       <div className="h-[40px] z-10 shrink-0" />

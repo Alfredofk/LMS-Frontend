@@ -88,11 +88,11 @@ export const TeacherCourses = () => {
 
   if (error) {
     return (
-      <div className="p-6 bg-red-50 border border-red-150 rounded-2xl flex items-center gap-3 text-red-700 text-sm font-semibold select-none text-left">
+      <div className="p-6 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 text-red-700 text-sm font-semibold select-none text-left">
         <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
         <div>
           <p className="font-bold">Terjadi Kesalahan</p>
-          <p className="text-xs text-red-605 font-medium mt-0.5">{error}</p>
+          <p className="text-xs text-red-600 font-medium mt-0.5">{error}</p>
         </div>
       </div>
     );
@@ -102,7 +102,7 @@ export const TeacherCourses = () => {
     <div className="space-y-6 text-left">
       {/* Header */}
       <div className="select-none">
-        <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-tight">
+        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
           Daftar Mata Pelajaran
         </h1>
         <p className="text-xs sm:text-sm text-slate-400 font-bold mt-1">
@@ -119,15 +119,15 @@ export const TeacherCourses = () => {
             placeholder="Cari nama kelas atau kode..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-[#7047EB] focus:ring-1 focus:ring-[#7047EB] outline-none text-xs font-semibold placeholder-slate-400 bg-white shadow-sm transition-all"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-brand focus:ring-1 focus:ring-brand outline-none text-xs font-semibold placeholder-slate-400 bg-white shadow-sm transition-all"
           />
         </div>
         
         <button 
           onClick={() => showToast && showToast('Filter urutan kelas dalam pengembangan.', 'info')}
-          className="w-full sm:w-auto px-4 py-2.5 bg-white border border-slate-200 text-slate-600 text-xs font-black rounded-xl hover:bg-slate-50 transition-colors cursor-pointer shadow-sm flex items-center justify-center gap-2"
+          className="w-full sm:w-auto px-4 py-2.5 bg-white border border-slate-200 text-slate-600 text-xs font-extrabold rounded-xl hover:bg-slate-50 transition-colors cursor-pointer shadow-sm flex items-center justify-center gap-2"
         >
-          <Filter className="w-4 h-4 text-slate-405" />
+          <Filter className="w-4 h-4 text-slate-400" />
           Urutkan Kelas
         </button>
       </div>
@@ -135,8 +135,8 @@ export const TeacherCourses = () => {
       {/* Grid List */}
       {filteredCourses.length === 0 ? (
         <div className="py-20 text-center border border-dashed border-slate-100 rounded-3xl bg-white shadow-sm select-none">
-          <BookOpen className="w-12 h-12 text-slate-305 mx-auto mb-3" />
-          <p className="text-sm font-black text-slate-550">Tidak ada kelas yang ditemukan</p>
+          <BookOpen className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <p className="text-sm font-extrabold text-slate-500">Tidak ada kelas yang ditemukan</p>
           <p className="text-xs text-slate-400 mt-1">Coba sesuaikan kata kunci pencarian Anda.</p>
         </div>
       ) : (
@@ -148,7 +148,7 @@ export const TeacherCourses = () => {
             >
               <div className="space-y-1.5 text-left">
                 <div className="flex justify-between items-start gap-1">
-                  <span className="px-2 py-0.5 bg-purple-100 text-[#7047EB] text-[9px] font-black rounded-md uppercase">
+                  <span className="px-2 py-0.5 bg-purple-100 text-brand text-[9px] font-extrabold rounded-md uppercase">
                     {cls.grade_level || 'Umum'}
                   </span>
                   <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
@@ -166,7 +166,7 @@ export const TeacherCourses = () => {
 
               <Button
                 onClick={() => handleManageClass(cls.id)}
-                className="w-full py-2.5 rounded-xl font-bold bg-[#7047EB] hover:bg-[#5E3BD2] text-white shadow-sm text-xs cursor-pointer flex items-center justify-center gap-1"
+                className="w-full py-2.5 rounded-xl font-bold bg-brand hover:bg-brand-deep text-white shadow-sm text-xs cursor-pointer flex items-center justify-center gap-1"
               >
                 Kelola Kelas
                 <ArrowRight className="w-4 h-4" />

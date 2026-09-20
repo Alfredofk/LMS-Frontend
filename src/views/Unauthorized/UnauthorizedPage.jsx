@@ -35,7 +35,7 @@ export const UnauthorizedPage = () => {
 
         {/* Details */}
         <div className="space-y-2">
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">{t('unauthorized.title')}</h1>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">{t('unauthorized.title')}</h1>
           <p className="text-xs sm:text-sm text-slate-400 font-bold leading-relaxed">
             {t(canSwitchRole ? 'unauthorized.canSwitch' : 'unauthorized.cannotSwitch')}
           </p>
@@ -53,14 +53,14 @@ export const UnauthorizedPage = () => {
           {canSwitchRole ? (
             <Button
               onClick={() => navigate('/select-role')}
-              className="flex-1 rounded-xl py-3 text-sm font-bold bg-[#7047EB] hover:bg-[#5E3BD2] text-white shadow-md cursor-pointer"
+              className="flex-1 rounded-xl py-3 text-sm font-bold bg-brand hover:bg-brand-deep text-white shadow-md cursor-pointer"
             >
               {t('unauthorized.switchRole')}
             </Button>
           ) : (
             <Button
               onClick={handleSwitchAccount}
-              className="flex-1 rounded-xl py-3 text-sm font-bold bg-[#7047EB] hover:bg-[#5E3BD2] text-white shadow-md cursor-pointer"
+              className="flex-1 rounded-xl py-3 text-sm shadow-md cursor-pointer"
             >
               {t('unauthorized.switchAccount')}
             </Button>

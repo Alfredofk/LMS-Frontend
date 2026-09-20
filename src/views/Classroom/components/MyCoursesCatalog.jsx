@@ -151,8 +151,8 @@ export const MyCoursesCatalog = ({ courses = [], isLoading, error }) => {
             onClick={() => setActiveFilter('all')}
             className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer shadow-sm
               ${activeFilter === 'all'
-                ? 'bg-[#7047EB] text-white shadow-purple-500/20'
-                : 'border border-[#7047EB] text-[#7047EB] bg-white hover:bg-purple-50/50'
+                ? 'bg-brand text-white shadow-brand/20'
+                : 'border border-brand text-brand bg-white hover:bg-purple-50/50'
               }
             `}
           >
@@ -163,8 +163,8 @@ export const MyCoursesCatalog = ({ courses = [], isLoading, error }) => {
             onClick={() => setActiveFilter('ongoing')}
             className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer shadow-sm
               ${activeFilter === 'ongoing'
-                ? 'bg-[#7047EB] text-white shadow-purple-500/20'
-                : 'border border-[#7047EB] text-[#7047EB] bg-white hover:bg-purple-50/50'
+                ? 'bg-brand text-white shadow-brand/20'
+                : 'border border-brand text-brand bg-white hover:bg-purple-50/50'
               }
             `}
           >
@@ -175,8 +175,8 @@ export const MyCoursesCatalog = ({ courses = [], isLoading, error }) => {
             onClick={() => setActiveFilter('completed')}
             className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer shadow-sm
               ${activeFilter === 'completed'
-                ? 'bg-[#7047EB] text-white shadow-purple-500/20'
-                : 'border border-[#7047EB] text-[#7047EB] bg-white hover:bg-purple-50/50'
+                ? 'bg-brand text-white shadow-brand/20'
+                : 'border border-brand text-brand bg-white hover:bg-purple-50/50'
               }
             `}
           >
@@ -187,8 +187,8 @@ export const MyCoursesCatalog = ({ courses = [], isLoading, error }) => {
             onClick={() => setActiveFilter('favourite')}
             className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer shadow-sm
               ${activeFilter === 'favourite'
-                ? 'bg-[#7047EB] text-white shadow-purple-500/20'
-                : 'border border-[#7047EB] text-[#7047EB] bg-white hover:bg-purple-50/50'
+                ? 'bg-brand text-white shadow-brand/20'
+                : 'border border-brand text-brand bg-white hover:bg-purple-50/50'
               }
             `}
           >
@@ -198,7 +198,7 @@ export const MyCoursesCatalog = ({ courses = [], isLoading, error }) => {
 
         {/* Search input (Fallback for mobile or fast search) */}
         <div className="relative sm:hidden w-full">
-          <Search className="w-4 h-4 text-[#7047EB] absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-brand absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
@@ -207,7 +207,7 @@ export const MyCoursesCatalog = ({ courses = [], isLoading, error }) => {
               setSearchParams(e.target.value ? { q: e.target.value } : {});
             }}
             placeholder="Cari mata pelajaran..."
-            className="w-full bg-[#F1EEFF] text-slate-800 text-xs font-medium pl-10 pr-4 py-2 rounded-full focus:outline-none focus:ring-1 focus:ring-purple-400 placeholder:text-slate-400"
+            className="w-full bg-brand-tint text-slate-800 text-xs font-medium pl-10 pr-4 py-2 rounded-full focus:outline-none focus:ring-1 focus:ring-brand placeholder:text-slate-400"
           />
         </div>
       </div>
@@ -215,7 +215,7 @@ export const MyCoursesCatalog = ({ courses = [], isLoading, error }) => {
       {/* Courses Grid List (3 Columns) */}
       {filteredCourses.length === 0 ? (
         <div className="py-20 flex flex-col items-center justify-center text-center bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-          <BookOpen className="w-10 h-10 text-slate-350 mb-3" />
+          <BookOpen className="w-10 h-10 text-slate-300 mb-3" />
           <h3 className="text-sm font-bold text-slate-800">
             Tidak ada mata pelajaran yang ditemukan.
           </h3>
@@ -247,10 +247,10 @@ export const MyCoursesCatalog = ({ courses = [], isLoading, error }) => {
                   {/* Header Row: Subject Name, Status Badge, and Favorite Star */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 pr-2">
-                      <h3 className="text-sm font-bold text-slate-900 group-hover:text-[#7047EB] transition-colors truncate">
+                      <h3 className="text-sm font-bold text-slate-900 group-hover:text-brand transition-colors truncate">
                         {course.name}
                       </h3>
-                      <span className="text-xs font-semibold text-[#7047EB] block mt-0.5 truncate">
+                      <span className="text-xs font-semibold text-brand block mt-0.5 truncate">
                         {course.code || course.className || 'Calculus 1'}
                       </span>
                     </div>
@@ -259,7 +259,7 @@ export const MyCoursesCatalog = ({ courses = [], isLoading, error }) => {
                       <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full
                         ${isCompleted
                           ? 'bg-[#EBFBF2] text-[#059669]'
-                          : 'bg-[#EDE9FE] text-[#7047EB]'
+                          : 'bg-brand-tint text-brand'
                         }
                       `}>
                         {isCompleted ? 'Completed' : 'Ongoing'}
@@ -289,9 +289,9 @@ export const MyCoursesCatalog = ({ courses = [], isLoading, error }) => {
                     </div>
 
                     {/* Subject Icon / Math Graphic Illustration */}
-                    <div className="w-13 h-13 rounded-2xl bg-[#F5F2FF] flex items-center justify-center shrink-0 text-[#7047EB] shadow-inner">
+                    <div className="w-13 h-13 rounded-2xl bg-brand-tint flex items-center justify-center shrink-0 text-brand shadow-inner">
                       <svg className="w-8 h-8" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect x="4" y="6" width="20" height="22" rx="4" fill="#7047EB" fillOpacity="0.85" />
+                        <rect x="4" y="6" width="20" height="22" rx="4" fill="var(--color-brand)" fillOpacity="0.85" />
                         <rect x="8" y="3" width="12" height="5" rx="2" fill="#5C36DB" />
                         <path d="M10 14C12 14 12 20 14 20M10 17H14M16 14L20 20M20 14L16 20" stroke="white" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
@@ -304,7 +304,7 @@ export const MyCoursesCatalog = ({ courses = [], isLoading, error }) => {
                   <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-300
-                        ${isCompleted ? 'bg-emerald-500' : 'bg-[#7047EB]'}
+                        ${isCompleted ? 'bg-emerald-500' : 'bg-brand'}
                       `}
                       style={{ width: `${Math.min(100, Math.max(5, progress))}%` }}
                     />
@@ -318,7 +318,7 @@ export const MyCoursesCatalog = ({ courses = [], isLoading, error }) => {
                     <span>{studentsCount} Students</span>
                   </div>
 
-                  <div className="flex items-center gap-1 text-xs font-bold text-[#7047EB] group-hover:underline">
+                  <div className="flex items-center gap-1 text-xs font-bold text-brand group-hover:underline">
                     <span>View Course</span>
                     <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                   </div>

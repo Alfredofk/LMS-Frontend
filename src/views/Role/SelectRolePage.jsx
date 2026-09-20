@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import AuthLayout from '../../layouts/AuthLayout';
 import { useAuth } from '../../context/AuthContext';
 import Toast from '../../components/ui/Toast';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import {
   ROLES,
   ROLE_LABEL_KEY,
@@ -119,6 +120,7 @@ export const SelectRolePage = () => {
   const [selected, setSelected] = useState(() => activeRole ?? defaultChoice(membership, roles));
   const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState(null);
+  const [isSignOutOpen, setIsSignOutOpen] = useState(false);
 
   /*
     Re-read on arrival, and again whenever asked.
@@ -197,11 +199,8 @@ export const SelectRolePage = () => {
     <>
       <button
         type="button"
-        onClick={async () => {
-          await logout();
-          navigate('/login', { replace: true });
-        }}
-        className="text-xs text-slate-400 hover:text-[#7047EB] font-bold transition-colors focus:outline-none cursor-pointer"
+        onClick={() => setIsSignOutOpen(true)}
+        className="text-xs text-slate-400 hover:text-brand font-bold transition-colors focus:outline-none cursor-pointer"
       >
         {t('common.signOut')}
       </button>
@@ -220,7 +219,7 @@ export const SelectRolePage = () => {
         footer={footer}
       >
         <div>
-          <h1 className="text-3xl sm:text-[34px] font-extrabold text-[#7047EB] leading-tight select-none">
+          <h1 className="text-3xl sm:text-[34px] font-extrabold text-brand leading-tight select-none">
             {t('selectRole.title')}
           </h1>
           <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold break-all">
@@ -280,7 +279,7 @@ export const SelectRolePage = () => {
                 className={`
                   w-full border rounded-2xl p-4 flex items-center justify-between text-left transition-all duration-200 select-none
                   ${isSelected
-                    ? 'border-[#7047EB] border-2 shadow-lg shadow-[#7047EB]/5 bg-white cursor-pointer'
+                    ? 'border-brand border-2 shadow-lg shadow-brand/5 bg-white cursor-pointer'
                     : selectable
                       ? 'border-slate-200 bg-white hover:border-slate-300 cursor-pointer'
                       : 'border-slate-100 bg-slate-50/60 opacity-60 cursor-not-allowed'
@@ -290,7 +289,7 @@ export const SelectRolePage = () => {
                 <div className="flex items-center min-w-0">
                   <div
                     className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 mr-4 ${
-                      selectable ? 'bg-[#F1EEFF] text-[#7047EB]' : 'bg-slate-100 text-slate-400'
+                      selectable ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-400'
                     }`}
                   >
                     {roleIcons[role]}
@@ -310,7 +309,7 @@ export const SelectRolePage = () => {
                     </span>
                   )}
                   {selectable && (
-                    <span className="w-8 h-8 rounded-full border border-[#7047EB]/20 flex items-center justify-center text-[#7047EB] text-sm">
+                    <span className="w-8 h-8 rounded-full border border-brand/20 flex items-center justify-center text-brand text-sm">
                       ➔
                     </span>
                   )}
@@ -331,7 +330,7 @@ export const SelectRolePage = () => {
             type="button"
             onClick={handleContinue}
             disabled={!selected || isLoading}
-            className="w-full py-3.5 rounded-2xl justify-center font-bold text-base bg-[#7047EB] hover:bg-[#5E3BD2] text-white active:scale-95 transition-transform shadow-lg shadow-[#7047EB]/20 flex items-center gap-1 select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+            className="w-full py-3.5 rounded-2xl justify-center font-bold text-base bg-brand hover:bg-brand-deep text-white active:scale-95 transition-transform shadow-lg shadow-brand/20 flex items-center gap-1 select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
           >
             {isLoading ? t('common.loading') : t('common.continue')}
             {!isLoading && (
@@ -353,6 +352,21 @@ export const SelectRolePage = () => {
           )}
         </div>
       </AuthLayout>
+
+      {/* The sign-out here is a small text link in the footer, easy to hit by
+          accident. It asks first, like the sidebar's does. */}
+      <ConfirmDialog
+        open={isSignOutOpen}
+        title={t('confirm.logOut.title')}
+        body={t('confirm.logOut.body')}
+        confirmLabel={t('shell.logOut')}
+        cancelLabel={t('common.cancel')}
+        onCancel={() => setIsSignOutOpen(false)}
+        onConfirm={async () => {
+          await logout();
+          navigate('/login', { replace: true });
+        }}
+      />
     </>
   );
 };

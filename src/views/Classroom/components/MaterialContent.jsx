@@ -27,7 +27,7 @@ export const MaterialContent = ({ sections, showToast }) => {
           {/* Header block */}
           <div className="space-y-1.5 pb-4 border-b border-slate-100">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-              <h3 className="text-sm font-extrabold text-slate-805 tracking-tight">
+              <h3 className="text-sm font-extrabold text-slate-800 tracking-tight">
                 {session.title}
               </h3>
               <span className="text-[10px] text-slate-400 font-bold bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-md self-start sm:self-auto">
@@ -41,7 +41,7 @@ export const MaterialContent = ({ sections, showToast }) => {
 
           {/* Attachments Section */}
           <div className="pt-4 space-y-3">
-            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-wider">
+            <h4 className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
               Lampiran Pembelajaran
             </h4>
             
@@ -63,7 +63,7 @@ export const MaterialContent = ({ sections, showToast }) => {
                       </div>
                       
                       <div className="min-w-0 text-left">
-                        <div className="text-xs font-black text-slate-805 truncate" title={fileName}>
+                        <div className="text-xs font-extrabold text-slate-800 truncate" title={fileName}>
                           {fileName}
                         </div>
                         <div className="text-[10px] text-slate-400 font-bold">
