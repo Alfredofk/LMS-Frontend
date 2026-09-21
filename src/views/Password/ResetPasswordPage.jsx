@@ -46,6 +46,22 @@ const LockMark = ({ tone = 'brand' }) => (
   </div>
 );
 
+/*
+  A dead link is a BAD_REQUEST, and so is a form with a bad field — one code,
+  two very different sentences. The default is written for the form, because
+  that is where BAD_REQUEST comes from nearly everywhere else: "some of your
+  input was not accepted, check the fields again".
+
+  Said to somebody who just clicked a link in their email, that is nonsense —
+  there are no fields on this screen to check. And an expired link is not the
+  rare case here; it is the likeliest way anyone arrives at this state at all.
+
+  The sentence that belongs here was already written and had never been wired
+  to anything. `apiErrorMessage` takes overrides for exactly this, the same way
+  useLoginForm distinguishes a wrong password from an expired session.
+*/
+const LINK_DEAD = { BAD_REQUEST: 'reset.rejected.invalid' };
+
 export const ResetPasswordPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -53,7 +69,25 @@ export const ResetPasswordPage = () => {
   const token = searchParams.get('token');
 
   const [state, setState] = useState('checking'); // checking · ready · rejected · done
-  const [message, setMessage] = useState('');
+  /*
+    What went wrong, not how to say it.
+
+    This used to hold a finished sentence, translated at the moment the error
+    happened. Switching language afterwards then left it in the old one while
+    everything around it changed — and the language switch sits right there in
+    the purple column, so the person most likely to use it is exactly the one
+    reading a page in a language they did not want.
+
+    Same rule the validators already follow: helpers hand back keys, and the
+    caller decides which language to say them in.
+  */
+  const [problem, setProblem] = useState(null); // { key } | { err } | { text } | null
+
+  const message = problem?.key
+    ? t(problem.key)
+    : problem?.err
+      ? apiErrorMessage(problem.err, t, LINK_DEAD)
+      : problem?.text ?? '';
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -70,7 +104,7 @@ export const ResetPasswordPage = () => {
 
     if (!token) {
       setState('rejected');
-      setMessage(t('reset.rejected.noToken'));
+      setProblem({ key: 'reset.rejected.noToken' });
       return;
     }
 
@@ -79,7 +113,7 @@ export const ResetPasswordPage = () => {
       .then(() => setState('ready'))
       .catch((err) => {
         setState('rejected');
-        setMessage(apiErrorMessage(err, t));
+        setProblem({ err });
       });
   }, [token, t]);
 
@@ -99,7 +133,9 @@ export const ResetPasswordPage = () => {
     setIsSaving(true);
     try {
       const data = await authService.resetPassword({ token, password });
-      setMessage(data?.message ?? t('reset.done.fallback'));
+      /* The server's own sentence when it sends one — it is the only party that
+         knows what it just did — and our key when it does not. */
+      setProblem(data?.message ? { text: data.message } : { key: 'reset.done.fallback' });
       setState('done');
     } catch (err) {
       /*
@@ -110,7 +146,11 @@ export const ResetPasswordPage = () => {
       */
       if (err.code === 'BAD_REQUEST' && !err.details) {
         setState('rejected');
-        setMessage(err.message);
+        /* Not `err.message`: that is the server's English, and this screen has
+           an Indonesian sentence for the same thing. The server keeps its own
+           words only where it disagrees with our validation — a link that ran
+           out is not a disagreement. */
+        setProblem({ key: 'reset.rejected.invalid' });
       } else {
         setErrors({ global: apiErrorMessage(err, t) });
       }
@@ -131,6 +171,7 @@ export const ResetPasswordPage = () => {
   if (state === 'checking') {
     return (
       <AuthLayout
+        transitionKey={state}
         heading={t('reset.checking.panelHeading')}
         blurb={t('reset.checking.panelBlurb')}
         footer={footer}
@@ -144,6 +185,7 @@ export const ResetPasswordPage = () => {
   if (state === 'rejected') {
     return (
       <AuthLayout
+        transitionKey={state}
         heading={t('reset.rejected.panelHeading')}
         blurb={t('reset.rejected.panelBlurb')}
         footer={footer}
@@ -170,6 +212,7 @@ export const ResetPasswordPage = () => {
   if (state === 'done') {
     return (
       <AuthLayout
+        transitionKey={state}
         heading={t('reset.done.panelHeading')}
         blurb={t('reset.done.panelBlurb')}
         footer={footer}
@@ -205,7 +248,10 @@ export const ResetPasswordPage = () => {
   }
 
   return (
+    /* Four states, one URL. `transitionKey` is what lets each one arrive
+       instead of appearing — the pathname is the same for all four. */
     <AuthLayout
+      transitionKey={state}
       heading={t('reset.form.panelHeading')}
       blurb={t('reset.form.panelBlurb')}
       footer={footer}

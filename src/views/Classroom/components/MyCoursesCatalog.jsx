@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { getAccessToken } from '../../../services/apiClient';
 import { 
   Search, 
   Star, 
@@ -39,7 +40,7 @@ export const MyCoursesCatalog = ({ courses = [], isLoading, error }) => {
   useEffect(() => {
     const fetchProgress = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = getAccessToken();
         if (!token) return;
         const res = await fetch('/api/announcements/student/dashboard-widgets', {
           headers: { 'Authorization': `Bearer ${token}` }

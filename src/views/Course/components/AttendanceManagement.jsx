@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Save, CheckCircle, HelpCircle, FileText } from 'lucide-react';
+import { getAccessToken } from '../../../services/apiClient';
 
 export const AttendanceManagement = ({ courseId, showToast }) => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -10,7 +11,7 @@ export const AttendanceManagement = ({ courseId, showToast }) => {
   const fetchAttendanceRekap = async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       const response = await fetch(`/api/attendance/teacher/${courseId}?date=${selectedDate}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -54,7 +55,7 @@ export const AttendanceManagement = ({ courseId, showToast }) => {
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       
       const payload = {
         date: selectedDate,

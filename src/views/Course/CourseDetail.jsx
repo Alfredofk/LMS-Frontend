@@ -20,6 +20,7 @@ import StudentListTab from './components/StudentListTab';
 import CreateTaskModal from './components/CreateTaskModal';
 import AddMaterialModal from './components/AddMaterialModal';
 import AttendanceManagement from './components/AttendanceManagement';
+import { getAccessToken } from '../../services/apiClient';
 
 export const CourseDetail = () => {
   const { courseId } = useParams();
@@ -116,7 +117,7 @@ export const CourseDetail = () => {
 
   /*
     The four handlers below still call `fetch` directly and still read
-    `localStorage.getItem('token')` — which is the wrong store for a session
+    `getAccessToken()` — which is the wrong store for a session
     without "Remember me". Left that way on purpose for now: none of them has the
     401 branch this slice removed, every endpoint they call answers 404, and no
     path through the UI reaches them, so changing them would add risk without
@@ -127,7 +128,7 @@ export const CourseDetail = () => {
   */
   const handleCreateTask = async (taskData) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       const response = await fetch(`/api/courses/${courseId}/assignments`, {
         method: 'POST',
         headers: {
@@ -156,7 +157,7 @@ export const CourseDetail = () => {
   const handleSaveMaterial = async (materialData) => {
     if (editingMaterial) {
       try {
-        const token = localStorage.getItem('token');
+        const token = getAccessToken();
         const response = await fetch(`/api/materials/${editingMaterial.id}`, {
           method: 'PUT',
           headers: {
@@ -190,7 +191,7 @@ export const CourseDetail = () => {
       }
     } else {
       try {
-        const token = localStorage.getItem('token');
+        const token = getAccessToken();
         const response = await fetch(`/api/courses/${courseId}/materials`, {
           method: 'POST',
           headers: {
@@ -233,7 +234,7 @@ export const CourseDetail = () => {
     if (!window.confirm(`Apakah Anda yakin ingin menghapus materi "${materialTitle}"?`)) return;
 
     try {
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       const response = await fetch(`/api/materials/${materialId}`, {
         method: 'DELETE',
         headers: {

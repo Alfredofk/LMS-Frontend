@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Megaphone, Calendar, User, ChevronLeft, Search } from 'lucide-react';
 import { useT } from '../../i18n/LanguageContext';
+import { getAccessToken } from '../../services/apiClient';
 
 export const AnnouncementPage = () => {
   const { t, lang } = useT();
@@ -13,7 +14,7 @@ export const AnnouncementPage = () => {
 
   const fetchAnnouncements = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       if (!token) return;
 
       const res = await fetch('/api/announcements', {

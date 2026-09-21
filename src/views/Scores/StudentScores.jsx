@@ -25,6 +25,7 @@ import { useT } from '../../i18n/LanguageContext';
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
 import { isNotBuiltYet } from '../../services/apiClient';
 import { gradebookService } from '../../services/gradebookService';
+import { getAccessToken } from '../../services/apiClient';
 
 // Circular Percentage Gauge Component
 const CircularGauge = ({ percentage = 75, size = 56, strokeWidth = 5.5, color = '#7047EB' }) => {
@@ -227,7 +228,7 @@ export const StudentScores = () => {
        waiting, and so is the `submissionId` ambiguity noted in the contract. */
     try {
       setIsSubmittingProtest(true);
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       
       const targetAssignment = selectedCourse?.assignments.find(a => String(a.id) === String(selectedAssignmentForProtest));
 

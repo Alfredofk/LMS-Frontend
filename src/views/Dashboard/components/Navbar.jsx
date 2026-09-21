@@ -10,11 +10,13 @@ import {
   Trash2, 
   X,
   Search,
-  ChevronLeft
+  ChevronLeft,
+  Menu
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { classroomData } from '../../Classroom/classroomData';
 import { useT } from '../../../i18n/LanguageContext';
+import { getAccessToken } from '../../../services/apiClient';
 
 /*
   What the bar says on each route, and whether it carries a back arrow.
@@ -50,7 +52,7 @@ const TITLES = {
   '/headmaster/dashboard': { key: 'shell.title.principalDashboard' },
 };
 
-export const Navbar = ({ showToast }) => {
+export const Navbar = ({ showToast, onOpenNav }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -62,6 +64,18 @@ export const Navbar = ({ showToast }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [firstLoadDone, setFirstLoadDone] = useState(false);
+
+  /*
+    /api/notifications does not exist yet, and a poll that asks a 404 six times
+    a minute is not harmless here. The backend logs every request into a file
+    under its own src/, and its dev script is `node --watch src/server.js` —
+    so each of those requests restarts the server somebody else is working on.
+
+    The first 404 stops the poll. The day the module lands the first call
+    succeeds instead, this never turns true, and nothing here behaves
+    differently.
+  */
+  const [notificationsNotBuilt, setNotificationsNotBuilt] = useState(false);
   
   const dropdownRef = useRef(null);
   const seenNotifIds = useRef(new Set());
@@ -69,12 +83,21 @@ export const Navbar = ({ showToast }) => {
   // Fetch Notifications
   const fetchNotifications = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       if (!token) return;
 
       const res = await fetch('/api/notifications', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+
+      /* Not a failed request — a module that is not there. Same distinction
+         `isNotBuiltYet` draws in services/apiClient.js, read off the raw
+         response because this call does not go through it yet. */
+      if (res.status === 404) {
+        setNotificationsNotBuilt(true);
+        return;
+      }
+
       if (res.ok) {
         const data = await res.json();
         setNotifications(data);
@@ -115,12 +138,16 @@ export const Navbar = ({ showToast }) => {
       Notification.requestPermission();
     }
 
+    /* Asking for permission still happens above: that is about this browser,
+       not about whether the endpoint exists. */
+    if (notificationsNotBuilt) return undefined;
+
     fetchNotifications();
 
     // Poll every 10 seconds for real-time notifications
     const interval = setInterval(fetchNotifications, 10000);
     return () => clearInterval(interval);
-  }, [firstLoadDone]);
+  }, [firstLoadDone, notificationsNotBuilt]);
 
   // Click outside to close dropdown
   useEffect(() => {
@@ -137,7 +164,7 @@ export const Navbar = ({ showToast }) => {
   const handleMarkAsRead = async (e, notif) => {
     e.stopPropagation();
     try {
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       const res = await fetch(`/api/notifications/${notif.id}/read`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -155,7 +182,7 @@ export const Navbar = ({ showToast }) => {
   // Mark all as read
   const handleMarkAllAsRead = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       const res = await fetch('/api/notifications/read-all', {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -174,7 +201,7 @@ export const Navbar = ({ showToast }) => {
   const handleDeleteNotif = async (e, id) => {
     e.stopPropagation();
     try {
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       const res = await fetch(`/api/notifications/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -199,7 +226,7 @@ export const Navbar = ({ showToast }) => {
     // Mark as read first if unread
     if (!notif.isRead) {
       try {
-        const token = localStorage.getItem('token');
+        const token = getAccessToken();
         await fetch(`/api/notifications/${notif.id}/read`, {
           method: 'PUT',
           headers: { 'Authorization': `Bearer ${token}` }
@@ -386,11 +413,34 @@ export const Navbar = ({ showToast }) => {
       .toUpperCase();
   };
 
+  /*
+    The bell beside this one has always said what it does; this said nothing at
+    all — no aria-label and no title — so a screen reader announced it as "SR,
+    button", and somebody looking at it had no way to learn that a circle of
+    initials leads anywhere. Same wording as the sidebar's profile card, minus
+    the dangling dash that one produces when there is no name to put in front
+    of it.
+  */
+  const profileLabel = user?.fullName
+    ? `${user.fullName} — ${t('shell.myProfile')}`
+    : t('shell.myProfile');
+
   return (
-    <header className="h-16 border-b border-slate-100 bg-white flex items-center justify-between px-8 select-none shrink-0 relative z-20">
-      {/* Title */}
-      <div className="tracking-tight flex items-center">
-        {getNavbarTitle()}
+    /* px-8 spent 64px of a 375px phone on padding alone. */
+    <header className="h-16 border-b border-slate-100 bg-white flex items-center justify-between gap-3 px-4 sm:px-6 md:px-8 select-none shrink-0 relative z-20">
+      {/* Title, and below `md` the only way to reach the menu */}
+      <div className="tracking-tight flex items-center gap-1.5 min-w-0">
+        <button
+          type="button"
+          onClick={onOpenNav}
+          aria-label={t('shell.openMenu')}
+          className="md:hidden -ml-1 p-2 rounded-xl text-slate-700 hover:bg-slate-50 hover:text-brand transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand shrink-0"
+        >
+          <Menu className="w-5 h-5" aria-hidden="true" />
+        </button>
+        {/* min-w-0 + truncate: a long breadcrumb used to push the bell and the
+            avatar off the right edge instead of shortening itself. */}
+        <div className="min-w-0 truncate">{getNavbarTitle()}</div>
       </div>
 
       {/* Middle Search Bar for My Courses & Scores */}
@@ -509,6 +559,10 @@ export const Navbar = ({ showToast }) => {
         <button
           type="button"
           onClick={() => navigate('/profile')}
+          aria-label={profileLabel}
+          /* Not only for screen readers: the tooltip is what answers "can I
+             press this, and where does it go" without pressing it first. */
+          title={profileLabel}
           className="w-8 h-8 rounded-full bg-brand-tint text-brand flex items-center justify-center font-bold text-xs shadow-inner select-none cursor-pointer focus:outline-none hover:ring-2 hover:ring-purple-200 transition-all"
         >
           {getInitials()}

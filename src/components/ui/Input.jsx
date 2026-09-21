@@ -39,6 +39,16 @@ export const Input = React.forwardRef(({
           </div>
         )}
 
+        {/*
+          16px at every width, and that number is not a taste. Safari on iOS zooms
+          the whole page in when somebody taps a field whose font is below 16px,
+          and it does not zoom back out.
+
+          This used to read `text-sm md:text-base` — 14px on a phone, 16px on a
+          desktop — which is exactly backwards: the small size was reserved for
+          the only platform that punishes it. From `md` up the value was already
+          16px, so this changes nothing on a desktop.
+        */}
         <input
           ref={ref}
           id={id}
@@ -48,7 +58,7 @@ export const Input = React.forwardRef(({
           aria-describedby={error ? `${id}-error` : undefined}
           required={required}
           className={`
-            block w-full rounded-xl border transition-all duration-200 text-slate-900 placeholder-slate-400 text-sm md:text-base
+            block w-full rounded-xl border transition-all duration-200 text-slate-900 placeholder-slate-400 text-base
             py-2.5 md:py-3 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand
             ${icon ? 'pl-11' : 'pl-4'}
             ${isPassword ? 'pr-11' : 'pr-4'}

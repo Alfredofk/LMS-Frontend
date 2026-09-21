@@ -39,6 +39,22 @@ const MailIcon = ({ state }) => (
   </div>
 );
 
+/*
+  A dead link is a BAD_REQUEST, and so is a form with a bad field — one code,
+  two very different sentences. The default is written for the form, because
+  that is where BAD_REQUEST comes from nearly everywhere else: "some of your
+  input was not accepted, check the fields again".
+
+  Said to somebody who just clicked a link in their email, that is nonsense —
+  there are no fields on this screen to check. And an expired link is not the
+  rare case here; it is the likeliest way anyone arrives at this state at all.
+
+  The sentence that belongs here was already written and had never been wired
+  to anything. `apiErrorMessage` takes overrides for exactly this, the same way
+  useLoginForm distinguishes a wrong password from an expired session.
+*/
+const LINK_DEAD = { BAD_REQUEST: 'verify.error.invalid' };
+
 export const VerifyEmailPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -46,7 +62,25 @@ export const VerifyEmailPage = () => {
   const token = searchParams.get('token');
 
   const [state, setState] = useState('checking'); // checking · error
-  const [message, setMessage] = useState('');
+  /*
+    What went wrong, not how to say it.
+
+    This used to hold a finished sentence, translated at the moment the error
+    happened. Switching language afterwards then left it in the old one while
+    everything around it changed — and the language switch sits right there in
+    the purple column, so the person most likely to use it is exactly the one
+    reading a page in a language they did not want.
+
+    Same rule the validators already follow: helpers hand back keys, and the
+    caller decides which language to say them in.
+  */
+  const [problem, setProblem] = useState(null); // { key } | { err } | null
+
+  const message = problem?.key
+    ? t(problem.key)
+    : problem?.err
+      ? apiErrorMessage(problem.err, t, LINK_DEAD)
+      : '';
   const [email, setEmail] = useState('');
   const [isResending, setIsResending] = useState(false);
   const [toast, setToast] = useState(null);
@@ -66,7 +100,7 @@ export const VerifyEmailPage = () => {
 
     if (!token) {
       setState('error');
-      setMessage(t('verify.error.noToken'));
+      setProblem({ key: 'verify.error.noToken' });
       return;
     }
 
@@ -82,7 +116,7 @@ export const VerifyEmailPage = () => {
       .then(() => navigate('/login', { replace: true, state: { verified: true } }))
       .catch((err) => {
         setState('error');
-        setMessage(apiErrorMessage(err, t));
+        setProblem({ err });
       });
   }, [token, navigate, t]);
 
@@ -131,7 +165,11 @@ export const VerifyEmailPage = () => {
         <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
       )}
 
+      {/* The purple column says the same thing in both states here; the card
+          does not — it goes from "hold on" to a link that did not work. That
+          is the change worth marking. */}
       <AuthLayout
+        transitionKey={state}
         heading={t('verify.panel.heading')}
         blurb={t('verify.panel.blurb')}
         footer={footer}

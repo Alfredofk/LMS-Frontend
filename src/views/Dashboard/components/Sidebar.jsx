@@ -6,6 +6,7 @@ import BrandMark from '../../../components/ui/BrandMark';
 import LanguageSwitch from '../../../components/ui/LanguageSwitch';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import { useT } from '../../../i18n/LanguageContext';
+import { getAccessToken } from '../../../services/apiClient';
 import {
   LayoutGrid,
   BookOpen,
@@ -20,7 +21,8 @@ import {
   GraduationCap,
   Repeat,
   ShieldCheck,
-  LogOut
+  LogOut,
+  X
 } from 'lucide-react';
 
 /* Outside the component: a lookup table, not state. */
@@ -31,7 +33,7 @@ const ROLE_TITLE_KEY = {
   [ROLES.GUARDIAN]: 'roleTitle.GUARDIAN',
 };
 
-export const Sidebar = ({ showToast, userRole }) => {
+export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
   const { user, membership, roles, activeRole, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -51,7 +53,7 @@ export const Sidebar = ({ showToast, userRole }) => {
     if (role === ROLES.TEACHER) {
       const checkHomeroom = async () => {
         try {
-          const token = localStorage.getItem('token');
+          const token = getAccessToken();
           const response = await fetch('/api/homeroom/class', {
             headers: { 'Authorization': `Bearer ${token}` }
           });
@@ -114,7 +116,39 @@ export const Sidebar = ({ showToast, userRole }) => {
   const ProfileCardTag = onProfile ? 'div' : 'button';
 
   return (
-    <aside className="w-64 bg-white border-r border-slate-100 flex flex-col h-full select-none shrink-0 text-slate-800">
+    /*
+      Below `md` this is a drawer: fixed, off-canvas, slid in by `isOpen`.
+      From `md` up every one of those is overridden and it is the same static
+      column it has always been.
+
+      `invisible` when closed, not just `-translate-x-full`. A menu pushed off
+      the left edge is still in the tab order, so Tab would walk the keyboard
+      into eleven controls nobody can see.
+
+      The timing is inline because Tailwind has one `duration-*` and one
+      `delay-*` per element, while the two properties here need different ones.
+
+      It says `translate`, not `transform`. Tailwind 4 writes `translate-x-*` to the
+      `translate` property, and `transform` stays `none` — so naming `transform` here
+      transitioned nothing at all. Measured: 20ms after the click the drawer was
+      already at its destination, with no animation and no delay in effect.
+
+      `visibility` is discrete, so its 1ms duration is only there to make it a
+      real transition the delay can steer: none on open, so it turns visible as
+      the slide begins, and 200ms on close, so it waits for the slide to end.
+      At a flat 0ms duration the browser drops the transition and the delay with
+      it, and the closed drawer stays in the tab order.
+    */
+    <aside
+      style={{
+        transitionProperty: 'translate, visibility',
+        transitionDuration: '200ms, 1ms',
+        transitionDelay: isOpen ? '0ms, 0ms' : '0ms, 200ms',
+      }}
+      className={`w-64 bg-white border-r border-slate-100 flex flex-col select-none shrink-0 text-slate-800 fixed inset-y-0 left-0 z-40 ease-out md:static md:h-full md:translate-x-0 md:visible ${
+        isOpen ? 'translate-x-0 visible' : '-translate-x-full invisible'
+      }`}
+    >
 
       {/* Scrolls. The account group below does not — see the footer. */}
       <div className="flex flex-col flex-1 overflow-y-auto min-h-0">
@@ -130,6 +164,17 @@ export const Sidebar = ({ showToast, userRole }) => {
               {schoolName}
             </div>
           </div>
+
+          {/* Escape and the backdrop already close the drawer, but neither is
+              visible. On a phone this is the only way out somebody can see. */}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t('shell.closeMenu')}
+            className="md:hidden ml-auto -mr-1 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand shrink-0"
+          >
+            <X className="w-4 h-4" aria-hidden="true" />
+          </button>
         </div>
 
         {/*

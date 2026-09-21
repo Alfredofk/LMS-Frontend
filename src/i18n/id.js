@@ -630,6 +630,8 @@ export default {
   'shell.switchRole': 'Ganti Peran',
   'shell.logOut': 'Keluar',
   'shell.loggingOut': 'Sedang keluar…',
+  'shell.openMenu': 'Buka menu',
+  'shell.closeMenu': 'Tutup menu',
   'shell.noSchool': 'Belum ada sekolah',
   'shell.account.fallback': 'Akun',
   'shell.underConstruction': 'Fitur "{feature}" masih dalam pengerjaan.',

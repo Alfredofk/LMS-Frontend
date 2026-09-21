@@ -6,6 +6,7 @@ import NotBuiltYet from '../../components/ui/NotBuiltYet';
 import { isNotBuiltYet } from '../../services/apiClient';
 import { coursesService } from '../../services/coursesService';
 import { gradebookService } from '../../services/gradebookService';
+import { getAccessToken } from '../../services/apiClient';
 
 export const TeacherGradebook = () => {
   const { showToast } = useOutletContext();
@@ -175,7 +176,7 @@ export const TeacherGradebook = () => {
 
     try {
       setIsSaving(true);
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       const response = await fetch(`/api/gradebook/${selectedCourseId}/save`, {
         method: 'POST',
         headers: {
@@ -217,7 +218,7 @@ export const TeacherGradebook = () => {
      `gradebookService.protests.review` and `.save` are waiting. */
   const handleReviewProtest = async (protestId, decision, feedback) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       const response = await fetch(`/api/protests/${protestId}/review`, {
         method: 'PUT',
         headers: {

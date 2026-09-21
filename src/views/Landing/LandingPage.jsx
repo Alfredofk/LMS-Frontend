@@ -117,7 +117,31 @@ export const LandingPage = () => {
       {/* ========================================== */}
       {/* 1. NAVBAR SECTION                          */}
       {/* ========================================== */}
-      <header className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between select-none relative z-30">
+      {/*
+        Below `sm` this header is two rows: the logo on one, the controls on the
+        next. Measured on a 375px phone, the controls need 288px and the space
+        left beside the logo is 218px, so "Daftar" ended 46px past the right edge
+        — and nothing on this page scrolls sideways, so the one button that asks
+        somebody to sign up could not be pressed at all.
+
+        Wrapping rather than hiding the language switch or shortening it to
+        "ID/EN": both were measured too. Hiding it fits with 82px to spare but
+        leaves an English reader on a phone with no way to change language on the
+        first page they see. "ID/EN" still missed by 6px on its own, and only fit
+        once the padding and gaps were tightened as well — a crowded row, and it
+        would have to break LanguageSwitch's own rule that a language is written
+        the way its speakers write it.
+
+        Two rows costs height and nothing else: 76px becomes 120px, on phones
+        only. From `sm` up `flex-nowrap` turns the wrapping off outright, which
+        matters at 768px: that is where the nav links appear, and measured, the row
+        still fits there by compressing the nav from 338px to 308px. Left to wrap it
+        would have broken into two rows instead — a change on a screen that was
+        never broken.
+        `gap-y-3` does nothing while everything fits on one
+        line, so from `sm` up this header is unchanged.
+      */}
+      <header className="max-w-6xl mx-auto px-6 py-5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-y-3 select-none relative z-30">
         <Logo />
 
         {/* Links */}
@@ -138,22 +162,45 @@ export const LandingPage = () => {
         </nav>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-4">
+        {/* `w-full` is what forces the wrap below `sm`; `sm:w-auto` puts it back
+            beside the logo above it, where the header's own justify-between takes
+            over and this one stops mattering.
+
+            Three values of `justify` were tried on a phone before the real problem
+            turned out not to be the value at all. `end` left the language switch 39px
+            past the logo at 375px and 76px past it at 412px — the gap grew with the
+            screen. `start` lined it up with the logo but hung all that space off the
+            right instead. `between` squared both edges and then opened 54px between
+            every control, which set Sign In adrift in the middle.
+
+            All three were right about the value and wrong about the structure: this
+            row had three equal children, so spreading it evenly is exactly what it
+            was asked to do. Sign In and Register are one thing — two doors to the
+            same /login, differing only in which step they open on. Wrapped into one
+            child, `justify-between` now has two things to place, and puts them where
+            the page already has edges. */}
+        <div className="flex items-center gap-4 w-full justify-between sm:w-auto">
           <LanguageSwitch />
-          <button
-            type="button"
-            onClick={() => navigate('/login', { state: { step: 'sign_in' } })}
-            className="text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
-          >
-            {t('landing.nav.signIn')}
-          </button>
-          <Button
-            size="sm"
-            onClick={() => navigate('/login', { state: { step: 'sign_up' } })}
-            className="rounded-xl px-4 py-2 text-sm font-bold shadow-md shadow-brand/10 cursor-pointer"
-          >
-            {t('landing.nav.register')}
-          </Button>
+
+          {/* The pair, kept together. `gap-4` matches the gap outside it, so from
+              `sm` up — where the row is content-sized and nothing is being spread —
+              all three controls still sit 16px apart, exactly as before. */}
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => navigate('/login', { state: { step: 'sign_in' } })}
+              className="text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+            >
+              {t('landing.nav.signIn')}
+            </button>
+            <Button
+              size="sm"
+              onClick={() => navigate('/login', { state: { step: 'sign_up' } })}
+              className="rounded-xl px-4 py-2 text-sm font-bold shadow-md shadow-brand/10 cursor-pointer"
+            >
+              {t('landing.nav.register')}
+            </Button>
+          </div>
         </div>
       </header>
 

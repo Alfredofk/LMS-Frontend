@@ -12,6 +12,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
 import { ROLES } from '../../constants/roles';
+import { getAccessToken } from '../../services/apiClient';
 
 export const SchedulePage = () => {
   const { activeRole } = useAuth();
@@ -51,7 +52,7 @@ export const SchedulePage = () => {
   const fetchScheduleData = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       if (!token) return;
 
       // Lowercased only here: the role name is uppercase everywhere in this app,

@@ -5,6 +5,7 @@ import { isNotBuiltYet } from '../../services/apiClient';
 import { headmasterService } from '../../services/headmasterService';
 import { buildSampleHeadmasterData } from './sampleHeadmasterData';
 import { SampleDataBanner } from './components/SampleDataNotice';
+import { getAccessToken } from '../../services/apiClient';
 import {
   Users, 
   GraduationCap, 
@@ -91,7 +92,7 @@ export const HeadmasterDashboard = () => {
 
   // 2. Fetch lists based on active tab selection
   const fetchTabData = async () => {
-    const token = localStorage.getItem('token');
+    const token = getAccessToken();
     setIsLoadingList(true);
     try {
       if (activeTab === 'teachers') {
@@ -129,7 +130,7 @@ export const HeadmasterDashboard = () => {
   const handleCreateTeacher = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       const response = await fetch('/api/headmaster/teachers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -151,7 +152,7 @@ export const HeadmasterDashboard = () => {
   const handleDeleteTeacher = async (id, name) => {
     if (!window.confirm(t('principal.teachers.confirmDelete', { name }))) return;
     try {
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       const response = await fetch(`/api/headmaster/teachers/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -171,7 +172,7 @@ export const HeadmasterDashboard = () => {
   const handleCreateStudent = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       const response = await fetch('/api/headmaster/students', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -193,7 +194,7 @@ export const HeadmasterDashboard = () => {
   const handleDeleteStudent = async (id, name) => {
     if (!window.confirm(t('principal.students.confirmDelete', { name }))) return;
     try {
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       const response = await fetch(`/api/headmaster/students/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -213,7 +214,7 @@ export const HeadmasterDashboard = () => {
   const handleCreateCourse = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       const response = await fetch('/api/courses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -235,7 +236,7 @@ export const HeadmasterDashboard = () => {
   const handleDeleteCourse = async (id, name) => {
     if (!window.confirm(t('principal.courses.confirmDelete', { name }))) return;
     try {
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       const response = await fetch(`/api/courses/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -255,7 +256,7 @@ export const HeadmasterDashboard = () => {
   const handleCreateAnnouncement = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       const response = await fetch('/api/announcements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -276,7 +277,7 @@ export const HeadmasterDashboard = () => {
   const handleDeleteAnnouncement = async (id, title) => {
     if (!window.confirm(t('principal.ann.confirmDelete', { name: title }))) return;
     try {
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       const response = await fetch(`/api/announcements/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -308,7 +309,19 @@ export const HeadmasterDashboard = () => {
       </div>
 
       {/* 2. Navigation tabs row */}
-      <div className="border-b border-slate-100 flex gap-6 select-none">
+      {/*
+        The five tabs need 778px. A 375px phone gives this row 343px, so two of
+        them sat past the right edge, and reaching them meant dragging the whole
+        page sideways: <main> is overflow-y-auto, and CSS resolves the other axis
+        to auto with it, so the heading and every card slid along with the tabs.
+        Now only the strip moves.
+
+        Scrolling rather than wrapping: the bar stays one line, which is what the
+        active underline reads against. On desktop the row is 960px for 778px of
+        tabs, so nothing overflows and nothing scrolls — measured identical after
+        the change, down to each tab's x position.
+      */}
+      <div className="border-b border-slate-100 flex gap-6 select-none overflow-x-auto">
         {[
           { id: 'dashboard', label: t('dash.principal.tab.dashboard'), icon: School },
           { id: 'teachers', label: t('dash.principal.tab.teachers'), icon: Users },
@@ -322,7 +335,7 @@ export const HeadmasterDashboard = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`pb-3 text-sm font-extrabold transition-all flex items-center gap-2 border-b-2 focus:outline-none cursor-pointer
+              className={`pb-3 text-sm font-extrabold transition-all flex items-center gap-2 border-b-2 focus:outline-none cursor-pointer shrink-0 whitespace-nowrap
                 ${isActive 
                   ? 'border-brand text-brand' 
                   : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -415,8 +428,23 @@ export const HeadmasterDashboard = () => {
             {isLoadingList ? (
               <div className="h-40 bg-white border border-slate-100 rounded-2xl animate-pulse"></div>
             ) : (
+              /*
+                The wrapper has always had `overflow-x-auto`, but a `w-full` table
+                can never overflow it — so on a phone these five columns squeezed
+                instead of scrolling, and nothing ever scrolled at all.
+
+                `min-w-max` rather than a fixed `min-w-[Nrem]` because there is
+                nothing yet to measure: every one of these tables is empty, the
+                endpoints behind them still 404, and the column widths that will
+                matter belong to names, emails and NIPs nobody has seen. A number
+                picked today would be a guess about that data. Content width is
+                not a guess, and it will still be right when the rows arrive.
+
+                Desktop is untouched: max-content is 242-345px against 911px of
+                room, so `w-full` still wins and the table stays 911px wide.
+              */
               <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm overflow-x-auto">
-                <table className="w-full text-xs font-medium text-slate-600">
+                <table className="w-full min-w-max text-xs font-medium text-slate-600">
                   <thead>
                     <tr className="border-b border-slate-100 text-slate-400 font-extrabold text-left">
                       <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.th.fullName')}</th>
@@ -469,7 +497,7 @@ export const HeadmasterDashboard = () => {
               <div className="h-40 bg-white border border-slate-100 rounded-2xl animate-pulse"></div>
             ) : (
               <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm overflow-x-auto">
-                <table className="w-full text-xs font-medium text-slate-600">
+                <table className="w-full min-w-max text-xs font-medium text-slate-600">
                   <thead>
                     <tr className="border-b border-slate-100 text-slate-400 font-extrabold text-left">
                       <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.th.fullName')}</th>
@@ -524,7 +552,7 @@ export const HeadmasterDashboard = () => {
               <div className="h-40 bg-white border border-slate-100 rounded-2xl animate-pulse"></div>
             ) : (
               <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm overflow-x-auto">
-                <table className="w-full text-xs font-medium text-slate-600">
+                <table className="w-full min-w-max text-xs font-medium text-slate-600">
                   <thead>
                     <tr className="border-b border-slate-100 text-slate-400 font-extrabold text-left">
                       <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.courses.th.code')}</th>
@@ -585,7 +613,7 @@ export const HeadmasterDashboard = () => {
                 {announcements.length === 0 ? (
                   <p className="text-xs text-slate-400 font-bold italic py-4 text-center">{t('principal.ann.empty')}</p>
                 ) : (
-                  <table className="w-full text-xs font-medium text-slate-600">
+                  <table className="w-full min-w-max text-xs font-medium text-slate-600">
                     <thead>
                       <tr className="border-b border-slate-100 text-slate-400 font-extrabold text-left">
                         <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.ann.th.title')}</th>

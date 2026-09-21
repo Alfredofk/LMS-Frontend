@@ -623,6 +623,8 @@ export default {
   'shell.switchRole': 'Switch Role',
   'shell.logOut': 'Log Out',
   'shell.loggingOut': 'Signing out…',
+  'shell.openMenu': 'Open menu',
+  'shell.closeMenu': 'Close menu',
   'shell.noSchool': 'No school yet',
   'shell.account.fallback': 'Account',
   'shell.underConstruction': '"{feature}" is still being built.',

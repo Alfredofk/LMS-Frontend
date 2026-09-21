@@ -10,9 +10,20 @@
 const BASE_URL = '/api';
 
 /*
-  The access token keeps the key it has always had. AuthContext and a dozen views
-  still read localStorage.getItem('token') directly, and renaming it would log
-  everyone out for no gain. The refresh token is new, so it gets a new key.
+  The access token keeps the key it has always had: renaming it would log out
+  everyone holding a session under the old name, for no gain. The refresh token
+  is new, so it gets a new key.
+
+  Nothing reads these keys directly any more. Thirty-three sites across thirteen
+  views used to call localStorage.getItem('token'), which was wrong rather than
+  merely untidy: a session with "Remember me" unchecked — the default — lives in
+  `sessionStorage`, so every one of them read null and sent "Bearer null". The
+  endpoints behind them all 404 today, so it cost nothing yet; the day they exist
+  it would have been an intermittent 401 that follows a checkbox.
+
+  They go through `getAccessToken()` now, which asks `activeStore()` where the
+  session actually is. Keep it that way: read a token through this module, never
+  from a storage by name.
 */
 const ACCESS_TOKEN_KEY = 'token';
 const REFRESH_TOKEN_KEY = 'lms_refresh_token';

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, CheckCircle, FileText, UserCheck, AlertTriangle } from 'lucide-react';
+import { getAccessToken } from '../../../services/apiClient';
 
 export const AttendanceContent = ({ courseId, showToast }) => {
   const [summary, setSummary] = useState({ total: 0, hadir: 0, izin: 0, sakit: 0, alpa: 0, percentage: 100 });
@@ -17,7 +18,7 @@ export const AttendanceContent = ({ courseId, showToast }) => {
   const fetchAttendance = async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       const response = await fetch(`/api/attendance/student/${courseId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -47,7 +48,7 @@ export const AttendanceContent = ({ courseId, showToast }) => {
   const handleCheckIn = async () => {
     try {
       setIsSubmitting(true);
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       const response = await fetch(`/api/attendance/student/${courseId}/checkin`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -76,7 +77,7 @@ export const AttendanceContent = ({ courseId, showToast }) => {
 
     try {
       setIsSubmitting(true);
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       const response = await fetch(`/api/attendance/student/${courseId}/excuse`, {
         method: 'POST',
         headers: {

@@ -55,6 +55,58 @@
 }
 
 /*
+  The entrance the auth shell replays whenever its contents change — moving
+  between /login, /select-role and /get-started, and between the three steps
+  of /login itself.
+
+  It falls: down from -16px, not up from +8px, and over 280ms rather than 220.
+  The first version was deliberately tiny, because what it was fixing then was
+  people getting dizzy when the purple column leapt 794px across the screen,
+  and a big movement would have been more of the same complaint.
+
+  That reason expired when the shell was unified: the column holds still now,
+  so only the contents move. And the small version failed its own test —
+  somebody testing the app on a phone asked for this animation to be added,
+  not knowing it was already there.
+
+  Same easing as slideInRight above, which decelerates hard at the end. That is
+  what reads as landing rather than sliding to a stop.
+
+  `--swap-delay` staggers the blocks that use this: heading first, then the card,
+  then the footer. The `both` fill is what makes a delay work — it holds the
+  block at `from` while it waits, instead of showing it and then snapping it
+  back to the start.
+*/
+@keyframes swapIn {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-swap-in {
+  animation: swapIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--swap-delay, 0ms);
+}
+
+/*
+  The first reduced-motion block in this project, and the new animation is the
+  reason it needs one: everything that moved before was asked for by a click,
+  while this plays on its own. Somebody whose system says to reduce motion has
+  usually asked for a reason worse than taste.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .animate-swap-in,
+  .animate-slide-in {
+    animation: none;
+  }
+}
+
+/*
   The Google sign-in button, made to sit level with the Continue button above it.
 
   Google Identity Services renders this one itself, and it renders it at a fixed

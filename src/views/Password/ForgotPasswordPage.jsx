@@ -81,7 +81,15 @@ export const ForgotPasswordPage = () => {
 
   if (sent) {
     return (
+      /*
+        Both halves of this page live at /forgot-password, so the pathname —
+        which is what `transitionKey` falls back to — cannot tell them apart.
+        Without a key of its own, pressing "send the link" swapped the whole
+        panel and card in one frame, with none of the entrance the rest of the
+        auth screens have. Same reason /login passes its step.
+      */
       <AuthLayout
+        transitionKey="sent"
         heading={t('forgot.sent.panelHeading')}
         blurb={t('forgot.sent.panelBlurb')}
         footer={footer}
@@ -119,6 +127,7 @@ export const ForgotPasswordPage = () => {
 
   return (
     <AuthLayout
+      transitionKey="form"
       heading={t('forgot.panel.heading')}
       blurb={t('forgot.panel.blurb')}
       footer={footer}

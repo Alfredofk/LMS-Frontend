@@ -10,6 +10,7 @@ import {
   AlertTriangle 
 } from 'lucide-react';
 import { useT } from '../../i18n/LanguageContext';
+import { getAccessToken } from '../../services/apiClient';
 
 export const AssessmentPage = () => {
   const { t, lang } = useT();
@@ -23,7 +24,7 @@ export const AssessmentPage = () => {
   const fetchTasks = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAccessToken();
       if (!token) return;
 
       const res = await fetch('/api/assessment/student', {
