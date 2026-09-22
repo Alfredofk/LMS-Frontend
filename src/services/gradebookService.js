@@ -20,13 +20,6 @@ export const gradebookService = {
   /** One class's full marking sheet: its assignments and every student's row. */
   forCourse: (courseId) => api.get(`/gradebook/${courseId}`),
 
-  /**
-   * @param {object} payload
-   * @param {Record<string, number>} payload.weights  assignment id → weight
-   * @param {Array<{studentId: string, assignmentId: string, grade: number}>} payload.grades
-   */
-  save: (courseId, { weights, grades }) =>
-    api.post(`/gradebook/${courseId}/save`, { weights, grades }),
 
   /** Every class the signed-in student takes, with their marks in each. */
   studentSummary: () => api.get('/gradebook/student/summary'),

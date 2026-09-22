@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { ShieldOff, Inbox, ChevronRight, Search, SearchX } from 'lucide-react';
+import { ShieldOff, Inbox, ChevronRight, Search, SearchX, PowerOff } from 'lucide-react';
 
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
 import RegistrationReview from './RegistrationReview';
@@ -12,6 +12,20 @@ import { apiErrorMessage } from '../../i18n/apiError';
 
 const TABS = ['PENDING', 'APPROVED', 'REJECTED'];
 const ALL_TYPES = 'ALL';
+
+/*
+  Whether an approved school is still running.
+
+  It is not a fourth status: deactivating leaves the registration APPROVED and
+  sets `school.deactivatedAt`, so live and switched-off schools sit in the same
+  tab looking identical. Without this the only way back to a school somebody
+  turned off last week is remembering its name.
+
+  Applied on the APPROVED tab only — a PENDING registration has no school, so
+  every value of this would hide all of them.
+*/
+const STATES = ['ALL', 'ON', 'OFF'];
+const isOff = (row) => Boolean(row.school?.deactivatedAt);
 
 const EMPTY = { PENDING: [], APPROVED: [], REJECTED: [] };
 
@@ -56,6 +70,7 @@ export const AdminRegistrationsPage = () => {
 
   const [query, setQuery] = useState('');
   const [type, setType] = useState(ALL_TYPES);
+  const [state, setState] = useState('ALL');
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -105,8 +120,14 @@ export const AdminRegistrationsPage = () => {
   const rows = byStatus[status] ?? NO_ROWS;
 
   const visible = useMemo(
-    () => rows.filter((r) => (type === ALL_TYPES || r.schoolType === type) && matches(r, query.trim())),
-    [rows, type, query]
+    () =>
+      rows.filter(
+        (r) =>
+          (type === ALL_TYPES || r.schoolType === type) &&
+          (status !== 'APPROVED' || state === 'ALL' || (state === 'OFF') === isOff(r)) &&
+          matches(r, query.trim())
+      ),
+    [rows, type, state, status, query]
   );
 
   const selected = rows.find((r) => r.id === selectedId) ?? null;
@@ -114,6 +135,7 @@ export const AdminRegistrationsPage = () => {
   const clearFilters = () => {
     setQuery('');
     setType(ALL_TYPES);
+    setState('ALL');
   };
 
   /*
@@ -265,6 +287,32 @@ export const AdminRegistrationsPage = () => {
                 </div>
               </div>
 
+              {/* Only where it means something. On PENDING and REJECTED there is no
+                  school behind the row for it to describe. */}
+              {status === 'APPROVED' && (
+                <div
+                  className="flex items-center gap-1.5 select-none"
+                  role="group"
+                  aria-label={t('admin.filter.state')}
+                >
+                  {STATES.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setState(option)}
+                      aria-pressed={state === option}
+                      className={`px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+                        state === option
+                          ? 'bg-brand text-white shadow-sm'
+                          : 'bg-white border border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300'
+                      }`}
+                    >
+                      {t(`admin.filter.state.${option}`)}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {visible.length === 0 ? (
                 /*
                   Not the same as an empty queue, and saying so matters: there
@@ -296,7 +344,18 @@ export const AdminRegistrationsPage = () => {
                       className="w-full bg-white border border-slate-100 hover:border-brand/40 hover:shadow-md rounded-2xl p-4 shadow-sm flex items-center justify-between gap-4 text-left transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                     >
                       <div className="min-w-0">
-                        <h3 className="text-sm font-extrabold text-slate-900 truncate">{row.schoolName}</h3>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <h3 className="text-sm font-extrabold text-slate-900 truncate">{row.schoolName}</h3>
+                          {/* The one thing that separates two otherwise identical
+                              approved rows, so it sits beside the name rather than
+                              below it where the other details are. */}
+                          {isOff(row) && (
+                            <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-rose-50 text-rose-600 border border-rose-200">
+                              <PowerOff className="w-3 h-3 shrink-0" aria-hidden="true" />
+                              {t('admin.list.deactivated')}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[11px] font-semibold text-slate-400 mt-0.5 truncate">
                           {row.schoolType} · NPSN {row.npsn}
                           {row.city ? ` · ${row.city}` : ''}

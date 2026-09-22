@@ -2,8 +2,10 @@
  * The backend's own field rules, restated for the browser.
  *
  * The rules mirror the backend's own zod: `modules/auth/auth.schema.js` for the
- * account fields, `modules/school/school.schema.js` for founding a school. Two
- * validators here mirror nothing at all, and say so where they sit.
+ * account fields, `modules/school/school.schema.js` for founding a school, and
+ * `modules/membership/membership.schema.js` for joining one. Every validator here
+ * now mirrors something — the last two that did not were the join fields, and
+ * ticket 05 gave them rules to mirror.
  *
  * The *rules* are what must match, not the wording: these functions return
  * translation keys rather than sentences, so the same rule can be read in
@@ -97,35 +99,151 @@ export function validateFullName(value) {
 }
 
 /*
-  School Code and NISN — the two fields of the join request.
+  Joining a school — and these no longer mirror nothing.
 
-  Unlike everything above, these mirror **nothing**. `prisma/schema.prisma:231`
-  and `:316` declare `schoolCode` and `nisn` as a bare `String` and `TEXT`, with
-  no length and no format, and there is no zod schema for either anywhere in the
-  backend: the join endpoint is not written yet. A grep for both names across
-  `LMS-Backend/src` finds nothing at all.
+  Ticket 05 landed (`d7e2301`), so every rule below restates
+  `LMS-Backend/src/modules/membership/membership.schema.js` line for line. The
+  block that used to sit here said the opposite — that the backend had no rule for
+  either field, so "you typed something" was the only honest answer. It was right
+  until it was not.
 
-  So the only honest rules are "you typed something" and a ceiling that stops a
-  pasted paragraph. Not digits-only, not ten digits, not any prefix — a NISN is
-  conventionally ten digits, but convention is not the server's rule, and this
-  file's own header says what happens when the two disagree: the server wins and
-  our messages turn out to be lies.
-
-  Revisit when ticket 05 lands.
+  The School Code alphabet has no 0, O, 1 or I. The code is read aloud and typed
+  from a WhatsApp message, and those are the four characters people get wrong.
 */
-const MAX_JOIN_FIELD = 64;
+const SCHOOL_CODE_LENGTH = 8;
+const SCHOOL_CODE_PATTERN = /^[A-Z2-9]{8}$/;
+
+/** Folded to upper case before anything looks at it: people type what they see. */
+export const normaliseSchoolCode = (value) => String(value ?? '').trim().toUpperCase();
 
 export function validateSchoolCode(value) {
-  const trimmed = value.trim();
-  if (!trimmed) return { key: 'validation.schoolCode.required' };
-  if (trimmed.length > MAX_JOIN_FIELD) return { key: 'validation.schoolCode.long' };
+  const code = normaliseSchoolCode(value);
+  if (!code) return { key: 'validation.schoolCode.required' };
+  if (!SCHOOL_CODE_PATTERN.test(code)) {
+    return { key: 'validation.schoolCode.format', vars: { length: SCHOOL_CODE_LENGTH } };
+  }
   return null;
 }
 
 export function validateNisn(value) {
-  const trimmed = value.trim();
+  const trimmed = String(value ?? '').trim();
   if (!trimmed) return { key: 'validation.nisn.required' };
-  if (trimmed.length > MAX_JOIN_FIELD) return { key: 'validation.nisn.long' };
+  if (!/^\d{10}$/.test(trimmed)) return { key: 'validation.nisn.format' };
+  return null;
+}
+
+/*
+  A teacher may hold a NIP, a NUPTK, or both, so neither is required on its own.
+  These two check the shape of whatever was typed; `validateTeacherIds` is what
+  asks for at least one — the same two steps the backend takes, a refinement on
+  top of two optional fields.
+
+  NIP is a range, 9 to 18 digits, not one length: the post-2009 format is 18, and
+  a teacher appointed before that still carries a 9-digit NIP lama. Refusing them
+  would be refusing a real applicant.
+*/
+export function validateNip(value) {
+  const trimmed = String(value ?? '').trim();
+  if (!trimmed) return null;
+  if (!/^\d{9,18}$/.test(trimmed)) return { key: 'validation.nip.format' };
+  return null;
+}
+
+export function validateNuptk(value) {
+  const trimmed = String(value ?? '').trim();
+  if (!trimmed) return null;
+  if (!/^\d{16}$/.test(trimmed)) return { key: 'validation.nuptk.format' };
+  return null;
+}
+
+/** The pair rule: one of the two has to be there. */
+export function validateTeacherIds(nip, nuptk) {
+  const hasOne = String(nip ?? '').trim() || String(nuptk ?? '').trim();
+  return hasOne ? null : { key: 'validation.teacherIds.required' };
+}
+
+/*
+  A guardian names one child, and states how they are related to them.
+
+  The child is **named, never listed**: the applicant has to already know both
+  the NISN and the full name, and that pairing is the whole out-of-band check
+  the join flow leans on. Nothing here searches for a child, and the server
+  returns no hint when the pair does not match — see ADR-0002.
+
+  The NISN reuses `validateNisn`: it is the same ten-digit national student
+  number, just somebody else's.
+
+  `MIN_CHILD_NAME` is **3, not the 2 that `validateFullName` allows**, and the
+  ceiling is 150 rather than 120. That is not an inconsistency to tidy away:
+  the two mirror different schemas. An account name follows `auth.schema.js`,
+  a child's name follows `membership.schema.js:48`. Reusing the account rule here
+  would accept a two-letter name the server refuses, and refuse a long one it
+  accepts — wrong at both ends.
+
+  The messages are shared with `validateFullName` on purpose: they name the
+  problem without quoting a number, so they stay true under either rule.
+*/
+const MIN_CHILD_NAME = 3;
+const MAX_CHILD_NAME = 150;
+const MIN_RELATIONSHIP = 3;
+const MAX_RELATIONSHIP = 50;
+
+export function validateChildFullName(value) {
+  const trimmed = String(value ?? '').trim();
+  if (!trimmed) return { key: 'validation.fullName.required' };
+  if (trimmed.length < MIN_CHILD_NAME) return { key: 'validation.fullName.short' };
+  if (trimmed.length > MAX_CHILD_NAME) return { key: 'validation.fullName.long' };
+  return null;
+}
+
+/*
+  Free text, and deliberately so. "Ibu", "Ayah", "Wali", "Nenek", "Paman" are
+  all real answers, and a fixed list would be a guess at an Indonesian family
+  that the backend never makes either — `relationship` is a plain string there.
+*/
+export function validateRelationship(value) {
+  const trimmed = String(value ?? '').trim();
+  if (!trimmed) return { key: 'validation.relationship.required' };
+  if (trimmed.length < MIN_RELATIONSHIP) return { key: 'validation.relationship.short' };
+  if (trimmed.length > MAX_RELATIONSHIP) return { key: 'validation.relationship.long' };
+  return null;
+}
+
+/*
+  The grade a student is entering, checked against the school they are entering it
+  at. The backend does this with the school in hand; here the lookup has already
+  told us the type, so the same rule applies before anything is sent — and the
+  selector can offer only these grades in the first place.
+*/
+export function validateGradeLevel(value, schoolType) {
+  if (value === '' || value === null || value === undefined) {
+    return { key: 'validation.gradeLevel.required' };
+  }
+
+  const type = SCHOOL_TYPES[schoolType];
+  if (!type) return { key: 'validation.gradeLevel.required' };
+
+  const grade = Number(value);
+  if (!Number.isInteger(grade) || grade < type.minGrade || grade > type.maxGrade) {
+    return {
+      key: 'validation.gradeLevel.range',
+      vars: { min: type.minGrade, max: type.maxGrade },
+    };
+  }
+  return null;
+}
+
+/*
+  `z.coerce.date()` on the server takes anything Date can parse, so the only two
+  rules worth restating are the ones it cannot express: it has to parse, and it
+  cannot be in the future.
+*/
+export function validateBirthDate(value) {
+  if (!value) return { key: 'validation.birthDate.required' };
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return { key: 'validation.birthDate.invalid' };
+  if (date > new Date()) return { key: 'validation.birthDate.future' };
   return null;
 }
 

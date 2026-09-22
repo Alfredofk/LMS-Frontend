@@ -18,13 +18,18 @@ export const ROLES = {
 };
 
 /*
-  The three this frontend has pages for, in the order the role picker shows them.
-  GUARDIAN is deliberately absent: the backend grants it, but no screen here
-  serves a guardian yet, so offering the card would promise something that does
-  not exist. Somebody holding only GUARDIAN lands on /select-role with nothing
-  they can pick.
+  The four the role picker shows, in that order.
+
+  GUARDIAN used to be absent here, because no screen served a guardian. It now
+  has one: /get-started/guardian asks for the child and files the request. What
+  it still has no page for is **afterwards** — see ROLE_HOME below.
 */
-export const SELECTABLE_ROLES = [ROLES.STUDENT, ROLES.TEACHER, ROLES.PRINCIPAL];
+export const SELECTABLE_ROLES = [
+  ROLES.STUDENT,
+  ROLES.TEACHER,
+  ROLES.GUARDIAN,
+  ROLES.PRINCIPAL,
+];
 
 /*
   Translation keys, not words. A role's name differs by more than spelling
@@ -85,6 +90,48 @@ export function activeRolesOf(membership) {
     .map((entry) => entry.role)
     .filter((role) => role in ROLE_HOME);
 }
+
+/**
+ * Every ACTIVE role somebody holds — including the ones with nowhere to go.
+ *
+ * The difference from `activeRolesOf` is the last filter, and it matters where
+ * the question is "what is this person" rather than "where may they navigate".
+ * GUARDIAN has no `ROLE_HOME` entry because no guardian screen exists, so
+ * `activeRolesOf` drops it; a profile card that did the same would tell a teacher
+ * who is also a guardian at that school that they are only a teacher.
+ *
+ * Use this to describe somebody. Use `activeRolesOf` to route them.
+ *
+ * @param {object|null} membership
+ * @returns {string[]}
+ */
+export function heldRolesOf(membership) {
+  if (!membership) return [];
+  if (membership.status && membership.status !== 'ACTIVE') return [];
+
+  return (membership.roles ?? [])
+    .map((entry) => (typeof entry === 'string' ? { role: entry, status: 'ACTIVE' } : entry))
+    .filter((entry) => entry?.status === 'ACTIVE')
+    .map((entry) => entry.role);
+}
+
+/*
+  Where a card on the role picker leads when its role is **not** held yet.
+
+  It lived inside SelectRolePage until the rejection notice needed it too — a
+  "try again" button has to know where trying again happens. Two copies of a
+  role-to-path table is one copy too many, so it sits with the rest of the role
+  vocabulary instead.
+
+  Note this is not ROLE_HOME: that is where somebody goes once they hold a role,
+  this is where they go to ask for one.
+*/
+export const GET_STARTED_PATH = {
+  [ROLES.STUDENT]: '/get-started/student',
+  [ROLES.TEACHER]: '/get-started/teacher',
+  [ROLES.GUARDIAN]: '/get-started/guardian',
+  [ROLES.PRINCIPAL]: '/get-started/organization',
+};
 
 /** Where to send somebody who holds these roles and has picked `activeRole`. */
 export const homeFor = (role) => ROLE_HOME[role] ?? '/select-role';

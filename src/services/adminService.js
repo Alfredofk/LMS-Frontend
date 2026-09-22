@@ -23,8 +23,6 @@ export const adminService = {
    */
   list: (status = 'PENDING') => api.get(BASE, { query: { status } }),
 
-  get: (id) => api.get(`${BASE}/${id}`),
-
   /**
    * The applicant's KTP photograph, as bytes.
    *
@@ -65,15 +63,44 @@ export const adminService = {
    * member or class count, so only the backend can know. Deactivation is the
    * honest answer in both — safe for an empty school, correct for a full one.
    *
-   * **This route does not exist yet**, and the shape here is the frontend
-   * proposing one rather than following one — `docs/api-contract.md` §13 has
-   * the reasoning and the decisions still open. Today it answers 404, and the
-   * screen says so instead of claiming anything happened.
+   * **The route exists now** (ticket 14). This block used to say it did not, and
+   * that the shape below was the frontend proposing a contract rather than
+   * following one. The proposal turned out to match what was built, down to the
+   * path and the single `reason` field — which is luck worth not relying on twice.
    *
-   * @throws {ApiError} 404 while the route is unwritten, CONFLICT once it
-   *   exists and the school is past the point of being taken back
+   * What it does on the server: sets `School.deactivatedAt` with the reason and
+   * the admin who decided, then **revokes every member's refresh token**. Access
+   * tokens already in flight live out their remaining minutes, so the school is
+   * gone at the next refresh rather than instantly. Memberships are untouched —
+   * a school that comes back should find its people still in it.
+   *
+   * `reason` is required: `assertRejectionReason` refuses anything under 3
+   * characters after trimming, the same rule rejection uses.
+   *
+   * @throws {ApiError} BAD_REQUEST on a missing or too-short reason, CONFLICT if
+   *   the registration is not APPROVED or the school is already switched off
    */
   deactivate: (id, reason) => api.post(`${BASE}/${id}/deactivate`, { reason }),
+
+  /**
+   * Give it back.
+   *
+   * Exists because a school switched off by a misclick would otherwise need the
+   * database edited by hand.
+   *
+   * **The note is optional here, unlike every other reason field in this file** —
+   * there is nobody waiting to be told why their access came back. It is recorded
+   * in the audit trail when given, and the 3-character floor does not apply.
+   *
+   * Members still have to sign in again: their refresh tokens were revoked on the
+   * way out and reactivating does not un-revoke them. That is deliberate — a
+   * revoked token coming back to life is the shape of a replay, and the backend
+   * treats it as theft.
+   *
+   * @throws {ApiError} NOT_FOUND if the registration never became a school,
+   *   CONFLICT if that school is not deactivated
+   */
+  reactivate: (id, reason) => api.post(`${BASE}/${id}/reactivate`, reason ? { reason } : {}),
 };
 
 export default adminService;

@@ -277,9 +277,117 @@ export default {
   'admin.deactivate.confirm.body':
     'The principal and every member lose access to {name}. Grades, classes and history are not deleted.',
   'admin.deactivate.done': 'School deactivated.',
-  'admin.deactivate.notBuilt':
-    'The service for deactivating a school has not been built, so nothing has changed. This part is waiting on the backend.',
 
+  // --- reviewing join requests -------------------------------------------
+  'requests.title': 'Join requests',
+  'requests.subtitle': 'People asking to be added to this school.',
+
+  'requests.tab.PENDING': 'Waiting',
+  'requests.tab.ACTIVE': 'Accepted',
+  'requests.tab.REJECTED': 'Turned down',
+  'requests.status.PENDING': 'Waiting for review',
+  'requests.status.ACTIVE': 'Accepted',
+  'requests.status.REJECTED': 'Turned down',
+
+  'requests.queue.count': '{n} requests',
+  'requests.queue.empty.PENDING': 'Nothing is waiting for you.',
+  'requests.queue.empty.ACTIVE': 'Nobody has been accepted through this page yet.',
+  'requests.queue.empty.REJECTED': 'Nobody has been turned down yet.',
+  'requests.queue.empty.hint':
+    'This page only shows requests you are allowed to decide. An empty page means none are waiting on you.',
+  'requests.queue.empty.shareCode': 'Nobody has asked yet? Share your School Code with your teachers and students.',
+  'requests.queue.empty.shareCode.link': 'See it on My Profile',
+  'requests.search.placeholder': 'Search a name, email, NISN or NIP',
+  'requests.search.empty': 'Nothing matches that search.',
+  'requests.search.clear': 'Clear the search',
+  'requests.list.requested': 'Asked {date}',
+  'requests.applicant.unnamed': 'No name given',
+
+  'requests.back': 'Back to the list',
+  'requests.section.applicant': 'Applicant',
+  'requests.section.roles': 'Roles asked for',
+  'requests.section.teacher': 'Teacher details',
+  'requests.section.student': 'Student details',
+  'requests.section.children': 'Children',
+
+  'requests.field.name': 'Name',
+  'requests.field.email': 'Email',
+  'requests.field.status': 'Status',
+  'requests.field.requested': 'Asked',
+  'requests.field.approved': 'Accepted',
+  'requests.field.nip': 'NIP',
+  'requests.field.nuptk': 'NUPTK',
+  'requests.field.nisn': 'NISN',
+  'requests.field.birthDate': 'Date of birth',
+  'requests.field.gradeLevel': 'Grade',
+  'requests.field.grade': 'Grade {n}',
+
+  'requests.role.yours': 'Yours',
+  'requests.role.notYours': 'Not yours',
+  'requests.role.notYours.hint': 'Somebody else at this school releases this role.',
+  'requests.role.unknown': 'Unknown role',
+  'requests.notYours.title': 'This one is not yours to decide',
+  'requests.notYours.body':
+    'A teacher is released by the principal; a student or a guardian by their homeroom teacher. You can still read it.',
+
+  'requests.approve': 'Accept',
+  'requests.reject': 'Turn down',
+  'requests.approve.done': 'Request accepted.',
+  'requests.reject.done': 'Request turned down.',
+  'requests.approve.confirm.title': 'Accept {name}?',
+  'requests.approve.confirm.body':
+    '{name} gets the role straight away and can enter this school. They have to sign in again for it to take effect.',
+  'requests.reject.confirm.title': 'Turn down {name}?',
+  'requests.reject.confirm.body':
+    'The reason you write will be read by {name}. They may ask again later.',
+  'requests.reject.reason': 'Reason for turning it down',
+  'requests.reject.reason.hint': 'Required to turn somebody down, at least 3 characters. Leave it empty to accept.',
+  'requests.reject.reason.required': 'Write a reason, at least 3 characters.',
+  'requests.reject.reason.long': 'That reason is too long.',
+  'requests.alreadyDecided': 'Somebody else has already decided this one.',
+  'requests.approve.needsClass':
+    'Accepting a student has to name their class, and this page has no way to pick one yet. That part is waiting on the backend.',
+
+  'requests.denied.title': 'You are not an active member',
+  'requests.denied.body':
+    'This page is for active members of a school. If you think you should be one, try signing in again — or ask your school.',
+  'admin.field.schoolCode': 'School Code',
+  'admin.field.schoolState': 'State',
+  'admin.school.on': 'Running',
+  'admin.school.off': 'Switched off',
+  'admin.field.deactivatedAt': 'Switched off on',
+  'admin.field.deactivationReason': 'Reason it was switched off',
+  'admin.list.deactivated': 'Switched off',
+  'admin.filter.state': 'Filter by whether the school is running',
+  'admin.filter.state.ALL': 'All',
+  'admin.filter.state.ON': 'Running',
+  'admin.filter.state.OFF': 'Switched off',
+
+  'admin.reactivate.section': 'Switch This School Back On',
+  'admin.reactivate.lead':
+    'This school is switched off. Turning it back on restores access for every member — they have to sign in again, because their old sessions were revoked.',
+  'admin.reactivate.note': 'Note (optional)',
+  'admin.reactivate.note.hint':
+    'You may leave this empty. If you write something, it is kept in the audit trail as the reason access came back.',
+  'admin.reactivate.action': 'Switch the school back on',
+  'admin.reactivate.confirm.title': 'Switch {name} back on?',
+  'admin.reactivate.confirm.body':
+    'The principal and every member can reach {name} again. They have to sign in again for it to take effect.',
+  'admin.reactivate.done': 'School switched back on.',
+  // --- the School Code, for whoever hands it out -------------------------
+  'schoolCode.title': 'School Code',
+  'schoolCode.npsn': 'NPSN',
+  'schoolCode.copy': 'Copy',
+  'schoolCode.copied': 'Copied',
+  'schoolCode.copy.aria': 'Copy the School Code',
+  // --- turned down, and what can be done next -----------------------------
+  'rejected.registration.title': 'Your school registration was turned down',
+  'rejected.registration.again': 'Register again',
+  'rejected.role.title': 'Your {role} request was turned down',
+  'rejected.role.again': 'Ask again',
+  'rejected.lead': 'The reason the reviewer gave:',
+  'rejected.noReason': 'The reviewer did not write a reason.',
+  'rejected.later': 'Maybe later',
   'lang.switch': 'Change language',
   'lang.id': 'Indonesia',
   'lang.en': 'English',
@@ -493,6 +601,10 @@ export default {
   'selectRole.explain.fresh.a': 'Student',
   'selectRole.explain.fresh.b': 'Teacher',
   'selectRole.explain.fresh.middle': 'join a school that already exists, with its code.',
+  'selectRole.explain.fresh.d': 'Guardian',
+  // Carries its own punctuation: Indonesian takes a comma before "dan",
+  // English does not.
+  'selectRole.explain.fresh.andLast': ' and',
   'selectRole.explain.fresh.c': 'Organization',
   'selectRole.explain.fresh.end': 'registers a new one.',
   'selectRole.note.pending': 'Waiting for your school to approve this',
@@ -507,8 +619,7 @@ export default {
   // --- get started -------------------------------------------------------
   'getStarted.needLabel': 'What you will need',
   'getStarted.thenWhat': 'Then what',
-  'getStarted.notOpen': 'Not open yet — this part of EduForID is still being built.',
-  'getStarted.back': 'Back to the three options',
+  'getStarted.back': 'Back to the role options',
 
   'getStarted.org.panelHeading': 'Start A School',
   'getStarted.org.panelBlurb':
@@ -528,7 +639,6 @@ export default {
   'getStarted.org.need.ktpDetail': 'Proof that you are who you say you are.',
   'getStarted.org.approval':
     'An EduForID administrator reviews each application by hand. Once it is approved the school is created and you become its principal.',
-  'getStarted.org.action': 'Register my school',
 
   'getStarted.join.panelHeading': 'Find Your School',
   'getStarted.join.panelBlurb':
@@ -539,17 +649,45 @@ export default {
   'getStarted.join.need.code': 'School Code',
   'getStarted.join.need.codeDetail':
     'The code your school hands out to its {role}s. Ask the school office for it.',
+  'getStarted.join.field.code': 'School Code',
+  'getStarted.join.field.codePlaceholder': 'For example: K7M2XQ84',
+  'getStarted.join.field.codeHint':
+    'Eight letters and digits from your school. It contains no zero, no letter O, no one and no letter I — so if you are unsure, it is the other one.',
+  'getStarted.join.field.nisn': 'NISN',
+  'getStarted.join.field.birthDate': 'Date of birth',
+  'getStarted.join.field.gradeLevel': 'Grade',
+  'getStarted.join.field.gradePlaceholder': 'Choose a grade',
+  'getStarted.join.field.gradeOption': 'Grade {n}',
+  'getStarted.join.field.nip': 'NIP',
+  'getStarted.join.field.nuptk': 'NUPTK',
+  'getStarted.join.field.teacherIdsHint':
+    'Give a NIP or a NUPTK — either one is enough, both is fine too.',
+  'getStarted.join.field.childNisn': 'Child\'s NISN',
+  'getStarted.join.field.childFullName': 'Child\'s full name',
+  'getStarted.join.field.relationship': 'Your relationship to them',
+  'getStarted.join.field.relationshipPlaceholder': 'For example: Mother, Father, Guardian',
+  'getStarted.join.alsoGuardian': 'I am also a guardian at this school',
+  'getStarted.join.alsoGuardian.hint':
+    'Tick this if your own child studies here. Roles cannot be added after the request is sent, so this is the only chance to say so.',
+  'getStarted.join.guardian.waiting':
+    'A guardian request is released by your child\'s homeroom teacher. Classes do not exist in this app yet, so the request will be recorded and wait.',
+  'getStarted.join.action.lookup': 'Find the school',
+  'getStarted.join.action.changeCode': 'Not this school, change the code',
+  'getStarted.join.action.submit': 'Send join request',
   'getStarted.join.approval':
     'Your school receives the request and decides. Until somebody there approves it, the {Role} card stays locked — and you can only have one request open at a time.',
+  'getStarted.join.need.child': 'Your child\'s details',
+  'getStarted.join.need.childDetail':
+    'Their NISN and full name, exactly as the school has them — you have to know both already, this page will not look a child up. Asked for once the school has been found.',
+  'getStarted.join.need.teacherIds': 'A NIP or a NUPTK',
+  'getStarted.join.need.teacherIdsDetail':
+    'Either one is enough, both is fine too. Asked for once the school has been found.',
   'getStarted.join.need.nisn': 'NISN',
+  // This panel briefs the whole journey, while the form below it asks only for
+  // the code. Without saying when, the list reads as 'fill both in now' — and
+  // there is no box for the second one.
   'getStarted.join.need.nisnDetail':
-    'Your Nomor Induk Siswa Nasional. It is on your report card or student card.',
-  'getStarted.join.form.legend':
-    'Fill these in to see what will be asked. Nothing is sent anywhere yet.',
-  'getStarted.join.form.nisnHint':
-    'Its length rule has not been set yet, so this field takes it as typed.',
-  'getStarted.join.action': 'Enter a school code',
-  'getStarted.join.actionSubmit': 'Send join request',
+    'Your Nomor Induk Siswa Nasional, on your report card or student card. Asked for once the school has been found.',
 
   // --- unauthorized ------------------------------------------------------
   'unauthorized.title': 'Access Denied',
@@ -623,6 +761,7 @@ export default {
   'shell.switchRole': 'Switch Role',
   'shell.logOut': 'Log Out',
   'shell.loggingOut': 'Signing out…',
+  'shell.joinRequests': 'Join requests',
   'shell.openMenu': 'Open menu',
   'shell.closeMenu': 'Close menu',
   'shell.noSchool': 'No school yet',
@@ -832,6 +971,7 @@ export default {
   'profile.xp': 'Total XP',
   'profile.level': 'Level',
   'profile.empty': 'Not in the database yet',
+  'profile.joined': 'Member since',
   'profile.achievements': 'My Achievements',
   'profile.achievements.empty': 'No achievements to show yet.',
   'profile.leaderboard': 'Leaderboard',
@@ -961,7 +1101,19 @@ export default {
   'validation.ktp.tooLarge': 'That file is larger than {max}.',
   'validation.ktp.type': 'The file must be a JPG or a PNG.',
   'validation.schoolCode.required': 'School Code is required.',
-  'validation.schoolCode.long': 'School Code is too long.',
+  'validation.schoolCode.format':
+    'A School Code is {length} letters and digits, with no 0 and no 1 in it.',
   'validation.nisn.required': 'NISN is required.',
-  'validation.nisn.long': 'NISN is too long.',
+  'validation.nisn.format': 'A NISN is exactly 10 digits.',
+  'validation.nip.format': 'A NIP is 9 to 18 digits.',
+  'validation.nuptk.format': 'A NUPTK is exactly 16 digits.',
+  'validation.teacherIds.required': 'Give a NIP or a NUPTK, at least one.',
+  'validation.relationship.required': 'State how you are related to this child.',
+  'validation.relationship.short': 'That relationship is too short.',
+  'validation.relationship.long': 'That relationship is too long.',
+  'validation.gradeLevel.required': 'Choose a grade.',
+  'validation.gradeLevel.range': 'This school only has grades {min} to {max}.',
+  'validation.birthDate.required': 'Date of birth is required.',
+  'validation.birthDate.invalid': 'That date cannot be read.',
+  'validation.birthDate.future': 'A date of birth cannot be in the future.',
 };

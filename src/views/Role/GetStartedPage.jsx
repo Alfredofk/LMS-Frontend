@@ -1,12 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 
 import AuthLayout from '../../layouts/AuthLayout';
-import Input from '../../components/ui/Input';
 import SchoolRegistrationForm from './SchoolRegistrationForm';
+import JoinSchoolForm from './JoinSchoolForm';
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
-import { validateSchoolCode, validateNisn } from '../../utils/validation';
 
 /*
   What happens after somebody picks one of the three cards.
@@ -20,13 +19,12 @@ import { validateSchoolCode, validateNisn } from '../../utils/validation';
     Student       joins a school that already exists, with its School Code. That
     Teacher       school then approves the request and grants the role.
 
-  **Organization can now be submitted; the other two cannot.** The backend grew
-  `POST /api/school-registrations` (ticket 04), so that path is a real form that
-  posts a real registration. Joining a school with a School Code (ticket 05) is
-  still unrouted — `joinSchoolLimiter` and `assertMembershipRetryAllowed` exist
-  and are imported by nothing — so the student and teacher screens still say what
-  will be asked and keep a visibly inactive button rather than one that is alive
-  and quietly failing.
+  **All three can now be submitted.** Ticket 04 gave founding a school
+  `POST /api/school-registrations`, and ticket 05 gave joining one
+  `POST /api/memberships/lookup` and `POST /api/memberships/requests`. So this
+  screen no longer keeps a visibly inactive button for the student and teacher
+  paths: it hands both to `JoinSchoolForm`, which asks for the School Code first
+  and for anything personal only once the school has been named back.
 
   Everything listed under "what you will need" comes from the schema, not from
   imagination: the Organization fields are the columns of `SchoolRegistration`.
@@ -57,7 +55,6 @@ const joinIntent = (role) => ({
   panelBlurb: 'getStarted.join.panelBlurb',
   needs: [['getStarted.join.need.code', 'getStarted.join.need.codeDetail', { role: `role.${role}.label` }]],
   approval: ['getStarted.join.approval', { Role: `role.${role}.label` }],
-  action: 'getStarted.join.action',
 });
 
 const INTENTS = {
@@ -75,19 +72,12 @@ const INTENTS = {
       ['getStarted.org.need.ktp', 'getStarted.org.need.ktpDetail'],
     ],
     approval: ['getStarted.org.approval'],
-    action: 'getStarted.org.action',
-    /* The only intent with a route behind it. Everything else on this screen is
-       still a description of a path that cannot be walked yet. */
-    live: true,
   },
   /*
-    Only the student path carries fields, and only because the schema says what
-    they are: `School.schoolCode` locates the school, and `StudentProfile.nisn`
-    is a required column that has to come from somewhere. A teacher's profile
-    columns — `TeacherProfile.nip` and `.nuptk` — are both optional, so there is
-    nothing this screen could truthfully insist on.
-
-    An intent without a `fields` key renders exactly as it did before.
+    The student path lists one extra thing it will ask for. Both paths now hand
+    the asking to JoinSchoolForm, which knows the fields each role needs — a
+    student names a grade and a birth date beside the NISN, a teacher gives a
+    NIP or a NUPTK. This list is the promise; the form is the asking.
   */
   student: {
     ...joinIntent('STUDENT'),
@@ -95,96 +85,34 @@ const INTENTS = {
       ['getStarted.join.need.code', 'getStarted.join.need.codeDetail', { role: 'role.STUDENT.label' }],
       ['getStarted.join.need.nisn', 'getStarted.join.need.nisnDetail'],
     ],
-    fields: [
-      {
-        name: 'schoolCode',
-        labelKey: 'getStarted.join.need.code',
-        validate: validateSchoolCode,
-        inputMode: undefined,
-      },
-      {
-        name: 'nisn',
-        labelKey: 'getStarted.join.need.nisn',
-        validate: validateNisn,
-        /*
-          A keyboard hint, not a claim. `type="number"` would strip the leading
-          zeros a NISN can carry, accept `e`, `+` and `-`, and put spinner arrows
-          on something that is an identifier rather than a quantity. And no
-          `pattern`: nothing in the backend says a NISN is digits.
-        */
-        inputMode: 'numeric',
-        hintKey: 'getStarted.join.form.nisnHint',
-      },
-    ],
-    action: 'getStarted.join.actionSubmit',
   },
-  teacher: joinIntent('TEACHER'),
-};
+  /*
+    The teacher path listed only the code, which made it the one join path that
+    matched its first screen exactly — and the one that never warned anybody they
+    would be asked for a NIP or a NUPTK at all.
+  */
+  teacher: {
+    ...joinIntent('TEACHER'),
+    needs: [
+      ['getStarted.join.need.code', 'getStarted.join.need.codeDetail', { role: 'role.TEACHER.label' }],
+      ['getStarted.join.need.teacherIds', 'getStarted.join.need.teacherIdsDetail'],
+    ],
+  },
 
-/*
-  The fields, for the one intent that has them.
+  /*
+    A guardian names one child: the number, the name, and how they are related.
 
-  They are live and they validate, and the button below them stays dead — see
-  the comment on the button itself for why that is deliberate rather than an
-  oversight. Nothing typed here is kept: no localStorage, no URL, no
-  history.state. It goes nowhere and should leave nothing behind.
-*/
-const JoinFields = ({ fields }) => {
-  const { t } = useT();
-  const [values, setValues] = useState({});
-  const [errors, setErrors] = useState({});
-  const [touched, setTouched] = useState({});
-
-  const check = (field, value) => {
-    const fail = field.validate(value ?? '');
-    setErrors((prev) => ({ ...prev, [field.name]: fail ? t(fail.key, fail.vars) : null }));
-  };
-
-  return (
-    <form
-      onSubmit={(e) => e.preventDefault()}
-      className="border border-slate-200 rounded-2xl p-5 text-left bg-white shadow-sm space-y-4"
-    >
-      {/* Above the fields, not only under the button: somebody should learn this
-          before spending the keystrokes, not after. */}
-      <p className="text-xs text-slate-500 font-medium leading-relaxed">
-        {t('getStarted.join.form.legend')}
-      </p>
-
-      {fields.map((field) => (
-        <div key={field.name} className="space-y-1">
-          <Input
-            id={field.name}
-            name={field.name}
-            label={t(field.labelKey)}
-            type="text"
-            inputMode={field.inputMode}
-            autoComplete="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            value={values[field.name] ?? ''}
-            error={errors[field.name] || undefined}
-            onChange={(e) => {
-              const next = e.target.value;
-              setValues((prev) => ({ ...prev, [field.name]: next }));
-              // Only once they have finished with it once — complaining at
-              // somebody mid-word is the other classic cruelty.
-              if (touched[field.name]) check(field, next);
-            }}
-            onBlur={(e) => {
-              setTouched((prev) => ({ ...prev, [field.name]: true }));
-              check(field, e.target.value);
-            }}
-          />
-          {field.hintKey && !errors[field.name] && (
-            <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
-              {t(field.hintKey)}
-            </p>
-          )}
-        </div>
-      ))}
-    </form>
-  );
+    The pairing is the point. Nothing here looks a child up, and the server
+    gives no hint when the two do not match — knowing both already is the
+    out-of-band check that a School Code on its own cannot be (ADR-0002).
+  */
+  guardian: {
+    ...joinIntent('GUARDIAN'),
+    needs: [
+      ['getStarted.join.need.code', 'getStarted.join.need.codeDetail', { role: 'role.GUARDIAN.label' }],
+      ['getStarted.join.need.child', 'getStarted.join.need.childDetail'],
+    ],
+  },
 };
 
 export const GetStartedPage = () => {
@@ -256,35 +184,19 @@ export const GetStartedPage = () => {
         </div>
       </div>
 
-      {content.live ? (
+      {/*
+        Every path on this screen is now walkable. Until ticket 05 landed, two of
+        the three ended at a button that was disabled on purpose, with a sentence
+        under it admitting the endpoint did not exist — a live one there would
+        have failed on press and read as broken rather than unfinished.
+
+        That button and its apology are gone. There is no closed path left to
+        describe.
+      */}
+      {intent === 'organization' ? (
         <SchoolRegistrationForm />
       ) : (
-        <>
-          {content.fields && <JoinFields fields={content.fields} />}
-
-          {/*
-            Deliberately dead, and saying so. The endpoint behind it does not
-            exist yet — a live button here would fail on press and teach somebody
-            that the app is broken rather than unfinished.
-
-            `disabled` unconditionally, never `disabled={!isValid}`, because
-            there are fields above it. Enabling on a valid form would promise
-            that filling it in opens the path, then hand over a live-looking
-            button that does nothing — the very outcome this policy prevents.
-          */}
-          <div className="space-y-2">
-            <button
-              type="button"
-              disabled
-              className="w-full py-3.5 rounded-2xl justify-center font-bold text-base bg-slate-100 text-slate-400 flex items-center gap-2 select-none cursor-not-allowed"
-            >
-              {t(content.action)}
-            </button>
-            <p className="text-[11px] text-slate-400 font-semibold">
-              {t('getStarted.notOpen')}
-            </p>
-          </div>
-        </>
+        <JoinSchoolForm intent={intent} />
       )}
     </AuthLayout>
   );

@@ -85,6 +85,47 @@ export const getAccessToken = () => readToken(ACCESS_TOKEN_KEY);
 export const getRefreshToken = () => readToken(REFRESH_TOKEN_KEY);
 
 /**
+ * What the access token we are already carrying says about itself.
+ *
+ * **This is not verification, and must never be used as any.** The signature is
+ * the server's to check; this only reads the payload we already hold, so the app
+ * can answer one question: is this token out of date? A token whose contents were
+ * trusted would be a token an attacker could write. Nothing here decides what
+ * somebody may do — only whether to go and trade the token in.
+ *
+ * The one caller is `/select-role`, which compares `schoolId` against what
+ * `/users/me` reports. Approval grants a role without minting a new token
+ * (`membership.service.js` touches neither), so the two can disagree, and that
+ * disagreement is exactly what this exposes.
+ *
+ * Decoded through `TextDecoder` rather than bare `atob`: `schoolName` rides in
+ * the claims (`shared/auth.js:56`) and a school's name is not guaranteed ASCII.
+ *
+ * @returns {{ sub: string, membershipId: string|null, schoolId: string|null,
+ *   schoolName: string|null, roles: string[], rem: boolean }|null}
+ *   `null` when there is no token, or when it is malformed — which callers should
+ *   read as "cannot tell", never as "stale".
+ */
+export function accessTokenClaims() {
+  const token = getAccessToken();
+  if (!token) return null;
+
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+
+    /* base64url → base64, then bytes → UTF-8. */
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    /* Not a JWT, truncated, or not JSON. Anything we cannot read, we do not
+       pretend to know. */
+    return null;
+  }
+}
+
+/**
  * Store a token pair.
  *
  * @param {{ accessToken?: string, refreshToken?: string }} auth
@@ -286,8 +327,8 @@ export async function request(path, options = {}) {
 /**
  * A route that has not been written yet, as opposed to a request that failed.
  *
- * Most of this app's endpoints do not exist: the backend mounts four namespaces
- * and the screens call thirty-seven. A screen that cannot tell the difference
+ * Most of this app's endpoints do not exist: the backend mounts six namespaces
+ * and the screens call far more than that. A screen that cannot tell the difference
  * has two bad options — a red panel that blames the reader for something nobody
  * did, or silence that reads as "there is nothing here".
  *

@@ -19,9 +19,5 @@ export const teacherService = {
   recentSubmissions: () => api.get('/teacher/recent-submissions'),
 };
 
-/** What a student owes and when — the Assessment screen. */
-export const assessmentService = {
-  forStudent: () => api.get('/assessment/student'),
-};
 
 export default teacherService;

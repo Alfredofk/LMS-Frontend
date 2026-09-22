@@ -276,9 +276,117 @@ export default {
   'admin.deactivate.confirm.body':
     'Kepala sekolah dan seluruh anggotanya kehilangan akses ke {name}. Nilai, kelas, dan riwayatnya tidak dihapus.',
   'admin.deactivate.done': 'Sekolah dinonaktifkan.',
-  'admin.deactivate.notBuilt':
-    'Layanan untuk menonaktifkan sekolah belum dibuat, jadi belum ada yang berubah. Bagian ini menunggu backend-nya.',
 
+  // --- meninjau permintaan bergabung -------------------------------------
+  'requests.title': 'Permintaan bergabung',
+  'requests.subtitle': 'Orang-orang yang meminta ditambahkan ke sekolah ini.',
+
+  'requests.tab.PENDING': 'Menunggu',
+  'requests.tab.ACTIVE': 'Diterima',
+  'requests.tab.REJECTED': 'Ditolak',
+  'requests.status.PENDING': 'Menunggu ditinjau',
+  'requests.status.ACTIVE': 'Sudah diterima',
+  'requests.status.REJECTED': 'Ditolak',
+
+  'requests.queue.count': '{n} permintaan',
+  'requests.queue.empty.PENDING': 'Tidak ada permintaan yang menunggu.',
+  'requests.queue.empty.ACTIVE': 'Belum ada yang diterima lewat halaman ini.',
+  'requests.queue.empty.REJECTED': 'Belum ada yang ditolak.',
+  'requests.queue.empty.hint':
+    'Halaman ini hanya menampilkan permintaan yang boleh Anda putuskan. Kalau kosong, tidak ada yang sedang menunggu Anda.',
+  'requests.queue.empty.shareCode': 'Belum ada yang mengajukan? Bagikan Kode Sekolah Anda kepada guru dan siswa.',
+  'requests.queue.empty.shareCode.link': 'Lihat di Profil Saya',
+  'requests.search.placeholder': 'Cari nama, email, NISN, atau NIP',
+  'requests.search.empty': 'Tidak ada yang cocok dengan pencarian itu.',
+  'requests.search.clear': 'Hapus pencarian',
+  'requests.list.requested': 'Diajukan {date}',
+  'requests.applicant.unnamed': 'Tanpa nama',
+
+  'requests.back': 'Kembali ke daftar',
+  'requests.section.applicant': 'Pendaftar',
+  'requests.section.roles': 'Peran yang diminta',
+  'requests.section.teacher': 'Data guru',
+  'requests.section.student': 'Data siswa',
+  'requests.section.children': 'Anak yang didampingi',
+
+  'requests.field.name': 'Nama',
+  'requests.field.email': 'Email',
+  'requests.field.status': 'Status',
+  'requests.field.requested': 'Diajukan',
+  'requests.field.approved': 'Diterima',
+  'requests.field.nip': 'NIP',
+  'requests.field.nuptk': 'NUPTK',
+  'requests.field.nisn': 'NISN',
+  'requests.field.birthDate': 'Tanggal lahir',
+  'requests.field.gradeLevel': 'Tingkat kelas',
+  'requests.field.grade': 'Kelas {n}',
+
+  'requests.role.yours': 'Milik Anda',
+  'requests.role.notYours': 'Bukan Anda',
+  'requests.role.notYours.hint': 'Peran ini dilepas oleh orang lain di sekolah ini.',
+  'requests.role.unknown': 'Peran tidak dikenal',
+  'requests.notYours.title': 'Bukan Anda yang memutuskan ini',
+  'requests.notYours.body':
+    'Permintaan guru dilepas oleh kepala sekolah; permintaan siswa dan wali murid dilepas oleh wali kelasnya. Anda tetap bisa membacanya.',
+
+  'requests.approve': 'Terima',
+  'requests.reject': 'Tolak',
+  'requests.approve.done': 'Permintaan diterima.',
+  'requests.reject.done': 'Permintaan ditolak.',
+  'requests.approve.confirm.title': 'Terima {name}?',
+  'requests.approve.confirm.body':
+    '{name} langsung mendapat perannya dan bisa masuk ke sekolah ini. Dia perlu masuk ulang agar perannya berlaku.',
+  'requests.reject.confirm.title': 'Tolak {name}?',
+  'requests.reject.confirm.body':
+    'Alasan yang Anda tulis akan dibaca oleh {name}. Dia masih boleh mengajukan lagi nanti.',
+  'requests.reject.reason': 'Alasan penolakan',
+  'requests.reject.reason.hint': 'Wajib diisi kalau menolak, minimal 3 karakter. Kosongkan kalau Anda menerima.',
+  'requests.reject.reason.required': 'Tulis alasannya, minimal 3 karakter.',
+  'requests.reject.reason.long': 'Alasannya terlalu panjang.',
+  'requests.alreadyDecided': 'Permintaan ini sudah diputuskan orang lain.',
+  'requests.approve.needsClass':
+    'Menerima siswa harus menyebut kelasnya, dan halaman ini belum punya cara memilih kelas. Bagian itu menunggu backend-nya.',
+
+  'requests.denied.title': 'Anda tidak sedang menjadi anggota aktif',
+  'requests.denied.body':
+    'Halaman ini hanya untuk anggota aktif sebuah sekolah. Kalau Anda merasa seharusnya bisa, coba masuk ulang — atau tanyakan ke sekolah Anda.',
+  'admin.field.schoolCode': 'Kode Sekolah',
+  'admin.field.schoolState': 'Keadaan',
+  'admin.school.on': 'Aktif',
+  'admin.school.off': 'Nonaktif',
+  'admin.field.deactivatedAt': 'Dinonaktifkan pada',
+  'admin.field.deactivationReason': 'Alasan dinonaktifkan',
+  'admin.list.deactivated': 'Nonaktif',
+  'admin.filter.state': 'Saring menurut keadaan sekolah',
+  'admin.filter.state.ALL': 'Semua',
+  'admin.filter.state.ON': 'Aktif',
+  'admin.filter.state.OFF': 'Nonaktif',
+
+  'admin.reactivate.section': 'Aktifkan Kembali Sekolah',
+  'admin.reactivate.lead':
+    'Sekolah ini sedang dinonaktifkan. Mengaktifkannya kembali memulihkan akses seluruh anggotanya — mereka perlu masuk ulang karena sesi lamanya sudah dicabut.',
+  'admin.reactivate.note': 'Catatan (opsional)',
+  'admin.reactivate.note.hint':
+    'Boleh dikosongkan. Kalau diisi, catatannya tersimpan di jejak audit sebagai alasan pemulihan.',
+  'admin.reactivate.action': 'Aktifkan kembali sekolah',
+  'admin.reactivate.confirm.title': 'Aktifkan kembali {name}?',
+  'admin.reactivate.confirm.body':
+    'Kepala sekolah dan seluruh anggotanya bisa mengakses {name} lagi. Mereka harus masuk ulang agar berlaku.',
+  'admin.reactivate.done': 'Sekolah diaktifkan kembali.',
+  // --- kode sekolah, untuk yang membagikannya ----------------------------
+  'schoolCode.title': 'Kode Sekolah',
+  'schoolCode.npsn': 'NPSN',
+  'schoolCode.copy': 'Salin',
+  'schoolCode.copied': 'Tersalin',
+  'schoolCode.copy.aria': 'Salin Kode Sekolah',
+  // --- ditolak, dan apa yang bisa dilakukan sesudahnya --------------------
+  'rejected.registration.title': 'Pendaftaran sekolah Anda ditolak',
+  'rejected.registration.again': 'Daftarkan lagi',
+  'rejected.role.title': 'Permintaan {role} Anda ditolak',
+  'rejected.role.again': 'Ajukan lagi',
+  'rejected.lead': 'Alasan yang diberikan peninjau:',
+  'rejected.noReason': 'Peninjau tidak menuliskan alasannya.',
+  'rejected.later': 'Nanti saja',
   'lang.switch': 'Ganti bahasa',
   'lang.id': 'Indonesia',
   'lang.en': 'English',
@@ -499,6 +607,10 @@ export default {
   'selectRole.explain.fresh.a': 'Siswa',
   'selectRole.explain.fresh.b': 'Guru',
   'selectRole.explain.fresh.middle': 'bergabung ke sekolah yang sudah ada, dengan kodenya.',
+  'selectRole.explain.fresh.d': 'Wali Murid',
+  // Membawa tanda bacanya sendiri: bahasa Indonesia memakai koma sebelum 'dan',
+  // bahasa Inggris tidak.
+  'selectRole.explain.fresh.andLast': ', dan',
   'selectRole.explain.fresh.c': 'Sekolah',
   'selectRole.explain.fresh.end': 'mendaftarkan sekolah baru.',
   'selectRole.note.pending': 'Menunggu persetujuan dari sekolah Anda',
@@ -513,8 +625,7 @@ export default {
   // --- mulai -------------------------------------------------------------
   'getStarted.needLabel': 'Yang perlu Anda siapkan',
   'getStarted.thenWhat': 'Setelah itu',
-  'getStarted.notOpen': 'Belum dibuka — bagian EduForID ini masih dalam pengerjaan.',
-  'getStarted.back': 'Kembali ke tiga pilihan',
+  'getStarted.back': 'Kembali ke pilihan peran',
 
   'getStarted.org.panelHeading': 'Dirikan Sekolah',
   'getStarted.org.panelBlurb':
@@ -535,7 +646,6 @@ export default {
   'getStarted.org.need.ktpDetail': 'Bukti bahwa Anda memang orang yang Anda sebutkan.',
   'getStarted.org.approval':
     'Seorang administrator EduForID meninjau setiap pengajuan satu per satu. Begitu disetujui, sekolahnya dibuat dan Anda menjadi kepala sekolahnya.',
-  'getStarted.org.action': 'Daftarkan sekolah saya',
 
   'getStarted.join.panelHeading': 'Temukan Sekolah Anda',
   'getStarted.join.panelBlurb':
@@ -546,17 +656,45 @@ export default {
   'getStarted.join.need.code': 'Kode Sekolah',
   'getStarted.join.need.codeDetail':
     'Kode yang dibagikan sekolah Anda kepada para {role}. Tanyakan kepada tata usaha sekolah.',
+  'getStarted.join.field.code': 'Kode Sekolah',
+  'getStarted.join.field.codePlaceholder': 'Contoh: K7M2XQ84',
+  'getStarted.join.field.codeHint':
+    'Delapan huruf dan angka dari sekolah Anda. Tidak ada angka 0, huruf O, angka 1, maupun huruf I di dalamnya — jadi kalau ragu, itu pasti yang satunya.',
+  'getStarted.join.field.nisn': 'NISN',
+  'getStarted.join.field.birthDate': 'Tanggal lahir',
+  'getStarted.join.field.gradeLevel': 'Tingkat kelas',
+  'getStarted.join.field.gradePlaceholder': 'Pilih tingkat kelas',
+  'getStarted.join.field.gradeOption': 'Kelas {n}',
+  'getStarted.join.field.nip': 'NIP',
+  'getStarted.join.field.nuptk': 'NUPTK',
+  'getStarted.join.field.teacherIdsHint':
+    'Isi NIP atau NUPTK — salah satu saja sudah cukup, keduanya juga boleh.',
+  'getStarted.join.field.childNisn': 'NISN anak',
+  'getStarted.join.field.childFullName': 'Nama lengkap anak',
+  'getStarted.join.field.relationship': 'Hubungan Anda dengan anak',
+  'getStarted.join.field.relationshipPlaceholder': 'Contoh: Ibu, Ayah, Wali',
+  'getStarted.join.alsoGuardian': 'Saya juga wali murid di sekolah ini',
+  'getStarted.join.alsoGuardian.hint':
+    'Centang kalau anak Anda bersekolah di sini. Peran tidak bisa ditambahkan setelah permintaan dikirim, jadi ini satu-satunya kesempatan menyebutkannya.',
+  'getStarted.join.guardian.waiting':
+    'Permintaan wali murid dilepas oleh wali kelas anak Anda. Fitur kelas belum tersedia di aplikasi ini, jadi permintaannya akan tercatat dan menunggu.',
+  'getStarted.join.action.lookup': 'Cari sekolahnya',
+  'getStarted.join.action.changeCode': 'Bukan sekolah ini, ganti kode',
+  'getStarted.join.action.submit': 'Kirim permintaan bergabung',
   'getStarted.join.approval':
     'Sekolah Anda menerima permintaan itu dan memutuskan. Sampai ada yang menyetujuinya di sana, kartu {Role} tetap terkunci — dan Anda hanya bisa memiliki satu permintaan berjalan.',
+  'getStarted.join.need.child': 'Data anak Anda',
+  'getStarted.join.need.childDetail':
+    'NISN dan nama lengkapnya, persis seperti yang terdaftar di sekolah — Anda harus sudah mengetahui keduanya, halaman ini tidak mencarikan. Diminta setelah sekolahnya ketemu.',
+  'getStarted.join.need.teacherIds': 'NIP atau NUPTK',
+  'getStarted.join.need.teacherIdsDetail':
+    'Salah satu saja sudah cukup, keduanya juga boleh. Diminta setelah sekolahnya ketemu.',
   'getStarted.join.need.nisn': 'NISN',
+  // Panel ini adalah bekal untuk seluruh perjalanan, sementara formulir di
+  // bawahnya baru meminta kodenya. Tanpa menyebut kapan, daftarnya terbaca
+  // sebagai 'isi keduanya sekarang' — dan tidak ada kolom untuk yang kedua.
   'getStarted.join.need.nisnDetail':
-    'Nomor Induk Siswa Nasional Anda. Tertera di rapor atau kartu pelajar.',
-  'getStarted.join.form.legend':
-    'Isi kolom di bawah untuk melihat apa yang nanti diminta. Belum ada yang dikirim ke mana pun.',
-  'getStarted.join.form.nisnHint':
-    'Aturan panjangnya belum ditetapkan, jadi kolom ini menerima apa adanya.',
-  'getStarted.join.action': 'Masukkan kode sekolah',
-  'getStarted.join.actionSubmit': 'Kirim permintaan bergabung',
+    'Nomor Induk Siswa Nasional Anda, tertera di rapor atau kartu pelajar. Diminta setelah sekolahnya ketemu.',
 
   // --- tidak berwenang ---------------------------------------------------
   'unauthorized.title': 'Akses Ditolak',
@@ -630,6 +768,7 @@ export default {
   'shell.switchRole': 'Ganti Peran',
   'shell.logOut': 'Keluar',
   'shell.loggingOut': 'Sedang keluar…',
+  'shell.joinRequests': 'Permintaan bergabung',
   'shell.openMenu': 'Buka menu',
   'shell.closeMenu': 'Tutup menu',
   'shell.noSchool': 'Belum ada sekolah',
@@ -839,6 +978,7 @@ export default {
   'profile.xp': 'Total XP',
   'profile.level': 'Level',
   'profile.empty': 'Belum ada di basis data',
+  'profile.joined': 'Bergabung sejak',
   'profile.achievements': 'Pencapaian Saya',
   'profile.achievements.empty': 'Belum ada pencapaian yang bisa ditampilkan.',
   'profile.leaderboard': 'Papan Peringkat',
@@ -969,7 +1109,19 @@ export default {
   'validation.ktp.tooLarge': 'Ukuran berkas melebihi {max}.',
   'validation.ktp.type': 'Berkas harus JPG atau PNG.',
   'validation.schoolCode.required': 'Kode Sekolah wajib diisi.',
-  'validation.schoolCode.long': 'Kode Sekolah terlalu panjang.',
+  'validation.schoolCode.format':
+    'Kode Sekolah terdiri dari {length} huruf dan angka, tanpa angka 0 dan tanpa angka 1.',
   'validation.nisn.required': 'NISN wajib diisi.',
-  'validation.nisn.long': 'NISN terlalu panjang.',
+  'validation.nisn.format': 'NISN terdiri dari tepat 10 digit angka.',
+  'validation.nip.format': 'NIP terdiri dari 9 sampai 18 digit angka.',
+  'validation.nuptk.format': 'NUPTK terdiri dari tepat 16 digit angka.',
+  'validation.teacherIds.required': 'Isi NIP atau NUPTK, minimal salah satu.',
+  'validation.relationship.required': 'Sebutkan hubungan Anda dengan anak ini.',
+  'validation.relationship.short': 'Hubungannya terlalu pendek.',
+  'validation.relationship.long': 'Hubungannya terlalu panjang.',
+  'validation.gradeLevel.required': 'Pilih tingkat kelasnya.',
+  'validation.gradeLevel.range': 'Sekolah ini hanya punya kelas {min} sampai {max}.',
+  'validation.birthDate.required': 'Tanggal lahir wajib diisi.',
+  'validation.birthDate.invalid': 'Tanggal lahirnya tidak terbaca.',
+  'validation.birthDate.future': 'Tanggal lahir tidak bisa di masa depan.',
 };

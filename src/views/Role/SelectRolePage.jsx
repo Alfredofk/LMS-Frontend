@@ -10,13 +10,16 @@ import {
   ROLE_LABEL_KEY,
   ROLE_TAGLINE_KEY,
   SELECTABLE_ROLES,
+  GET_STARTED_PATH,
   homeFor,
 } from '../../constants/roles';
+import RejectionNotice from './RejectionNotice';
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage } from '../../i18n/apiError';
 import { schoolService } from '../../services/schoolService';
 import { authService } from '../../services/authService';
 import { adminService } from '../../services/adminService';
+import { accessTokenClaims } from '../../services/apiClient';
 
 /*
   The one screen between signing in and working.
@@ -52,6 +55,11 @@ const roleIcons = {
   [ROLES.TEACHER]: (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7">
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+    </svg>
+  ),
+  [ROLES.GUARDIAN]: (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
     </svg>
   ),
   [ROLES.PRINCIPAL]: (
@@ -121,12 +129,6 @@ const STATUS_BADGE = {
   REJECTED: 'bg-red-50 text-red-600',
 };
 
-/* Where a card leads when its role is not already held. */
-const NEXT_STEP = {
-  [ROLES.STUDENT]: '/get-started/student',
-  [ROLES.TEACHER]: '/get-started/teacher',
-  [ROLES.PRINCIPAL]: '/get-started/organization',
-};
 
 /*
   A card can be chosen unless a request for it is already in flight. PENDING is
@@ -210,16 +212,33 @@ export const SelectRolePage = () => {
         /*
           Approved, but this session has not caught up.
 
-          Approval writes the School, the membership and the PRINCIPAL role in
-          one transaction — and leaves the applicant's access token behind,
-          still carrying schoolId: null. The backend author says so at
-          school.service.js:302. Without trading it in, somebody whose school was
-          just approved is locked out of every tenant-scoped route, which reads
-          as "it was approved and the app is broken".
+          Nothing that grants a role mints a new token. Approving a school
+          registration writes the School, the membership and the PRINCIPAL role in
+          one transaction (school.service.js:302); releasing a join request writes
+          the membership role and touches neither refresh nor access token
+          (membership.service.js has no mention of either). Both leave the
+          applicant holding a token that still says schoolId: null.
 
-          One extra round trip, only on the one visit where the answer arrived.
+          So `/users/me` reports the role as ACTIVE while the token backing it
+          knows no school, and every tenant-scoped route answers 403 — which reads
+          as "it was approved and the app is broken", at the exact moment somebody
+          was finally let in.
+
+          **The token is asked, not guessed at.** This used to test for an APPROVED
+          school registration instead, which was both too narrow and too eager: it
+          never fired for a teacher (who has no registration at all), and it fired
+          on every later visit even once the token was already correct. Reading the
+          claim is exact in both directions — and that matters, because the backend
+          rotates the refresh token on every trade and treats an old one coming
+          back as theft. Fewer trades is not an optimisation here; it is the safer
+          behaviour.
         */
-        if (latest?.status === 'APPROVED' && !session.roles.includes(ROLES.PRINCIPAL)) {
+        /* `session.roles` comes from activeRolesOf, which drops any role missing
+           from ROLE_HOME — and GUARDIAN is missing, because no guardian screen
+           exists to send them to. So an approved guardian will not trade their
+           token in here. Unreachable today (nobody can release a GUARDIAN until
+           classes exist), and due to become real alongside a guardian dashboard. */
+        if (session.roles.length > 0 && !accessTokenClaims()?.schoolId) {
           await authService.refresh();
           session = await refreshMe();
         }
@@ -289,7 +308,7 @@ export const SelectRolePage = () => {
     if (!selected) return;
 
     if (!roles.includes(selected)) {
-      navigate(NEXT_STEP[selected]);
+      navigate(GET_STARTED_PATH[selected]);
       return;
     }
 
@@ -397,9 +416,13 @@ export const SelectRolePage = () => {
                 t('selectRole.explain.pending', { school: schoolName })
               ) : (
                 <>
-                  <span className="font-extrabold text-slate-800">{t('selectRole.explain.fresh.a')}</span>{' '}
-                  {t('auth.and')}{' '}
-                  <span className="font-extrabold text-slate-800">{t('selectRole.explain.fresh.b')}</span>{' '}
+                  {/* Three names now, not two. `andLast` carries its own leading
+                      punctuation because the two languages disagree about it:
+                      Indonesian wants a comma before "dan", English does not. */}
+                  <span className="font-extrabold text-slate-800">{t('selectRole.explain.fresh.a')}</span>,{' '}
+                  <span className="font-extrabold text-slate-800">{t('selectRole.explain.fresh.b')}</span>
+                  {t('selectRole.explain.fresh.andLast')}{' '}
+                  <span className="font-extrabold text-slate-800">{t('selectRole.explain.fresh.d')}</span>{' '}
                   {t('selectRole.explain.fresh.middle')}{' '}
                   <span className="font-extrabold text-slate-800">{t('selectRole.explain.fresh.c')}</span>{' '}
                   {t('selectRole.explain.fresh.end')}
@@ -417,17 +440,20 @@ export const SelectRolePage = () => {
             const badge = STATUS_BADGE[state];
 
             /*
-              A rejection carries the school's own words; everything else gets
-              the card's ordinary pitch, because for a role somebody does not
-              hold that pitch is exactly what they are being offered.
+              The card's ordinary pitch, in every state.
+
+              A rejection used to replace it with the reviewer's own words, which
+              put free text a human typed into the slot where a fixed tagline
+              belongs — "Jelek nama sekolahnya" sitting where "Set EduForID up for
+              your school" goes reads as a caption, not as a decision about you.
+              The reason now gets its own line below, and the dialog says it
+              properly on arrival.
             */
             const note = noteKey
               ? t(noteKey)
-              : state === 'REJECTED'
-                ? (reason ?? t(CARD_NOTE_KEY.REJECTED))
-                : state === 'PENDING'
-                  ? t(CARD_NOTE_KEY.PENDING)
-                  : t(ROLE_TAGLINE_KEY[role]);
+              : state === 'PENDING'
+                ? t(CARD_NOTE_KEY.PENDING)
+                : t(ROLE_TAGLINE_KEY[role]);
 
             return (
               <button
@@ -459,6 +485,13 @@ export const SelectRolePage = () => {
                       {t(ROLE_LABEL_KEY[role])}
                     </h3>
                     <p className="text-xs text-slate-400 font-semibold mt-0.5 break-words">{note}</p>
+                    {/* Somebody else's words about this person, so they are marked
+                        as a quotation rather than dressed up as our own copy. */}
+                    {state === 'REJECTED' && (
+                      <p className="mt-1.5 pl-2 border-l-2 border-rose-200 text-[11px] text-rose-600 font-semibold break-words">
+                        {reason ?? t(CARD_NOTE_KEY.REJECTED)}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -512,6 +545,13 @@ export const SelectRolePage = () => {
           )}
         </div>
       </AuthLayout>
+
+      {/*
+        Being turned down, said once and properly, instead of left as small grey
+        text on a card. It decides for itself whether there is anything to say and
+        renders nothing when there is not — which is almost always.
+      */}
+      <RejectionNotice membership={membership} registration={registration} />
 
       {/* The sign-out here is a small text link in the footer, easy to hit by
           accident. It asks first, like the sidebar's does. */}

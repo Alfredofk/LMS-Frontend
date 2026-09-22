@@ -308,6 +308,11 @@ export const HeadmasterDashboard = () => {
         </p>
       </div>
 
+      {/* The School Code sat here, then sat here smaller, and now does not sit
+          here at all. It is reference data used in a burst and then left alone,
+          while this screen is where the daily work happens — and My Profile is
+          one click away from every signed-in screen, twice over. */}
+
       {/* 2. Navigation tabs row */}
       {/*
         The five tabs need 778px. A 375px phone gives this row 343px, so two of

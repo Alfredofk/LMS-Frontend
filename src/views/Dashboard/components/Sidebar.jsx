@@ -21,6 +21,7 @@ import {
   GraduationCap,
   Repeat,
   ShieldCheck,
+  UserPlus,
   LogOut,
   X
 } from 'lucide-react';
@@ -214,9 +215,11 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
             {getInitials()}
           </div>
           <div className="text-left min-w-0 flex-1">
-            <h4 className="text-xs font-extrabold text-slate-900 leading-tight truncate" title={user?.fullName}>
+            {/* A label inside this card, not a section heading. As an h4 it sat
+                before every page own h1, since the sidebar renders first. */}
+            <p className="text-xs font-extrabold text-slate-900 leading-tight truncate" title={user?.fullName}>
               {user?.fullName || t('shell.account.fallback')}
-            </h4>
+            </p>
             <p className="text-[10px] font-medium text-slate-400 mt-0.5 truncate" title={user?.email}>
               {user?.email}
             </p>
@@ -250,6 +253,22 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
                 >
                   <BookOpen className={`w-4 h-4 shrink-0 transition-colors ${isActive(role === ROLES.TEACHER ? '/teacher/courses' : '/classroom') ? 'text-white' : 'text-brand'}`} />
                   {t('shell.myCourses')}
+                </button>
+              )}
+
+              {/*
+                Reviewing who may join. Both roles get it, which is what the backend
+                allows — and a Teacher who is not a homeroom teacher will find it
+                empty until classes exist, because there is nothing they can release.
+                An empty page they can reach beats a decision hidden from them.
+              */}
+              {(role === ROLES.PRINCIPAL || role === ROLES.TEACHER) && (
+                <button
+                  onClick={() => handleLinkClick('shell.joinRequests', '/join-requests')}
+                  className={isActive('/join-requests') ? activeBtnClass : inactiveBtnClass}
+                >
+                  <UserPlus className={`w-4 h-4 shrink-0 transition-colors ${isActive('/join-requests') ? 'text-white' : 'text-brand'}`} />
+                  {t('shell.joinRequests')}
                 </button>
               )}
 

@@ -70,6 +70,16 @@ export const AccountPage = () => {
       <>
         {notice}
         <div className="space-y-6">
+          {/*
+            The branch below this one has its own heading, inside AuthLayout. This
+            one had none at all — the only page in the shell without one, so a
+            screen reader arriving here was told the sidebar name and then nothing
+            about where it had landed. Slate rather than brand: the purple title
+            belongs to the purple column, and there is no purple column here.
+          */}
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+            {t('account.title')}
+          </h1>
           <p className="text-xs font-semibold text-slate-400 break-all">
             {user?.email ? t('account.subtitle', { email: user.email }) : ''}
           </p>

@@ -448,6 +448,9 @@ export const Navbar = ({ showToast, onOpenNav }) => {
         <div className="flex-1 max-w-sm mx-6 hidden md:block">
           <div className="relative">
             <Search className="w-4 h-4 text-brand absolute left-3.5 top-1/2 -translate-y-1/2" />
+            {/* aria-label as well as the placeholder: a placeholder is not an
+                accessible name, and it disappears on focus. Same pairing the two
+                other search boxes in this app already use. */}
             <input
               type="text"
               value={searchParams.get('q') || ''}
@@ -456,6 +459,7 @@ export const Navbar = ({ showToast, onOpenNav }) => {
                 setSearchParams(val ? { q: val } : {});
               }}
               placeholder={t('shell.search')}
+              aria-label={t('shell.search')}
               className="w-full bg-brand-tint text-slate-800 text-xs font-medium pl-10 pr-4 py-2 rounded-full focus:outline-none focus:ring-1 focus:ring-brand placeholder:text-slate-400 transition-all"
             />
           </div>

@@ -33,6 +33,7 @@ import AnnouncementPage from './views/Announcement/AnnouncementPage';
 import SchedulePage from './views/Schedule/SchedulePage';
 import AssessmentPage from './views/Assessment/AssessmentPage';
 import AttendancePage from './views/Attendance/AttendancePage';
+import JoinRequestsPage from './views/Requests/JoinRequestsPage';
 
 function App() {
   return (
@@ -154,6 +155,24 @@ function App() {
             }
           >
             <Route path="/headmaster/dashboard" element={<HeadmasterDashboard />} />
+          </Route>
+
+          {/*
+            Reviewing join requests, which both a Principal and a Teacher may do —
+            a grouping neither block above has. The path carries no role in it for
+            the same reason: two roles share the one screen.
+
+            A Teacher who is not a homeroom teacher gets an empty list rather than
+            a refusal, which is the backend deciding, not this route.
+          */}
+          <Route
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.PRINCIPAL, ROLES.TEACHER]}>
+                <MainLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/join-requests" element={<JoinRequestsPage />} />
           </Route>
 
           <Route

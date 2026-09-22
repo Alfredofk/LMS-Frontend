@@ -8,9 +8,12 @@ import { useT } from '../../i18n/LanguageContext';
   A way into the app while there is no way into the app.
 
   Reaching any signed-in screen needs an ACTIVE membership with an ACTIVE role,
-  and the only thing that could grant one is the join-school endpoint, which the
-  backend has not written (ticket 05). So every dashboard in this project is
-  currently unreachable by any real account — not just by a test account.
+  and only an approval grants one. Ticket 05 landed, so a real account can now ask
+  for a role — but **no screen in this app approves one**. Requests go to
+  `/api/membership-requests`, which this frontend does not call yet, so today an
+  approval happens through curl or Prisma Studio or not at all.
+
+  That is the gap this file still covers. It is narrower than it was.
 
   The workaround until now was pasting five lines into the devtools console,
   which logging out wipes. This is that paste, as a button.
@@ -31,7 +34,13 @@ import { useT } from '../../i18n/LanguageContext';
   It keeps a real `lms_user` if one is already there, so signing in properly
   first and then pressing a button here shows your own name.
 
-  ## Delete this when ticket 05 lands
+  ## Delete this when the reviewer screen lands
+
+  The older note here said "when ticket 05 lands". Ticket 05 has landed and this
+  file is still the only way in, because requesting a role is not the same as
+  being granted one. The real condition is a screen that performs an approval,
+  plus one walk down the whole chain — teacher requests, principal approves,
+  teacher signs in — with this component untouched.
 */
 
 /* Only the three roles that have a dashboard. GUARDIAN has no page. */
