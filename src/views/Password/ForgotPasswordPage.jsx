@@ -97,9 +97,9 @@ export const ForgotPasswordPage = () => {
         <SentMark />
 
         <div>
-          <h1 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
+          <h2 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
             {t('forgot.sent.title')} <span className="text-brand">{t('forgot.sent.titleAccent')}</span>
-          </h1>
+          </h2>
           <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold break-all">
             {email.trim()}
           </p>
@@ -135,9 +135,9 @@ export const ForgotPasswordPage = () => {
       <KeyMark />
 
       <div>
-        <h1 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
+        <h2 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
           {t('forgot.title')} <span className="text-brand">{t('forgot.titleAccent')}</span>
-        </h1>
+        </h2>
         <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold">
           {t('forgot.subtitle')}
         </p>

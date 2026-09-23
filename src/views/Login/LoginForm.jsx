@@ -74,13 +74,13 @@ export const LoginForm = ({ formState, notice }) => {
     <div className="w-full max-w-[420px] mx-auto text-center">
       <BrandMark size="lg" tone="soft" className="mb-5 mx-auto" />
 
-      <h1 className="text-[26px] font-extrabold text-slate-800 leading-tight select-none">
+      <h2 className="text-[26px] font-extrabold text-slate-800 leading-tight select-none">
         {isSignUp ? (
           <>{t('auth.signUp.title')} <span className="text-brand">{t('auth.signUp.titleAccent')}</span></>
         ) : (
           <>{t('auth.signIn.title')} <span className="text-brand">{t('auth.signIn.titleAccent')}</span></>
         )}
-      </h1>
+      </h2>
       <p className="text-slate-400 text-sm mt-2 mb-8 font-medium select-none">
         {isSignUp
           ? t('auth.signUp.subtitle')

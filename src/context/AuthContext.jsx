@@ -122,7 +122,10 @@ export const AuthProvider = ({ children }) => {
   */
   const checkPlatformAdmin = useCallback(async () => {
     try {
-      await adminService.list('PENDING');
+      /* `limit: 1` because only the status code is wanted. This used to ask for
+         a status and take the default page of fifty rows, every one of which
+         was thrown away. */
+      await adminService.list({ limit: 1 });
       setIsPlatformAdmin(true);
       writeRaw(PLATFORM_ADMIN_KEY, '1');
       return true;

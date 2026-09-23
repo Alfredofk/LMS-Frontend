@@ -263,9 +263,24 @@ export const StudentScores = () => {
     }
   };
 
+  /*
+    Above the branching, not inside one arm of it.
+
+    There are four ways out of this component — loading, not-built, failed, and
+    the real page — and the one that runs today is the second: there is no marks
+    endpoint, so NotBuiltYet replaces the whole screen and opens with its own h3.
+    A title written into the happy path alone would be a title nobody ever sees.
+  */
+  const title = (
+    <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+      {t('shell.scores')}
+    </h1>
+  );
+
   if (isLoading) {
     return (
       <div className="space-y-6 text-left select-none animate-pulse w-full">
+        {title}
         <div className="flex gap-3">
           {[1, 2, 3].map(idx => (
             <div key={idx} className="h-8 w-24 bg-slate-200 rounded-full" />
@@ -282,15 +297,25 @@ export const StudentScores = () => {
 
   /* No marks endpoint yet. The filter pills and the search box below would be
      controls over an empty list. */
-  if (notBuilt) return <NotBuiltYet />;
+  if (notBuilt) {
+    return (
+      <div className="space-y-6 w-full text-left">
+        {title}
+        <NotBuiltYet />
+      </div>
+    );
+  }
 
   if (error) {
     return (
-      <div className="p-6 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-700 text-xs font-semibold select-none text-left w-full">
-        <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
-        <div>
-          <p className="font-bold">{t('sc.loadFailed')}</p>
-          <p className="text-red-600 font-medium mt-0.5">{error}</p>
+      <div className="space-y-6 w-full text-left">
+        {title}
+        <div className="p-6 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-700 text-xs font-semibold select-none">
+          <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+          <div>
+            <p className="font-bold">{t('sc.loadFailed')}</p>
+            <p className="text-red-600 font-medium mt-0.5">{error}</p>
+          </div>
         </div>
       </div>
     );
@@ -298,6 +323,7 @@ export const StudentScores = () => {
 
   return (
     <div className="space-y-6 w-full text-left select-none relative">
+      {title}
       
       {/* 1. Filter Pills Row & Mobile Search */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

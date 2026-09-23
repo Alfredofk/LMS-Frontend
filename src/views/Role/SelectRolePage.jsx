@@ -203,7 +203,9 @@ export const SelectRolePage = () => {
         const noRoles = session.roles.length === 0;
         const [mine, adminProbe] = await Promise.allSettled([
           schoolService.listMyRegistrations(),
-          noRoles ? adminService.list('PENDING') : Promise.reject(new Error('skipped')),
+          /* A probe: only the status code matters, so ask for one row rather
+             than the default page of fifty. */
+          noRoles ? adminService.list({ limit: 1 }) : Promise.reject(new Error('skipped')),
         ]);
 
         const latest =
@@ -385,9 +387,9 @@ export const SelectRolePage = () => {
         footer={footer}
       >
         <div>
-          <h1 className="text-3xl sm:text-[34px] font-extrabold text-brand leading-tight select-none">
+          <h2 className="text-3xl sm:text-[34px] font-extrabold text-brand leading-tight select-none">
             {t('selectRole.title')}
-          </h1>
+          </h2>
           <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold break-all">
             {user?.fullName ? t('selectRole.signedInAs', { name: user.fullName }) : ''}
             {user?.email ? ` · ${user.email}` : ''}

@@ -166,7 +166,15 @@ export const SchedulePage = () => {
   const selectedDeadlines = deadlines.filter(d => d.deadline.substring(0, 10) === selectedDateStr);
 
   return (
-    <div className="flex-1 overflow-y-auto bg-slate-50 p-6 sm:p-8 font-sans flex flex-col xl:flex-row gap-6">
+    /* The row below becomes two side-by-side columns at xl, so a heading dropped
+       straight into it would be a third column rather than a title above one.
+       Hence the wrapper. */
+    <div className="space-y-6">
+      <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+        {t('shell.schedule')}
+      </h1>
+
+      <div className="flex-1 overflow-y-auto bg-slate-50 p-6 sm:p-8 font-sans flex flex-col xl:flex-row gap-6">
       
       {/* LEFT COLUMN: The Interactive Calendar */}
       <div className="flex-1 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col">
@@ -410,6 +418,7 @@ export const SchedulePage = () => {
         )}
       </div>
 
+      </div>
     </div>
   );
 };

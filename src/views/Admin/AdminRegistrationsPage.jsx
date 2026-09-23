@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { ShieldOff, Inbox, ChevronRight, Search, SearchX, PowerOff } from 'lucide-react';
 
@@ -27,26 +27,25 @@ const ALL_TYPES = 'ALL';
 const STATES = ['ALL', 'ON', 'OFF'];
 const isOff = (row) => Boolean(row.school?.deactivatedAt);
 
-const EMPTY = { PENDING: [], APPROVED: [], REJECTED: [] };
-
-/* One frozen array, reused. A fresh `[]` fallback on every render would give
-   the memo below a new dependency each time and make it memoise nothing. */
+/* One frozen array and one frozen object, reused rather than rebuilt — a fresh
+   literal each render is a fresh dependency each render. */
 const NO_ROWS = Object.freeze([]);
+const NO_COUNTS = Object.freeze({ PENDING: 0, APPROVED: 0, REJECTED: 0 });
 
 /*
-  One box, five fields.
+  The same number the backend defaults to, and that matters.
 
-  An admin remembers *something* about a school — its name, the NPSN they were
-  reading a minute ago, the town, who applied. Which field that something lives
-  in is not their problem, so it is not theirs to choose.
+  Anything smaller would put a "load more" button in front of admins who never
+  had one, for queues that already fitted. At 50 the screen behaves exactly as
+  it did for every database this project has ever run against, and the button
+  appears only where rows used to be silently unreachable.
 */
-const matches = (row, needle) => {
-  if (!needle) return true;
-  const q = needle.toLowerCase();
-  return [row.schoolName, row.npsn, row.city, row.applicant?.fullName, row.applicant?.email].some(
-    (field) => field?.toLowerCase().includes(q)
-  );
-};
+const PAGE = 50;
+
+/* Long enough that a typed word is one request, short enough that the list does
+   not feel stuck. There is no debounce utility in this project and one caller
+   does not earn one. */
+const TYPING_PAUSE = 300;
 
 /*
   The platform admin's queue.
@@ -65,70 +64,98 @@ export const AdminRegistrationsPage = () => {
   const { t, lang } = useT();
 
   const [status, setStatus] = useState('PENDING');
-  const [byStatus, setByStatus] = useState(EMPTY);
   const [selectedId, setSelectedId] = useState(null);
 
   const [query, setQuery] = useState('');
+  const [needle, setNeedle] = useState('');
   const [type, setType] = useState(ALL_TYPES);
   const [state, setState] = useState('ALL');
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [rows, setRows] = useState(NO_ROWS);
+  const [total, setTotal] = useState(0);
+  const [counts, setCounts] = useState(NO_COUNTS);
+
+  const [isFetching, setIsFetching] = useState(true);
+  const [isAppending, setIsAppending] = useState(false);
   const [error, setError] = useState(null);
   const [denied, setDenied] = useState(false);
   const [notBuilt, setNotBuilt] = useState(false);
 
+  /* The box updates on every keystroke; the server hears the pause. */
+  useEffect(() => {
+    const id = setTimeout(() => setNeedle(query.trim()), TYPING_PAUSE);
+    return () => clearTimeout(id);
+  }, [query]);
+
   /*
-    All three statuses at once, not one per tab.
+    One request, and the database does the sifting.
 
-    The backend takes a single status and offers no counts, so the only way to
-    show "3 waiting" beside a tab is to have asked for it. Fetching all three
-    pays for that once and buys two more things: switching tabs stops making
-    requests at all, and anybody who looks at more than one tab now makes fewer
-    requests than before, not more.
+    This used to fire three — one per tab — and filter the answers in the
+    browser, because the backend took a status and nothing else. It takes nine
+    parameters now and returns the counts as well, so all of that moved to where
+    the rows are.
 
-    `Promise.all` rather than `allSettled` on purpose — all three sit behind the
-    same `requirePlatformAdmin`, so if one is refused they all are, and there is
-    no partial state worth rendering.
+    `seq` drops a late answer on the floor. Typing produces overlapping
+    requests, and without this the slowest one wins whatever was typed last.
   */
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    setDenied(false);
-    setNotBuilt(false);
+  const seq = useRef(0);
 
-    try {
-      const answers = await Promise.all(TABS.map((s) => adminService.list(s)));
-      setByStatus(
-        TABS.reduce((acc, s, i) => ({ ...acc, [s]: answers[i].registrations ?? [] }), {})
-      );
-    } catch (err) {
-      if (err.status === 403) setDenied(true);
-      else if (isNotBuiltYet(err)) setNotBuilt(true);
-      /* Through apiErrorMessage, not err.message: the server speaks English
-         only, and a 401 here means the session ran out — which the dictionary
-         already has a sentence for in both languages. */
-      else setError(apiErrorMessage(err, t));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [t]);
+  const fetchPage = useCallback(
+    async (offset) => {
+      const mine = ++seq.current;
+      const append = offset > 0;
+
+      if (append) setIsAppending(true);
+      else setIsFetching(true);
+      setError(null);
+      setDenied(false);
+      setNotBuilt(false);
+
+      try {
+        const answer = await adminService.list({
+          status,
+          q: needle || undefined,
+          schoolType: type === ALL_TYPES ? undefined : type,
+          /* Only where it means anything — a PENDING registration has no school
+             to be switched off, so sending this there would hide every row. */
+          deactivated:
+            status === 'APPROVED' && state !== 'ALL' ? String(state === 'OFF') : undefined,
+          limit: PAGE,
+          offset,
+        });
+        if (mine !== seq.current) return;
+
+        const page = answer.registrations ?? [];
+        setRows((prev) => {
+          if (!append) return page.length ? page : NO_ROWS;
+          /* Rows can be decided between two pages, which slides everything up by
+             one and would hand React the same key twice. */
+          const seen = new Set(prev.map((r) => r.id));
+          return [...prev, ...page.filter((r) => !seen.has(r.id))];
+        });
+        setTotal(answer.total ?? page.length);
+        setCounts(answer.counts ?? NO_COUNTS);
+      } catch (err) {
+        if (mine !== seq.current) return;
+        if (err.status === 403) setDenied(true);
+        else if (isNotBuiltYet(err)) setNotBuilt(true);
+        /* Through apiErrorMessage, not err.message: the server speaks English
+           only, and a 401 here means the session ran out — which the dictionary
+           already has a sentence for in both languages. */
+        else setError(apiErrorMessage(err, t));
+      } finally {
+        if (mine === seq.current) {
+          if (append) setIsAppending(false);
+          else setIsFetching(false);
+        }
+      }
+    },
+    [status, needle, type, state, t]
+  );
 
   useEffect(() => {
-    load();
-  }, [load]);
-
-  const rows = byStatus[status] ?? NO_ROWS;
-
-  const visible = useMemo(
-    () =>
-      rows.filter(
-        (r) =>
-          (type === ALL_TYPES || r.schoolType === type) &&
-          (status !== 'APPROVED' || state === 'ALL' || (state === 'OFF') === isOff(r)) &&
-          matches(r, query.trim())
-      ),
-    [rows, type, state, status, query]
-  );
+    fetchPage(0);
+  }, [fetchPage]);
 
   const selected = rows.find((r) => r.id === selectedId) ?? null;
 
@@ -139,14 +166,30 @@ export const AdminRegistrationsPage = () => {
   };
 
   /*
+    Rows belong to the tab that fetched them, so they go when the tab does.
+    Keeping them would show one queue's rows under another's heading for as long
+    as the request takes.
+  */
+  const openTab = (tab) => {
+    setStatus(tab);
+    setRows(NO_ROWS);
+    setTotal(0);
+    setSelectedId(null);
+  };
+
+  /*
     After a decision the row moves between queues, so everything is refetched
     rather than patched — the counts have to move with it. Called with null when
     somebody else decided first; the queue was simply stale, and reloading is
     the whole remedy.
+
+    Back to the first page deliberately: `total` has just changed, and the page
+    that was open may now begin past the end of it.
   */
   const handleDecided = () => {
     setSelectedId(null);
-    load();
+    setRows(NO_ROWS);
+    fetchPage(0);
   };
 
   if (denied) {
@@ -166,6 +209,12 @@ export const AdminRegistrationsPage = () => {
   if (notBuilt) return <NotBuiltYet />;
 
   const locale = lang === 'en' ? 'en-GB' : 'id-ID';
+
+  /* A first load has nothing to show and gets the skeleton. A refine already has
+     rows on screen, and replacing them with a grey block on every keystroke is
+     worse than letting them sit for a moment. */
+  const isFirstLoad = isFetching && rows.length === 0;
+  const isRefining = isFetching && rows.length > 0;
 
   return (
     <div className="space-y-6">
@@ -192,14 +241,19 @@ export const AdminRegistrationsPage = () => {
                 The count is of the queue, not of what the filters leave behind.
                 A number that shrinks as you type stops answering the question
                 the admin opened this page to ask: is there work waiting?
+
+                It used to be the length of a fetched array, which said the same
+                thing only while the queue was under fifty. `counts` is the
+                backend's, computed over the whole table and deliberately not
+                filtered.
               */
-              const count = (byStatus[tab] ?? []).length;
+              const count = counts[tab] ?? 0;
 
               return (
                 <button
                   key={tab}
                   type="button"
-                  onClick={() => setStatus(tab)}
+                  onClick={() => openTab(tab)}
                   className={`pb-3 text-sm font-extrabold transition-all border-b-2 cursor-pointer focus:outline-none flex items-center gap-2 ${
                     isActive
                       ? 'border-brand text-brand'
@@ -225,9 +279,11 @@ export const AdminRegistrationsPage = () => {
             <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700" role="alert">
               {error}
             </div>
-          ) : isLoading ? (
+          ) : isFirstLoad ? (
             <div className="h-40 bg-white border border-slate-100 rounded-2xl animate-pulse" />
-          ) : rows.length === 0 ? (
+          ) : counts[status] === 0 ? (
+            /* The queue itself is empty, whatever the filters say. Showing the
+               search box here would offer to narrow nothing down. */
             <div className="py-16 text-center border border-dashed border-slate-200 rounded-2xl bg-white select-none">
               <Inbox className="w-9 h-9 text-slate-300 mx-auto" aria-hidden="true" />
               <p className="mt-2.5 text-xs font-extrabold text-slate-400">{t('admin.queue.empty')}</p>
@@ -313,7 +369,7 @@ export const AdminRegistrationsPage = () => {
                 </div>
               )}
 
-              {visible.length === 0 ? (
+              {total === 0 ? (
                 /*
                   Not the same as an empty queue, and saying so matters: there
                   are rows here, the filters simply hid them. Without a way back
@@ -331,12 +387,17 @@ export const AdminRegistrationsPage = () => {
                   </button>
                 </div>
               ) : (
-                <div className="space-y-2.5">
+                <div
+                  className={`space-y-2.5 transition-opacity ${isRefining ? 'opacity-50' : 'opacity-100'}`}
+                  aria-busy={isRefining}
+                >
                   <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider select-none">
-                    {t('admin.queue.count', { n: visible.length })}
+                    {rows.length < total
+                      ? t('admin.queue.countOf', { n: rows.length, total })
+                      : t('admin.queue.count', { n: total })}
                   </p>
 
-                  {visible.map((row) => (
+                  {rows.map((row) => (
                     <button
                       key={row.id}
                       type="button"
@@ -374,6 +435,21 @@ export const AdminRegistrationsPage = () => {
                       <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" aria-hidden="true" />
                     </button>
                   ))}
+
+                  {/* The rows past the first page were unreachable before this —
+                      `limit` defaults to 50 and nothing ever asked for page two. */}
+                  {rows.length < total && (
+                    <button
+                      type="button"
+                      onClick={() => fetchPage(rows.length)}
+                      disabled={isAppending}
+                      className="w-full py-3 rounded-2xl border border-dashed border-slate-200 bg-white text-xs font-extrabold text-brand hover:border-brand/40 hover:bg-brand-tint/40 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50 disabled:cursor-default"
+                    >
+                      {/* `common.loading` rather than a key of its own — it already
+                          says exactly this in both dictionaries. */}
+                      {isAppending ? t('common.loading') : t('admin.queue.loadMore')}
+                    </button>
+                  )}
                 </div>
               )}
             </>

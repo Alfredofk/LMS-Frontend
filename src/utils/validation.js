@@ -107,8 +107,12 @@ export function validateFullName(value) {
   either field, so "you typed something" was the only honest answer. It was right
   until it was not.
 
-  The School Code alphabet has no 0, O, 1 or I. The code is read aloud and typed
-  from a WhatsApp message, and those are the four characters people get wrong.
+  The School Code *generator* uses no 0, O, 1 or I (`school.service.js:32`) — the
+  code is read aloud and typed from a WhatsApp message, and those are the four
+  characters people get wrong. The *validator* is looser, here and on the server
+  alike: `[A-Z2-9]` refuses 0 and 1 but accepts O and I, because A-Z includes
+  them. A code containing one is well-formed, can never exist, and comes back 404
+  from the lookup. The two sides agree; only the alphabet is stricter than both.
 */
 const SCHOOL_CODE_LENGTH = 8;
 const SCHOOL_CODE_PATTERN = /^[A-Z2-9]{8}$/;
@@ -248,13 +252,16 @@ export function validateBirthDate(value) {
 }
 
 /*
-  Founding a school — and the first rules here that mirror something real.
+  Founding a school.
 
-  `validateSchoolCode` and `validateNisn` above are deliberately weak because the
-  backend has no rule for either. These six are the opposite: every one of them
-  restates `LMS-Backend/src/modules/school/school.schema.js:27-67` line for line,
-  which is exactly what the header of this file asks for. When that zod changes,
-  these change with it.
+  Every one of these restates `LMS-Backend/src/modules/school/school.schema.js`
+  line for line, which is exactly what the header of this file asks for. When that
+  zod changes, these change with it — and `validation.test.js` is what notices.
+
+  (This block used to call `validateSchoolCode` and `validateNisn` "deliberately
+  weak because the backend has no rule for either". That stopped being true when
+  ticket 05 gave them rules, and the block above says so; this one had not caught
+  up.)
 */
 const MAX_SCHOOL_NAME = 150;
 const MIN_SCHOOL_NAME = 3;

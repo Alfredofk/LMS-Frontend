@@ -18,10 +18,42 @@ const BASE = '/admin/school-registrations';
 */
 export const adminService = {
   /**
-   * The queue for one status, oldest first — a queue is worked from the front.
-   * @param {'PENDING'|'APPROVED'|'REJECTED'} status
+   * One page of the queue, oldest first — a queue is worked from the front.
+   *
+   * **The filtering happens in the database, not in the browser.** This used to
+   * take a bare status and nothing else, and the screen sifted the answer
+   * itself; `school.schema.js:71-76` says why that was wrong — it works only
+   * while the whole platform fits in one page of memory, and `limit` defaults to
+   * 50, so past fifty rows the search quietly stopped seeing them.
+   *
+   * Every parameter is optional and only the ones with a value are sent, so
+   * `list({ status: 'PENDING' })` still means exactly what `list('PENDING')`
+   * meant.
+   *
+   * Two numbers come back and they are not the same number:
+   *   `total`  — how many rows match the filters, for "showing 20 of 63".
+   *   `counts` — per status, **unfiltered**, for the tab badges. Deliberate
+   *              server-side: a badge that shrinks while somebody types stops
+   *              answering the question they opened the page to ask.
+   *
+   * @param {object} [params]
+   * @param {'PENDING'|'APPROVED'|'REJECTED'|'ALL'} [params.status]
+   * @param {string} [params.q]            one needle, five haystacks
+   * @param {string} [params.schoolType]   SD · SMP · SMA · SMK
+   * @param {'true'|'false'} [params.deactivated]  strings, not booleans — a query
+   *   string carries text, and the backend refuses a coerced boolean for it
+   * @param {number} [params.limit]        max 100
+   * @param {number} [params.offset]
+   * @returns {Promise<{ registrations: Array<object>, total: number,
+   *   counts: Record<string, number>, page: { limit, offset, returned } }>}
    */
-  list: (status = 'PENDING') => api.get(BASE, { query: { status } }),
+  list: (params = {}) => {
+    const query = { status: 'PENDING' };
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null && value !== '') query[key] = value;
+    }
+    return api.get(BASE, { query });
+  },
 
   /**
    * The applicant's KTP photograph, as bytes.

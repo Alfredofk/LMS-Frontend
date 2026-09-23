@@ -209,6 +209,8 @@ export default {
   'admin.tab.REJECTED': 'Ditolak',
   'admin.queue.empty': 'Tidak ada pendaftaran di antrean ini.',
   'admin.queue.count': '{n} pendaftaran',
+  'admin.queue.countOf': 'Menampilkan {n} dari {total} pendaftaran',
+  'admin.queue.loadMore': 'Muat lebih banyak',
   'admin.search.placeholder': 'Cari nama sekolah, NPSN, kota, atau pemohon…',
   'admin.search.empty': 'Tidak ada yang cocok dengan pencarian Anda.',
   'admin.search.clear': 'Bersihkan pencarian',

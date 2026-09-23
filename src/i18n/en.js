@@ -210,6 +210,8 @@ export default {
   'admin.tab.REJECTED': 'Rejected',
   'admin.queue.empty': 'Nothing in this queue.',
   'admin.queue.count': '{n} registration(s)',
+  'admin.queue.countOf': 'Showing {n} of {total} registration(s)',
+  'admin.queue.loadMore': 'Load more',
   'admin.search.placeholder': 'Search by school name, NPSN, city or applicant…',
   'admin.search.empty': 'Nothing matches your search.',
   'admin.search.clear': 'Clear search',

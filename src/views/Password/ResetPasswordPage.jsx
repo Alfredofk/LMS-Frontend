@@ -193,9 +193,9 @@ export const ResetPasswordPage = () => {
         <LockMark tone="error" />
 
         <div>
-          <h1 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
+          <h2 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
             {t('reset.rejected.title')} <span className="text-brand">{t('reset.rejected.titleAccent')}</span>
-          </h1>
+          </h2>
           <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold">{message}</p>
         </div>
 
@@ -220,9 +220,9 @@ export const ResetPasswordPage = () => {
         <LockMark tone="done" />
 
         <div>
-          <h1 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
+          <h2 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
             {t('reset.done.title')} <span className="text-brand">{t('reset.done.titleAccent')}</span>
-          </h1>
+          </h2>
           <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold">{message}</p>
         </div>
 
@@ -259,9 +259,9 @@ export const ResetPasswordPage = () => {
       <LockMark />
 
       <div>
-        <h1 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
+        <h2 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
           {t('reset.form.title')} <span className="text-brand">{t('reset.form.titleAccent')}</span>
-        </h1>
+        </h2>
         <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold">
           {t('reset.form.subtitle')}
         </p>

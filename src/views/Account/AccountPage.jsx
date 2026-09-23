@@ -130,9 +130,12 @@ export const AccountPage = () => {
         footer={footer}
       >
         <div className="text-left">
-          <h1 className="text-3xl sm:text-[34px] font-extrabold text-brand leading-tight select-none">
+          {/* h2: inside AuthLayout, whose purple column owns the h1. The other
+              branch of this file keeps its h1 — it renders in the app shell, which
+              has no heading of its own. */}
+          <h2 className="text-3xl sm:text-[34px] font-extrabold text-brand leading-tight select-none">
             {t('account.title')}
-          </h1>
+          </h2>
           <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold break-all">
             {user?.email ? t('account.subtitle', { email: user.email }) : ''}
           </p>

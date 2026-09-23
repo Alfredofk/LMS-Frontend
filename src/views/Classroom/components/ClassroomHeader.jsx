@@ -28,9 +28,13 @@ export const ClassroomHeader = ({ course }) => {
 
         {/* Subject Name */}
         <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+          {/* h2, not h1: the page owns that now, and this banner names one subject
+              inside it. Two h1s on one page is what this was until ClassroomPage
+              grew a title of its own — invisible while the sample data was empty,
+              because this branch never rendered. */}
+          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
             {course.name}
-          </h1>
+          </h2>
           <p className="text-xs sm:text-sm text-violet-100 font-semibold max-w-xl">
             Selamat datang di Ruang Kelas Virtual {course.name}. Temukan materi belajar, daftar tugas, dan diskusikan topik kelas bersama teman sekelas Anda.
           </p>

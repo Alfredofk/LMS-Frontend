@@ -407,7 +407,10 @@ export const HeadmasterDashboard = () => {
                 🏢
               </div>
               <div>
-                <h4 className="text-sm font-extrabold text-slate-800">{t('dash.principal.guide.title')}</h4>
+                {/* h3, like its six siblings at this depth. The H1 -> H3 jump on
+                    this page stays: making one of the seven an h2 would only make
+                    it the odd one out. */}
+                <h3 className="text-sm font-extrabold text-slate-800">{t('dash.principal.guide.title')}</h3>
                 <p className="text-xs text-slate-400 font-semibold mt-1 leading-relaxed">
                   {t('dash.principal.guide.body')}
                 </p>

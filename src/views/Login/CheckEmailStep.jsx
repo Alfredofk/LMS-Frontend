@@ -43,9 +43,9 @@ export const CheckEmailStep = ({ formState }) => {
     <div className="w-full max-w-[420px] mx-auto text-center">
       <EnvelopeMark />
 
-      <h1 className="text-[26px] font-extrabold text-slate-800 leading-tight select-none">
+      <h2 className="text-[26px] font-extrabold text-slate-800 leading-tight select-none">
         {t('checkEmail.title')} <span className="text-brand">{t('checkEmail.titleAccent')}</span>
-      </h1>
+      </h2>
       <p className="text-slate-400 text-sm mt-2 mb-6 font-medium select-none">
         {t('checkEmail.subtitle')}
       </p>

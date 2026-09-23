@@ -147,9 +147,9 @@ export const GetStartedPage = () => {
       </div>
 
       <div>
-        <h1 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
+        <h2 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
           {t(content.heading[0])} <span className="text-brand">{t(content.heading[1])}</span>
-        </h1>
+        </h2>
         <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold">
           {t(content.subheading[0], fill(content.subheading[1]))}
           {user?.fullName ? ` · ${user.fullName}` : ''}

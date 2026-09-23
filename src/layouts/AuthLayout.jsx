@@ -69,9 +69,21 @@ export const AuthLayout = ({
         </div>
 
         <div key={key} className="relative my-auto space-y-6 max-w-sm z-10 shrink-0 animate-swap-in">
-          <h2 className="text-4xl sm:text-5xl font-extrabold leading-tight tracking-tight">
+          {/*
+            The page h1, and it has to be this one rather than the card's.
+
+            This column renders first, so as an h2 it put every signed-out screen
+            in the order h2-then-h1 — and at 36px against the card's 26-30px, the
+            bigger line was the lower level. It is also the only heading that is
+            always there: ResetPasswordPage's `checking` branch is a lock icon and
+            a sentence, with no heading of its own in the card at all.
+
+            The card keeps the same words one level down. That repetition is the
+            layout's design, not an accident.
+          */}
+          <h1 className="text-4xl sm:text-5xl font-extrabold leading-tight tracking-tight">
             {heading}
-          </h2>
+          </h1>
 
           {aside ?? (
             <p className="text-sm sm:text-base text-violet-100/90 leading-relaxed font-medium">
