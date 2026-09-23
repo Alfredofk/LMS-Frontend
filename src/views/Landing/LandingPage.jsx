@@ -270,7 +270,7 @@ export const LandingPage = () => {
             </div>
             <div>
               <div className="text-xl font-extrabold text-slate-800">17k+</div>
-              <div className="text-xs text-slate-400 font-bold mt-0.5">{t('landing.stats.classes')}</div>
+              <div className="text-xs text-slate-500 font-bold mt-0.5">{t('landing.stats.classes')}</div>
             </div>
           </div>
 
@@ -282,7 +282,7 @@ export const LandingPage = () => {
             </div>
             <div>
               <div className="text-xl font-extrabold text-slate-800">20+</div>
-              <div className="text-xs text-slate-400 font-bold mt-0.5">{t('landing.stats.schools')}</div>
+              <div className="text-xs text-slate-500 font-bold mt-0.5">{t('landing.stats.schools')}</div>
             </div>
           </div>
 
@@ -294,7 +294,7 @@ export const LandingPage = () => {
             </div>
             <div>
               <div className="text-xl font-extrabold text-slate-800">350k+</div>
-              <div className="text-xs text-slate-400 font-bold mt-0.5">{t('landing.stats.users')}</div>
+              <div className="text-xs text-slate-500 font-bold mt-0.5">{t('landing.stats.users')}</div>
             </div>
           </div>
 
@@ -309,7 +309,7 @@ export const LandingPage = () => {
           <h2 className="text-3xl font-extrabold text-slate-900 leading-tight">
             {t('landing.features.title')} <span className="text-brand">{t('landing.features.titleAccent')}</span>
           </h2>
-          <p className="text-sm text-slate-400 font-semibold select-none">
+          <p className="text-sm text-slate-500 font-semibold select-none">
             {t('landing.features.subtitle')}
           </p>
         </div>
@@ -325,7 +325,7 @@ export const LandingPage = () => {
               </div>
               <div className="space-y-0.5">
                 <h4 className="text-base font-extrabold text-slate-800">{t(`landing.feature.${feature.key}.title`)}</h4>
-                <p className="text-xs text-slate-400 font-medium leading-relaxed">{t(`landing.feature.${feature.key}.desc`)}</p>
+                <p className="text-xs text-slate-500 font-medium leading-relaxed">{t(`landing.feature.${feature.key}.desc`)}</p>
               </div>
             </div>
           ))}
@@ -341,14 +341,14 @@ export const LandingPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 text-left">
             <div className="lg:col-span-4 space-y-4">
               <Logo />
-              <p className="text-xs text-slate-400 leading-relaxed font-semibold max-w-xs">
+              <p className="text-xs text-slate-500 leading-relaxed font-semibold max-w-xs">
                 {t('landing.footer.tagline')}
               </p>
             </div>
 
             <div className="lg:col-span-2 space-y-3">
               <h5 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">{t('landing.footer.platform')}</h5>
-              <ul className="space-y-2 text-xs text-slate-400 font-semibold">
+              <ul className="space-y-2 text-xs text-slate-500 font-semibold">
                 <li><button onClick={() => handleUnderConstruction('landing.footer.features')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.features')}</button></li>
                 <li><button onClick={() => handleUnderConstruction('landing.footer.pricing')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.pricing')}</button></li>
                 <li><button onClick={() => handleUnderConstruction('landing.footer.integrations')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.integrations')}</button></li>
@@ -358,7 +358,7 @@ export const LandingPage = () => {
 
             <div className="lg:col-span-2 space-y-3">
               <h5 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">{t('landing.footer.support')}</h5>
-              <ul className="space-y-2 text-xs text-slate-400 font-semibold">
+              <ul className="space-y-2 text-xs text-slate-500 font-semibold">
                 <li><button onClick={() => handleUnderConstruction('landing.footer.helpCenter')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.helpCenter')}</button></li>
                 <li><button onClick={() => handleUnderConstruction('landing.footer.contact')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.contact')}</button></li>
                 <li><button onClick={() => handleUnderConstruction('landing.footer.faq')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.faq')}</button></li>
@@ -367,7 +367,7 @@ export const LandingPage = () => {
 
             <div className="lg:col-span-2 space-y-3">
               <h5 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">{t('landing.footer.resources')}</h5>
-              <ul className="space-y-2 text-xs text-slate-400 font-semibold">
+              <ul className="space-y-2 text-xs text-slate-500 font-semibold">
                 <li><button onClick={() => handleUnderConstruction('landing.footer.guides')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.guides')}</button></li>
                 <li><button onClick={() => handleUnderConstruction('landing.footer.apiDocs')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.apiDocs')}</button></li>
                 <li><button onClick={() => handleUnderConstruction('landing.footer.webinars')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.webinars')}</button></li>
@@ -377,7 +377,7 @@ export const LandingPage = () => {
 
             <div className="lg:col-span-2 space-y-3">
               <h5 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">{t('landing.footer.legal')}</h5>
-              <ul className="space-y-2 text-xs text-slate-400 font-semibold">
+              <ul className="space-y-2 text-xs text-slate-500 font-semibold">
                 <li><button onClick={() => handleUnderConstruction('landing.footer.terms')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.terms')}</button></li>
                 <li><button onClick={() => handleUnderConstruction('landing.footer.privacy')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.privacy')}</button></li>
                 <li><button onClick={() => handleUnderConstruction('landing.footer.cookies')} className="hover:text-brand transition-colors cursor-pointer">{t('landing.footer.cookies')}</button></li>
@@ -385,7 +385,7 @@ export const LandingPage = () => {
             </div>
           </div>
 
-          <div className="border-t border-slate-100 pt-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-400 font-semibold text-center md:text-left">
+          <div className="border-t border-slate-100 pt-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500 font-semibold text-center md:text-left">
             <div>
               {t('landing.footer.rights')}
             </div>

@@ -148,7 +148,7 @@ export const JoinRequestsPage = () => {
           <ShieldOff className="w-5 h-5 text-slate-400" aria-hidden="true" />
         </div>
         <h2 className="mt-3.5 text-sm font-extrabold text-slate-700">{t('requests.denied.title')}</h2>
-        <p className="mt-1.5 text-xs font-semibold text-slate-400 leading-relaxed max-w-sm mx-auto">
+        <p className="mt-1.5 text-xs font-semibold text-slate-500 leading-relaxed max-w-sm mx-auto">
           {t('requests.denied.body')}
         </p>
       </div>
@@ -165,7 +165,7 @@ export const JoinRequestsPage = () => {
         <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
           {t('requests.title')}
         </h1>
-        <p className="text-xs sm:text-sm text-slate-400 font-bold mt-1">{t('requests.subtitle')}</p>
+        <p className="text-xs sm:text-sm text-slate-500 font-bold mt-1">{t('requests.subtitle')}</p>
       </div>
 
       {/* The School Code used to sit here too. It now lives on the dashboard as a
@@ -198,7 +198,7 @@ export const JoinRequestsPage = () => {
                   className={`pb-3 text-sm font-extrabold transition-all border-b-2 cursor-pointer focus:outline-none flex items-center gap-2 ${
                     isActive
                       ? 'border-brand text-brand'
-                      : 'border-transparent text-slate-400 hover:text-slate-600'
+                      : 'border-transparent text-slate-500 hover:text-slate-600'
                   }`}
                 >
                   {t(`requests.tab.${tab}`)}
@@ -231,10 +231,10 @@ export const JoinRequestsPage = () => {
             */
             <div className="py-16 text-center border border-dashed border-slate-200 rounded-2xl bg-white select-none">
               <Inbox className="w-9 h-9 text-slate-300 mx-auto" aria-hidden="true" />
-              <p className="mt-2.5 text-xs font-extrabold text-slate-400">
+              <p className="mt-2.5 text-xs font-extrabold text-slate-500">
                 {t(`requests.queue.empty.${status}`)}
               </p>
-              <p className="mt-1.5 text-[11px] font-semibold text-slate-400 leading-relaxed max-w-sm mx-auto">
+              <p className="mt-1.5 text-[11px] font-semibold text-slate-500 leading-relaxed max-w-sm mx-auto">
                 {t('requests.queue.empty.hint')}
               </p>
 
@@ -279,7 +279,7 @@ export const JoinRequestsPage = () => {
                    simply hid them. Without a way back the page looks broken. */
                 <div className="py-16 text-center border border-dashed border-slate-200 rounded-2xl bg-white select-none">
                   <SearchX className="w-9 h-9 text-slate-300 mx-auto" aria-hidden="true" />
-                  <p className="mt-2.5 text-xs font-extrabold text-slate-400">{t('requests.search.empty')}</p>
+                  <p className="mt-2.5 text-xs font-extrabold text-slate-500">{t('requests.search.empty')}</p>
                   <button
                     type="button"
                     onClick={() => setQuery('')}
@@ -290,7 +290,7 @@ export const JoinRequestsPage = () => {
                 </div>
               ) : (
                 <div className="space-y-2.5">
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider select-none">
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider select-none">
                     {t('requests.queue.count', { n: visible.length })}
                   </p>
 
@@ -309,13 +309,13 @@ export const JoinRequestsPage = () => {
                           <h3 className="text-sm font-extrabold text-slate-900 truncate">
                             {row.applicant?.fullName ?? t('requests.applicant.unnamed')}
                           </h3>
-                          <p className="text-[11px] font-semibold text-slate-400 mt-0.5 truncate">
+                          <p className="text-[11px] font-semibold text-slate-500 mt-0.5 truncate">
                             {roles.map((entry) => t(ROLE_LABEL_KEY[entry.role] ?? 'requests.role.unknown')).join(' · ')}
                             {row.student?.gradeLevel != null
                               ? ` · ${t('requests.field.grade', { n: row.student.gradeLevel })}`
                               : ''}
                           </p>
-                          <p className="text-[11px] font-semibold text-slate-400 mt-0.5 truncate">
+                          <p className="text-[11px] font-semibold text-slate-500 mt-0.5 truncate">
                             {t('requests.list.requested', {
                               date: new Date(row.requestedAt).toLocaleDateString(locale, {
                                 day: 'numeric',

@@ -68,7 +68,7 @@ export const AssignmentContent = ({ sections, showToast }) => {
                   {renderStatusBadge()}
                 </div>
                 
-                <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold">
+                <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-bold">
                   <Calendar className="w-3.5 h-3.5" />
                   <span>Tenggat: {task.deadline}</span>
                 </div>

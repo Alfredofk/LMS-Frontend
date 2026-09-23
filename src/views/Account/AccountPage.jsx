@@ -80,7 +80,7 @@ export const AccountPage = () => {
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
             {t('account.title')}
           </h1>
-          <p className="text-xs font-semibold text-slate-400 break-all">
+          <p className="text-xs font-semibold text-slate-500 break-all">
             {user?.email ? t('account.subtitle', { email: user.email }) : ''}
           </p>
 
@@ -113,7 +113,7 @@ export const AccountPage = () => {
     <button
       type="button"
       onClick={() => navigate(homeFor(activeRole))}
-      className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-brand font-bold transition-colors focus:outline-none focus-visible:text-brand cursor-pointer"
+      className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-brand font-bold transition-colors focus:outline-none focus-visible:text-brand cursor-pointer"
     >
       <ArrowLeft className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
       {t('account.back')}
@@ -136,7 +136,7 @@ export const AccountPage = () => {
           <h2 className="text-3xl sm:text-[34px] font-extrabold text-brand leading-tight select-none">
             {t('account.title')}
           </h2>
-          <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold break-all">
+          <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold break-all">
             {user?.email ? t('account.subtitle', { email: user.email }) : ''}
           </p>
         </div>

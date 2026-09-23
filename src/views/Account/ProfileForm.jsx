@@ -89,7 +89,7 @@ export const ProfileForm = ({ onSaved }) => {
             {user?.email}
           </span>
         </div>
-        <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+        <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
           {t('account.profile.email.locked')}
         </p>
       </div>

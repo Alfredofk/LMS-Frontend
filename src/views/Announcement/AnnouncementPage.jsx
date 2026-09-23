@@ -72,7 +72,7 @@ export const AnnouncementPage = () => {
             <h1 className="text-xl sm:text-2xl font-extrabold text-slate-800 leading-tight">
               {t('ann.title')}
             </h1>
-            <p className="text-xs text-slate-400 font-semibold mt-1">
+            <p className="text-xs text-slate-500 font-semibold mt-1">
               {t('ann.subtitle')}
             </p>
           </div>
@@ -112,7 +112,7 @@ export const AnnouncementPage = () => {
             <Megaphone className="w-8 h-8" />
           </div>
           <h3 className="text-sm font-extrabold text-slate-800">{t('ann.empty')}</h3>
-          <p className="text-xs text-slate-400 font-semibold mt-1">
+          <p className="text-xs text-slate-500 font-semibold mt-1">
             {searchQuery ? t('ann.emptySearch') : t('ann.emptyNone')}
           </p>
         </div>
@@ -133,12 +133,12 @@ export const AnnouncementPage = () => {
                 <h3 className="text-base font-extrabold text-slate-900 tracking-tight leading-snug group-hover:text-brand transition-colors">
                   {ann.title}
                 </h3>
-                <p className="text-xs text-slate-400 font-medium leading-relaxed whitespace-pre-wrap">
+                <p className="text-xs text-slate-500 font-medium leading-relaxed whitespace-pre-wrap">
                   {ann.content}
                 </p>
 
                 {/* Footer metadata details */}
-                <div className="flex flex-wrap items-center gap-y-1.5 gap-x-4 pt-3 border-t border-slate-50 text-[10px] text-slate-400 font-bold select-none">
+                <div className="flex flex-wrap items-center gap-y-1.5 gap-x-4 pt-3 border-t border-slate-50 text-[10px] text-slate-500 font-bold select-none">
                   <div className="flex items-center gap-1.5">
                     <User className="w-3.5 h-3.5 text-slate-400" />
                     <span>

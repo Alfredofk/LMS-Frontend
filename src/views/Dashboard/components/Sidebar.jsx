@@ -161,7 +161,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
             <div className="text-sm font-extrabold tracking-tight leading-none text-slate-900">
               EduForID
             </div>
-            <div className="text-[10px] font-semibold text-slate-400 truncate mt-0.5" title={schoolName}>
+            <div className="text-[10px] font-semibold text-slate-500 truncate mt-0.5" title={schoolName}>
               {schoolName}
             </div>
           </div>
@@ -220,7 +220,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
             <p className="text-xs font-extrabold text-slate-900 leading-tight truncate" title={user?.fullName}>
               {user?.fullName || t('shell.account.fallback')}
             </p>
-            <p className="text-[10px] font-medium text-slate-400 mt-0.5 truncate" title={user?.email}>
+            <p className="text-[10px] font-medium text-slate-500 mt-0.5 truncate" title={user?.email}>
               {user?.email}
             </p>
             <div className="mt-1 px-2 py-0.5 bg-brand-tint text-brand text-[9px] font-bold rounded-full inline-block">
@@ -234,7 +234,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
 
           {/* Main Menu group */}
           <div className="space-y-1">
-            <span className="px-3 text-[10px] font-bold text-slate-400 tracking-wider block select-none">
+            <span className="px-3 text-[10px] font-bold text-slate-500 tracking-wider block select-none">
               {t('shell.mainMenu')}
             </span>
             <nav className="space-y-0.5">
@@ -325,7 +325,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
           {/* Activities group - Only for students */}
           {role === ROLES.STUDENT && (
             <div className="space-y-1">
-              <span className="px-3 text-[10px] font-bold text-slate-400 tracking-wider block select-none">
+              <span className="px-3 text-[10px] font-bold text-slate-500 tracking-wider block select-none">
                 {t('shell.activities')}
               </span>
               <nav className="space-y-0.5">
@@ -373,7 +373,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
       */}
       <div className="shrink-0 border-t border-slate-100 px-3 py-3">
         <div className="space-y-1">
-            <span className="px-3 text-[10px] font-bold text-slate-400 tracking-wider block select-none">
+            <span className="px-3 text-[10px] font-bold text-slate-500 tracking-wider block select-none">
               {t('shell.account')}
             </span>
             <nav className="space-y-0.5">

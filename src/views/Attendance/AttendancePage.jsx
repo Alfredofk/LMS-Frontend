@@ -191,7 +191,7 @@ export const AttendancePage = () => {
             <h1 className="text-xl sm:text-2xl font-extrabold text-slate-800 leading-tight">
               {t('att.title')}
             </h1>
-            <p className="text-xs text-slate-400 font-bold mt-1">{t('att.subtitle')}</p>
+            <p className="text-xs text-slate-500 font-bold mt-1">{t('att.subtitle')}</p>
           </div>
 
           <div className="relative w-full sm:w-72">
@@ -234,7 +234,7 @@ export const AttendancePage = () => {
             </div>
             <div>
               <h4 className="text-xs font-extrabold text-slate-700">{t('att.ratio')}</h4>
-              <p className="text-[10px] text-slate-400 font-bold mt-1 max-w-[220px] leading-relaxed">
+              <p className="text-[10px] text-slate-500 font-bold mt-1 max-w-[220px] leading-relaxed">
                 {t('att.ratio.detail')}
               </p>
             </div>
@@ -245,13 +245,13 @@ export const AttendancePage = () => {
               <Flame className="w-6 h-6 fill-current" aria-hidden="true" />
             </div>
             <div>
-              <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">
+              <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider block">
                 {t('att.streak')}
               </span>
               <span className="text-xl font-extrabold text-slate-800 mt-0.5 block">
                 {t('att.days', { n: summary.dailyStreak })}
               </span>
-              <span className="text-[9px] text-slate-400 font-bold block mt-0.5">
+              <span className="text-[9px] text-slate-500 font-bold block mt-0.5">
                 {t('att.streak.detail')}
               </span>
             </div>
@@ -262,13 +262,13 @@ export const AttendancePage = () => {
               <UserCheck className="w-6 h-6" aria-hidden="true" />
             </div>
             <div>
-              <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">
+              <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider block">
                 {t('att.totalLogs')}
               </span>
               <span className="text-xl font-extrabold text-slate-800 mt-0.5 block">
                 {t('att.days', { n: summary.total })}
               </span>
-              <span className="text-[9px] text-slate-400 font-bold block mt-0.5">
+              <span className="text-[9px] text-slate-500 font-bold block mt-0.5">
                 {t('att.breakdown', {
                   h: summary.hadir,
                   i: summary.izin,
@@ -338,7 +338,7 @@ export const AttendancePage = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-7 gap-1 text-center border-b border-slate-100 pb-3 text-xs font-extrabold text-slate-400 uppercase">
+            <div className="grid grid-cols-7 gap-1 text-center border-b border-slate-100 pb-3 text-xs font-extrabold text-slate-500 uppercase">
               {weekdayNames.map((name) => (
                 <div key={name}>{name}</div>
               ))}
@@ -346,7 +346,7 @@ export const AttendancePage = () => {
 
             <div className="grid grid-cols-7 gap-1.5 mt-3 flex-1">
               {loading ? (
-                <div className="col-span-7 py-24 text-center text-slate-400 font-semibold text-xs animate-pulse">
+                <div className="col-span-7 py-24 text-center text-slate-500 font-semibold text-xs animate-pulse">
                   {t('att.loading')}
                 </div>
               ) : (
@@ -381,7 +381,7 @@ export const AttendancePage = () => {
               )}
             </div>
 
-            <div className="flex flex-wrap gap-4 mt-5 text-[10px] text-slate-400 font-bold select-none border-t border-slate-100 pt-4">
+            <div className="flex flex-wrap gap-4 mt-5 text-[10px] text-slate-500 font-bold select-none border-t border-slate-100 pt-4">
               <div className="flex items-center gap-1.5">
                 <span className="w-3.5 h-3.5 rounded-md border border-emerald-200 bg-emerald-50" />
                 <span>{t('att.legend.present')}</span>
@@ -413,7 +413,7 @@ export const AttendancePage = () => {
                   <CalendarIcon className="w-6 h-6" aria-hidden="true" />
                 </div>
                 <h3 className="text-xs font-extrabold text-slate-700">{t('att.log.empty')}</h3>
-                <p className="text-[10px] text-slate-400 font-bold mt-1">
+                <p className="text-[10px] text-slate-500 font-bold mt-1">
                   {searchQuery ? t('att.log.emptySearch') : t('att.log.emptyNone')}
                 </p>
               </div>
@@ -441,7 +441,7 @@ export const AttendancePage = () => {
                     </div>
 
                     {item.notes && (
-                      <p className="text-[9px] text-slate-400 font-semibold leading-tight">
+                      <p className="text-[9px] text-slate-500 font-semibold leading-tight">
                         {t('att.note', { note: item.notes })}
                       </p>
                     )}

@@ -437,7 +437,7 @@ export const TeacherGradebook = () => {
         <div className="py-20 text-center border border-dashed border-slate-200 rounded-3xl bg-slate-50/20 select-none">
           <BookOpen className="w-12 h-12 text-slate-300 mx-auto mb-3" />
           <h3 className="text-sm font-extrabold text-slate-500">Belum ada tugas dibuat</h3>
-          <p className="text-xs text-slate-400 mt-1">Buat tugas baru terlebih dahulu di halaman kelas.</p>
+          <p className="text-xs text-slate-500 mt-1">Buat tugas baru terlebih dahulu di halaman kelas.</p>
         </div>
       ) : (
         <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300">
@@ -461,7 +461,7 @@ export const TeacherGradebook = () => {
                             placeholder="0"
                             className="w-12 text-center text-[10px] font-extrabold border border-slate-200 rounded-md py-0.5 focus:outline-none focus:border-brand bg-white text-slate-800"
                           />
-                          <span className="text-[10px] text-slate-400">%</span>
+                          <span className="text-[10px] text-slate-500">%</span>
                         </div>
                       </div>
                     </th>
@@ -484,7 +484,7 @@ export const TeacherGradebook = () => {
                         <div className="truncate max-w-[160px] font-extrabold text-slate-900" title={student.name}>
                           {student.name}
                         </div>
-                        <span className="text-[10px] text-slate-400 font-semibold">{student.email}</span>
+                        <span className="text-[10px] text-slate-500 font-semibold">{student.email}</span>
                       </td>
 
                       {/* NIS */}
@@ -559,7 +559,7 @@ export const TeacherGradebook = () => {
                 <h3 className="text-base font-extrabold text-slate-900">
                   Kotak Masuk Sanggahan Nilai
                 </h3>
-                <p className="text-[11px] text-slate-400 font-semibold">
+                <p className="text-[11px] text-slate-500 font-semibold">
                   Tinjau dan proses sanggahan nilai yang diajukan oleh siswa.
                 </p>
               </div>
@@ -591,17 +591,17 @@ export const TeacherGradebook = () => {
                             <span className="text-xs font-extrabold text-slate-900">{protest.student_name}</span>
                             <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-extrabold rounded-md">{protest.grade_level}</span>
                           </div>
-                          <span className="text-[10px] text-slate-400 font-bold block mt-0.5">{protest.assignment_title}</span>
+                          <span className="text-[10px] text-slate-500 font-bold block mt-0.5">{protest.assignment_title}</span>
                         </div>
                         <div className="flex items-center gap-1.5 text-xs font-extrabold">
-                          <span className="text-slate-400">Nilai: {protest.original_grade}</span>
+                          <span className="text-slate-500">Nilai: {protest.original_grade}</span>
                           <span className="text-slate-300">→</span>
                           <span className="text-brand bg-purple-100/60 px-2 py-0.5 rounded-md">Harapan: {protest.requested_grade}</span>
                         </div>
                       </div>
 
                       <div className="bg-slate-50 rounded-xl p-3 text-xs font-semibold text-slate-600 leading-relaxed">
-                        <span className="text-[10px] text-slate-400 block font-extrabold mb-1 select-none">Alasan Murid:</span>
+                        <span className="text-[10px] text-slate-500 block font-extrabold mb-1 select-none">Alasan Murid:</span>
                         "{protest.reason}"
                       </div>
 
@@ -609,7 +609,7 @@ export const TeacherGradebook = () => {
                         <div className="pt-2 flex flex-col gap-3">
                           {/* Feedback comment box */}
                           <div className="space-y-1">
-                            <span className="text-[10px] text-slate-400 block font-extrabold">Catatan Review Guru:</span>
+                            <span className="text-[10px] text-slate-500 block font-extrabold">Catatan Review Guru:</span>
                             <input
                               type="text"
                               id={`feedback-${protest.id}`}

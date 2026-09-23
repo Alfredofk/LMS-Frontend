@@ -68,7 +68,7 @@ export const AssignmentDetailPage = () => {
           <FileText className="w-6 h-6" aria-hidden="true" />
         </div>
         <p className="text-sm font-extrabold text-slate-900">{t('assignment.notFound')}</p>
-        <p className="text-xs text-slate-400 font-bold mt-1 max-w-sm leading-relaxed">
+        <p className="text-xs text-slate-500 font-bold mt-1 max-w-sm leading-relaxed">
           {t('assignment.notFoundDetail')}
         </p>
         <button
@@ -174,7 +174,7 @@ export const AssignmentDetailPage = () => {
                 {activeAssignment.title}
               </h2>
               
-              <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-400">
+              <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-500">
                 <div className="flex items-center gap-1.5">
                   <Clock className="w-4 h-4 text-slate-400 shrink-0" />
                   <span>Tenggat: {activeAssignment.deadline}</span>
@@ -285,7 +285,7 @@ export const AssignmentDetailPage = () => {
                     <p className="text-xs font-extrabold text-slate-800">
                       Tarik & Lepas berkas di sini
                     </p>
-                    <p className="text-[10px] text-slate-400 font-semibold">
+                    <p className="text-[10px] text-slate-500 font-semibold">
                       atau <span className="text-brand underline">Klik untuk Mencari</span>
                     </p>
                   </div>
@@ -303,7 +303,7 @@ export const AssignmentDetailPage = () => {
                       <div className="text-xs font-bold text-slate-800 truncate" title={attachedFile.name}>
                         {attachedFile.name}
                       </div>
-                      <div className="text-[10px] text-slate-400 font-bold">
+                      <div className="text-[10px] text-slate-500 font-bold">
                         {attachedFile.size}
                       </div>
                     </div>

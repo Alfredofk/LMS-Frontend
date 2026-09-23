@@ -69,7 +69,7 @@ function loadGoogleScript(lang) {
 }
 
 const Note = ({ children }) => (
-  <p className="text-[11px] text-slate-400 font-semibold text-center">{children}</p>
+  <p className="text-[11px] text-slate-500 font-semibold text-center">{children}</p>
 );
 
 /**

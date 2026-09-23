@@ -162,7 +162,7 @@ export const ResetPasswordPage = () => {
   const footer = (
     <Link
       to="/login"
-      className="text-xs text-slate-400 hover:text-brand font-bold transition-colors focus:outline-none"
+      className="text-xs text-slate-500 hover:text-brand font-bold transition-colors focus:outline-none"
     >
       {t('common.backToSignIn')}
     </Link>
@@ -177,7 +177,7 @@ export const ResetPasswordPage = () => {
         footer={footer}
       >
         <LockMark />
-        <p className="text-slate-400 text-sm font-semibold">{t('reset.checking.note')}</p>
+        <p className="text-slate-500 text-sm font-semibold">{t('reset.checking.note')}</p>
       </AuthLayout>
     );
   }
@@ -196,7 +196,7 @@ export const ResetPasswordPage = () => {
           <h2 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
             {t('reset.rejected.title')} <span className="text-brand">{t('reset.rejected.titleAccent')}</span>
           </h2>
-          <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold">{message}</p>
+          <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold">{message}</p>
         </div>
 
         <Button
@@ -223,7 +223,7 @@ export const ResetPasswordPage = () => {
           <h2 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
             {t('reset.done.title')} <span className="text-brand">{t('reset.done.titleAccent')}</span>
           </h2>
-          <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold">{message}</p>
+          <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold">{message}</p>
         </div>
 
         <div className="border border-slate-200 rounded-2xl p-5 text-left bg-white shadow-sm">
@@ -262,7 +262,7 @@ export const ResetPasswordPage = () => {
         <h2 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
           {t('reset.form.title')} <span className="text-brand">{t('reset.form.titleAccent')}</span>
         </h2>
-        <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold">
+        <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold">
           {t('reset.form.subtitle')}
         </p>
       </div>

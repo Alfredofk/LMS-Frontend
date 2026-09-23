@@ -129,7 +129,7 @@ export const ProfileHeader = () => {
 
           {isLearner ? (
             /* No endpoint reports either of these yet — see the note above. */
-            <div className="flex items-center gap-4 pt-1 text-[11px] font-semibold text-slate-400">
+            <div className="flex items-center gap-4 pt-1 text-[11px] font-semibold text-slate-500">
               <span>
                 {t('profile.class')}: <Empty />
               </span>
@@ -138,7 +138,7 @@ export const ProfileHeader = () => {
               </span>
             </div>
           ) : (
-            <div className="flex items-center gap-4 pt-1 text-[11px] font-semibold text-slate-400">
+            <div className="flex items-center gap-4 pt-1 text-[11px] font-semibold text-slate-500">
               <span>
                 {t('profile.joined')}: {joinedAt ?? <Empty />}
               </span>
@@ -153,11 +153,11 @@ export const ProfileHeader = () => {
           <div className="flex items-center justify-between text-xs font-extrabold text-slate-800">
             <div className="flex items-center gap-1.5">
               <Award className="w-4 h-4 text-slate-300 shrink-0" aria-hidden="true" />
-              <span className="text-slate-400">
+              <span className="text-slate-500">
                 {t('profile.xp')}: <Empty />
               </span>
             </div>
-            <span className="text-slate-400">
+            <span className="text-slate-500">
               {t('profile.level')} <Empty />
             </span>
           </div>

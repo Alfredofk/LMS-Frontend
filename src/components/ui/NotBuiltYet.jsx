@@ -32,7 +32,7 @@ export const NotBuiltYet = () => {
       <h3 className="mt-3.5 text-sm font-extrabold text-slate-700">
         {t('common.notBuilt.title')}
       </h3>
-      <p className="mt-1.5 text-xs font-semibold text-slate-400 leading-relaxed max-w-sm mx-auto">
+      <p className="mt-1.5 text-xs font-semibold text-slate-500 leading-relaxed max-w-sm mx-auto">
         {t('common.notBuilt.body')}
       </p>
     </div>

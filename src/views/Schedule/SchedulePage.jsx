@@ -207,7 +207,7 @@ export const SchedulePage = () => {
           </div>
           
           <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
-            <span className="text-xs text-slate-400 font-bold block sm:hidden">
+            <span className="text-xs text-slate-500 font-bold block sm:hidden">
               {t('sch.pickDate')}
             </span>
             <div className="flex items-center gap-2">
@@ -241,7 +241,7 @@ export const SchedulePage = () => {
         </div>
 
         {/* Days of Week Headers */}
-        <div className="grid grid-cols-7 gap-1 text-center border-b border-slate-100 pb-3 text-xs font-extrabold text-slate-400 uppercase select-none">
+        <div className="grid grid-cols-7 gap-1 text-center border-b border-slate-100 pb-3 text-xs font-extrabold text-slate-500 uppercase select-none">
           {weekdayNames.map((name) => (
             <div key={name}>{name}</div>
           ))}
@@ -250,7 +250,7 @@ export const SchedulePage = () => {
         {/* Calendar Days Grid */}
         <div className="grid grid-cols-7 gap-1.5 mt-3 flex-1 select-none">
           {loading ? (
-            <div className="col-span-7 py-24 text-center text-slate-400 font-semibold text-xs animate-pulse">
+            <div className="col-span-7 py-24 text-center text-slate-500 font-semibold text-xs animate-pulse">
               {t('sch.loading')}
             </div>
           ) : (
@@ -309,7 +309,7 @@ export const SchedulePage = () => {
         <h2 className="text-base font-extrabold text-slate-800 tracking-tight mb-1">
           {t('sch.agenda')}
         </h2>
-        <p className="text-xs text-slate-400 font-bold mb-6">
+        <p className="text-xs text-slate-500 font-bold mb-6">
           {selectedDate.toLocaleDateString(locale, {
             weekday: 'long',
             day: 'numeric',
@@ -329,7 +329,7 @@ export const SchedulePage = () => {
               <CalendarIcon className="w-6 h-6" />
             </div>
             <h3 className="text-xs font-extrabold text-slate-700">{t('sch.agenda.empty')}</h3>
-            <p className="text-[10px] text-slate-400 font-bold mt-1 max-w-[200px] leading-relaxed">
+            <p className="text-[10px] text-slate-500 font-bold mt-1 max-w-[200px] leading-relaxed">
               {t('sch.agenda.emptyDetail')}
             </p>
           </div>
@@ -339,7 +339,7 @@ export const SchedulePage = () => {
             {/* 1. Classes Section */}
             {selectedClasses.length > 0 && (
               <div className="space-y-3">
-                <h4 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('sch.classes')}</h4>
+                <h4 className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('sch.classes')}</h4>
                 <div className="space-y-2.5">
                   {selectedClasses.map((cls) => (
                     <div key={cls.id} className="border border-slate-100 hover:border-slate-200 rounded-2xl p-4 shadow-sm space-y-3 transition-all">
@@ -349,7 +349,7 @@ export const SchedulePage = () => {
                         </div>
                         <div className="min-w-0">
                           <h5 className="text-xs font-extrabold text-slate-800 leading-tight truncate">{cls.subjectName}</h5>
-                          <span className="text-[9px] text-slate-400 font-bold block mt-0.5">{cls.subjectCode}</span>
+                          <span className="text-[9px] text-slate-500 font-bold block mt-0.5">{cls.subjectCode}</span>
                         </div>
                       </div>
 
@@ -364,7 +364,7 @@ export const SchedulePage = () => {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 text-[9px] text-slate-400 font-bold pt-1">
+                      <div className="flex items-center gap-1.5 text-[9px] text-slate-500 font-bold pt-1">
                         <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         <span className="truncate">
                           {role === ROLES.TEACHER
@@ -381,7 +381,7 @@ export const SchedulePage = () => {
             {/* 2. Deadlines Section */}
             {selectedDeadlines.length > 0 && (
               <div className="space-y-3">
-                <h4 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('sch.deadlines')}</h4>
+                <h4 className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('sch.deadlines')}</h4>
                 <div className="space-y-2.5">
                   {selectedDeadlines.map((dl) => (
                     <div key={dl.id} className="border border-orange-100 bg-orange-50/10 rounded-2xl p-4 shadow-sm space-y-2.5 transition-all">
@@ -391,7 +391,7 @@ export const SchedulePage = () => {
                         </div>
                         <div className="min-w-0">
                           <h5 className="text-xs font-extrabold text-slate-800 leading-tight truncate">{dl.title}</h5>
-                          <span className="text-[9px] text-slate-400 font-bold block mt-0.5">{dl.subjectName}</span>
+                          <span className="text-[9px] text-slate-500 font-bold block mt-0.5">{dl.subjectName}</span>
                         </div>
                       </div>
 

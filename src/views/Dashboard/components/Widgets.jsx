@@ -132,7 +132,7 @@ export const TodayActivities = ({ activities = [], isLoading, isSample }) => {
                 <div className="text-xs font-bold text-slate-800 leading-tight">
                   {act.startTime}
                 </div>
-                <div className="text-[11px] font-medium text-slate-400 leading-tight mt-0.5">
+                <div className="text-[11px] font-medium text-slate-500 leading-tight mt-0.5">
                   {act.endTime}
                 </div>
               </div>
@@ -143,7 +143,7 @@ export const TodayActivities = ({ activities = [], isLoading, isSample }) => {
                 <div className="text-xs font-bold text-slate-900 truncate">
                   {act.subjectName}
                 </div>
-                <div className="text-[11px] font-medium text-slate-400 truncate mt-0.5">
+                <div className="text-[11px] font-medium text-slate-500 truncate mt-0.5">
                   {act.room ? `${act.room} · ` : ''}
                   {act.teacherName || t('dash.progress.teacherFallback')}
                 </div>
@@ -272,7 +272,7 @@ export const ActiveAssessment = ({ assessments = [], isLoading, isSample }) => {
                     <div className="text-xs font-bold text-slate-800 truncate group-hover:text-brand transition-colors">
                       {task.title}
                     </div>
-                    <div className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
+                    <div className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
                       {task.subjectName || t('dash.assessment.subjectFallback')} · {dueTextOf(task)}
                     </div>
                   </div>
@@ -323,7 +323,7 @@ export const CourseProgress = ({ courseProgress = [], isLoading, isSample }) => 
                     <div className="text-xs font-bold text-slate-900 truncate">
                       {course.subjectName}
                     </div>
-                    <div className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
+                    <div className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
                       {course.teacherName || t('dash.progress.teacherFallback')}
                     </div>
                   </div>
@@ -401,7 +401,7 @@ export const SchoolAnnouncement = ({ announcements = [], isLoading, isSample }) 
                 <p className="text-[11px] text-slate-500 leading-relaxed font-normal line-clamp-1">
                   {ann.body}
                 </p>
-                <div className="text-[9px] text-slate-400 font-medium">{meta}</div>
+                <div className="text-[9px] text-slate-500 font-medium">{meta}</div>
               </div>
             );
           })}

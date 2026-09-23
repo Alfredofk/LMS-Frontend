@@ -81,7 +81,7 @@ export const LoginForm = ({ formState, notice }) => {
           <>{t('auth.signIn.title')} <span className="text-brand">{t('auth.signIn.titleAccent')}</span></>
         )}
       </h2>
-      <p className="text-slate-400 text-sm mt-2 mb-8 font-medium select-none">
+      <p className="text-slate-500 text-sm mt-2 mb-8 font-medium select-none">
         {isSignUp
           ? t('auth.signUp.subtitle')
           : t('auth.signIn.subtitle')}
@@ -234,7 +234,7 @@ export const LoginForm = ({ formState, notice }) => {
 
       <div className="flex items-center justify-center gap-3 my-5">
         <span className="h-px bg-slate-100 flex-1" />
-        <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider select-none">{t('common.or')}</span>
+        <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider select-none">{t('common.or')}</span>
         <span className="h-px bg-slate-100 flex-1" />
       </div>
 

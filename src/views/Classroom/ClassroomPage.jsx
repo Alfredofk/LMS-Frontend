@@ -46,7 +46,7 @@ export const ClassroomPage = () => {
         <p className="text-sm font-extrabold text-slate-900">
           {t('cls.empty')}
         </p>
-          <p className="text-xs text-slate-400 font-bold mt-1 max-w-sm leading-relaxed">
+          <p className="text-xs text-slate-500 font-bold mt-1 max-w-sm leading-relaxed">
             {t('cls.emptyDetail')}
           </p>
         </div>

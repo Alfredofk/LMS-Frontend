@@ -73,7 +73,7 @@ export const ForgotPasswordPage = () => {
   const footer = (
     <Link
       to="/login"
-      className="text-xs text-slate-400 hover:text-brand font-bold transition-colors focus:outline-none"
+      className="text-xs text-slate-500 hover:text-brand font-bold transition-colors focus:outline-none"
     >
       {t('common.backToSignIn')}
     </Link>
@@ -100,7 +100,7 @@ export const ForgotPasswordPage = () => {
           <h2 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
             {t('forgot.sent.title')} <span className="text-brand">{t('forgot.sent.titleAccent')}</span>
           </h2>
-          <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold break-all">
+          <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold break-all">
             {email.trim()}
           </p>
         </div>
@@ -109,7 +109,7 @@ export const ForgotPasswordPage = () => {
           <p className="text-sm text-slate-600 font-medium leading-relaxed">
             {t('forgot.sent.body')}
           </p>
-          <p className="text-xs text-slate-400 font-medium leading-relaxed">
+          <p className="text-xs text-slate-500 font-medium leading-relaxed">
             {t('forgot.sent.hint')}
           </p>
         </div>
@@ -138,7 +138,7 @@ export const ForgotPasswordPage = () => {
         <h2 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
           {t('forgot.title')} <span className="text-brand">{t('forgot.titleAccent')}</span>
         </h2>
-        <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold">
+        <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold">
           {t('forgot.subtitle')}
         </p>
       </div>

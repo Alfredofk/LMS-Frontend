@@ -11,7 +11,7 @@ import { useT } from '../../i18n/LanguageContext';
 const Note = ({ children }) => (
   <div className="py-10 px-5 text-center border border-dashed border-slate-200 rounded-2xl bg-slate-50/60">
     <FileX className="w-6 h-6 text-slate-300 mx-auto" aria-hidden="true" />
-    <p className="mt-2.5 text-xs font-semibold text-slate-400 leading-relaxed max-w-sm mx-auto">
+    <p className="mt-2.5 text-xs font-semibold text-slate-500 leading-relaxed max-w-sm mx-auto">
       {children}
     </p>
   </div>

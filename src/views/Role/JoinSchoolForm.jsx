@@ -298,7 +298,7 @@ export const JoinSchoolForm = ({ intent }) => {
             if (errors.schoolCode) setErrors({});
           }}
         />
-        <p className="text-xs text-slate-400 font-medium leading-relaxed">
+        <p className="text-xs text-slate-500 font-medium leading-relaxed">
           {t('getStarted.join.field.codeHint')}
         </p>
 
@@ -452,7 +452,7 @@ export const JoinSchoolForm = ({ intent }) => {
               <span className="block text-sm font-semibold text-slate-700">
                 {t('getStarted.join.alsoGuardian')}
               </span>
-              <span className="block text-[11px] text-slate-400 font-medium leading-relaxed mt-0.5">
+              <span className="block text-[11px] text-slate-500 font-medium leading-relaxed mt-0.5">
                 {t('getStarted.join.alsoGuardian.hint')}
               </span>
             </span>
@@ -527,7 +527,7 @@ export const JoinSchoolForm = ({ intent }) => {
         {t('getStarted.join.action.submit')}
       </Button>
 
-      <p className="text-[11px] text-slate-400 font-medium leading-relaxed text-center">
+      <p className="text-[11px] text-slate-500 font-medium leading-relaxed text-center">
         {t('getStarted.join.approval')}
       </p>
     </form>

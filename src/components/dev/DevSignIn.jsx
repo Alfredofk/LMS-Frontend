@@ -105,7 +105,7 @@ export const DevSignIn = () => {
 
   return (
     <div className="mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-3 text-left">
-      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
         dev only · npm run dev
       </p>
       <p className="mt-1 text-[11px] font-medium leading-relaxed text-slate-500">

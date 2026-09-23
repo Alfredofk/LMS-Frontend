@@ -144,7 +144,7 @@ export const SchoolCodeCard = () => {
   return (
     <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4 sm:justify-between">
       <div className="min-w-0">
-        <div className="flex items-center gap-2 text-slate-400">
+        <div className="flex items-center gap-2 text-slate-500">
           <KeyRound className="w-4 h-4 shrink-0" aria-hidden="true" />
           <h2 className="text-[11px] font-bold uppercase tracking-wider">{t('schoolCode.title')}</h2>
         </div>
@@ -161,7 +161,7 @@ export const SchoolCodeCard = () => {
         {/* Absent means something else went wrong — NPSN is required at
             registration — and a blank row is not how to report that. */}
         {school.npsn && (
-          <p className="mt-1 text-[11px] font-semibold text-slate-400">
+          <p className="mt-1 text-[11px] font-semibold text-slate-500">
             {t('schoolCode.npsn')}{' '}
             <span className="font-mono font-extrabold text-slate-600 select-all">
               {school.npsn}

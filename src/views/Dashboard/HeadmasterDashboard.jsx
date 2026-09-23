@@ -343,7 +343,7 @@ export const HeadmasterDashboard = () => {
               className={`pb-3 text-sm font-extrabold transition-all flex items-center gap-2 border-b-2 focus:outline-none cursor-pointer shrink-0 whitespace-nowrap
                 ${isActive 
                   ? 'border-brand text-brand' 
-                  : 'border-transparent text-slate-400 hover:text-slate-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-600'
                 }
               `}
             >
@@ -367,7 +367,7 @@ export const HeadmasterDashboard = () => {
                 className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-slate-200 transition-all cursor-pointer flex items-center justify-between"
               >
                 <div>
-                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('dash.principal.stat.teachers')}</p>
+                  <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('dash.principal.stat.teachers')}</p>
                   <p className="text-3xl font-extrabold text-slate-800 mt-1">{stats.totalTeachers}</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-purple-50 text-brand flex items-center justify-center">
@@ -380,7 +380,7 @@ export const HeadmasterDashboard = () => {
                 className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-slate-200 transition-all cursor-pointer flex items-center justify-between"
               >
                 <div>
-                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('dash.principal.stat.students')}</p>
+                  <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('dash.principal.stat.students')}</p>
                   <p className="text-3xl font-extrabold text-slate-800 mt-1">{stats.totalStudents}</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -393,7 +393,7 @@ export const HeadmasterDashboard = () => {
                 className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-slate-200 transition-all cursor-pointer flex items-center justify-between"
               >
                 <div>
-                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('dash.principal.stat.courses')}</p>
+                  <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('dash.principal.stat.courses')}</p>
                   <p className="text-3xl font-extrabold text-slate-800 mt-1">{stats.totalCourses}</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -411,7 +411,7 @@ export const HeadmasterDashboard = () => {
                     this page stays: making one of the seven an h2 would only make
                     it the odd one out. */}
                 <h3 className="text-sm font-extrabold text-slate-800">{t('dash.principal.guide.title')}</h3>
-                <p className="text-xs text-slate-400 font-semibold mt-1 leading-relaxed">
+                <p className="text-xs text-slate-500 font-semibold mt-1 leading-relaxed">
                   {t('dash.principal.guide.body')}
                 </p>
               </div>
@@ -423,7 +423,7 @@ export const HeadmasterDashboard = () => {
         {activeTab === 'teachers' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center select-none">
-              <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.teachers.title')}</h3>
+              <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.teachers.title')}</h3>
               <button 
                 onClick={() => setIsTeacherModalOpen(true)}
                 className="px-4 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
@@ -454,7 +454,7 @@ export const HeadmasterDashboard = () => {
               <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm overflow-x-auto">
                 <table className="w-full min-w-max text-xs font-medium text-slate-600">
                   <thead>
-                    <tr className="border-b border-slate-100 text-slate-400 font-extrabold text-left">
+                    <tr className="border-b border-slate-100 text-slate-500 font-extrabold text-left">
                       <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.th.fullName')}</th>
                       <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.teachers.th.nip')}</th>
                       <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.th.email')}</th>
@@ -468,7 +468,7 @@ export const HeadmasterDashboard = () => {
                         <td className="py-3.5 font-extrabold text-slate-800">{row.name}</td>
                         <td className="py-3.5 text-slate-500 font-bold">{row.nip}</td>
                         <td className="py-3.5 text-slate-500 font-semibold">{row.email}</td>
-                        <td className="py-3.5 text-slate-400 font-bold">{row.username}</td>
+                        <td className="py-3.5 text-slate-500 font-bold">{row.username}</td>
                         <td className="py-3.5 text-right">
                           <button
                             onClick={() => handleDeleteTeacher(row.id, row.name)}
@@ -491,7 +491,7 @@ export const HeadmasterDashboard = () => {
         {activeTab === 'students' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center select-none">
-              <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.students.title')}</h3>
+              <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.students.title')}</h3>
               <button 
                 onClick={() => setIsStudentModalOpen(true)}
                 className="px-4 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
@@ -507,7 +507,7 @@ export const HeadmasterDashboard = () => {
               <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm overflow-x-auto">
                 <table className="w-full min-w-max text-xs font-medium text-slate-600">
                   <thead>
-                    <tr className="border-b border-slate-100 text-slate-400 font-extrabold text-left">
+                    <tr className="border-b border-slate-100 text-slate-500 font-extrabold text-left">
                       <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.th.fullName')}</th>
                       <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.students.th.nis')}</th>
                       <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.th.email')}</th>
@@ -521,8 +521,8 @@ export const HeadmasterDashboard = () => {
                         <td className="py-3.5 font-extrabold text-slate-800">{row.name}</td>
                         <td className="py-3.5 text-slate-500 font-bold">{row.nis}</td>
                         <td className="py-3.5 text-slate-500 font-semibold">{row.email}</td>
-                        <td className="py-3.5 text-slate-400 font-bold">
-                          Lvl {row.level} <span className="text-[10px] font-bold text-slate-400">({row.xp} XP)</span>
+                        <td className="py-3.5 text-slate-500 font-bold">
+                          Lvl {row.level} <span className="text-[10px] font-bold text-slate-500">({row.xp} XP)</span>
                         </td>
                         <td className="py-3.5 text-right">
                           <button
@@ -546,7 +546,7 @@ export const HeadmasterDashboard = () => {
         {activeTab === 'courses' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center select-none">
-              <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.courses.title')}</h3>
+              <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.courses.title')}</h3>
               <button 
                 onClick={() => setIsCourseModalOpen(true)}
                 className="px-4 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
@@ -562,7 +562,7 @@ export const HeadmasterDashboard = () => {
               <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm overflow-x-auto">
                 <table className="w-full min-w-max text-xs font-medium text-slate-600">
                   <thead>
-                    <tr className="border-b border-slate-100 text-slate-400 font-extrabold text-left">
+                    <tr className="border-b border-slate-100 text-slate-500 font-extrabold text-left">
                       <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.courses.th.code')}</th>
                       <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.courses.th.name')}</th>
                       <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.courses.th.grade')}</th>
@@ -604,7 +604,7 @@ export const HeadmasterDashboard = () => {
         {activeTab === 'announcements' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center select-none">
-              <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.ann.title')}</h3>
+              <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.ann.title')}</h3>
               <button 
                 onClick={() => setIsAnnouncementModalOpen(true)}
                 className="px-4 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
@@ -619,11 +619,11 @@ export const HeadmasterDashboard = () => {
             ) : (
               <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm overflow-x-auto">
                 {announcements.length === 0 ? (
-                  <p className="text-xs text-slate-400 font-bold italic py-4 text-center">{t('principal.ann.empty')}</p>
+                  <p className="text-xs text-slate-500 font-bold italic py-4 text-center">{t('principal.ann.empty')}</p>
                 ) : (
                   <table className="w-full min-w-max text-xs font-medium text-slate-600">
                     <thead>
-                      <tr className="border-b border-slate-100 text-slate-400 font-extrabold text-left">
+                      <tr className="border-b border-slate-100 text-slate-500 font-extrabold text-left">
                         <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.ann.th.title')}</th>
                         <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.ann.th.content')}</th>
                         <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.ann.th.author')}</th>
@@ -637,7 +637,7 @@ export const HeadmasterDashboard = () => {
                           <td className="py-3.5 font-extrabold text-slate-900 pr-4">{row.title}</td>
                           <td className="py-3.5 text-slate-500 font-semibold max-w-sm truncate pr-4">{row.content}</td>
                           <td className="py-3.5 text-slate-500 font-bold">{row.author_name || t('principal.ann.defaultAuthor')}</td>
-                          <td className="py-3.5 text-slate-400 font-bold">
+                          <td className="py-3.5 text-slate-500 font-bold">
                             {new Date(row.created_at).toLocaleDateString(lang === 'en' ? 'en-GB' : 'id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
                           </td>
                           <td className="py-3.5 text-right">
@@ -674,7 +674,7 @@ export const HeadmasterDashboard = () => {
             
             <div className="p-6 space-y-4 text-left">
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.teacher.name')}</label>
+                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.teacher.name')}</label>
                 <input
                   type="text"
                   required
@@ -686,7 +686,7 @@ export const HeadmasterDashboard = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.teacher.nip')}</label>
+                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.teacher.nip')}</label>
                 <input
                   type="text"
                   required
@@ -698,7 +698,7 @@ export const HeadmasterDashboard = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.teacher.email')}</label>
+                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.teacher.email')}</label>
                 <input
                   type="email"
                   required
@@ -710,7 +710,7 @@ export const HeadmasterDashboard = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.password')}</label>
+                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.password')}</label>
                 <input
                   type="password"
                   required
@@ -744,7 +744,7 @@ export const HeadmasterDashboard = () => {
             
             <div className="p-6 space-y-4 text-left">
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.student.name')}</label>
+                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.student.name')}</label>
                 <input
                   type="text"
                   required
@@ -756,7 +756,7 @@ export const HeadmasterDashboard = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.student.nis')}</label>
+                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.student.nis')}</label>
                 <input
                   type="text"
                   required
@@ -768,7 +768,7 @@ export const HeadmasterDashboard = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.student.email')}</label>
+                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.student.email')}</label>
                 <input
                   type="email"
                   required
@@ -780,7 +780,7 @@ export const HeadmasterDashboard = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.password')}</label>
+                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.password')}</label>
                 <input
                   type="password"
                   required
@@ -814,7 +814,7 @@ export const HeadmasterDashboard = () => {
             
             <div className="p-6 space-y-4 text-left">
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.course.code')}</label>
+                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.course.code')}</label>
                 <input
                   type="text"
                   required
@@ -826,7 +826,7 @@ export const HeadmasterDashboard = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.course.name')}</label>
+                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.course.name')}</label>
                 <input
                   type="text"
                   required
@@ -838,7 +838,7 @@ export const HeadmasterDashboard = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.course.grade')}</label>
+                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.course.grade')}</label>
                 <input
                   type="text"
                   required
@@ -850,7 +850,7 @@ export const HeadmasterDashboard = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.course.teacher')}</label>
+                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.course.teacher')}</label>
                 <select
                   required
                   value={courseForm.teacher_id}
@@ -886,7 +886,7 @@ export const HeadmasterDashboard = () => {
             
             <div className="p-6 space-y-4 text-left">
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.ann.heading')}</label>
+                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.ann.heading')}</label>
                 <input
                   type="text"
                   required
@@ -898,7 +898,7 @@ export const HeadmasterDashboard = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('principal.modal.ann.body')}</label>
+                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.ann.body')}</label>
                 <textarea
                   required
                   rows="5"

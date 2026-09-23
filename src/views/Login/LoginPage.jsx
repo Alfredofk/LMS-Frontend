@@ -117,7 +117,7 @@ export const LoginPage = () => {
             </p>
           )}
 
-          <div className="text-[11px] text-slate-400 select-none">
+          <div className="text-[11px] text-slate-500 select-none">
             {t('auth.terms')}{' '}
             <a href="#terms" className="text-brand hover:underline font-bold">{t('auth.termsOfUse')}</a>{' '}
             {t('auth.and')}{' '}

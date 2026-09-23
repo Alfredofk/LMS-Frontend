@@ -36,7 +36,7 @@ const MAX_REASON = 500;
 
 const Row = ({ label, children }) => (
   <div className="flex items-start justify-between gap-4 py-2 border-b border-slate-100 last:border-0">
-    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0">
+    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider shrink-0">
       {label}
     </span>
     <span className="text-xs font-semibold text-slate-800 text-right break-words min-w-0">
@@ -159,7 +159,7 @@ export const RegistrationReview = ({ registration, onBack, onDecided, showToast 
       <button
         type="button"
         onClick={onBack}
-        className="inline-flex items-center gap-1.5 text-xs font-extrabold text-slate-400 hover:text-brand transition-colors cursor-pointer focus:outline-none focus-visible:text-brand"
+        className="inline-flex items-center gap-1.5 text-xs font-extrabold text-slate-500 hover:text-brand transition-colors cursor-pointer focus:outline-none focus-visible:text-brand"
       >
         <ArrowLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
         {t('admin.back')}
@@ -253,7 +253,7 @@ export const RegistrationReview = ({ registration, onBack, onDecided, showToast 
                 {reasonError ? (
                   <span className="text-xs text-red-500 font-medium" role="alert">{reasonError}</span>
                 ) : (
-                  <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+                  <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
                     {t('admin.reject.reason.hint')}
                   </p>
                 )}
@@ -392,7 +392,7 @@ export const RegistrationReview = ({ registration, onBack, onDecided, showToast 
                 {reasonError ? (
                   <span className="text-xs text-red-500 font-medium" role="alert">{reasonError}</span>
                 ) : (
-                  <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+                  <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
                     {t('admin.reactivate.note.hint')}
                   </p>
                 )}

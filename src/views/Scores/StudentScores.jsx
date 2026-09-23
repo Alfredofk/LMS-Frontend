@@ -395,7 +395,7 @@ export const StudentScores = () => {
               <h3 className="text-sm font-bold text-slate-800">
                 {t('sc.empty')}
               </h3>
-              <p className="text-xs text-slate-400 font-medium mt-1 max-w-sm leading-relaxed">
+              <p className="text-xs text-slate-500 font-medium mt-1 max-w-sm leading-relaxed">
                 {searchQuery 
                   ? t('sc.emptySearch', { query: searchQuery })
                   : t('sc.emptyNone')}
@@ -447,7 +447,7 @@ export const StudentScores = () => {
                         <h3 className="text-sm font-bold text-slate-900 group-hover:text-brand transition-colors truncate">
                           {course.subject_name}
                         </h3>
-                        <p className="text-[11px] text-slate-400 font-medium mt-0.5 truncate">
+                        <p className="text-[11px] text-slate-500 font-medium mt-0.5 truncate">
                           {course.teacher_name || t('sc.teacherFallback')}
                         </p>
                       </div>
@@ -465,7 +465,7 @@ export const StudentScores = () => {
                           <span className="text-sm font-extrabold text-slate-900 block leading-tight">
                             {gradeInfo.letter}
                           </span>
-                          <span className="text-xs font-semibold text-slate-400 block">
+                          <span className="text-xs font-semibold text-slate-500 block">
                             {gradeInfo.text}
                           </span>
                         </div>
@@ -524,7 +524,7 @@ export const StudentScores = () => {
                   ))}
                 </div>
 
-                <p className="text-[11px] text-slate-400 font-semibold text-center mt-4">
+                <p className="text-[11px] text-slate-500 font-semibold text-center mt-4">
                   {t('sc.autoCalculated')}
                 </p>
               </div>
@@ -532,7 +532,7 @@ export const StudentScores = () => {
           </div>
 
           {!isGradeScaleOpen && (
-            <p className="text-[11px] text-slate-400 font-semibold text-center select-none pt-2">
+            <p className="text-[11px] text-slate-500 font-semibold text-center select-none pt-2">
               {t('sc.autoCalculated')}
             </p>
           )}
@@ -600,7 +600,7 @@ export const StudentScores = () => {
                     <span className="text-base font-extrabold text-slate-900 block leading-tight">
                       {getGradeDetails(selectedCourse.averageGrade).letter}
                     </span>
-                    <span className="text-xs font-semibold text-slate-400 block">
+                    <span className="text-xs font-semibold text-slate-500 block">
                       {getGradeDetails(selectedCourse.averageGrade).text}
                     </span>
                   </div>
@@ -611,19 +611,19 @@ export const StudentScores = () => {
               <div className="space-y-2.5 text-xs font-semibold text-slate-600 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
                 <div className="flex items-center gap-2.5">
                   <User className="w-4 h-4 text-slate-400 shrink-0" />
-                  <span className="text-slate-400 font-medium">{t('sc.teacher')}</span>
+                  <span className="text-slate-500 font-medium">{t('sc.teacher')}</span>
                   <span className="font-bold text-slate-800 truncate">{selectedCourse.teacher_name || t('sc.teacherFallback')}</span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <School className="w-4 h-4 text-slate-400 shrink-0" />
-                  <span className="text-slate-400 font-medium">{t('sc.class')}</span>
+                  <span className="text-slate-500 font-medium">{t('sc.class')}</span>
                   {/* No endpoint reports a student's class placement yet —
                       `ClassMembership` is in the schema but nothing serves it. */}
                   <span className="font-medium text-slate-300">—</span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
-                  <span className="text-slate-400 font-medium">{t('sc.semester')}</span>
+                  <span className="text-slate-500 font-medium">{t('sc.semester')}</span>
                   <span className="font-medium text-slate-300">—</span>
                 </div>
               </div>
@@ -647,7 +647,7 @@ export const StudentScores = () => {
                           <p className="font-bold text-slate-800 group-hover:text-brand transition-colors truncate">
                             {assignment.title}
                           </p>
-                          <span className="text-[10px] text-slate-400 font-medium">
+                          <span className="text-[10px] text-slate-500 font-medium">
                             {t('sc.weight', { n: assignment.weight })}
                           </span>
                         </div>
@@ -658,13 +658,13 @@ export const StudentScores = () => {
                               {assignment.grade}
                             </span>
                           ) : (
-                            <span className="text-xs font-bold text-slate-400">—</span>
+                            <span className="text-xs font-bold text-slate-500">—</span>
                           )}
                         </div>
                       </div>
                     ))
                   ) : (
-                    <div className="py-4 text-center text-xs text-slate-400 font-medium bg-slate-50 rounded-xl">
+                    <div className="py-4 text-center text-xs text-slate-500 font-medium bg-slate-50 rounded-xl">
                       {t('sc.noAssignments')}
                     </div>
                   )}
@@ -704,7 +704,7 @@ export const StudentScores = () => {
                 <h3 className="text-lg font-extrabold text-slate-900 mt-2">
                   {t('sc.protest.title')}
                 </h3>
-                <p className="text-xs text-slate-400 font-medium mt-0.5">
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
                   {t('sc.protest.subtitle')}
                 </p>
               </div>

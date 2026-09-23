@@ -36,7 +36,7 @@ export const UnauthorizedPage = () => {
         {/* Details */}
         <div className="space-y-2">
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">{t('unauthorized.title')}</h1>
-          <p className="text-xs sm:text-sm text-slate-400 font-bold leading-relaxed">
+          <p className="text-xs sm:text-sm text-slate-500 font-bold leading-relaxed">
             {t(canSwitchRole ? 'unauthorized.canSwitch' : 'unauthorized.cannotSwitch')}
           </p>
         </div>

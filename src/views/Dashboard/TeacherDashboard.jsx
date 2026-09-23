@@ -254,7 +254,7 @@ export const TeacherDashboard = () => {
         {/* Total Kelas Card */}
         <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow duration-200">
           <div className="space-y-1">
-            <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">{t('dash.teacher.stat.classes')}</span>
+            <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">{t('dash.teacher.stat.classes')}</span>
             <h3 className="text-3xl font-extrabold text-slate-800">{data.stats.totalClasses}</h3>
           </div>
           <div className="w-12 h-12 rounded-xl bg-purple-50 text-brand flex items-center justify-center shrink-0">
@@ -265,7 +265,7 @@ export const TeacherDashboard = () => {
         {/* Total Siswa Card */}
         <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow duration-200">
           <div className="space-y-1">
-            <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">{t('dash.teacher.stat.students')}</span>
+            <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">{t('dash.teacher.stat.students')}</span>
             <h3 className="text-3xl font-extrabold text-slate-800">{data.stats.totalStudents}</h3>
           </div>
           <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
@@ -314,7 +314,7 @@ export const TeacherDashboard = () => {
                     <span className="px-2 py-0.5 bg-purple-100 text-brand text-[9px] font-extrabold rounded-md uppercase">
                       {cls.grade ?? '—'}
                     </span>
-                    <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
+                    <span className="text-[10px] text-slate-500 font-bold flex items-center gap-1">
                       <Users className="w-3.5 h-3.5" />
                       {t('dash.teacher.studentsCount', { n: cls.studentsCount })}
                     </span>
@@ -323,7 +323,7 @@ export const TeacherDashboard = () => {
                     {cls.name}
                   </h3>
                   {cls.schedule && (
-                    <p className="text-[11px] text-slate-400 font-semibold flex items-center gap-1.5 pt-0.5">
+                    <p className="text-[11px] text-slate-500 font-semibold flex items-center gap-1.5 pt-0.5">
                       <Calendar className="w-3.5 h-3.5 text-slate-300" />
                       {cls.schedule}
                     </p>
@@ -351,7 +351,7 @@ export const TeacherDashboard = () => {
             
             {data.recentSubmissions.length === 0 ? (
               <div className="py-12 text-center border border-dashed border-slate-100 rounded-xl bg-slate-50/50">
-                <p className="text-xs font-extrabold text-slate-400">{t('dash.teacher.recent.empty')}</p>
+                <p className="text-xs font-extrabold text-slate-500">{t('dash.teacher.recent.empty')}</p>
               </div>
             ) : (
               <div className="space-y-4 text-left select-none">
@@ -368,12 +368,12 @@ export const TeacherDashboard = () => {
                     
                     <div className="space-y-0.5 min-w-0 flex-1">
                       <p className="text-xs font-extrabold text-slate-800 leading-tight">
-                        {sub.studentName} <span className="text-[10px] text-slate-400 font-semibold uppercase">({sub.grade})</span>
+                        {sub.studentName} <span className="text-[10px] text-slate-500 font-semibold uppercase">({sub.grade})</span>
                       </p>
                       <p className="text-[10px] text-slate-500 font-bold truncate leading-relaxed group-hover:text-brand transition-colors" title={sub.assignmentTitle}>
                         {t('dash.teacher.submitted', { title: sub.assignmentTitle })}
                       </p>
-                      <span className="text-[9px] text-slate-400 font-bold flex items-center gap-1 pt-0.5">
+                      <span className="text-[9px] text-slate-500 font-bold flex items-center gap-1 pt-0.5">
                         <Clock className="w-3 h-3 text-slate-300" />
                         {sub.time}
                       </span>

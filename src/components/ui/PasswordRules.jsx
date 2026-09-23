@@ -29,7 +29,7 @@ export const PasswordRules = ({ value = '' }) => {
         <li
           key={rule.key}
           className={`flex items-center gap-1.5 text-[11px] font-semibold transition-colors ${
-            rule.met ? 'text-emerald-600' : 'text-slate-400'
+            rule.met ? 'text-emerald-600' : 'text-slate-500'
           }`}
         >
           <span

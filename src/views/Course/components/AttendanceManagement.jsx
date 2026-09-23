@@ -155,13 +155,13 @@ export const AttendanceManagement = ({ courseId, showToast }) => {
       <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
         {attendances.length === 0 ? (
           <div className="py-8 text-center bg-slate-50/30 rounded-xl border border-dashed border-slate-200">
-            <p className="text-xs font-semibold text-slate-400">Tidak ada siswa terdaftar di kelas ini.</p>
+            <p className="text-xs font-semibold text-slate-500">Tidak ada siswa terdaftar di kelas ini.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs font-medium text-slate-600">
               <thead>
-                <tr className="border-b border-slate-100 text-slate-400 font-extrabold text-left">
+                <tr className="border-b border-slate-100 text-slate-500 font-extrabold text-left">
                   <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">Nama Siswa</th>
                   <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">NIS</th>
                   <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px] text-center">Status Kehadiran</th>
@@ -172,7 +172,7 @@ export const AttendanceManagement = ({ courseId, showToast }) => {
                 {attendances.map((row) => (
                   <tr key={row.id} className="hover:bg-slate-50/30 transition-colors">
                     <td className="py-4 font-extrabold text-slate-800">{row.name}</td>
-                    <td className="py-4 text-slate-400 font-bold">{row.nis}</td>
+                    <td className="py-4 text-slate-500 font-bold">{row.nis}</td>
                     
                     {/* Interactive Capsule Toggles */}
                     <td className="py-4 text-center">

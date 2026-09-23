@@ -46,7 +46,7 @@ export const CheckEmailStep = ({ formState }) => {
       <h2 className="text-[26px] font-extrabold text-slate-800 leading-tight select-none">
         {t('checkEmail.title')} <span className="text-brand">{t('checkEmail.titleAccent')}</span>
       </h2>
-      <p className="text-slate-400 text-sm mt-2 mb-6 font-medium select-none">
+      <p className="text-slate-500 text-sm mt-2 mb-6 font-medium select-none">
         {t('checkEmail.subtitle')}
       </p>
 
@@ -61,13 +61,13 @@ export const CheckEmailStep = ({ formState }) => {
 
       <div className="border border-slate-200 rounded-2xl p-5 text-left bg-white shadow-sm space-y-3">
         <div>
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
             {t('checkEmail.sentTo')}
           </span>
           <p className="text-base font-extrabold text-slate-800 mt-0.5 break-all">{target}</p>
         </div>
 
-        <p className="text-xs text-slate-400 font-medium leading-relaxed">
+        <p className="text-xs text-slate-500 font-medium leading-relaxed">
           {t('checkEmail.hint')}
         </p>
       </div>
@@ -97,7 +97,7 @@ export const CheckEmailStep = ({ formState }) => {
       <button
         type="button"
         onClick={() => setAuthStep('sign_in')}
-        className="mt-5 text-xs text-slate-400 hover:text-brand font-bold transition-colors focus:outline-none cursor-pointer"
+        className="mt-5 text-xs text-slate-500 hover:text-brand font-bold transition-colors focus:outline-none cursor-pointer"
       >
         {t('common.backToSignIn')}
       </button>

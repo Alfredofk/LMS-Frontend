@@ -308,7 +308,7 @@ export const Navbar = ({ showToast, onOpenNav }) => {
       }
 
       return (
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 select-none">
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 select-none">
           <span className="hover:text-slate-600 transition-colors">{t('shell.myCourses')}</span>
           <span className="text-slate-300 text-[10px] font-bold">/</span>
           <span className="hover:text-slate-600 transition-colors">{course.className}</span>
@@ -349,7 +349,7 @@ export const Navbar = ({ showToast, onOpenNav }) => {
       */
       if (!activeAssignment) {
         return (
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 select-none">
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 select-none">
             <span>{t('shell.myCourses')}</span>
             <span className="text-slate-300 text-[10px] font-bold">/</span>
             <span className="text-slate-800 font-extrabold">{t('shell.title.assignment')}</span>
@@ -358,7 +358,7 @@ export const Navbar = ({ showToast, onOpenNav }) => {
       }
 
       return (
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 select-none">
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 select-none">
           <span className="hover:text-slate-600 transition-colors">{t('shell.myCourses')}</span>
           <span className="text-slate-300 text-[10px] font-bold">/</span>
           <span className="hover:text-slate-600 transition-colors">{activeCourse.className}</span>
@@ -505,7 +505,7 @@ export const Navbar = ({ showToast, onOpenNav }) => {
               {/* List */}
               <div className="max-h-96 overflow-y-auto divide-y divide-slate-50">
                 {notifications.length === 0 ? (
-                  <div className="py-8 text-center text-slate-400 font-semibold text-xs">
+                  <div className="py-8 text-center text-slate-500 font-semibold text-xs">
                     {t('shell.noNotifications')}
                   </div>
                 ) : (
@@ -529,10 +529,10 @@ export const Navbar = ({ showToast, onOpenNav }) => {
                         `}>
                           {notif.title}
                         </p>
-                        <p className="text-[10px] text-slate-400 font-medium leading-relaxed mt-0.5 break-words">
+                        <p className="text-[10px] text-slate-500 font-medium leading-relaxed mt-0.5 break-words">
                           {notif.message}
                         </p>
-                        <span className="text-[9px] text-slate-400 font-bold block mt-1">
+                        <span className="text-[9px] text-slate-500 font-bold block mt-1">
                           {formatTimeAgo(notif.createdAt)}
                         </span>
                       </div>

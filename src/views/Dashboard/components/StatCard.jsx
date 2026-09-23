@@ -44,7 +44,7 @@ export const StatCard = ({
         <div className="text-2xl font-extrabold text-slate-900 tracking-tight leading-none">
           {value}
         </div>
-        <p className="text-[11px] text-slate-400 font-normal mt-2">{subtext}</p>
+        <p className="text-[11px] text-slate-500 font-normal mt-2">{subtext}</p>
       </div>
     </Tag>
   );

@@ -30,7 +30,7 @@ export const MaterialContent = ({ sections, showToast }) => {
               <h3 className="text-sm font-extrabold text-slate-800 tracking-tight">
                 {session.title}
               </h3>
-              <span className="text-[10px] text-slate-400 font-bold bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-md self-start sm:self-auto">
+              <span className="text-[10px] text-slate-500 font-bold bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-md self-start sm:self-auto">
                 Dipublikasikan: {session.date}
               </span>
             </div>
@@ -41,7 +41,7 @@ export const MaterialContent = ({ sections, showToast }) => {
 
           {/* Attachments Section */}
           <div className="pt-4 space-y-3">
-            <h4 className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
+            <h4 className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
               Lampiran Pembelajaran
             </h4>
             
@@ -66,7 +66,7 @@ export const MaterialContent = ({ sections, showToast }) => {
                         <div className="text-xs font-extrabold text-slate-800 truncate" title={fileName}>
                           {fileName}
                         </div>
-                        <div className="text-[10px] text-slate-400 font-bold">
+                        <div className="text-[10px] text-slate-500 font-bold">
                           {file.size}
                         </div>
                       </div>

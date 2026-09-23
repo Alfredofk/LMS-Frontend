@@ -102,7 +102,7 @@ export const CreateAssignmentForm = () => {
       <div className="select-none text-left">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-xs font-extrabold text-slate-400 hover:text-brand transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 text-xs font-extrabold text-slate-500 hover:text-brand transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           {t('asg.back')}
@@ -110,7 +110,7 @@ export const CreateAssignmentForm = () => {
         <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight mt-2.5">
           {t('asg.title')}
         </h1>
-        <p className="text-xs text-slate-400 font-bold mt-0.5">
+        <p className="text-xs text-slate-500 font-bold mt-0.5">
           {t('asg.subtitle')}
         </p>
       </div>
@@ -181,7 +181,7 @@ export const CreateAssignmentForm = () => {
             {/* XP reward points */}
             <div className="space-y-1.5">
               <label className="text-xs font-extrabold text-slate-700 flex items-center gap-1 select-none">
-                {t('asg.field.xp')} <span className="text-[10px] text-slate-400 font-semibold">{t('asg.field.xp.hint')}</span>
+                {t('asg.field.xp')} <span className="text-[10px] text-slate-500 font-semibold">{t('asg.field.xp.hint')}</span>
               </label>
               <div className="relative">
                 <input
@@ -248,7 +248,7 @@ export const CreateAssignmentForm = () => {
           {/* Row 4: Attachment Upload Area */}
           <div className="space-y-1.5">
             <label className="text-xs font-extrabold text-slate-700 select-none">
-              {t('asg.field.attachment')} <span className="text-[10px] text-slate-400 font-semibold">{t('asg.field.attachment.hint')}</span>
+              {t('asg.field.attachment')} <span className="text-[10px] text-slate-500 font-semibold">{t('asg.field.attachment.hint')}</span>
             </label>
             
             {/* Drag & Drop dashed box */}
@@ -278,7 +278,7 @@ export const CreateAssignmentForm = () => {
                 <p className="text-xs font-extrabold text-slate-800">
                   {t('asg.drop.prompt')}<span className="text-brand hover:underline">{t('asg.drop.browse')}</span>
                 </p>
-                <p className="text-[10px] text-slate-400 font-bold">
+                <p className="text-[10px] text-slate-500 font-bold">
                   {t('asg.drop.limits')}
                 </p>
               </div>

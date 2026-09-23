@@ -342,7 +342,7 @@ export const CourseDetail = () => {
         <div className="space-y-1">
           <button 
             onClick={() => navigate('/teacher/dashboard')}
-            className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-brand transition-colors focus:outline-none mb-2"
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-brand transition-colors focus:outline-none mb-2"
           >
             <ArrowLeft className="w-4 h-4" />
             Kembali ke Dasbor
@@ -351,7 +351,7 @@ export const CourseDetail = () => {
             <span className="px-2.5 py-1 bg-purple-100 text-brand text-xs font-extrabold rounded-lg uppercase">
               {courseData.grade}
             </span>
-            <span className="text-xs text-slate-400 font-bold">
+            <span className="text-xs text-slate-500 font-bold">
               {courseData.code}
             </span>
           </div>
@@ -373,7 +373,7 @@ export const CourseDetail = () => {
           className={`pb-3 text-sm font-extrabold transition-all flex items-center gap-2 border-b-2 focus:outline-none cursor-pointer
             ${activeTab === 'materi' 
               ? 'border-brand text-brand' 
-              : 'border-transparent text-slate-400 hover:text-slate-600'
+              : 'border-transparent text-slate-500 hover:text-slate-600'
             }
           `}
         >
@@ -386,7 +386,7 @@ export const CourseDetail = () => {
           className={`pb-3 text-sm font-extrabold transition-all flex items-center gap-2 border-b-2 focus:outline-none cursor-pointer
             ${activeTab === 'tugas' 
               ? 'border-brand text-brand' 
-              : 'border-transparent text-slate-400 hover:text-slate-600'
+              : 'border-transparent text-slate-500 hover:text-slate-600'
             }
           `}
         >
@@ -399,7 +399,7 @@ export const CourseDetail = () => {
           className={`pb-3 text-sm font-extrabold transition-all flex items-center gap-2 border-b-2 focus:outline-none cursor-pointer
             ${activeTab === 'siswa' 
               ? 'border-brand text-brand' 
-              : 'border-transparent text-slate-400 hover:text-slate-600'
+              : 'border-transparent text-slate-500 hover:text-slate-600'
             }
           `}
         >
@@ -412,7 +412,7 @@ export const CourseDetail = () => {
           className={`pb-3 text-sm font-extrabold transition-all flex items-center gap-2 border-b-2 focus:outline-none cursor-pointer
             ${activeTab === 'absensi' 
               ? 'border-brand text-brand' 
-              : 'border-transparent text-slate-400 hover:text-slate-600'
+              : 'border-transparent text-slate-500 hover:text-slate-600'
             }
           `}
         >
@@ -453,7 +453,7 @@ export const CourseDetail = () => {
                         </div>
                         <div className="space-y-0.5 text-left">
                           <h4 className="text-sm font-extrabold text-slate-800 leading-snug">{mat.title}</h4>
-                          <p className="text-[10px] text-slate-400 font-bold">
+                          <p className="text-[10px] text-slate-500 font-bold">
                             PDF · {mat.size} · {mat.date || 'Baru Saja'}
                           </p>
                         </div>
@@ -471,11 +471,11 @@ export const CourseDetail = () => {
                       >
                         {mat.description ? (
                           <div className="space-y-1">
-                            <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Catatan / Deskripsi</p>
+                            <p className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider">Catatan / Deskripsi</p>
                             <p className="text-xs text-slate-600 font-semibold leading-relaxed">{mat.description}</p>
                           </div>
                         ) : (
-                          <p className="text-xs text-slate-400 italic font-semibold">Tidak ada deskripsi tambahan.</p>
+                          <p className="text-xs text-slate-500 italic font-semibold">Tidak ada deskripsi tambahan.</p>
                         )}
 
                         <div className="flex items-center justify-end gap-2 pt-1.5">
@@ -530,7 +530,7 @@ export const CourseDetail = () => {
                 <div key={asm.id} className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="space-y-1.5 text-left">
                     <h3 className="text-base font-extrabold text-slate-800">{asm.title}</h3>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-400 font-bold">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-500 font-bold">
                       <span className="flex items-center gap-1.5">
                         <Clock className="w-4 h-4 text-amber-500" />
                         Deadline: {new Date(asm.deadline).toLocaleString('id-ID', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}

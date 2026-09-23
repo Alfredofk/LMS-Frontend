@@ -42,7 +42,7 @@ export const CreateTaskModal = ({ isOpen, onClose, onSubmit }) => {
             </div>
             <div>
               <h3 className="text-lg font-extrabold text-slate-900 leading-tight">Buat Tugas Baru</h3>
-              <p className="text-[10px] text-slate-400 font-bold mt-0.5">Tambahkan penugasan untuk kelas ini</p>
+              <p className="text-[10px] text-slate-500 font-bold mt-0.5">Tambahkan penugasan untuk kelas ini</p>
             </div>
           </div>
           <button 

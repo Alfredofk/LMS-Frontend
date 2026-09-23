@@ -153,7 +153,7 @@ export const VerifyEmailPage = () => {
     <button
       type="button"
       onClick={() => navigate('/login')}
-      className="text-xs text-slate-400 hover:text-brand font-bold transition-colors focus:outline-none cursor-pointer"
+      className="text-xs text-slate-500 hover:text-brand font-bold transition-colors focus:outline-none cursor-pointer"
     >
       {t('common.backToSignIn')}
     </button>
@@ -180,7 +180,7 @@ export const VerifyEmailPage = () => {
           <h2 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
             {t(heading[0])} <span className="text-brand">{t(heading[1])}</span>
           </h2>
-          <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold">
+          <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold">
             {state === 'checking' ? t('verify.checking.note') : message}
           </p>
         </div>
@@ -188,10 +188,10 @@ export const VerifyEmailPage = () => {
         {state === 'error' && (
           <form onSubmit={handleResend} className="border border-slate-200 rounded-2xl p-5 text-left bg-white shadow-sm space-y-3">
             <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                 {t('verify.resend.label')}
               </span>
-              <p className="text-xs text-slate-400 font-medium mt-1 leading-relaxed">
+              <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
                 {t('verify.resend.hint')}
               </p>
             </div>

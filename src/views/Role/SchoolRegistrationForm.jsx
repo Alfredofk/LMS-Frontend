@@ -163,7 +163,7 @@ export const SchoolRegistrationForm = () => {
             }}
           />
           {field.hintKey && !errors[field.name] && (
-            <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+            <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
               {t(field.hintKey)}
             </p>
           )}
@@ -217,7 +217,7 @@ export const SchoolRegistrationForm = () => {
           {errors.durationYears ? (
             <span className="text-xs text-red-500 font-medium" role="alert">{errors.durationYears}</span>
           ) : (
-            <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+            <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
               {t('reg.field.duration.hint')}
             </p>
           )}
@@ -256,7 +256,7 @@ export const SchoolRegistrationForm = () => {
         {errors.ktp ? (
           <span className="text-xs text-red-500 font-medium" role="alert">{errors.ktp}</span>
         ) : (
-          <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+          <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
             {t('reg.field.ktp.hint')}
           </p>
         )}

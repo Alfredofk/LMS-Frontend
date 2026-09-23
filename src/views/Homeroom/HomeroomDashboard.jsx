@@ -176,7 +176,7 @@ export const HomeroomDashboard = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 select-none">
         <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('homeroom.stat.students')}</p>
+            <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('homeroom.stat.students')}</p>
             <p className="text-2xl font-extrabold text-slate-800 mt-1">{totalStudents}</p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-purple-50 text-brand flex items-center justify-center">
@@ -186,7 +186,7 @@ export const HomeroomDashboard = () => {
 
         <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('homeroom.stat.avgGrade')}</p>
+            <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('homeroom.stat.avgGrade')}</p>
             <p className="text-2xl font-extrabold text-slate-800 mt-1">{classAvgGrade}</p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -196,7 +196,7 @@ export const HomeroomDashboard = () => {
 
         <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{t('homeroom.stat.attendance')}</p>
+            <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('homeroom.stat.attendance')}</p>
             <p className="text-2xl font-extrabold text-slate-800 mt-1">{classAvgAttendance}%</p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -212,7 +212,7 @@ export const HomeroomDashboard = () => {
           }
         `}>
           <div>
-            <p className={`text-[10px] font-extrabold uppercase tracking-wider ${studentsAtRisk > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+            <p className={`text-[10px] font-extrabold uppercase tracking-wider ${studentsAtRisk > 0 ? 'text-rose-600' : 'text-slate-500'}`}>
               {t('homeroom.stat.atRisk')}
             </p>
             <p className="text-2xl font-extrabold mt-1">{studentsAtRisk}</p>
@@ -233,7 +233,7 @@ export const HomeroomDashboard = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-xs font-medium text-slate-600">
             <thead>
-              <tr className="border-b border-slate-100 text-slate-400 font-extrabold text-left">
+              <tr className="border-b border-slate-100 text-slate-500 font-extrabold text-left">
                 <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">{t('homeroom.th.name')}</th>
                 <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">{t('homeroom.th.nis')}</th>
                 <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">{t('homeroom.th.level')}</th>
@@ -247,10 +247,10 @@ export const HomeroomDashboard = () => {
               {students.map((row) => (
                 <tr key={row.id} className="hover:bg-slate-50/30 transition-colors">
                   <td className="py-3.5 font-extrabold text-slate-800">{row.name}</td>
-                  <td className="py-3.5 text-slate-400 font-bold">{row.nis}</td>
+                  <td className="py-3.5 text-slate-500 font-bold">{row.nis}</td>
                   <td className="py-3.5">
                     <span className="font-extrabold text-slate-700">{t('homeroom.level', { n: row.level })}</span>
-                    <span className="text-[10px] font-bold text-slate-400 ml-1">{t('homeroom.xp', { n: row.xp })}</span>
+                    <span className="text-[10px] font-bold text-slate-500 ml-1">{t('homeroom.xp', { n: row.xp })}</span>
                   </td>
                   <td className="py-3.5 text-center font-extrabold text-slate-900">
                     {row.averageGrade !== null ? (
@@ -314,7 +314,7 @@ export const HomeroomDashboard = () => {
                   <h3 className="text-base font-extrabold text-slate-800 leading-snug">
                     {t('homeroom.modal.title', { name: selectedStudent.name })}
                   </h3>
-                  <p className="text-xs text-slate-400 font-bold mt-0.5">
+                  <p className="text-xs text-slate-500 font-bold mt-0.5">
                     {t('homeroom.modal.meta', { nis: selectedStudent.nis, email: selectedStudent.email })}
                   </p>
                 </div>
@@ -339,11 +339,11 @@ export const HomeroomDashboard = () => {
                   {/* Gamification stats row */}
                   <div className="grid grid-cols-2 gap-4 bg-slate-50/50 border border-slate-100 rounded-2xl p-4 select-none">
                     <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{t('homeroom.modal.level')}</span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">{t('homeroom.modal.level')}</span>
                       <span className="text-lg font-extrabold text-slate-800 mt-1 block">{t('homeroom.modal.levelValue', { n: studentReport.student.level })}</span>
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{t('homeroom.modal.xp')}</span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">{t('homeroom.modal.xp')}</span>
                       <span className="text-lg font-extrabold text-slate-800 mt-1 block">{t('homeroom.modal.xpValue', { n: studentReport.student.xp })}</span>
                     </div>
                   </div>
@@ -357,7 +357,7 @@ export const HomeroomDashboard = () => {
                     <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
                       <table className="w-full text-xs font-medium text-slate-600">
                         <thead>
-                          <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 font-extrabold text-left">
+                          <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-extrabold text-left">
                             <th className="py-2.5 px-4 font-extrabold text-[10px]">{t('homeroom.modal.th.subject')}</th>
                             <th className="py-2.5 px-2 font-extrabold text-[10px] text-center">{t('homeroom.modal.th.avgGrade')}</th>
                             <th className="py-2.5 px-4 font-extrabold text-[10px] text-center">{t('homeroom.th.attendance')}</th>
@@ -371,7 +371,7 @@ export const HomeroomDashboard = () => {
                               <tr key={idx} className="hover:bg-slate-50/20 transition-colors">
                                 <td className="py-3 px-4 text-left">
                                   <div className="font-extrabold text-slate-800">{sub.name}</div>
-                                  <div className="text-[10px] text-slate-400 font-bold">{sub.code}</div>
+                                  <div className="text-[10px] text-slate-500 font-bold">{sub.code}</div>
                                 </td>
                                 <td className="py-3 px-2 text-center font-extrabold">
                                   <span className={`px-2 py-0.5 rounded-lg
@@ -402,7 +402,7 @@ export const HomeroomDashboard = () => {
                     </h4>
 
                     {studentReport.badges.length === 0 ? (
-                      <p className="text-xs text-slate-400 font-bold italic select-none">{t('homeroom.modal.badges.empty')}</p>
+                      <p className="text-xs text-slate-500 font-bold italic select-none">{t('homeroom.modal.badges.empty')}</p>
                     ) : (
                       <div className="flex flex-wrap gap-2">
                         {studentReport.badges.map((badge, idx) => (
@@ -414,7 +414,7 @@ export const HomeroomDashboard = () => {
                             <span className="text-base select-none">{badge.icon || '🏅'}</span>
                             <div>
                               <div className="text-xs font-extrabold text-slate-800">{badge.name}</div>
-                              <div className="text-[9px] text-slate-400 font-bold">{t('homeroom.modal.badge.earned', { date: new Date(badge.unlocked_at).toLocaleDateString(lang === 'en' ? 'en-GB' : 'id-ID') })}</div>
+                              <div className="text-[9px] text-slate-500 font-bold">{t('homeroom.modal.badge.earned', { date: new Date(badge.unlocked_at).toLocaleDateString(lang === 'en' ? 'en-GB' : 'id-ID') })}</div>
                             </div>
                           </div>
                         ))}
@@ -423,7 +423,7 @@ export const HomeroomDashboard = () => {
                   </div>
                 </>
               ) : (
-                <div className="py-12 text-center text-slate-400 text-xs font-bold select-none">
+                <div className="py-12 text-center text-slate-500 text-xs font-bold select-none">
                   {t('homeroom.modal.failed')}
                 </div>
               )}

@@ -360,7 +360,7 @@ export const SelectRolePage = () => {
       <button
         type="button"
         onClick={() => navigate('/account')}
-        className="text-xs text-slate-400 hover:text-brand font-bold transition-colors focus:outline-none cursor-pointer"
+        className="text-xs text-slate-500 hover:text-brand font-bold transition-colors focus:outline-none cursor-pointer"
       >
         {t('account.title')}
       </button>
@@ -368,7 +368,7 @@ export const SelectRolePage = () => {
       <button
         type="button"
         onClick={() => setIsSignOutOpen(true)}
-        className="text-xs text-slate-400 hover:text-brand font-bold transition-colors focus:outline-none cursor-pointer"
+        className="text-xs text-slate-500 hover:text-brand font-bold transition-colors focus:outline-none cursor-pointer"
       >
         {t('common.signOut')}
       </button>
@@ -390,7 +390,7 @@ export const SelectRolePage = () => {
           <h2 className="text-3xl sm:text-[34px] font-extrabold text-brand leading-tight select-none">
             {t('selectRole.title')}
           </h2>
-          <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold break-all">
+          <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold break-all">
             {user?.fullName ? t('selectRole.signedInAs', { name: user.fullName }) : ''}
             {user?.email ? ` · ${user.email}` : ''}
           </p>
@@ -486,7 +486,7 @@ export const SelectRolePage = () => {
                     <h3 className={`text-base font-extrabold ${selectable ? 'text-slate-800' : 'text-slate-500'}`}>
                       {t(ROLE_LABEL_KEY[role])}
                     </h3>
-                    <p className="text-xs text-slate-400 font-semibold mt-0.5 break-words">{note}</p>
+                    <p className="text-xs text-slate-500 font-semibold mt-0.5 break-words">{note}</p>
                     {/* Somebody else's words about this person, so they are marked
                         as a quotation rather than dressed up as our own copy. */}
                     {state === 'REJECTED' && (

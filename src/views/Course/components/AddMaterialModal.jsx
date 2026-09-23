@@ -68,7 +68,7 @@ export const AddMaterialModal = ({ isOpen, onClose, onSubmit, editingMaterial })
               <h3 className="text-lg font-extrabold text-slate-900 leading-tight">
                 {editingMaterial ? 'Edit Materi' : 'Tambah Materi'}
               </h3>
-              <p className="text-[10px] text-slate-400 font-bold mt-0.5">
+              <p className="text-[10px] text-slate-500 font-bold mt-0.5">
                 {editingMaterial ? 'Perbarui modul pembelajaran Anda' : 'Unggah modul pembelajaran baru'}
               </p>
             </div>
@@ -137,7 +137,7 @@ export const AddMaterialModal = ({ isOpen, onClose, onSubmit, editingMaterial })
               {file ? (
                 <div className="space-y-0.5">
                   <p className="text-xs font-extrabold text-slate-800 truncate max-w-[340px]">{file.name}</p>
-                  <p className="text-[10px] text-slate-400 font-bold">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
+                  <p className="text-[10px] text-slate-500 font-bold">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
                 </div>
               ) : editingMaterial ? (
                 <div className="space-y-0.5 text-center">
@@ -147,7 +147,7 @@ export const AddMaterialModal = ({ isOpen, onClose, onSubmit, editingMaterial })
               ) : (
                 <div className="space-y-0.5">
                   <p className="text-xs font-extrabold text-slate-700">Pilih berkas dokumen Anda</p>
-                  <p className="text-[9px] text-slate-400 font-bold uppercase">Format: PDF, Word, PPT, Excel, Zip (Maks. 20MB)</p>
+                  <p className="text-[9px] text-slate-500 font-bold uppercase">Format: PDF, Word, PPT, Excel, Zip (Maks. 20MB)</p>
                 </div>
               )}
             </div>

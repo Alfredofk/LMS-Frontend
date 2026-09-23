@@ -78,7 +78,7 @@ export const StudentListTab = ({ courseId }) => {
       <div className="py-16 text-center border border-dashed border-slate-200 rounded-3xl bg-slate-50/30 select-none">
         <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
         <h3 className="text-sm font-extrabold text-slate-500">Belum ada siswa terdaftar</h3>
-        <p className="text-xs text-slate-400 mt-1">Siswa harus mendaftar ke kelas ini terlebih dahulu.</p>
+        <p className="text-xs text-slate-500 mt-1">Siswa harus mendaftar ke kelas ini terlebih dahulu.</p>
       </div>
     );
   }
@@ -89,7 +89,7 @@ export const StudentListTab = ({ courseId }) => {
         <h2 className="text-sm font-extrabold text-slate-500 uppercase tracking-wider">
           Daftar Anggota Kelas
         </h2>
-        <span className="text-xs text-slate-400 font-extrabold">
+        <span className="text-xs text-slate-500 font-extrabold">
           {students.length} Siswa Terdaftar
         </span>
       </div>
@@ -98,7 +98,7 @@ export const StudentListTab = ({ courseId }) => {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50 text-slate-400 text-[10px] font-extrabold uppercase tracking-wider border-b border-slate-100 select-none">
+              <tr className="bg-slate-50 text-slate-500 text-[10px] font-extrabold uppercase tracking-wider border-b border-slate-100 select-none">
                 <th className="py-3 px-6">Nama Siswa</th>
                 <th className="py-3 px-6">NISN</th>
                 <th className="py-3 px-6">Email</th>
@@ -114,10 +114,10 @@ export const StudentListTab = ({ courseId }) => {
                     </div>
                     <span>{stu.name}</span>
                   </td>
-                  <td className="py-3.5 px-6 text-slate-400">
+                  <td className="py-3.5 px-6 text-slate-500">
                     {stu.nis || '-'}
                   </td>
-                  <td className="py-3.5 px-6 text-slate-400">
+                  <td className="py-3.5 px-6 text-slate-500">
                     {stu.email}
                   </td>
                   <td className="py-3.5 px-6 text-center select-none">

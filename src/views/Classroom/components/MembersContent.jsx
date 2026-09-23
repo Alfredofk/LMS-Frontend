@@ -25,7 +25,7 @@ export const MembersContent = () => {
       
       {/* 1. Guru Pengampu card */}
       <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-        <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider pb-4 border-b border-slate-100 mb-4 flex items-center gap-1.5">
+        <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider pb-4 border-b border-slate-100 mb-4 flex items-center gap-1.5">
           <User className="w-4 h-4 text-brand" />
           Guru Pengampu
         </h3>
@@ -38,7 +38,7 @@ export const MembersContent = () => {
             <div className="text-xs font-extrabold text-slate-900">
               {teacher.name}
             </div>
-            <div className="text-[10px] text-slate-400 font-bold">
+            <div className="text-[10px] text-slate-500 font-bold">
               {teacher.role}
             </div>
           </div>
@@ -47,7 +47,7 @@ export const MembersContent = () => {
 
       {/* 2. Classmates roster card */}
       <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-        <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider pb-4 border-b border-slate-100 mb-4 flex items-center gap-1.5">
+        <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider pb-4 border-b border-slate-100 mb-4 flex items-center gap-1.5">
           <Users className="w-4 h-4 text-brand" />
           Daftar Siswa ({classmates.length})
         </h3>
@@ -91,7 +91,7 @@ export const MembersContent = () => {
                   </div>
                 </div>
 
-                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
+                <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
                   {student.status}
                 </span>
 

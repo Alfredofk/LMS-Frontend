@@ -135,7 +135,7 @@ export const AssessmentPage = () => {
           <h1 className="text-xl sm:text-2xl font-extrabold text-slate-800 leading-tight">
             {t('asm.title')}
           </h1>
-          <p className="text-xs text-slate-400 font-bold mt-1">
+          <p className="text-xs text-slate-500 font-bold mt-1">
             {t('asm.subtitle')}
           </p>
         </div>
@@ -160,7 +160,7 @@ export const AssessmentPage = () => {
           className={`px-4 py-3 text-xs font-extrabold border-b-2 transition-all cursor-pointer relative
             ${activeTab === 'active' 
               ? 'border-brand text-brand' 
-              : 'border-transparent text-slate-400 hover:text-slate-600'
+              : 'border-transparent text-slate-500 hover:text-slate-600'
             }
           `}
         >
@@ -182,7 +182,7 @@ export const AssessmentPage = () => {
           className={`px-4 py-3 text-xs font-extrabold border-b-2 transition-all cursor-pointer
             ${activeTab === 'submitted' 
               ? 'border-brand text-brand' 
-              : 'border-transparent text-slate-400 hover:text-slate-600'
+              : 'border-transparent text-slate-500 hover:text-slate-600'
             }
           `}
         >
@@ -199,7 +199,7 @@ export const AssessmentPage = () => {
           className={`px-4 py-3 text-xs font-extrabold border-b-2 transition-all cursor-pointer
             ${activeTab === 'graded' 
               ? 'border-brand text-brand' 
-              : 'border-transparent text-slate-400 hover:text-slate-600'
+              : 'border-transparent text-slate-500 hover:text-slate-600'
             }
           `}
         >
@@ -231,7 +231,7 @@ export const AssessmentPage = () => {
             <FileText className="w-8 h-8" />
           </div>
           <h3 className="text-xs font-extrabold text-slate-700">{t('asm.empty')}</h3>
-          <p className="text-[10px] text-slate-400 font-bold mt-1">
+          <p className="text-[10px] text-slate-500 font-bold mt-1">
             {searchQuery ? t('asm.emptySearch') : t('asm.emptyNone')}
           </p>
         </div>
@@ -262,7 +262,7 @@ export const AssessmentPage = () => {
 
                   <div className="min-w-0">
                     <div className="flex items-center flex-wrap gap-2">
-                      <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide">
+                      <span className="text-[9px] font-extrabold text-slate-500 uppercase tracking-wide">
                         {task.subjectName} ({task.subjectCode})
                       </span>
                       {/* XP Badge */}
@@ -276,7 +276,7 @@ export const AssessmentPage = () => {
                     </h3>
 
                     {/* Deadline detail */}
-                    <div className="flex items-center gap-4 mt-2 text-[10px] text-slate-400 font-bold select-none">
+                    <div className="flex items-center gap-4 mt-2 text-[10px] text-slate-500 font-bold select-none">
                       <div className="flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5" />
                         <span>{t('asm.due', { date: formatDate(task.deadline) })}</span>
@@ -305,7 +305,7 @@ export const AssessmentPage = () => {
                   {isGraded ? (
                     <div className="flex items-center gap-3 pr-2">
                       <div className="text-right">
-                        <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-wider block">{t('asm.grade')}</span>
+                        <span className="text-[8px] text-slate-500 font-extrabold uppercase tracking-wider block">{t('asm.grade')}</span>
                         <span className="text-sm font-extrabold text-emerald-600 block">{task.grade} / 100</span>
                       </div>
                       <div className="w-10 h-10 rounded-full border-2 border-emerald-500 flex items-center justify-center text-emerald-600 text-xs font-extrabold bg-emerald-50/30">
@@ -318,7 +318,7 @@ export const AssessmentPage = () => {
                       {t('asm.grading')}
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1.5 text-slate-400 group-hover:text-brand transition-colors pr-2">
+                    <div className="flex items-center gap-1.5 text-slate-500 group-hover:text-brand transition-colors pr-2">
                       <span className="text-[10px] font-extrabold">{t('asm.doIt')}</span>
                       <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                     </div>

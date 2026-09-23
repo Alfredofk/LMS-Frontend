@@ -126,7 +126,7 @@ export const TeacherCourses = () => {
             email and fullName — so the fallback below was shown to everybody.
             The school lives on the membership; left as it is for now because
             this screen has no i18n yet and the fix belongs with that slice. */}
-        <p className="text-xs sm:text-sm text-slate-400 font-bold mt-1">
+        <p className="text-xs sm:text-sm text-slate-500 font-bold mt-1">
           Kelola semua kelas dan penugasan yang Anda ampu di {user?.schoolName || 'SMA Negeri 1 Harapan'}
         </p>
       </div>
@@ -158,7 +158,7 @@ export const TeacherCourses = () => {
         <div className="py-20 text-center border border-dashed border-slate-100 rounded-3xl bg-white shadow-sm select-none">
           <BookOpen className="w-12 h-12 text-slate-300 mx-auto mb-3" />
           <p className="text-sm font-extrabold text-slate-500">Tidak ada kelas yang ditemukan</p>
-          <p className="text-xs text-slate-400 mt-1">Coba sesuaikan kata kunci pencarian Anda.</p>
+          <p className="text-xs text-slate-500 mt-1">Coba sesuaikan kata kunci pencarian Anda.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -172,7 +172,7 @@ export const TeacherCourses = () => {
                   <span className="px-2 py-0.5 bg-purple-100 text-brand text-[9px] font-extrabold rounded-md uppercase">
                     {cls.grade_level || 'Umum'}
                   </span>
-                  <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
+                  <span className="text-[10px] text-slate-500 font-bold flex items-center gap-1">
                     <Users className="w-3.5 h-3.5" />
                     35 Siswa
                   </span>
@@ -180,7 +180,7 @@ export const TeacherCourses = () => {
                 <h3 className="text-base font-extrabold text-slate-800 leading-snug">
                   {cls.name}
                 </h3>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
                   Kode: {cls.code}
                 </p>
               </div>

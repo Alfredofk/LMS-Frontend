@@ -134,7 +134,7 @@ export const GetStartedPage = () => {
     <button
       type="button"
       onClick={() => navigate('/select-role')}
-      className="text-xs text-slate-400 hover:text-brand font-bold transition-colors focus:outline-none cursor-pointer"
+      className="text-xs text-slate-500 hover:text-brand font-bold transition-colors focus:outline-none cursor-pointer"
     >
       {t('getStarted.back')}
     </button>
@@ -150,7 +150,7 @@ export const GetStartedPage = () => {
         <h2 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
           {t(content.heading[0])} <span className="text-brand">{t(content.heading[1])}</span>
         </h2>
-        <p className="text-slate-400 text-xs sm:text-sm mt-2 font-semibold">
+        <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold">
           {t(content.subheading[0], fill(content.subheading[1]))}
           {user?.fullName ? ` · ${user.fullName}` : ''}
         </p>
@@ -158,7 +158,7 @@ export const GetStartedPage = () => {
 
       <div className="border border-slate-200 rounded-2xl p-5 text-left bg-white shadow-sm space-y-4">
         <div>
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
             {t('getStarted.needLabel')}
           </span>
           <ul className="mt-2 space-y-2">
@@ -167,7 +167,7 @@ export const GetStartedPage = () => {
                 <span className="w-1.5 h-1.5 rounded-full bg-brand shrink-0 mt-1.5" aria-hidden="true" />
                 <span className="min-w-0">
                   <span className="text-sm font-extrabold text-slate-800">{t(label)}</span>
-                  <span className="block text-xs text-slate-400 font-medium leading-relaxed">{t(detail, fill(vars))}</span>
+                  <span className="block text-xs text-slate-500 font-medium leading-relaxed">{t(detail, fill(vars))}</span>
                 </span>
               </li>
             ))}
@@ -175,7 +175,7 @@ export const GetStartedPage = () => {
         </div>
 
         <div className="pt-1 border-t border-slate-100">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
             {t('getStarted.thenWhat')}
           </span>
           <p className="text-xs text-slate-500 font-medium leading-relaxed mt-1.5">
