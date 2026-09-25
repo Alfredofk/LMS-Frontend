@@ -47,7 +47,7 @@ export const CreateTaskModal = ({ isOpen, onClose, onSubmit }) => {
           </div>
           <button 
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer focus:outline-none"
+            className="p-1.5 text-slate-500 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer focus:outline-none"
           >
             <X className="w-5 h-5" />
           </button>

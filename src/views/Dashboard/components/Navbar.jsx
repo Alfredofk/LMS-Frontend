@@ -13,10 +13,10 @@ import {
   ChevronLeft,
   Menu
 } from 'lucide-react';
-import { useAuth } from '../../../context/AuthContext';
 import { classroomData } from '../../Classroom/classroomData';
 import { useT } from '../../../i18n/LanguageContext';
 import { getAccessToken } from '../../../services/apiClient';
+import AccountMenu from '../../../components/AccountMenu';
 
 /*
   What the bar says on each route, and whether it carries a back arrow.
@@ -40,7 +40,7 @@ const TITLES = {
   '/profile': { key: 'shell.myProfile' },
   /* No `back`: the button that flag renders goes to /dashboard, hardcoded, which
      is the wrong dashboard for a teacher and a principal. This page is reached
-     from the sidebar, which is still on screen. */
+     from the avatar menu, which is still on screen. */
   '/account': { key: 'account.title' },
 
   '/teacher/dashboard': { key: 'shell.title.teacherDashboard' },
@@ -50,10 +50,13 @@ const TITLES = {
   '/teacher/create-assignment': { key: 'shell.title.createAssignment', back: true },
 
   '/headmaster/dashboard': { key: 'shell.title.principalDashboard' },
+  '/headmaster/classes': { key: 'shell.classes' },
+  '/headmaster/members': { key: 'shell.members' },
+  '/join-requests': { key: 'shell.joinRequests' },
+  '/guardian': { key: 'shell.myChildren' },
 };
 
 export const Navbar = ({ showToast, onOpenNav }) => {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -142,11 +145,14 @@ export const Navbar = ({ showToast, onOpenNav }) => {
        not about whether the endpoint exists. */
     if (notificationsNotBuilt) return undefined;
 
-    fetchNotifications();
+    /* The first fetch is queued rather than called in the effect's body — its
+       state updates then land from a callback, like the polled ones below. */
+    Promise.resolve().then(fetchNotifications);
 
     // Poll every 10 seconds for real-time notifications
     const interval = setInterval(fetchNotifications, 10000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstLoadDone, notificationsNotBuilt]);
 
   // Click outside to close dropdown
@@ -159,25 +165,6 @@ export const Navbar = ({ showToast, onOpenNav }) => {
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
-
-  // Mark single notification as read
-  const handleMarkAsRead = async (e, notif) => {
-    e.stopPropagation();
-    try {
-      const token = getAccessToken();
-      const res = await fetch(`/api/notifications/${notif.id}/read`, {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        // Update local state
-        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isRead: true } : n));
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   // Mark all as read
   const handleMarkAllAsRead = async () => {
@@ -257,7 +244,7 @@ export const Navbar = ({ showToast, onOpenNav }) => {
       if (diffHours < 24) return t('shell.time.hours', { n: diffHours });
       const diffDays = Math.floor(diffHours / 24);
       return t('shell.time.days', { n: diffDays });
-    } catch (e) {
+    } catch {
       return '';
     }
   };
@@ -401,30 +388,6 @@ export const Navbar = ({ showToast, onOpenNav }) => {
     );
   };
 
-  // Get Initials dynamically
-  const getInitials = () => {
-    // 'AR' were Andi Rahmat's initials — the last of the sample person.
-    if (!user?.fullName) return '—';
-    return user.fullName
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .substring(0, 2)
-      .toUpperCase();
-  };
-
-  /*
-    The bell beside this one has always said what it does; this said nothing at
-    all — no aria-label and no title — so a screen reader announced it as "SR,
-    button", and somebody looking at it had no way to learn that a circle of
-    initials leads anywhere. Same wording as the sidebar's profile card, minus
-    the dangling dash that one produces when there is no name to put in front
-    of it.
-  */
-  const profileLabel = user?.fullName
-    ? `${user.fullName} — ${t('shell.myProfile')}`
-    : t('shell.myProfile');
-
   return (
     /* px-8 spent 64px of a 375px phone on padding alone. */
     <header className="h-16 border-b border-slate-100 bg-white flex items-center justify-between gap-3 px-4 sm:px-6 md:px-8 select-none shrink-0 relative z-20">
@@ -545,7 +508,7 @@ export const Navbar = ({ showToast, onOpenNav }) => {
                       {/* Delete button */}
                       <button
                         onClick={(e) => handleDeleteNotif(e, notif.id)}
-                        className="absolute top-3 right-3 p-1 hover:bg-slate-100 text-slate-400 hover:text-red-500 rounded-md transition-colors cursor-pointer"
+                        className="absolute top-3 right-3 p-1 hover:bg-slate-100 text-slate-500 hover:text-red-500 rounded-md transition-colors cursor-pointer"
                         title={t('shell.delete')}
                       >
                         <X className="w-3.5 h-3.5" />
@@ -559,18 +522,9 @@ export const Navbar = ({ showToast, onOpenNav }) => {
           )}
         </div>
 
-        {/* Avatar block (navigates to Profile) */}
-        <button
-          type="button"
-          onClick={() => navigate('/profile')}
-          aria-label={profileLabel}
-          /* Not only for screen readers: the tooltip is what answers "can I
-             press this, and where does it go" without pressing it first. */
-          title={profileLabel}
-          className="w-8 h-8 rounded-full bg-brand-tint text-brand flex items-center justify-center font-bold text-xs shadow-inner select-none cursor-pointer focus:outline-none hover:ring-2 hover:ring-purple-200 transition-all"
-        >
-          {getInitials()}
-        </button>
+        {/* The avatar opens the account menu: role, profile, settings, log out.
+            It used to lead straight to Profile; the menu still does, one step on. */}
+        <AccountMenu />
       </div>
     </header>
   );

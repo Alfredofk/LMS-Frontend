@@ -318,10 +318,41 @@ export async function request(path, options = {}) {
   }
 
   if (!response.ok || !payload?.success) {
-    throw toApiError(response, payload);
+    const err = toApiError(response, payload);
+    if (isMembershipGone(err)) membershipGoneListeners.forEach((listener) => listener(err));
+    throw err;
   }
 
   return payload.data;
+}
+
+/*
+  The school is no longer this session's — told once, to whoever is listening.
+
+  `requireActiveMembership` reads the database on every request (backend
+  `7a91eaf`), so somebody removed, who left on another device, or whose school
+  was switched off is refused at once with 403 "You are not an active member of
+  any school", while their token still names the school for up to 15 minutes.
+  Every screen used to show that as its own error panel. Now the signed-in shell
+  listens (MembershipGoneWatcher) and takes them to /select-role, which says
+  what happened.
+
+  The same 403 comes from a token that names no school yet — somebody approved
+  since sign-in. /select-role trades that token in and sends them back, so the
+  one listener heals both.
+
+  Matched on the sentence, the only thing that tells it apart from a role check's
+  FORBIDDEN; the code is shared (`shared/auth.js` requireActiveMembership).
+*/
+const membershipGoneListeners = new Set();
+
+export const isMembershipGone = (err) =>
+  err?.status === 403 && /not an active member/i.test(String(err?.message ?? ''));
+
+/** Subscribe; returns the unsubscribe. */
+export function onMembershipGone(listener) {
+  membershipGoneListeners.add(listener);
+  return () => membershipGoneListeners.delete(listener);
 }
 
 /**

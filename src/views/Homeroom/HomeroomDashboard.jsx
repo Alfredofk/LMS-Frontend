@@ -1,448 +1,213 @@
-import React, { useState, useEffect } from 'react';
-import { useOutletContext } from 'react-router-dom';
-import { useT } from '../../i18n/LanguageContext';
-import NotBuiltYet from '../../components/ui/NotBuiltYet';
-import { isNotBuiltYet } from '../../services/apiClient';
-import { homeroomService } from '../../services/homeroomService';
-import {
-  Users, 
-  GraduationCap, 
-  CheckSquare, 
-  AlertTriangle, 
-  User, 
-  ArrowRight,
-  TrendingUp,
-  X,
-  Award
-} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useOutletContext } from 'react-router-dom';
+import { ChevronRight, Inbox, School, Users, NotebookPen } from 'lucide-react';
 
+import Button from '../../components/ui/Button';
+import ClassDetail from '../Classes/components/ClassDetail';
+import { academicsService } from '../../services/academicsService';
+import { useAuth } from '../../context/AuthContext';
+import { useT } from '../../i18n/LanguageContext';
+import { academicsErrorMessage } from '../../i18n/apiError';
+
+/*
+  The homeroom teacher's own classes — real since backend `36476f3`.
+
+  This page used to ask `/api/homeroom/class` and `/api/homeroom/students`,
+  neither of which was ever written, so it rendered NotBuiltYet and the sidebar
+  never offered it. Homeroom teaching is not a role: it is a Teacher named on a
+  Class (`Class.homeroomTeacherMembershipId`), and `GET /api/academics/classes`
+  answers a teacher with exactly the classes they are named on. That is the
+  whole source now.
+
+  **Filtered to the reader's own classes anyway.** The same endpoint answers a
+  Principal with every class in the school, and a Principal who also teaches can
+  be working here as TEACHER — so "mine" is checked against the membership id,
+  not assumed from the role.
+
+  Read-only but for one act: a homeroom teacher may take a student out of their
+  own class (`ClassDetail`'s roster, `/api/members/:id/remove`). Naming or
+  changing a homeroom teacher is the Principal's, on /headmaster/classes. What a homeroom teacher *does* with a class today is
+  release its students' join requests — which happens on /join-requests, so the
+  page points there.
+
+  Reports, grades and attendance are not here: no model for any of them exists
+  in the backend. The old page carried a whole report modal built on a guessed
+  contract; it went with the guess. The notice says it is coming rather than
+  leaving a gap nobody explains.
+*/
 export const HomeroomDashboard = () => {
   const { showToast } = useOutletContext();
-  const { t, lang } = useT();
-  const [students, setStudents] = useState([]);
-  const [classInfo, setClassInfo] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { membership } = useAuth();
+  const navigate = useNavigate();
+  const { t } = useT();
+
+  const [classes, setClasses] = useState(null);
   const [error, setError] = useState(null);
-  const [notBuilt, setNotBuilt] = useState(false);
-  /* Kept apart from `error`: being denied is not the same as something going
-     wrong, and this screen used to show both under one heading. */
-  const [denied, setDenied] = useState(false);
-
-  // Selected student for detail report modal
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [studentReport, setStudentReport] = useState(null);
-  const [isLoadingReport, setIsLoadingReport] = useState(false);
-
-  /*
-    Three outcomes, which this screen used to collapse into one.
-
-    Before: any failure — including a 404 for a route nobody has written — threw
-    a sentence that was rendered under a hardcoded heading reading **"Akses
-    Ditolak"**. So "this feature does not exist yet" was shown to a teacher as a
-    confident statement that they are not a homeroom teacher. A 404 never even
-    reached the isHomeroomTeacher check; it failed one line earlier.
-
-    Now they are told apart:
-
-      404                         the route is not written    → NotBuiltYet
-      isHomeroomTeacher === false the server said no          → Akses Ditolak
-      anything else               something actually broke    → error panel
-
-    Only the middle one is a denial, and it is the only one that keeps that
-    heading.
-  */
-  const fetchHomeroomData = async () => {
-    setIsLoading(true);
-    setError(null);
-    setNotBuilt(false);
-    setDenied(false);
-
-    try {
-      const classData = await homeroomService.class();
-
-      if (!classData.isHomeroomTeacher) {
-        setDenied(true);
-        return;
-      }
-      setClassInfo(classData.classInfo);
-
-      setStudents(await homeroomService.students());
-    } catch (err) {
-      if (isNotBuiltYet(err)) setNotBuilt(true);
-      else {
-        console.error(err);
-        /* No `|| t(…)` fallback: apiClient's ApiError always carries a message
-           (it falls back to one of its own), so the alternative was dead — and
-           capturing `t` here would make this loader re-run on every language
-           switch, refetching two endpoints for a word change. */
-        setError(err.message);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const [selectedId, setSelectedId] = useState(null);
 
   useEffect(() => {
-    fetchHomeroomData();
-  }, []);
+    let cancelled = false;
+    academicsService
+      .classes()
+      .then((list) => !cancelled && setClasses(list))
+      .catch((err) => !cancelled && setError(academicsErrorMessage(err, t)));
+    return () => {
+      cancelled = true;
+    };
+  }, [t]);
 
-  const handleViewReport = async (student) => {
-    setSelectedStudent(student);
-    /* Cleared up front: without this, a failed second view left the previous
-       student's report in state, ready to be shown under the wrong name the
-       moment anything kept the modal mounted. */
-    setStudentReport(null);
+  /* Open years first — that is where the work is — then closed ones, kept for reading. */
+  const mine = (classes ?? [])
+    .filter((entry) => entry.homeroomTeacher?.membershipId === membership?.id)
+    .sort(
+      (a, b) =>
+        (a.academicYear?.status === 'ACTIVE' ? 0 : 1) - (b.academicYear?.status === 'ACTIVE' ? 0 : 1) ||
+        String(b.academicYear?.label).localeCompare(String(a.academicYear?.label)) ||
+        a.gradeLevel - b.gradeLevel ||
+        a.name.localeCompare(b.name, 'id')
+    );
 
-    try {
-      setIsLoadingReport(true);
-      setStudentReport(await homeroomService.report(student.id));
-    } catch (err) {
-      console.error(err);
-      showToast(
-        isNotBuiltYet(err) ? t('common.notBuilt.title') : t('homeroom.report.failed'),
-        'error'
-      );
-      setSelectedStudent(null);
-    } finally {
-      setIsLoadingReport(false);
-    }
-  };
+  const students = mine
+    .filter((entry) => entry.academicYear?.status === 'ACTIVE')
+    .reduce((sum, entry) => sum + (entry.studentCount ?? 0), 0);
 
-  if (isLoading) {
+  const title = (
+    <div className="select-none">
+      <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+        {t('shell.homeroom')}
+      </h1>
+      <p className="text-xs sm:text-sm text-slate-500 font-bold mt-1">{t('homeroom.subtitle')}</p>
+    </div>
+  );
+
+  if (selectedId) {
     return (
-      <div className="space-y-6 text-left animate-pulse select-none w-full">
-        <div className="h-8 bg-slate-200 rounded w-1/4"></div>
-        <div className="h-32 bg-white border border-slate-100 rounded-3xl"></div>
+      <div className="space-y-6">
+        {title}
+        <ClassDetail
+          classId={selectedId}
+          readOnly
+          onBack={() => setSelectedId(null)}
+          onChanged={(updated) =>
+            setClasses((prev) =>
+              (prev ?? []).map((entry) =>
+                entry.id === updated?.id ? { ...entry, studentCount: updated.studentCount } : entry
+              )
+            )
+          }
+          showToast={showToast}
+        />
       </div>
     );
   }
-
-  /* The route does not exist. Nothing has been denied and nothing has broken. */
-  if (notBuilt) return <NotBuiltYet />;
-
-  /* The one real denial: the server answered, and the answer was no. */
-  if (denied) {
-    return (
-      <div className="p-5 bg-amber-50 border border-amber-100 rounded-2xl flex items-center gap-3 text-amber-800 text-xs font-semibold select-none text-left w-full">
-        <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" aria-hidden="true" />
-        <div>
-          <p className="font-bold">{t('homeroom.denied.title')}</p>
-          <p className="text-amber-700 font-medium mt-0.5">{t('homeroom.denied.body')}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-5 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-700 text-xs font-semibold select-none text-left w-full">
-        <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" aria-hidden="true" />
-        <div>
-          <p className="font-bold">{t('dash.error.title')}</p>
-          <p className="text-red-600 font-medium mt-0.5">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Calculate averages & warning counts
-  const totalStudents = students.length;
-  const rawGrades = students.map(s => s.averageGrade).filter(g => g !== null);
-  const classAvgGrade = rawGrades.length > 0 ? Math.round(rawGrades.reduce((a, b) => a + b, 0) / rawGrades.length) : '—';
-  
-  const classAvgAttendance = totalStudents > 0 
-    ? Math.round(students.reduce((acc, curr) => acc + curr.attendanceRate, 0) / totalStudents) 
-    : 100;
-    
-  const studentsAtRisk = students.filter(s => s.warning).length;
 
   return (
-    <div className="space-y-6 w-full text-left">
-      
-      {/* 1. Header Block */}
-      <div className="space-y-1 select-none">
-        <span className="px-2.5 py-1 bg-purple-100 text-brand text-xs font-extrabold rounded-lg uppercase">
-          {t('homeroom.badge')}
-        </span>
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight mt-2">
-          {t('homeroom.title', { name: classInfo?.name ?? '' })}
-        </h1>
-        <p className="text-sm text-slate-500 font-medium">
-          {t('homeroom.subtitle')}
-        </p>
-      </div>
+    <div className="space-y-6">
+      {title}
 
-      {/* 2. Overview cards grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 select-none">
-        <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('homeroom.stat.students')}</p>
-            <p className="text-2xl font-extrabold text-slate-800 mt-1">{totalStudents}</p>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-purple-50 text-brand flex items-center justify-center">
-            <Users className="w-5 h-5" />
-          </div>
+      {error ? (
+        <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700" role="alert">
+          {error}
         </div>
-
-        <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('homeroom.stat.avgGrade')}</p>
-            <p className="text-2xl font-extrabold text-slate-800 mt-1">{classAvgGrade}</p>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <GraduationCap className="w-5 h-5" />
-          </div>
+      ) : classes === null ? (
+        <div className="space-y-4" aria-label={t('common.loading')}>
+          <div className="h-24 bg-white border border-slate-100 rounded-2xl animate-pulse" />
+          <div className="h-40 bg-white border border-slate-100 rounded-2xl animate-pulse" />
         </div>
-
-        <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('homeroom.stat.attendance')}</p>
-            <p className="text-2xl font-extrabold text-slate-800 mt-1">{classAvgAttendance}%</p>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-            <CheckSquare className="w-5 h-5" />
-          </div>
+      ) : mine.length === 0 ? (
+        <div className="py-16 px-6 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
+          <School className="w-9 h-9 text-slate-300 mx-auto" aria-hidden="true" />
+          <h2 className="mt-2.5 text-sm font-extrabold text-slate-700">{t('homeroom.none.title')}</h2>
+          <p className="mt-1.5 text-xs font-semibold text-slate-500 leading-relaxed max-w-sm mx-auto">
+            {t('homeroom.none.body')}
+          </p>
         </div>
-
-        {/* Risk Alerts counts card */}
-        <div className={`border rounded-2xl p-5 shadow-sm flex items-center justify-between transition-colors
-          ${studentsAtRisk > 0 
-            ? 'bg-rose-50/50 border-rose-100 text-rose-800' 
-            : 'bg-white border-slate-100 text-slate-900'
-          }
-        `}>
-          <div>
-            <p className={`text-[10px] font-extrabold uppercase tracking-wider ${studentsAtRisk > 0 ? 'text-rose-600' : 'text-slate-500'}`}>
-              {t('homeroom.stat.atRisk')}
-            </p>
-            <p className="text-2xl font-extrabold mt-1">{studentsAtRisk}</p>
-          </div>
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center 
-            ${studentsAtRisk > 0 ? 'bg-rose-100 text-rose-600' : 'bg-slate-50 text-slate-400'}`}>
-            <AlertTriangle className="w-5 h-5" />
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Class Roster Monitoring Table */}
-      <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-        <h3 className="text-sm font-extrabold text-slate-800 mb-4 select-none">
-          {t('homeroom.table.title')}
-        </h3>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs font-medium text-slate-600">
-            <thead>
-              <tr className="border-b border-slate-100 text-slate-500 font-extrabold text-left">
-                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">{t('homeroom.th.name')}</th>
-                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">{t('homeroom.th.nis')}</th>
-                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">{t('homeroom.th.level')}</th>
-                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px] text-center">{t('homeroom.th.avgGrade')}</th>
-                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px] text-center">{t('homeroom.th.attendance')}</th>
-                <th className="pb-3 font-extrabold uppercase tracking-wider text-[10px]">{t('homeroom.th.recommendation')}</th>
-                <th className="pb-3 text-right font-extrabold uppercase tracking-wider text-[10px]">{t('homeroom.th.action')}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {students.map((row) => (
-                <tr key={row.id} className="hover:bg-slate-50/30 transition-colors">
-                  <td className="py-3.5 font-extrabold text-slate-800">{row.name}</td>
-                  <td className="py-3.5 text-slate-500 font-bold">{row.nis}</td>
-                  <td className="py-3.5">
-                    <span className="font-extrabold text-slate-700">{t('homeroom.level', { n: row.level })}</span>
-                    <span className="text-[10px] font-bold text-slate-500 ml-1">{t('homeroom.xp', { n: row.xp })}</span>
-                  </td>
-                  <td className="py-3.5 text-center font-extrabold text-slate-900">
-                    {row.averageGrade !== null ? (
-                      <span className={`px-2 py-0.5 rounded-lg
-                        ${row.averageGrade < 70 ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-700'}
-                      `}>
-                        {row.averageGrade}
-                      </span>
-                    ) : '—'}
-                  </td>
-                  <td className="py-3.5 text-center font-extrabold">
-                    <span className={`px-2 py-0.5 rounded-lg
-                      ${row.attendanceRate < 75 ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-700'}
-                    `}>
-                      {row.attendanceRate}%
-                    </span>
-                  </td>
-                  
-                  {/* Warning Anomalies Capsule */}
-                  <td className="py-3.5">
-                    {row.warning ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-red-50 text-red-600 border border-red-100">
-                        <AlertTriangle className="w-3 h-3 shrink-0" />
-                        {row.alertMessage}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-emerald-50 text-emerald-600 border border-emerald-100">
-                        {t('homeroom.status.normal')}
-                      </span>
-                    )}
-                  </td>
-                  
-                  <td className="py-3.5 text-right">
-                    <button
-                      onClick={() => handleViewReport(row)}
-                      className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/50 text-[10px] font-extrabold rounded-lg cursor-pointer transition-colors inline-flex items-center gap-1"
-                    >
-                      {t('homeroom.viewReport')}
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* 4. Student Detailed Report Modal View Dialog */}
-      {selectedStudent && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[85vh]">
-            
-            {/* Modal Header */}
-            <div className="p-6 border-b border-slate-100 flex justify-between items-start select-none">
-              <div className="flex gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-purple-50 text-brand flex items-center justify-center font-extrabold text-sm">
-                  {selectedStudent.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase()}
-                </div>
-                <div className="text-left">
-                  <h3 className="text-base font-extrabold text-slate-800 leading-snug">
-                    {t('homeroom.modal.title', { name: selectedStudent.name })}
-                  </h3>
-                  <p className="text-xs text-slate-500 font-bold mt-0.5">
-                    {t('homeroom.modal.meta', { nis: selectedStudent.nis, email: selectedStudent.email })}
-                  </p>
-                </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-brand-tint text-brand flex items-center justify-center shrink-0">
+                <School className="w-5 h-5" aria-hidden="true" />
               </div>
-              <button 
-                onClick={() => { setSelectedStudent(null); setStudentReport(null); }}
-                className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-900 rounded-lg transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div>
+                <p className="text-2xl font-extrabold text-slate-900 tabular-nums">{mine.length}</p>
+                <p className="text-xs font-semibold text-slate-500">{t('homeroom.stat.classes')}</p>
+              </div>
             </div>
-
-            {/* Modal Body */}
-            <div className="p-6 overflow-y-auto space-y-6 flex-1 text-left">
-              {isLoadingReport ? (
-                <div className="py-12 text-center animate-pulse">
-                  <div className="h-6 bg-slate-200 rounded w-1/3 mx-auto mb-4"></div>
-                  <div className="h-4 bg-slate-200 rounded w-2/3 mx-auto"></div>
-                </div>
-              ) : studentReport ? (
-                <>
-                  {/* Gamification stats row */}
-                  <div className="grid grid-cols-2 gap-4 bg-slate-50/50 border border-slate-100 rounded-2xl p-4 select-none">
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">{t('homeroom.modal.level')}</span>
-                      <span className="text-lg font-extrabold text-slate-800 mt-1 block">{t('homeroom.modal.levelValue', { n: studentReport.student.level })}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">{t('homeroom.modal.xp')}</span>
-                      <span className="text-lg font-extrabold text-slate-800 mt-1 block">{t('homeroom.modal.xpValue', { n: studentReport.student.xp })}</span>
-                    </div>
-                  </div>
-
-                  {/* Grades & Attendances list by Subject */}
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider select-none">
-                      {t('homeroom.modal.subjects')}
-                    </h4>
-                    
-                    <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
-                      <table className="w-full text-xs font-medium text-slate-600">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-extrabold text-left">
-                            <th className="py-2.5 px-4 font-extrabold text-[10px]">{t('homeroom.modal.th.subject')}</th>
-                            <th className="py-2.5 px-2 font-extrabold text-[10px] text-center">{t('homeroom.modal.th.avgGrade')}</th>
-                            <th className="py-2.5 px-4 font-extrabold text-[10px] text-center">{t('homeroom.th.attendance')}</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50">
-                          {studentReport.subjects.map((sub, idx) => {
-                            const isLowGrade = sub.averageGrade !== '—' && sub.averageGrade < 70;
-                            const isLowAtt = sub.attendanceRate < 75;
-                            return (
-                              <tr key={idx} className="hover:bg-slate-50/20 transition-colors">
-                                <td className="py-3 px-4 text-left">
-                                  <div className="font-extrabold text-slate-800">{sub.name}</div>
-                                  <div className="text-[10px] text-slate-500 font-bold">{sub.code}</div>
-                                </td>
-                                <td className="py-3 px-2 text-center font-extrabold">
-                                  <span className={`px-2 py-0.5 rounded-lg
-                                    ${isLowGrade ? 'bg-red-50 text-red-600 font-extrabold' : 'text-slate-800'}
-                                  `}>
-                                    {sub.averageGrade}
-                                  </span>
-                                </td>
-                                <td className="py-3 px-4 text-center font-extrabold">
-                                  <span className={`px-2 py-0.5 rounded-lg
-                                    ${isLowAtt ? 'bg-amber-50 text-amber-600 font-extrabold' : 'text-slate-800'}
-                                  `}>
-                                    {sub.attendanceRate}%
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* Student Badges earned */}
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider select-none">
-                      {t('homeroom.modal.badges', { n: studentReport.badges.length })}
-                    </h4>
-
-                    {studentReport.badges.length === 0 ? (
-                      <p className="text-xs text-slate-500 font-bold italic select-none">{t('homeroom.modal.badges.empty')}</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-2">
-                        {studentReport.badges.map((badge, idx) => (
-                          <div 
-                            key={idx}
-                            className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-left"
-                            title={badge.description}
-                          >
-                            <span className="text-base select-none">{badge.icon || '🏅'}</span>
-                            <div>
-                              <div className="text-xs font-extrabold text-slate-800">{badge.name}</div>
-                              <div className="text-[9px] text-slate-500 font-bold">{t('homeroom.modal.badge.earned', { date: new Date(badge.unlocked_at).toLocaleDateString(lang === 'en' ? 'en-GB' : 'id-ID') })}</div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="py-12 text-center text-slate-500 text-xs font-bold select-none">
-                  {t('homeroom.modal.failed')}
-                </div>
-              )}
+            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-brand-tint text-brand flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5" aria-hidden="true" />
+              </div>
+              <div>
+                <p className="text-2xl font-extrabold text-slate-900 tabular-nums">{students}</p>
+                <p className="text-xs font-semibold text-slate-500">{t('homeroom.stat.students')}</p>
+              </div>
             </div>
-
-            {/* Modal Footer */}
-            <div className="p-6 border-t border-slate-100 flex justify-end select-none">
-              <button
-                onClick={() => { setSelectedStudent(null); setStudentReport(null); }}
-                className="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-extrabold rounded-xl transition-all cursor-pointer shadow-sm"
-              >
-                {t('homeroom.modal.close')}
-              </button>
-            </div>
-
           </div>
-        </div>
-      )}
 
+          <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-3">
+            <div className="flex items-center gap-2 text-slate-500">
+              <School className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <h2 className="text-[11px] font-bold uppercase tracking-wider">{t('homeroom.list.heading')}</h2>
+            </div>
+            <ul className="divide-y divide-slate-100 -mx-2">
+              {mine.map((entry) => {
+                const open = entry.academicYear?.status === 'ACTIVE';
+                return (
+                  <li key={entry.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(entry.id)}
+                      className="w-full px-2 py-3 flex items-center justify-between gap-3 text-left rounded-xl hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    >
+                      <span className="min-w-0">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-extrabold text-slate-800 break-words">{entry.name}</span>
+                          <span className="px-2 py-0.5 bg-brand-tint text-brand text-[10px] font-extrabold rounded-md">
+                            {t('classes.grade', { n: entry.gradeLevel })}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 text-[10px] font-extrabold rounded-md ${
+                              open ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                            }`}
+                          >
+                            {entry.academicYear?.label} · {t(`classes.year.status.${open ? 'ACTIVE' : 'CLOSED'}`)}
+                          </span>
+                        </span>
+                        <span className="block text-[11px] font-semibold text-slate-500 mt-0.5">
+                          {t('classes.class.studentCount', { n: entry.studentCount ?? 0 })}
+                        </span>
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+
+          {/* What a homeroom teacher actually does here today: let students in. */}
+          <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <Inbox className="w-5 h-5 text-brand shrink-0 mt-0.5" aria-hidden="true" />
+              <div className="min-w-0">
+                <p className="text-sm font-extrabold text-slate-800">{t('homeroom.requests.title')}</p>
+                <p className="text-xs font-semibold text-slate-500 leading-relaxed mt-0.5">
+                  {t('homeroom.requests.body')}
+                </p>
+              </div>
+            </div>
+            <Button size="sm" variant="outline" className="shrink-0" onClick={() => navigate('/join-requests')}>
+              {t('shell.joinRequests')}
+            </Button>
+          </section>
+
+          <p className="flex items-start gap-2 text-[11px] font-semibold text-slate-500 leading-relaxed">
+            <NotebookPen className="w-4 h-4 shrink-0 text-slate-400" aria-hidden="true" />
+            {t('homeroom.reportsLater')}
+          </p>
+        </>
+      )}
     </div>
   );
 };

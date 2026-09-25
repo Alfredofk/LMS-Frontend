@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { X, BookOpen, FileUp } from 'lucide-react';
 import Button from '../../../components/ui/Button';
 
@@ -9,20 +9,20 @@ export const AddMaterialModal = ({ isOpen, onClose, onSubmit, editingMaterial })
   
   const fileInputRef = useRef(null);
 
-  // Sync state if editingMaterial changes
-  useEffect(() => {
+  /* Refill the form whenever the modal opens or the material being edited
+     changes. Done while rendering, from the previous props kept in state — the
+     pattern React documents for "adjusting state when a prop changes" — rather
+     than in an effect, which rendered the old values once before correcting
+     them. Same triggers as before: isOpen and editingMaterial. */
+  const [synced, setSynced] = useState({ isOpen: false, editingMaterial: null });
+  if (synced.isOpen !== isOpen || synced.editingMaterial !== editingMaterial) {
+    setSynced({ isOpen, editingMaterial });
     if (isOpen) {
-      if (editingMaterial) {
-        setTitle(editingMaterial.title || '');
-        setDescription(editingMaterial.description || '');
-        setFile(null);
-      } else {
-        setTitle('');
-        setDescription('');
-        setFile(null);
-      }
+      setTitle(editingMaterial?.title || '');
+      setDescription(editingMaterial?.description || '');
+      setFile(null);
     }
-  }, [editingMaterial, isOpen]);
+  }
 
   if (!isOpen) return null;
 
@@ -75,7 +75,7 @@ export const AddMaterialModal = ({ isOpen, onClose, onSubmit, editingMaterial })
           </div>
           <button 
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer focus:outline-none"
+            className="p-1.5 text-slate-500 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer focus:outline-none"
           >
             <X className="w-5 h-5" />
           </button>

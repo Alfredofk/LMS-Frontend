@@ -72,7 +72,7 @@ export const Toast = ({
         <button
           type="button"
           onClick={onClose}
-          className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg focus:outline-none"
+          className="text-slate-500 hover:text-slate-600 transition-colors p-1 rounded-lg focus:outline-none"
           aria-label={t('common.dismiss')}
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">

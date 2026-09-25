@@ -113,7 +113,7 @@ export const TeacherDashboard = () => {
 
   const schoolName = membership?.school?.name ?? null;
 
-  const handleManageClass = (classId, className, grade) => {
+  const handleManageClass = (classId) => {
     navigate(`/teacher/courses/${classId}`);
   };
 

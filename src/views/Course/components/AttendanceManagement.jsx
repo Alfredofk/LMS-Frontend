@@ -30,10 +30,13 @@ export const AttendanceManagement = ({ courseId, showToast }) => {
     }
   };
 
+  /* Refetched when the course or the date changes, and only then — the fetch
+     reads both itself. Listing the function would refetch on every render. */
   useEffect(() => {
     if (courseId && selectedDate) {
       fetchAttendanceRekap();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, selectedDate]);
 
   const handleStatusChange = (studentId, newStatus) => {

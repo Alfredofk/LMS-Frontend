@@ -31,6 +31,7 @@ import {
   validateNip,
   validateNuptk,
   validateTeacherIds,
+  teacherIdErrors,
   validateChildFullName,
   validateRelationship,
   validateGradeLevel,
@@ -42,7 +43,19 @@ import {
   validateDurationYears,
   validateKtpFile,
   fieldErrorsFrom,
+  nestedFieldErrors,
+  validateAcademicYearLabel,
+  validateDateRange,
+  validateClassName,
+  confirmsName,
+  childErrors,
+  childPayload,
+  yearDatesMatchLabel,
+  semesterFits,
+  monthsBetween,
+  isUsualYearLength,
 } from './validation.js';
+import { gradesFor, maxGradeFor } from '../constants/schoolTypes.js';
 
 /* The key a validator answers with, or null when the value is accepted. */
 const keyOf = (result) => (result === null ? null : result.key);
@@ -241,6 +254,30 @@ describe('NIP or NUPTK — the refinement at membership.schema.js:57-62', () => 
   });
 });
 
+describe('teacherIdErrors — both boxes, as the two teacher forms show them', () => {
+  const keys = (nip, nuptk) => {
+    const { nip: a, nuptk: b } = teacherIdErrors(nip, nuptk);
+    return [keyOf(a), keyOf(b)];
+  };
+
+  it('accepts either number, or both', () => {
+    expect(keys(digits(18), '')).toEqual([null, null]);
+    expect(keys('', digits(16))).toEqual([null, null]);
+    expect(keys(digits(9), digits(16))).toEqual([null, null]);
+  });
+
+  it('asks for one of them on the NIP box when both are empty', () => {
+    expect(keys('', '')).toEqual(['validation.teacherIds.required', null]);
+  });
+
+  it('prefers a shape complaint over "give one" when a number was attempted', () => {
+    /* A NUPTK one digit short is a typo, not an absence. */
+    expect(keys('', digits(15))).toEqual([null, 'validation.nuptk.format']);
+    expect(keys(digits(8), '')).toEqual(['validation.nip.format', null]);
+    expect(keys(digits(8), digits(15))).toEqual(['validation.nip.format', 'validation.nuptk.format']);
+  });
+});
+
 describe('guardian: child full name — membership.schema.js:48', () => {
   /*
     3 to 150, not the account name's 2 to 120. Reusing validateFullName here
@@ -278,7 +315,7 @@ describe('guardian: relationship — membership.schema.js:86', () => {
   });
 });
 
-describe('grade level — membership.schema.js:76 and shared/schoolType.js:16-25', () => {
+describe('grade level — membership.schema.js:78 and shared/schoolType.js:54-66', () => {
   it.each([
     ['SD', 1, 6],
     ['SMP', 7, 9],
@@ -291,15 +328,41 @@ describe('grade level — membership.schema.js:76 and shared/schoolType.js:16-25
     expect(keyOf(validateGradeLevel(max + 1, type))).toBe('validation.gradeLevel.range');
   });
 
-  it('refuses grade 13 at an SMK, which is what the server effectively does', () => {
+  it('runs a four-year SMK to 13, and only a four-year SMK', () => {
     /*
-      shared/schoolType.js:56 says a four-year SMK runs to 13, but the zod at
-      membership.schema.js:76 caps every grade at 12 before that function is ever
-      asked. So the server refuses 13, and so does this. The disagreement is
-      inside the backend and is on the list for its owner; the browser matches
-      what actually happens, not what one of the two backend rules intends.
+      This test used to say the opposite. The zod capped every grade at 12, so
+      the server refused 13 before maxGradeFor was ever asked, and the browser
+      matched what actually happened. Backend 60ea459 raised the zod to 13 and
+      left the per-school decision to maxGradeFor (shared/schoolType.js:54-58),
+      and the School Code lookup started carrying durationYears
+      (membership.service.js:87) — which is what this decision needs.
     */
+    expect(validateGradeLevel(13, 'SMK', 4)).toBeNull();
+    expect(keyOf(validateGradeLevel(14, 'SMK', 4))).toBe('validation.gradeLevel.range');
+    expect(keyOf(validateGradeLevel(13, 'SMK', 3))).toBe('validation.gradeLevel.range');
+    expect(keyOf(validateGradeLevel(13, 'SMA', 4))).toBe('validation.gradeLevel.range'); // only SMK chooses
+  });
+
+  it('names the right ceiling when it refuses', () => {
+    expect(validateGradeLevel(14, 'SMK', 4).vars).toEqual({ min: 10, max: 13 });
+    expect(validateGradeLevel(13, 'SMK', 3).vars).toEqual({ min: 10, max: 12 });
+  });
+
+  it('falls back to the ordinary ceiling when the duration is unknown', () => {
+    /* A lookup from before 60ea459 carries no durationYears. Offering 13 on a
+       guess is how a request earns a 400. */
     expect(keyOf(validateGradeLevel(13, 'SMK'))).toBe('validation.gradeLevel.range');
+    expect(keyOf(validateGradeLevel(13, 'SMK', undefined))).toBe('validation.gradeLevel.range');
+  });
+
+  it('offers the same grades in the selector as it accepts', () => {
+    expect(gradesFor('SMK', 4)).toEqual([10, 11, 12, 13]);
+    expect(gradesFor('SMK', 3)).toEqual([10, 11, 12]);
+    expect(gradesFor('SMK')).toEqual([10, 11, 12]);
+    expect(gradesFor('SD')).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(gradesFor('SMU')).toEqual([]);
+    expect(maxGradeFor('SMK', 4)).toBe(13);
+    expect(maxGradeFor('SMU', 4)).toBeNull();
   });
 
   it('takes the value as a form gives it — a string', () => {
@@ -437,6 +500,61 @@ describe('KTP file — school.routes.js:32', () => {
 });
 
 /* ======================================================================== */
+/*  The calendar and classes — LMS-Backend/src/modules/academics/academics.schema.js */
+/* ======================================================================== */
+
+describe('academic year label — academics.schema.js:10-16', () => {
+  it.each([
+    ['2026/2027', null],
+    [' 2026/2027 ', null], // .trim() first
+    ['', 'validation.academicYear.required'],
+    ['2026-2027', 'validation.academicYear.format'],
+    ['26/27', 'validation.academicYear.format'],
+    ['2026/27', 'validation.academicYear.format'],
+    ['2026/2028', 'validation.academicYear.sequence'], // the refine: second = first + 1
+    ['2027/2026', 'validation.academicYear.sequence'],
+    ['2026/2026', 'validation.academicYear.sequence'],
+  ])('%j → %s', (value, key) => {
+    expect(keyOf(validateAcademicYearLabel(value))).toBe(key);
+  });
+});
+
+describe('date range — the startDate < endDate refine on year and semester', () => {
+  const keys = (start, end) => {
+    const { start: a, end: b } = validateDateRange(start, end);
+    return [keyOf(a), keyOf(b)];
+  };
+
+  it('accepts an end strictly after the start', () => {
+    expect(keys('2026-07-13', '2027-06-30')).toEqual([null, null]);
+  });
+
+  it('refuses the same day, and puts it on the end date as the schema does', () => {
+    expect(keys('2026-07-13', '2026-07-13')).toEqual([null, 'validation.date.order']);
+    expect(keys('2027-06-30', '2026-07-13')).toEqual([null, 'validation.date.order']);
+  });
+
+  it('asks for both, box by box', () => {
+    expect(keys('', '')).toEqual(['validation.date.required', 'validation.date.required']);
+    expect(keys('2026-07-13', '')).toEqual([null, 'validation.date.required']);
+    expect(keys('bukan tanggal', '2027-06-30')).toEqual(['validation.date.invalid', null]);
+  });
+});
+
+describe('class name — academics.schema.js:51, trim().min(1).max(50)', () => {
+  it.each([
+    ['X IPA 1', null],
+    ['7A', null],
+    ['x'.repeat(50), null],
+    ['x'.repeat(51), 'validation.className.long'],
+    ['', 'validation.className.required'],
+    ['   ', 'validation.className.required'],
+  ])('%j → %s', (value, key) => {
+    expect(keyOf(validateClassName(value))).toBe(key);
+  });
+});
+
+/* ======================================================================== */
 /*  Reading the server's own verdict                                        */
 /* ======================================================================== */
 
@@ -461,5 +579,117 @@ describe('fieldErrorsFrom — the zod issues the server sends back', () => {
   it('answers an empty object to anything that is not a list', () => {
     expect(fieldErrorsFrom(undefined, ['npsn'])).toEqual({});
     expect(fieldErrorsFrom({ path: 'npsn' }, ['npsn'])).toEqual({});
+  });
+});
+
+describe('nestedFieldErrors — the same, for the membership bodies', () => {
+  it('reads the LAST path segment, where the nested bodies name the box', () => {
+    const details = [
+      { path: 'teacher.nip', message: 'Give a NIP or a NUPTK' },
+      { path: 'guardian.childNisn', message: 'NISN must be 10 digits' },
+    ];
+    expect(nestedFieldErrors(details, ['nip', 'nuptk', 'childNisn'])).toEqual({
+      nip: 'Give a NIP or a NUPTK',
+      childNisn: 'NISN must be 10 digits',
+    });
+  });
+
+  it('is what fieldErrorsFrom cannot do: the first segment names a role, not a box', () => {
+    const details = [{ path: 'teacher.nip', message: 'Give a NIP or a NUPTK' }];
+    expect(fieldErrorsFrom(details, ['nip'])).toEqual({});
+    expect(nestedFieldErrors(details, ['nip'])).toEqual({ nip: 'Give a NIP or a NUPTK' });
+  });
+
+  it('drops boxes it does not own, and anything that is not a list', () => {
+    expect(nestedFieldErrors([{ path: 'student.nisn', message: 'x' }], ['nip'])).toEqual({});
+    expect(nestedFieldErrors(undefined, ['nip'])).toEqual({});
+  });
+});
+
+describe("confirmsName — typing the school before leaving it (the app's own rule, not the server's)", () => {
+  it('accepts the name whatever its capitals and spacing', () => {
+    expect(confirmsName('SMA Negeri 1 Contoh', 'SMA Negeri 1 Contoh')).toBe(true);
+    expect(confirmsName('  sma negeri 1   contoh ', 'SMA Negeri 1 Contoh')).toBe(true);
+  });
+
+  it('refuses anything short of the whole name', () => {
+    expect(confirmsName('SMA Negeri 1', 'SMA Negeri 1 Contoh')).toBe(false);
+    expect(confirmsName('SMA Negeri 1 Contoh.', 'SMA Negeri 1 Contoh')).toBe(false);
+    expect(confirmsName('', 'SMA Negeri 1 Contoh')).toBe(false);
+  });
+
+  it('never confirms against a school with no name', () => {
+    expect(confirmsName('', '')).toBe(false);
+    expect(confirmsName('', null)).toBe(false);
+  });
+});
+
+describe('childErrors — the three boxes that name a child (membership.schema.js:73 guardianPayload)', () => {
+  const ok = { childNisn: '0012345678', childFullName: 'Budi Santoso', relationship: 'Ayah' };
+
+  it('passes a child named in full', () => {
+    expect(childErrors(ok)).toEqual({});
+  });
+
+  it('names each failing box, and only those', () => {
+    expect(Object.keys(childErrors({ ...ok, childNisn: '123' }))).toEqual(['childNisn']);
+    expect(Object.keys(childErrors({ ...ok, relationship: 'Ay' }))).toEqual(['relationship']);
+    expect(Object.keys(childErrors({}))).toEqual(['childNisn', 'childFullName', 'relationship']);
+  });
+
+  it('builds a payload of exactly those three, trimmed', () => {
+    expect(childPayload({ ...ok, childFullName: '  Budi Santoso ', extra: 'x' })).toEqual(ok);
+  });
+});
+
+describe("an academic year's dates against its label (the app's own rule — academicYearBody checks neither)", () => {
+  it('accepts a 2028/2029 year running from 2028 into 2029', () => {
+    expect(yearDatesMatchLabel('2028/2029', '2028-07-13', '2029-06-20')).toEqual({ start: null, end: null });
+  });
+
+  it('refuses the year the owner actually created: 18 Aug – 18 Sep 2028 under 2028/2029', () => {
+    const fail = yearDatesMatchLabel('2028/2029', '2028-08-18', '2028-09-18');
+    expect(fail.start).toBeNull();
+    expect(fail.end).toEqual({ key: 'validation.academicYear.endYear', vars: { year: 2029 } });
+  });
+
+  it('refuses a start in the wrong year too', () => {
+    expect(yearDatesMatchLabel('2028/2029', '2027-07-13', '2029-06-20').start).toEqual({
+      key: 'validation.academicYear.startYear',
+      vars: { year: 2028 },
+    });
+  });
+
+  it('counts months, and calls 9 to 13 of them usual', () => {
+    expect(monthsBetween('2028-07-13', '2029-06-20')).toBe(11);
+    expect(monthsBetween('2028-08-18', '2028-09-18')).toBe(1);
+    expect(isUsualYearLength(11)).toBe(true);
+    expect(isUsualYearLength(9)).toBe(true);
+    expect(isUsualYearLength(13)).toBe(true);
+    expect(isUsualYearLength(8)).toBe(false);
+    expect(isUsualYearLength(14)).toBe(false);
+  });
+});
+
+describe('semesterFits — createSemester, academics.service.js:200-207', () => {
+  const year = {
+    label: '2026/2027',
+    startDate: '2026-07-13T00:00:00.000Z',
+    endDate: '2027-06-20T00:00:00.000Z',
+    semesters: [{ ordinal: 1, startDate: '2026-07-13T00:00:00.000Z', endDate: '2026-12-19T00:00:00.000Z' }],
+  };
+
+  it('accepts the second half, inside the year and clear of the first', () => {
+    expect(semesterFits(year, 2, '2027-01-04', '2027-06-20')).toEqual({ start: null, end: null });
+  });
+
+  it('refuses a start before the year, and an end after it', () => {
+    expect(semesterFits(year, 2, '2026-07-01', '2027-06-20').start?.key).toBe('validation.semester.beforeYear');
+    expect(semesterFits(year, 2, '2027-01-04', '2027-07-01').end?.key).toBe('validation.semester.afterYear');
+  });
+
+  it('refuses overlapping the other semester, but not touching it', () => {
+    expect(semesterFits(year, 2, '2026-12-01', '2027-06-20').end).toEqual({ key: 'validation.semester.overlap', vars: { n: 1 } });
+    expect(semesterFits(year, 2, '2026-12-19', '2027-06-20').end).toBeNull();
   });
 });

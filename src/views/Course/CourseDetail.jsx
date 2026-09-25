@@ -551,7 +551,7 @@ export const CourseDetail = () => {
                     </Button>
                     <button 
                       onClick={() => showToast && showToast('Fitur hapus tugas segera hadir.', 'info')}
-                      className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
+                      className="p-2.5 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
                     >
                       <Trash2 className="w-4.5 h-4.5" />
                     </button>

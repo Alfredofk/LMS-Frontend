@@ -6,6 +6,7 @@ import ProfileHeader from './components/ProfileHeader';
 import BadgeCase from './components/BadgeCase';
 import LeaderboardWidget from './components/LeaderboardWidget';
 import SchoolCodeCard from '../../components/SchoolCodeCard';
+import AddRoleCard from './components/AddRoleCard';
 
 /*
   My Profile, and it is not the same page for everybody.
@@ -18,7 +19,8 @@ import SchoolCodeCard from '../../components/SchoolCodeCard';
   Staff get the one thing that is theirs and real instead: the School Code they
   hand out. `SchoolCodeCard` decides for itself whether it has anything to say —
   its only source is keyed on who founded the school — so a teacher sees nothing
-  and a principal sees their code, with no branching needed here.
+  and a principal sees their code, with no branching needed here. `AddRoleCard`
+  works the same way: it appears only when there is a role left to add.
 
   ## Why this screen asks /users/me for itself
 
@@ -69,7 +71,10 @@ export const ProfilePage = () => {
           </div>
         </div>
       ) : (
-        <SchoolCodeCard />
+        <>
+          <SchoolCodeCard />
+          <AddRoleCard />
+        </>
       )}
     </div>
   );

@@ -39,17 +39,35 @@ export const choosesDuration = (schoolType) =>
   (SCHOOL_TYPES[schoolType]?.allowedDurationYears.length ?? 0) > 1;
 
 /**
- * Every grade this school type actually has, ascending — [1..6] for an SD,
- * [10, 11, 12] for an SMA. Empty for an unknown type, which is what a grade
- * selector should render as "nothing to choose" rather than 1 to 12.
+ * The highest grade a school teaches — `LMS-Backend/src/shared/schoolType.js:54-58`,
+ * line for line.
+ *
+ * A four-year SMK runs to 13; every other school stops at its table's maxGrade.
+ * The backend's zod used to cap every grade at 12 before this was ever asked, so
+ * grade 13 could not be requested at all. Since `60ea459` it caps at 13 and leaves
+ * the per-school decision here — and the School Code lookup now carries
+ * `durationYears`, which is what this needs to decide.
+ *
+ * Without a duration (a lookup from before that commit) the answer is the
+ * ordinary ceiling: offering 13 on a guess is how a request earns a 400.
  */
-export const gradesFor = (schoolType) => {
+export const maxGradeFor = (schoolType, durationYears) => {
+  const type = SCHOOL_TYPES[schoolType];
+  if (!type) return null;
+  if (schoolType === 'SMK' && durationYears === 4) return 13;
+  return type.maxGrade;
+};
+
+/**
+ * Every grade this school actually has, ascending — [1..6] for an SD, [10, 11, 12]
+ * for an SMA, [10..13] for a four-year SMK. Empty for an unknown type, which is
+ * what a grade selector should render as "nothing to choose" rather than 1 to 12.
+ */
+export const gradesFor = (schoolType, durationYears) => {
   const type = SCHOOL_TYPES[schoolType];
   if (!type) return [];
-  return Array.from(
-    { length: type.maxGrade - type.minGrade + 1 },
-    (_, i) => type.minGrade + i
-  );
+  const max = maxGradeFor(schoolType, durationYears);
+  return Array.from({ length: max - type.minGrade + 1 }, (_, i) => type.minGrade + i);
 };
 
 export default SCHOOL_TYPES;

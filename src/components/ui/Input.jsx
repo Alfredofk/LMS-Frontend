@@ -75,7 +75,7 @@ export const Input = React.forwardRef(({
           <button
             type="button"
             onClick={() => setShowPassword((prev) => !prev)}
-            className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors focus:outline-none focus-visible:text-brand"
+            className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-600 transition-colors focus:outline-none focus-visible:text-brand"
             aria-label={showPassword ? 'Hide password' : 'Show password'}
           >
             {showPassword ? (

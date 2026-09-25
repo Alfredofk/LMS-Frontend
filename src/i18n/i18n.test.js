@@ -28,6 +28,7 @@ import id from './id.js';
 import en from './en.js';
 import { LANGUAGES } from './languages.js';
 import { ROLES, ROLE_LABEL_KEY, ROLE_TAGLINE_KEY } from '../constants/roles.js';
+import { decisionErrorMessage, isAlreadyDecided } from './apiError.js';
 
 const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -146,6 +147,10 @@ describe('every expansion of a dynamic key exists', () => {
     expectEvery(tabs.map((s) => `requests.tab.${s}`));
     expectEvery(tabs.map((s) => `requests.status.${s}`));
     expectEvery(tabs.map((s) => `requests.queue.empty.${s}`));
+    /* The subtitle and the empty-queue hint differ by the desk the reader sits at. */
+    for (const pov of ['PRINCIPAL', 'TEACHER']) {
+      expectEvery([`requests.subtitle.${pov}`, `requests.queue.empty.hint.${pov}`]);
+    }
   });
 
   it('role picker: a badge for every state that draws one', () => {
@@ -155,16 +160,51 @@ describe('every expansion of a dynamic key exists', () => {
     expectEvery(states.map((s) => `selectRole.badge.${s}`));
   });
 
-  it('the language switch: a name for every language offered', () => {
-    expectEvery(LANGUAGES.map((code) => `lang.${code}`));
+  it('classes: a label for every year and semester status that draws a badge', () => {
+    /* The badge colour tables are the set: a status with a colour is a status
+       that reaches the screen, so it needs words as well. */
+    const file = 'views/Classes/ClassesPage.jsx';
+    const years = keysOf(file, /const YEAR_BADGE = \{([\s\S]*?)\};/);
+    const semesters = keysOf(file, /const SEMESTER_BADGE = \{([\s\S]*?)\};/);
+    expect(years).toEqual(['ACTIVE', 'CLOSED']);
+    expect(semesters).toEqual(['OPEN', 'FINALIZING', 'CLOSED']);
+    expectEvery(years.map((s) => `classes.year.status.${s}`));
+    expectEvery(semesters.map((s) => `classes.semester.status.${s}`));
   });
 
-  it('the dev sign-in buttons: a title for every role they seed', () => {
-    const m = read('components/dev/DevSignIn.jsx').match(/const SEEDABLE = \[([^\]]*)\]/);
-    expect(m).not.toBeNull();
-    const roles = [...m[1].matchAll(/ROLES\.(\w+)/g)].map((x) => x[1]);
-    expect(roles.length).toBeGreaterThan(0);
-    expectEvery(roles.map((r) => `roleTitle.${r}`));
+  it('classes: a name for every year tab, and an empty sentence for the two that can be empty', () => {
+    const tabs = quotedIn('views/Classes/filters.js', /const YEAR_TABS = \[([^\]]*)\]/);
+    expect(tabs).toEqual(['ACTIVE', 'CLOSED', 'ALL']);
+    expectEvery(tabs.map((s) => `classes.year.tab.${s}`));
+    /* ALL is never empty: the tabs only render once a year exists. */
+    expectEvery(['ACTIVE', 'CLOSED'].map((s) => `classes.year.tabEmpty.${s}`));
+  });
+
+  it('guardian: a label for every relationship offered, and for typing another', () => {
+    const presets = quotedIn('components/ChildFields.jsx', /const RELATIONSHIP_PRESETS = \[([^\]]*)\]/);
+    expect(presets).toEqual(['Ayah', 'Ibu', 'Wali']);
+    expectEvery([...presets, 'OTHER'].map((s) => `getStarted.join.relationship.option.${s}`));
+  });
+
+  it('guardian: a label for every child-link status that draws a badge', () => {
+    /* GuardianPage's STATUS_BADGE is the set; the review screen names the same
+       four for a link that is not the reader's to decide. */
+    const statuses = keysOf('views/Guardian/GuardianPage.jsx', /const STATUS_BADGE = \{([\s\S]*?)\};/);
+    expect(statuses).toEqual(['ACTIVE', 'PENDING', 'REJECTED', 'CANCELLED']);
+    expectEvery(statuses.map((s) => `guardian.status.${s}`));
+    expectEvery(statuses.map((s) => `requests.link.status.${s}`));
+  });
+
+  it('members: a tab name for every tab, and a title for every role a member can hold', () => {
+    const tabs = quotedIn('views/Members/MembersPage.jsx', /const TABS = \[([^\]]*)\]/);
+    expect(tabs).toEqual(['ALL', 'TEACHER', 'STUDENT', 'GUARDIAN', 'LEFT']);
+    expectEvery(tabs.map((s) => `members.tab.${s}`));
+    /* Rows render roleTitle.${role} for every role on a member. */
+    expectEvery(['PRINCIPAL', 'TEACHER', 'STUDENT', 'GUARDIAN'].map((r) => `roleTitle.${r}`));
+  });
+
+  it('the language switch: a name for every language offered', () => {
+    expectEvery(LANGUAGES.map((code) => `lang.${code}`));
   });
 
   it('the landing page: a title and a description for every feature card', () => {
@@ -173,5 +213,38 @@ describe('every expansion of a dynamic key exists', () => {
     );
     expect(features.length).toBeGreaterThan(0);
     expectEvery(features.flatMap((f) => [`landing.feature.${f}.title`, `landing.feature.${f}.desc`]));
+  });
+});
+
+describe('deciding a join request: CONFLICT is not one thing (membership.service.js)', () => {
+  /* The server's own sentences, copied from decideRequest and translateUniqueViolation. */
+  const t = (key) => key;
+  const refused = (code, message) => ({ status: code === 'CONFLICT' ? 409 : 400, code, message });
+
+  it('reads "decided elsewhere" only when the server says so', () => {
+    const decided = refused('CONFLICT', 'This join request has already been decided');
+    expect(isAlreadyDecided(decided)).toBe(true);
+    expect(decisionErrorMessage(decided, t)).toBe('requests.alreadyDecided');
+  });
+
+  it('tells a NISN already at the school apart from it — the case that was hidden', () => {
+    const taken = refused('CONFLICT', 'A student with this NISN already exists at this school');
+    expect(isAlreadyDecided(taken)).toBe(false);
+    expect(decisionErrorMessage(taken, t)).toBe('requests.error.nisnTaken');
+  });
+
+  it('names the other refusals, and keeps the server words for anything unknown', () => {
+    expect(decisionErrorMessage(refused('CONFLICT', 'A teacher with this NIP or NUPTK already exists at this school'), t)).toBe('requests.error.teacherIdTaken');
+    expect(decisionErrorMessage(refused('BAD_REQUEST', 'The STUDENT role cannot be combined with any other role'), t)).toBe('requests.error.studentExclusive');
+    expect(decisionErrorMessage(refused('BAD_REQUEST', 'X IPA 1 is grade 10, and this request asks for grade 11'), t)).toBe('requests.error.gradeMismatch');
+    expect(decisionErrorMessage(refused('BAD_REQUEST', 'Choose the class this student joins'), t)).toBe('requests.approve.needsClass');
+    expect(decisionErrorMessage(refused('CONFLICT', 'Something new'), t)).toBe('Something new');
+  });
+
+  it('has every sentence it can answer with, in both languages', () => {
+    for (const key of ['requests.error.nisnTaken', 'requests.error.teacherIdTaken', 'requests.error.guardianLinked', 'requests.error.studentExclusive', 'requests.error.noNisn', 'requests.error.gradeMismatch']) {
+      expect(id[key]).toBeTruthy();
+      expect(en[key]).toBeTruthy();
+    }
   });
 });

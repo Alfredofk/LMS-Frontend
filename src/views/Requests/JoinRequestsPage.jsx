@@ -4,10 +4,19 @@ import { ShieldOff, Inbox, ChevronRight, Search, SearchX } from 'lucide-react';
 
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
 import JoinRequestReview from './JoinRequestReview';
+import BulkApproveDialog from './BulkApproveDialog';
+import { isBulkable } from './bulk';
 import { membershipReviewService } from '../../services/membershipReviewService';
 import { isNotBuiltYet } from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
-import { ROLES, ROLE_LABEL_KEY, heldRolesOf } from '../../constants/roles';
+import {
+  ROLES,
+  ROLE_LABEL_KEY,
+  heldRolesOf,
+  requestInPov,
+  releasableInPov,
+  releasableLinksInPov,
+} from '../../constants/roles';
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage } from '../../i18n/apiError';
 
@@ -50,14 +59,14 @@ const matches = (row, needle) => {
   Open to PRINCIPAL and TEACHER, which is what the backend's own router allows.
   **A teacher who is neither Principal nor homeroom of anything sees an empty
   list** — the backend answers `[]` rather than 403, deliberately, because there
-  is nothing for them to release and nothing leaks either way. Today that is
-  every teacher, since classes cannot be created yet (ticket 07), so the empty
-  state here is not a rare corner: it is what most people will see, and it has to
-  read as "nothing waiting" rather than as a broken page.
+  is nothing for them to release and nothing leaks either way. That is every
+  teacher until the Principal names them homeroom of a class, so the empty state
+  here is not a rare corner: it is what most people will see, and it has to read
+  as "nothing waiting" rather than as a broken page.
 */
 export const JoinRequestsPage = () => {
   const { showToast } = useOutletContext();
-  const { membership } = useAuth();
+  const { membership, activeRole } = useAuth();
   const navigate = useNavigate();
   const { t, lang } = useT();
 
@@ -79,6 +88,10 @@ export const JoinRequestsPage = () => {
   const [status, setStatus] = useState('PENDING');
   const [byStatus, setByStatus] = useState(EMPTY);
   const [selectedId, setSelectedId] = useState(null);
+  /* Ticked for releasing together. Cleared whenever what is on screen changes —
+     tab, search, a reload — so nothing is ever released that is not in view. */
+  const [ticked, setTicked] = useState(() => new Set());
+  const [isBulkOpen, setIsBulkOpen] = useState(false);
 
   const [query, setQuery] = useState('');
 
@@ -124,7 +137,23 @@ export const JoinRequestsPage = () => {
     load();
   }, [load]);
 
-  const rows = byStatus[status] ?? NO_ROWS;
+  /*
+    Split by the desk the reader is sitting at (requestInPov, constants/roles.js):
+    as Principal, teacher requests; as Teacher, student and guardian ones. The
+    backend answers with everything this person may see from either desk, so the
+    split happens here, before the tab counts — a count that includes rows this
+    desk will not show is a number that lies.
+  */
+  const inPov = useMemo(
+    () =>
+      Object.fromEntries(
+        TABS.map((tab) => [tab, (byStatus[tab] ?? NO_ROWS).filter((row) => requestInPov(row, activeRole))])
+      ),
+    [byStatus, activeRole]
+  );
+  const povKey = activeRole === ROLES.PRINCIPAL ? 'PRINCIPAL' : 'TEACHER';
+
+  const rows = inPov[status] ?? NO_ROWS;
 
   const visible = useMemo(() => rows.filter((r) => matches(r, query.trim())), [rows, query]);
 
@@ -138,8 +167,26 @@ export const JoinRequestsPage = () => {
   */
   const handleDecided = () => {
     setSelectedId(null);
+    setTicked(new Set());
     load();
   };
+
+  /*
+    Boxes only in the waiting tab, only on requests this desk can decide
+    (isBulkable, ./bulk.js) — the same test as the "Yours" badge.
+  */
+  const bulkable = status === 'PENDING' ? visible.filter((row) => isBulkable(row, activeRole)) : NO_ROWS;
+  const tickedRows = bulkable.filter((row) => ticked.has(row.id));
+  const allTicked = bulkable.length > 0 && tickedRows.length === bulkable.length;
+
+  const toggle = (id) =>
+    setTicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const toggleAll = () => setTicked(allTicked ? new Set() : new Set(bulkable.map((row) => row.id)));
 
   if (denied) {
     return (
@@ -165,7 +212,7 @@ export const JoinRequestsPage = () => {
         <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
           {t('requests.title')}
         </h1>
-        <p className="text-xs sm:text-sm text-slate-500 font-bold mt-1">{t('requests.subtitle')}</p>
+        <p className="text-xs sm:text-sm text-slate-500 font-bold mt-1">{t(`requests.subtitle.${povKey}`)}</p>
       </div>
 
       {/* The School Code used to sit here too. It now lives on the dashboard as a
@@ -188,13 +235,16 @@ export const JoinRequestsPage = () => {
               /* The count is of the queue, not of what the search leaves behind.
                  A number that shrinks as you type stops answering the question
                  the reviewer opened this page to ask: is there work waiting? */
-              const count = (byStatus[tab] ?? []).length;
+              const count = (inPov[tab] ?? NO_ROWS).length;
 
               return (
                 <button
                   key={tab}
                   type="button"
-                  onClick={() => setStatus(tab)}
+                  onClick={() => {
+                    setStatus(tab);
+                    setTicked(new Set());
+                  }}
                   className={`pb-3 text-sm font-extrabold transition-all border-b-2 cursor-pointer focus:outline-none flex items-center gap-2 ${
                     isActive
                       ? 'border-brand text-brand'
@@ -235,7 +285,7 @@ export const JoinRequestsPage = () => {
                 {t(`requests.queue.empty.${status}`)}
               </p>
               <p className="mt-1.5 text-[11px] font-semibold text-slate-500 leading-relaxed max-w-sm mx-auto">
-                {t('requests.queue.empty.hint')}
+                {t(`requests.queue.empty.hint.${povKey}`)}
               </p>
 
               {/*
@@ -247,7 +297,7 @@ export const JoinRequestsPage = () => {
                 different question, and a teacher has no code to share, so neither
                 gets the sentence.
               */}
-              {status === 'PENDING' && hasSchoolCode && (
+              {status === 'PENDING' && hasSchoolCode && povKey === 'PRINCIPAL' && (
                 <p className="mt-3 text-[11px] font-semibold text-slate-500 leading-relaxed max-w-sm mx-auto">
                   {t('requests.queue.empty.shareCode')}{' '}
                   <button
@@ -267,7 +317,10 @@ export const JoinRequestsPage = () => {
                 <input
                   type="search"
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setTicked(new Set());
+                  }}
                   placeholder={t('requests.search.placeholder')}
                   aria-label={t('requests.search.placeholder')}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-brand focus:ring-1 focus:ring-brand outline-none text-xs font-semibold placeholder-slate-400 bg-white shadow-sm transition-all"
@@ -290,27 +343,89 @@ export const JoinRequestsPage = () => {
                 </div>
               ) : (
                 <div className="space-y-2.5">
-                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider select-none">
-                    {t('requests.queue.count', { n: visible.length })}
-                  </p>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider select-none">
+                      {t('requests.queue.count', { n: visible.length })}
+                    </p>
+                    {bulkable.length > 1 && (
+                      <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={allTicked}
+                          onChange={toggleAll}
+                          className="w-4 h-4 rounded accent-brand cursor-pointer"
+                        />
+                        {t('requests.bulk.selectAll', { n: bulkable.length })}
+                      </label>
+                    )}
+                  </div>
+
+                  {/* The action, once something is ticked. Sticky, so it stays in
+                      reach at the bottom of a long list. */}
+                  {tickedRows.length > 0 && (
+                    <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 bg-brand-tint border border-brand/30 rounded-2xl px-4 py-2.5" aria-live="polite">
+                      <span className="text-xs font-extrabold text-brand">
+                        {t('requests.bulk.ticked', { n: tickedRows.length })}
+                      </span>
+                      <span className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setTicked(new Set())}
+                          className="text-xs font-bold text-slate-600 hover:text-slate-800 cursor-pointer focus:outline-none focus-visible:underline"
+                        >
+                          {t('requests.bulk.clear')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsBulkOpen(true)}
+                          className="px-4 py-2 rounded-xl text-xs font-extrabold text-white bg-brand hover:bg-brand-deep shadow-sm cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                        >
+                          {t('requests.bulk.open', { n: tickedRows.length })}
+                        </button>
+                      </span>
+                    </div>
+                  )}
 
                   {visible.map((row) => {
                     const roles = row.roles ?? [];
-                    const mine = roles.some((entry) => entry.canRelease);
+                    const links = releasableLinksInPov(row, activeRole);
+                    const mine = releasableInPov(row, activeRole).length > 0 || links.length > 0;
+                    /* A guardian already in the school claiming another child: the
+                       membership and its role are ACTIVE, only the link waits. */
+                    const furtherChild = row.status !== 'PENDING' && (row.children ?? []).some((link) => link.status === 'PENDING');
 
+                    const canTick = status === 'PENDING' && isBulkable(row, activeRole);
+
+                    /* The box sits beside the row, not inside it: the row is a
+                       <button>, and a control inside a button is not valid. */
                     return (
+                      <div key={row.id} className="flex items-stretch gap-2">
+                      {canTick && (
+                        <label className="shrink-0 flex items-center px-3.5 bg-white border border-slate-100 rounded-2xl shadow-sm cursor-pointer hover:border-brand/40">
+                          <input
+                            type="checkbox"
+                            checked={ticked.has(row.id)}
+                            onChange={() => toggle(row.id)}
+                            aria-label={t('requests.bulk.tickOne', { name: row.applicant?.fullName ?? t('requests.applicant.unnamed') })}
+                            className="w-4 h-4 rounded accent-brand cursor-pointer"
+                          />
+                        </label>
+                      )}
                       <button
-                        key={row.id}
                         type="button"
                         onClick={() => setSelectedId(row.id)}
-                        className="w-full bg-white border border-slate-100 hover:border-brand/40 hover:shadow-md rounded-2xl p-4 shadow-sm flex items-center justify-between gap-4 text-left transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                        className="flex-1 min-w-0 bg-white border border-slate-100 hover:border-brand/40 hover:shadow-md rounded-2xl p-4 shadow-sm flex items-center justify-between gap-4 text-left transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                       >
                         <div className="min-w-0">
                           <h3 className="text-sm font-extrabold text-slate-900 truncate">
                             {row.applicant?.fullName ?? t('requests.applicant.unnamed')}
                           </h3>
                           <p className="text-[11px] font-semibold text-slate-500 mt-0.5 truncate">
-                            {roles.map((entry) => t(ROLE_LABEL_KEY[entry.role] ?? 'requests.role.unknown')).join(' · ')}
+                            {furtherChild
+                              ? t('requests.link.row', {
+                                  names: row.children.filter((link) => link.status === 'PENDING').map((link) => link.student?.fullName).join(', '),
+                                })
+                              : roles.map((entry) => t(ROLE_LABEL_KEY[entry.role] ?? 'requests.role.unknown')).join(' · ')}
                             {row.student?.gradeLevel != null
                               ? ` · ${t('requests.field.grade', { n: row.student.gradeLevel })}`
                               : ''}
@@ -337,6 +452,7 @@ export const JoinRequestsPage = () => {
                           <ChevronRight className="w-4 h-4 text-slate-300" aria-hidden="true" />
                         </div>
                       </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -344,6 +460,17 @@ export const JoinRequestsPage = () => {
             </>
           )}
         </>
+      )}
+
+      {isBulkOpen && (
+        <BulkApproveDialog
+          requests={tickedRows}
+          onClose={() => setIsBulkOpen(false)}
+          onDone={() => {
+            setIsBulkOpen(false);
+            handleDecided();
+          }}
+        />
       )}
     </div>
   );

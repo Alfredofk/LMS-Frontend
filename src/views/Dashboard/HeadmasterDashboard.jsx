@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useT } from '../../i18n/LanguageContext';
 import { isNotBuiltYet } from '../../services/apiClient';
 import { headmasterService } from '../../services/headmasterService';
@@ -21,19 +21,26 @@ import {
 
 export const HeadmasterDashboard = () => {
   const { showToast } = useOutletContext();
+  const navigate = useNavigate();
   const { t, lang } = useT();
   
-  // Navigation active tab: 'dashboard', 'teachers', 'students', 'courses', 'announcements'
+  // Navigation active tab: 'dashboard', 'courses', 'announcements'.
+  //
+  // 'teachers' and 'students' used to be here too, asking /api/headmaster/* —
+  // routes never written — and offering to create accounts with a password the
+  // principal chose, which contradicts how anybody gets into this app. The
+  // school's people now live on /headmaster/members, from /api/members; the two
+  // cards below lead there.
   const [activeTab, setActiveTab] = useState('dashboard');
   
   // Stats
   const [stats, setStats] = useState({ totalTeachers: 0, totalStudents: 0, totalCourses: 0 });
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  /* Set around the stats request but not read by anything on screen yet. */
+  const [, setIsLoadingStats] = useState(true);
   const [isSampleStats, setIsSampleStats] = useState(false);
 
   // Lists
   const [teachers, setTeachers] = useState([]);
-  const [students, setStudents] = useState([]);
   const [courses, setCourses] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   
@@ -41,14 +48,10 @@ export const HeadmasterDashboard = () => {
   const [isLoadingList, setIsLoadingList] = useState(false);
 
   // Modals Open/Close States
-  const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
-  const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
   const [isAnnouncementModalOpen, setIsAnnouncementModalOpen] = useState(false);
 
   // Modal Form Inputs
-  const [teacherForm, setTeacherForm] = useState({ name: '', email: '', password: '', nip: '' });
-  const [studentForm, setStudentForm] = useState({ name: '', email: '', password: '', nis: '' });
   const [courseForm, setCourseForm] = useState({ code: '', name: '', description: '', grade_level: '', teacher_id: '' });
   const [announcementForm, setAnnouncementForm] = useState({ title: '', content: '' });
 
@@ -95,13 +98,7 @@ export const HeadmasterDashboard = () => {
     const token = getAccessToken();
     setIsLoadingList(true);
     try {
-      if (activeTab === 'teachers') {
-        const res = await fetch('/api/headmaster/teachers', { headers: { 'Authorization': `Bearer ${token}` } });
-        if (res.ok) setTeachers(await res.json());
-      } else if (activeTab === 'students') {
-        const res = await fetch('/api/headmaster/students', { headers: { 'Authorization': `Bearer ${token}` } });
-        if (res.ok) setStudents(await res.json());
-      } else if (activeTab === 'courses') {
+      if (activeTab === 'courses') {
         // Fetch courses list
         const resCourses = await fetch('/api/courses', { headers: { 'Authorization': `Bearer ${token}` } });
         if (resCourses.ok) setCourses(await resCourses.json());
@@ -120,95 +117,13 @@ export const HeadmasterDashboard = () => {
     }
   };
 
+  /* Once per tab switch — the fetch reads the tab itself. */
   useEffect(() => {
     if (activeTab !== 'dashboard') {
       fetchTabData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
-
-  // --- TEACHER CRUD HANDLERS ---
-  const handleCreateTeacher = async (e) => {
-    e.preventDefault();
-    try {
-      const token = getAccessToken();
-      const response = await fetch('/api/headmaster/teachers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(teacherForm)
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || t('principal.teachers.addFailed'));
-
-      showToast(data.message, 'success');
-      setTeacherForm({ name: '', email: '', password: '', nip: '' });
-      setIsTeacherModalOpen(false);
-      fetchStats();
-      fetchTabData();
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
-  };
-
-  const handleDeleteTeacher = async (id, name) => {
-    if (!window.confirm(t('principal.teachers.confirmDelete', { name }))) return;
-    try {
-      const token = getAccessToken();
-      const response = await fetch(`/api/headmaster/teachers/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || t('principal.teachers.deleteFailed'));
-
-      showToast(data.message, 'success');
-      fetchStats();
-      fetchTabData();
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
-  };
-
-  // --- STUDENT CRUD HANDLERS ---
-  const handleCreateStudent = async (e) => {
-    e.preventDefault();
-    try {
-      const token = getAccessToken();
-      const response = await fetch('/api/headmaster/students', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(studentForm)
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || t('principal.students.addFailed'));
-
-      showToast(data.message, 'success');
-      setStudentForm({ name: '', email: '', password: '', nis: '' });
-      setIsStudentModalOpen(false);
-      fetchStats();
-      fetchTabData();
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
-  };
-
-  const handleDeleteStudent = async (id, name) => {
-    if (!window.confirm(t('principal.students.confirmDelete', { name }))) return;
-    try {
-      const token = getAccessToken();
-      const response = await fetch(`/api/headmaster/students/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || t('principal.students.deleteFailed'));
-
-      showToast(data.message, 'success');
-      fetchStats();
-      fetchTabData();
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
-  };
 
   // --- COURSE CRUD HANDLERS ---
   const handleCreateCourse = async (e) => {
@@ -329,8 +244,6 @@ export const HeadmasterDashboard = () => {
       <div className="border-b border-slate-100 flex gap-6 select-none overflow-x-auto">
         {[
           { id: 'dashboard', label: t('dash.principal.tab.dashboard'), icon: School },
-          { id: 'teachers', label: t('dash.principal.tab.teachers'), icon: Users },
-          { id: 'students', label: t('dash.principal.tab.students'), icon: GraduationCap },
           { id: 'courses', label: t('dash.principal.tab.courses'), icon: BookOpen },
           { id: 'announcements', label: t('dash.principal.tab.announcements'), icon: Megaphone }
         ].map((tab) => {
@@ -363,7 +276,7 @@ export const HeadmasterDashboard = () => {
             {isSampleStats && <SampleDataBanner />}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 select-none">
               <div 
-                onClick={() => setActiveTab('teachers')} 
+                onClick={() => navigate('/headmaster/members')} 
                 className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-slate-200 transition-all cursor-pointer flex items-center justify-between"
               >
                 <div>
@@ -376,7 +289,7 @@ export const HeadmasterDashboard = () => {
               </div>
 
               <div 
-                onClick={() => setActiveTab('students')} 
+                onClick={() => navigate('/headmaster/members')} 
                 className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-slate-200 transition-all cursor-pointer flex items-center justify-between"
               >
                 <div>
@@ -416,129 +329,6 @@ export const HeadmasterDashboard = () => {
                 </p>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Tab 2: Manage Teachers */}
-        {activeTab === 'teachers' && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center select-none">
-              <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.teachers.title')}</h3>
-              <button 
-                onClick={() => setIsTeacherModalOpen(true)}
-                className="px-4 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
-              >
-                <UserPlus className="w-4 h-4" />
-                {t('principal.teachers.add')}
-              </button>
-            </div>
-
-            {isLoadingList ? (
-              <div className="h-40 bg-white border border-slate-100 rounded-2xl animate-pulse"></div>
-            ) : (
-              /*
-                The wrapper has always had `overflow-x-auto`, but a `w-full` table
-                can never overflow it — so on a phone these five columns squeezed
-                instead of scrolling, and nothing ever scrolled at all.
-
-                `min-w-max` rather than a fixed `min-w-[Nrem]` because there is
-                nothing yet to measure: every one of these tables is empty, the
-                endpoints behind them still 404, and the column widths that will
-                matter belong to names, emails and NIPs nobody has seen. A number
-                picked today would be a guess about that data. Content width is
-                not a guess, and it will still be right when the rows arrive.
-
-                Desktop is untouched: max-content is 242-345px against 911px of
-                room, so `w-full` still wins and the table stays 911px wide.
-              */
-              <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm overflow-x-auto">
-                <table className="w-full min-w-max text-xs font-medium text-slate-600">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-slate-500 font-extrabold text-left">
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.th.fullName')}</th>
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.teachers.th.nip')}</th>
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.th.email')}</th>
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.teachers.th.username')}</th>
-                      <th className="pb-3 text-right font-extrabold text-[10px] uppercase">{t('principal.th.action')}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {teachers.map((row) => (
-                      <tr key={row.id} className="hover:bg-slate-50/20 transition-colors">
-                        <td className="py-3.5 font-extrabold text-slate-800">{row.name}</td>
-                        <td className="py-3.5 text-slate-500 font-bold">{row.nip}</td>
-                        <td className="py-3.5 text-slate-500 font-semibold">{row.email}</td>
-                        <td className="py-3.5 text-slate-500 font-bold">{row.username}</td>
-                        <td className="py-3.5 text-right">
-                          <button
-                            onClick={() => handleDeleteTeacher(row.id, row.name)}
-                            className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
-                            title={t('principal.teachers.delete')}
-                          >
-                            <Trash2 className="w-4.5 h-4.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Tab 3: Manage Students */}
-        {activeTab === 'students' && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center select-none">
-              <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.students.title')}</h3>
-              <button 
-                onClick={() => setIsStudentModalOpen(true)}
-                className="px-4 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
-              >
-                <UserPlus className="w-4 h-4" />
-                {t('principal.students.add')}
-              </button>
-            </div>
-
-            {isLoadingList ? (
-              <div className="h-40 bg-white border border-slate-100 rounded-2xl animate-pulse"></div>
-            ) : (
-              <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm overflow-x-auto">
-                <table className="w-full min-w-max text-xs font-medium text-slate-600">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-slate-500 font-extrabold text-left">
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.th.fullName')}</th>
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.students.th.nis')}</th>
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.th.email')}</th>
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.students.th.level')}</th>
-                      <th className="pb-3 text-right font-extrabold text-[10px] uppercase">{t('principal.th.action')}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {students.map((row) => (
-                      <tr key={row.id} className="hover:bg-slate-50/20 transition-colors">
-                        <td className="py-3.5 font-extrabold text-slate-800">{row.name}</td>
-                        <td className="py-3.5 text-slate-500 font-bold">{row.nis}</td>
-                        <td className="py-3.5 text-slate-500 font-semibold">{row.email}</td>
-                        <td className="py-3.5 text-slate-500 font-bold">
-                          Lvl {row.level} <span className="text-[10px] font-bold text-slate-500">({row.xp} XP)</span>
-                        </td>
-                        <td className="py-3.5 text-right">
-                          <button
-                            onClick={() => handleDeleteStudent(row.id, row.name)}
-                            className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
-                            title={t('principal.students.delete')}
-                          >
-                            <Trash2 className="w-4.5 h-4.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
         )}
 
@@ -586,7 +376,7 @@ export const HeadmasterDashboard = () => {
                         <td className="py-3.5 text-right">
                           <button
                             onClick={() => handleDeleteCourse(row.id, row.name)}
-                            className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
                             title={t('principal.courses.delete')}
                           >
                             <Trash2 className="w-4.5 h-4.5" />
@@ -643,7 +433,7 @@ export const HeadmasterDashboard = () => {
                           <td className="py-3.5 text-right">
                             <button
                               onClick={() => handleDeleteAnnouncement(row.id, row.title)}
-                              className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
+                              className="p-1.5 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
                               title={t('principal.ann.delete')}
                             >
                               <Trash2 className="w-4.5 h-4.5" />
@@ -661,153 +451,13 @@ export const HeadmasterDashboard = () => {
 
       </div>
 
-      {/* --- TEACHER CREATION MODAL DIALOG --- */}
-      {isTeacherModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <form onSubmit={handleCreateTeacher} className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center select-none">
-              <h3 className="text-sm font-extrabold text-slate-800">{t('principal.modal.teacher.title')}</h3>
-              <button type="button" onClick={() => setIsTeacherModalOpen(false)} className="p-1 hover:bg-slate-50 text-slate-400 hover:text-slate-900 rounded-lg cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="p-6 space-y-4 text-left">
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.teacher.name')}</label>
-                <input
-                  type="text"
-                  required
-                  placeholder={t('principal.modal.teacher.name.hint')}
-                  value={teacherForm.name}
-                  onChange={(e) => setTeacherForm(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.teacher.nip')}</label>
-                <input
-                  type="text"
-                  required
-                  placeholder={t('principal.modal.teacher.nip.hint')}
-                  value={teacherForm.nip}
-                  onChange={(e) => setTeacherForm(prev => ({ ...prev, nip: e.target.value }))}
-                  className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.teacher.email')}</label>
-                <input
-                  type="email"
-                  required
-                  placeholder={t('principal.modal.teacher.email.hint')}
-                  value={teacherForm.email}
-                  onChange={(e) => setTeacherForm(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.password')}</label>
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  placeholder={t('principal.modal.password.hint')}
-                  value={teacherForm.password}
-                  onChange={(e) => setTeacherForm(prev => ({ ...prev, password: e.target.value }))}
-                  className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
-                />
-              </div>
-            </div>
-
-            <div className="p-6 border-t border-slate-100 flex justify-end gap-2 select-none">
-              <button type="button" onClick={() => setIsTeacherModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-lg cursor-pointer">{t('principal.common.cancel')}</button>
-              <button type="submit" className="px-5 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl cursor-pointer">{t('principal.modal.teacher.submit')}</button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* --- STUDENT CREATION MODAL DIALOG --- */}
-      {isStudentModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <form onSubmit={handleCreateStudent} className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center select-none">
-              <h3 className="text-sm font-extrabold text-slate-800">{t('principal.modal.student.title')}</h3>
-              <button type="button" onClick={() => setIsStudentModalOpen(false)} className="p-1 hover:bg-slate-50 text-slate-400 hover:text-slate-900 rounded-lg cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="p-6 space-y-4 text-left">
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.student.name')}</label>
-                <input
-                  type="text"
-                  required
-                  placeholder={t('principal.modal.student.name.hint')}
-                  value={studentForm.name}
-                  onChange={(e) => setStudentForm(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.student.nis')}</label>
-                <input
-                  type="text"
-                  required
-                  placeholder={t('principal.modal.student.nis.hint')}
-                  value={studentForm.nis}
-                  onChange={(e) => setStudentForm(prev => ({ ...prev, nis: e.target.value }))}
-                  className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.student.email')}</label>
-                <input
-                  type="email"
-                  required
-                  placeholder={t('principal.modal.student.email.hint')}
-                  value={studentForm.email}
-                  onChange={(e) => setStudentForm(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.password')}</label>
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  placeholder={t('principal.modal.password.hint')}
-                  value={studentForm.password}
-                  onChange={(e) => setStudentForm(prev => ({ ...prev, password: e.target.value }))}
-                  className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
-                />
-              </div>
-            </div>
-
-            <div className="p-6 border-t border-slate-100 flex justify-end gap-2 select-none">
-              <button type="button" onClick={() => setIsStudentModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-lg cursor-pointer">{t('principal.common.cancel')}</button>
-              <button type="submit" className="px-5 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl cursor-pointer">{t('principal.modal.student.submit')}</button>
-            </div>
-          </form>
-        </div>
-      )}
-
       {/* --- COURSE CREATION MODAL DIALOG --- */}
       {isCourseModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <form onSubmit={handleCreateCourse} className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center select-none">
               <h3 className="text-sm font-extrabold text-slate-800">{t('principal.modal.course.title')}</h3>
-              <button type="button" onClick={() => setIsCourseModalOpen(false)} className="p-1 hover:bg-slate-50 text-slate-400 hover:text-slate-900 rounded-lg cursor-pointer">
+              <button type="button" onClick={() => setIsCourseModalOpen(false)} className="p-1 hover:bg-slate-50 text-slate-500 hover:text-slate-900 rounded-lg cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -879,7 +529,7 @@ export const HeadmasterDashboard = () => {
           <form onSubmit={handleCreateAnnouncement} className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center select-none">
               <h3 className="text-sm font-extrabold text-slate-900">{t('principal.modal.ann.title')}</h3>
-              <button type="button" onClick={() => setIsAnnouncementModalOpen(false)} className="p-1 hover:bg-slate-50 text-slate-400 hover:text-slate-900 rounded-lg cursor-pointer">
+              <button type="button" onClick={() => setIsAnnouncementModalOpen(false)} className="p-1 hover:bg-slate-50 text-slate-500 hover:text-slate-900 rounded-lg cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>

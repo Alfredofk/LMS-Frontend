@@ -74,8 +74,10 @@ export const SchedulePage = () => {
     }
   };
 
+  /* Once per role — the fetch reads the role itself. */
   useEffect(() => {
     fetchScheduleData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role]);
 
   // Calendar Calculation Helpers

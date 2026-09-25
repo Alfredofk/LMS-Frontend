@@ -3,7 +3,8 @@
  *
  * The rules mirror the backend's own zod: `modules/auth/auth.schema.js` for the
  * account fields, `modules/school/school.schema.js` for founding a school, and
- * `modules/membership/membership.schema.js` for joining one. Every validator here
+ * `modules/membership/membership.schema.js` for joining one, and
+ * `modules/academics/academics.schema.js` for the school's calendar and classes. Every validator here
  * now mirrors something — the last two that did not were the join fields, and
  * ticket 05 gave them rules to mirror.
  *
@@ -20,7 +21,7 @@
  * the caller to run through `t()`.
  */
 
-import { SCHOOL_TYPES } from '../constants/schoolTypes.js';
+import { SCHOOL_TYPES, maxGradeFor } from '../constants/schoolTypes.js';
 
 export const MIN_PASSWORD = 8;
 export const MAX_PASSWORD_BYTES = 72;
@@ -166,6 +167,22 @@ export function validateTeacherIds(nip, nuptk) {
   return hasOne ? null : { key: 'validation.teacherIds.required' };
 }
 
+/**
+ * The whole teacher check, box by box: `{ nip, nuptk }`, each a failure or null.
+ *
+ * Two screens ask for these two numbers — joining a school as a teacher, and
+ * adding TEACHER to a membership already held — and both must say the same
+ * thing. The "give one of them" complaint lands on the NIP box, and **only
+ * when neither box has a shape problem**: somebody who typed a NUPTK one digit
+ * short is better told that than told they gave nothing.
+ */
+export function teacherIdErrors(nip, nuptk) {
+  const nipFail = validateNip(nip);
+  const nuptkFail = validateNuptk(nuptk);
+  if (nipFail || nuptkFail) return { nip: nipFail, nuptk: nuptkFail };
+  return { nip: validateTeacherIds(nip, nuptk), nuptk: null };
+}
+
 /*
   A guardian names one child, and states how they are related to them.
 
@@ -219,7 +236,7 @@ export function validateRelationship(value) {
   told us the type, so the same rule applies before anything is sent — and the
   selector can offer only these grades in the first place.
 */
-export function validateGradeLevel(value, schoolType) {
+export function validateGradeLevel(value, schoolType, durationYears) {
   if (value === '' || value === null || value === undefined) {
     return { key: 'validation.gradeLevel.required' };
   }
@@ -227,11 +244,14 @@ export function validateGradeLevel(value, schoolType) {
   const type = SCHOOL_TYPES[schoolType];
   if (!type) return { key: 'validation.gradeLevel.required' };
 
+  /* The ceiling depends on the school's length as well as its type: a four-year
+     SMK runs to 13. `maxGradeFor` is the backend's isValidGrade, restated. */
+  const max = maxGradeFor(schoolType, durationYears);
   const grade = Number(value);
-  if (!Number.isInteger(grade) || grade < type.minGrade || grade > type.maxGrade) {
+  if (!Number.isInteger(grade) || grade < type.minGrade || grade > max) {
     return {
       key: 'validation.gradeLevel.range',
-      vars: { min: type.minGrade, max: type.maxGrade },
+      vars: { min: type.minGrade, max },
     };
   }
   return null;
@@ -349,6 +369,116 @@ export function validateKtpFile(file) {
   return null;
 }
 
+/*
+  The school's calendar and its classes — academics.schema.js (ticket 07).
+
+  Only the shape is mirrored, the same line the schema itself draws: whether a
+  semester fits inside its year, whether two semesters overlap, whether a class
+  name is already taken this year — those need the database, and the server's
+  answer is shown when they fail.
+
+  The label is "2026/2027": four digits, a slash, four digits, the second year
+  the first plus one. A regex alone would take "2026/2030", which the server
+  refuses with its own sentence; checking the sequence here says it first.
+*/
+const ACADEMIC_YEAR_LABEL = /^\d{4}\/\d{4}$/;
+const MAX_CLASS_NAME = 50;
+
+export function validateAcademicYearLabel(value) {
+  const trimmed = String(value ?? '').trim();
+  if (!trimmed) return { key: 'validation.academicYear.required' };
+  if (!ACADEMIC_YEAR_LABEL.test(trimmed)) return { key: 'validation.academicYear.format' };
+  if (Number(trimmed.slice(5)) !== Number(trimmed.slice(0, 4)) + 1) {
+    return { key: 'validation.academicYear.sequence' };
+  }
+  return null;
+}
+
+/**
+ * Whether a year's dates fall in the calendar years its label names — a
+ * 2028/2029 year starts in 2028 and ends in 2029.
+ *
+ * **The app's own rule, not the backend's**: `academicYearBody` only checks the
+ * label's shape and that the end comes after the start, so "2028/2029, 18 Aug –
+ * 18 Sep 2028" was accepted — and cannot be corrected afterwards: there is no
+ * route to edit a year, its label is unique per school, and every semester must
+ * fit inside its dates. Checked only once the label and both dates are valid;
+ * answers `{ start, end }`, each a failure or null.
+ */
+export function yearDatesMatchLabel(label, start, end) {
+  const first = Number(String(label ?? '').trim().slice(0, 4));
+  const startYear = new Date(start).getUTCFullYear();
+  const endYear = new Date(end).getUTCFullYear();
+  return {
+    start: startYear !== first ? { key: 'validation.academicYear.startYear', vars: { year: first } } : null,
+    end: endYear !== first + 1 ? { key: 'validation.academicYear.endYear', vars: { year: first + 1 } } : null,
+  };
+}
+
+/**
+ * Whole months between two calendar days, rounded to the nearest — what the
+ * confirmation before creating a year says, and what decides whether it warns.
+ */
+export function monthsBetween(start, end) {
+  const days = (new Date(end).getTime() - new Date(start).getTime()) / 86400000;
+  return Math.round(days / 30.44);
+}
+
+/**
+ * A semester's dates against its year and the other semester — the two rules
+ * `createSemester` checks (academics.service.js:200-207), restated so the
+ * refusal comes before the press. Only once both dates are valid; answers
+ * `{ start, end }`, each a failure or null.
+ */
+export function semesterFits(year, ordinal, start, end) {
+  const day = (value) => new Date(String(value).slice(0, 10) + 'T00:00:00Z').getTime();
+  const s = day(start);
+  const e = day(end);
+  const out = { start: null, end: null };
+  if (s < day(year.startDate)) out.start = { key: 'validation.semester.beforeYear', vars: { label: year.label } };
+  if (e > day(year.endDate)) out.end = { key: 'validation.semester.afterYear', vars: { label: year.label } };
+  const other = (year.semesters ?? []).find((semester) => semester.ordinal !== ordinal);
+  if (!out.start && !out.end && other && s < day(other.endDate) && e > day(other.startDate)) {
+    out.end = { key: 'validation.semester.overlap', vars: { n: other.ordinal } };
+  }
+  return out;
+}
+
+/** An Indonesian school year runs about eleven months; outside 9–13 is worth a second look. */
+export const isUsualYearLength = (months) => months >= 9 && months <= 13;
+
+/**
+ * Two dates from `<input type="date">`, the second strictly after the first —
+ * `startDate < endDate` in both the year and the semester schema. Answers
+ * `{ start, end }`, each a failure or null; the order complaint sits on the
+ * end date, where the schema's own refine puts it (`path: ['endDate']`).
+ */
+export function validateDateRange(start, end) {
+  const check = (value) => {
+    const text = String(value ?? '').trim();
+    if (!text) return { key: 'validation.date.required' };
+    if (Number.isNaN(new Date(text).getTime())) return { key: 'validation.date.invalid' };
+    return null;
+  };
+
+  const startFail = check(start);
+  const endFail = check(end);
+  if (startFail || endFail) return { start: startFail, end: endFail };
+
+  if (new Date(start).getTime() >= new Date(end).getTime()) {
+    return { start: null, end: { key: 'validation.date.order' } };
+  }
+  return { start: null, end: null };
+}
+
+/** 1 to 50 after trimming — `name: z.string().trim().min(1).max(50)`. */
+export function validateClassName(value) {
+  const trimmed = String(value ?? '').trim();
+  if (!trimmed) return { key: 'validation.className.required' };
+  if (trimmed.length > MAX_CLASS_NAME) return { key: 'validation.className.long', vars: { max: MAX_CLASS_NAME } };
+  return null;
+}
+
 /**
  * Turn an ApiError's `details` into { field: message }.
  *
@@ -367,6 +497,68 @@ export function fieldErrorsFrom(details, ownedFields) {
 
   return details.reduce((acc, issue) => {
     const field = String(issue?.path ?? '').split('.')[0];
+    if (field && ownedFields.includes(field) && !acc[field]) acc[field] = issue.message;
+    return acc;
+  }, {});
+}
+
+/**
+ * The same, for a body whose fields sit one level down.
+ *
+ * `fieldErrorsFrom` reads the FIRST segment of a zod path, which is right for
+ * the flat forms it was written for. The membership bodies are nested — an issue
+ * on the NISN arrives as `student.nisn`, the "give a NIP or a NUPTK" refinement
+ * as `teacher.nip`, a guardian's as `guardian.childNisn` — so here the LAST
+ * segment is the one that names a box.
+ *
+ * The last segments stay unique across roles, which is why this works with two
+ * roles in flight: a student's own number is `nisn`, a guardian's child's is
+ * `childNisn`.
+ */
+/**
+ * The three boxes that name a child, checked together — `guardianPayload`
+ * (membership.schema.js:73), the same wherever a child is claimed: joining as a
+ * guardian, adding GUARDIAN, claiming a further child. Answers one entry per box
+ * that fails, as `{ key, vars? }`, and nothing for a box that passes.
+ */
+export function childErrors(values) {
+  const out = {};
+  const nisn = validateNisn(values?.childNisn ?? '');
+  const name = validateChildFullName(values?.childFullName ?? '');
+  const relationship = validateRelationship(values?.relationship ?? '');
+  if (nisn) out.childNisn = nisn;
+  if (name) out.childFullName = name;
+  if (relationship) out.relationship = relationship;
+  return out;
+}
+
+/** The payload for those three boxes, trimmed — nothing else rides along. */
+export const childPayload = (values) => ({
+  childNisn: String(values?.childNisn ?? '').trim(),
+  childFullName: String(values?.childFullName ?? '').trim(),
+  relationship: String(values?.relationship ?? '').trim(),
+});
+
+/**
+ * Whether what was typed names this school — the confirmation before leaving it.
+ *
+ * **Not a backend rule**; the server asks for nothing before `/me/leave`. It is
+ * the app's own brake on the one action here nobody can undo alone: getting back
+ * in means asking to join and waiting to be released again. Case and runs of
+ * spaces are forgiven, because the point is that the person read the name, not
+ * that they reproduced its capital letters.
+ */
+export function confirmsName(typed, name) {
+  const fold = (value) => String(value ?? '').trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+  return fold(name) !== '' && fold(typed) === fold(name);
+}
+
+export function nestedFieldErrors(details, ownedFields) {
+  if (!Array.isArray(details)) return {};
+
+  return details.reduce((acc, issue) => {
+    const parts = String(issue?.path ?? '').split('.');
+    const field = parts[parts.length - 1];
     if (field && ownedFields.includes(field) && !acc[field]) acc[field] = issue.message;
     return acc;
   }, {});

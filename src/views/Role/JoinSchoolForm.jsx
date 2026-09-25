@@ -4,6 +4,7 @@ import { Building2, Check } from 'lucide-react';
 
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import ChildFields from '../../components/ChildFields';
 import { membershipService } from '../../services/membershipService';
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage } from '../../i18n/apiError';
@@ -14,11 +15,10 @@ import {
   validateNisn,
   validateBirthDate,
   validateGradeLevel,
-  validateNip,
-  validateNuptk,
-  validateTeacherIds,
-  validateChildFullName,
-  validateRelationship,
+  teacherIdErrors,
+  childErrors,
+  childPayload,
+  nestedFieldErrors,
 } from '../../utils/validation';
 
 /*
@@ -43,26 +43,31 @@ import {
   requests before it has created a single class. The grade options come from the
   school type the lookup just told us, so an SD offers 1 to 6 and nothing else.
 
-  ## One request may carry two roles, and this is the only chance to say so
+  ## One request may carry two roles
 
   `assertRoleCombinationAllowed` (`shared/approval.js:28`) allows TEACHER with
   GUARDIAN — a teacher whose own child attends the same school — and refuses
   STUDENT alongside anything at all.
 
-  What makes the checkbox below a necessity rather than a convenience is a
-  different rule: **there is no way to add a role later.**
-  `assertEligibleApplicant` (`membership.service.js:194`) turns away anybody who
-  already holds a PENDING or ACTIVE membership, backed by the partial unique index
-  `SchoolMembership_one_pending_or_active_per_user`. Leaving a school is ticket 06
-  and is not written. So a teacher who does not tick the box here is a teacher and
-  nothing else, permanently — and the label has to say so.
+  This used to be the only chance to claim both: nothing could add a role to a
+  membership that already existed, so the checkbox's hint said exactly that.
+  Backend `60ea459` changed it. `POST /api/memberships/me/roles` adds TEACHER or
+  GUARDIAN to an ACTIVE membership afterwards — a teacher whose child enrols
+  later, a Principal who also teaches.
+
+  This app offers only the TEACHER half of that — `AddRoleForm`, reached from My
+  Profile and from the TEACHER card on /select-role. GUARDIAN is left out until a
+  child can be placed in a class here (see `ADDABLE_ROLES` in constants/roles.js),
+  so the hint still simply says the two roles go in together and promises nothing
+  about later.
 
   ## PRINCIPAL is not here
 
   The first Principal is created by the platform admin who approves the school
   registration. A second is a later feature, not something a stranger asks for,
-  and `REQUESTABLE_ROLES` leaves it out. A Principal cannot add GUARDIAN either,
-  for the same reason as everybody else: they already hold a membership.
+  and `REQUESTABLE_ROLES` leaves it out. A Principal can now add TEACHER — granted
+  at once, there being nobody above them to release it — or GUARDIAN, which waits
+  for the child's homeroom teacher. Both go through `/me/roles`, not this form.
 */
 
 /** What each intent asks for. The teacher path can grow a second role; see below. */
@@ -77,28 +82,6 @@ const FIELDS_BY_ROLE = {
   STUDENT: ['nisn', 'birthDate', 'gradeLevel'],
   TEACHER: ['nip', 'nuptk'],
   GUARDIAN: ['childNisn', 'childFullName', 'relationship'],
-};
-
-/*
-  `fieldErrorsFrom` in utils/validation.js reads the FIRST segment of a zod path,
-  which is right for the flat forms it was written for. This body is nested — an
-  issue on the NISN arrives as `student.nisn`, the "give a NIP or a NUPTK"
-  refinement as `teacher.nip`, and a guardian's as `guardian.childNisn` — so here
-  the LAST segment is the one that names a box on this screen.
-
-  The last segments stay unique across roles, which is why this works with two
-  roles in flight: a student's own number is `nisn`, a guardian's child's is
-  `childNisn`.
-*/
-const nestedFieldErrors = (details, owned) => {
-  if (!Array.isArray(details)) return {};
-
-  return details.reduce((acc, issue) => {
-    const parts = String(issue?.path ?? '').split('.');
-    const field = parts[parts.length - 1];
-    if (field && owned.includes(field) && !acc[field]) acc[field] = issue.message;
-    return acc;
-  }, {});
 };
 
 export const JoinSchoolForm = ({ intent }) => {
@@ -187,26 +170,20 @@ export const JoinSchoolForm = ({ intent }) => {
     if (asks('STUDENT')) {
       put('nisn', validateNisn(values.nisn ?? ''));
       put('birthDate', validateBirthDate(values.birthDate ?? ''));
-      put('gradeLevel', validateGradeLevel(values.gradeLevel ?? '', school?.schoolType));
+      put(
+        'gradeLevel',
+        validateGradeLevel(values.gradeLevel ?? '', school?.schoolType, school?.durationYears)
+      );
     }
 
     if (asks('TEACHER')) {
-      const nipFail = validateNip(values.nip ?? '');
-      const nuptkFail = validateNuptk(values.nuptk ?? '');
-      put('nip', nipFail);
-      put('nuptk', nuptkFail);
-
-      /* Only when neither is filled: a shape complaint above is the better
-         message when one of them was attempted. */
-      if (!nipFail && !nuptkFail) {
-        put('nip', validateTeacherIds(values.nip ?? '', values.nuptk ?? ''));
-      }
+      const ids = teacherIdErrors(values.nip ?? '', values.nuptk ?? '');
+      put('nip', ids.nip);
+      put('nuptk', ids.nuptk);
     }
 
     if (asks('GUARDIAN')) {
-      put('childNisn', validateNisn(values.childNisn ?? ''));
-      put('childFullName', validateChildFullName(values.childFullName ?? ''));
-      put('relationship', validateRelationship(values.relationship ?? ''));
+      for (const [name, fail] of Object.entries(childErrors(values))) put(name, fail);
     }
 
     setErrors(next);
@@ -241,11 +218,7 @@ export const JoinSchoolForm = ({ intent }) => {
     }
 
     if (asks('GUARDIAN')) {
-      body.guardian = {
-        childNisn: values.childNisn.trim(),
-        childFullName: values.childFullName.trim(),
-        relationship: values.relationship.trim(),
-      };
+      body.guardian = childPayload(values);
     }
 
     return body;
@@ -383,7 +356,9 @@ export const JoinSchoolForm = ({ intent }) => {
               className="block w-full rounded-xl border border-slate-200 hover:border-slate-300 bg-white py-2.5 md:py-3 px-4 text-base text-slate-900 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand cursor-pointer"
             >
               <option value="">{t('getStarted.join.field.gradePlaceholder')}</option>
-              {gradesFor(school.schoolType).map((grade) => (
+              {/* durationYears arrives with the lookup since backend 60ea459; a
+                  four-year SMK is the one school that offers grade 13. */}
+              {gradesFor(school.schoolType, school.durationYears).map((grade) => (
                 <option key={grade} value={grade}>
                   {t('getStarted.join.field.gradeOption', { n: grade })}
                 </option>
@@ -431,11 +406,11 @@ export const JoinSchoolForm = ({ intent }) => {
       )}
 
       {/*
-        The second role, offered once and never again.
+        The second role, asked for together with the first.
 
-        The hint under it is not decoration: roles cannot be added to a membership
-        that already exists, so somebody who leaves this unticked has decided,
-        not postponed.
+        The backend could add GUARDIAN later (`/me/roles`), but this app does not
+        offer that yet (`ADDABLE_ROLES`) — so in practice this box is still the
+        moment, and the hint says only that both go in together.
       */}
       {canAddGuardian && (
         <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
@@ -462,51 +437,16 @@ export const JoinSchoolForm = ({ intent }) => {
 
       {asks('GUARDIAN') && (
         <>
-          {/* The child is named, never listed. Both the number and the name have
-              to be known already — that pairing is the out-of-band check, and
-              nothing here will look a child up. */}
-          <Input
-            id="childNisn"
-            name="childNisn"
-            label={t('getStarted.join.field.childNisn')}
-            type="text"
-            inputMode="numeric"
-            autoComplete="off"
-            spellCheck={false}
-            value={values.childNisn ?? ''}
-            error={errors.childNisn || undefined}
-            onChange={change('childNisn')}
-          />
-
-          <Input
-            id="childFullName"
-            name="childFullName"
-            label={t('getStarted.join.field.childFullName')}
-            type="text"
-            autoComplete="off"
-            value={values.childFullName ?? ''}
-            error={errors.childFullName || undefined}
-            onChange={change('childFullName')}
-          />
-
-          <Input
-            id="relationship"
-            name="relationship"
-            label={t('getStarted.join.field.relationship')}
-            type="text"
-            autoComplete="off"
-            placeholder={t('getStarted.join.field.relationshipPlaceholder')}
-            value={values.relationship ?? ''}
-            error={errors.relationship || undefined}
-            onChange={change('relationship')}
-          />
+          <ChildFields values={values} errors={errors} onChange={change} />
 
           {/*
             Said plainly rather than discovered later. A guardian request is
-            released by the homeroom teacher of the child's class
-            (`membership.service.js:422`), and classes cannot be created yet
-            (ticket 07) — so nobody can act on this one today. Somebody waiting
-            deserves to know they are waiting on a thing that does not exist.
+            released by the homeroom teacher of the child's class, and the
+            backend refuses the claim **at once** when the child has no current
+            class (`resolveChild`, membership.service.js) — so it is never
+            recorded to wait, whatever this line used to promise. Classes exist
+            since backend `36476f3`; a child is placed in one when their own
+            join request is released with a class chosen.
           */}
           <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-2.5 font-semibold leading-relaxed">
             {t('getStarted.join.guardian.waiting')}

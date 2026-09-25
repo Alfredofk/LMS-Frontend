@@ -3,10 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { ROLES, ROLE_HOME } from '../../../constants/roles';
 import BrandMark from '../../../components/ui/BrandMark';
-import LanguageSwitch from '../../../components/ui/LanguageSwitch';
-import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import { useT } from '../../../i18n/LanguageContext';
-import { getAccessToken } from '../../../services/apiClient';
+import { academicsService } from '../../../services/academicsService';
 import {
   LayoutGrid,
   BookOpen,
@@ -16,13 +14,10 @@ import {
   ClipboardList,
   CalendarCheck,
   Megaphone,
-  User,
   Users,
   GraduationCap,
-  Repeat,
-  ShieldCheck,
   UserPlus,
-  LogOut,
+  School,
   X
 } from 'lucide-react';
 
@@ -35,7 +30,7 @@ const ROLE_TITLE_KEY = {
 };
 
 export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
-  const { user, membership, roles, activeRole, logout } = useAuth();
+  const { user, membership, activeRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useT();
@@ -48,27 +43,30 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
   const role = userRole || activeRole || ROLES.STUDENT;
   const dashboardPath = ROLE_HOME[role] ?? '/dashboard';
   const [isHomeroomTeacher, setIsHomeroomTeacher] = useState(false);
-  const [isLogOutOpen, setIsLogOutOpen] = useState(false);
 
+  /*
+    Whether to offer "Homeroom". Homeroom teaching is a Teacher named on a Class,
+    not a role, so it is asked of the classes: a teacher gets back exactly the
+    ones they are homeroom of. Checked against the membership id rather than
+    "any class came back", because a Principal working as TEACHER is answered
+    with every class in the school. A failure just leaves the link out.
+  */
+  const membershipId = membership?.id;
   useEffect(() => {
-    if (role === ROLES.TEACHER) {
-      const checkHomeroom = async () => {
-        try {
-          const token = getAccessToken();
-          const response = await fetch('/api/homeroom/class', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (response.ok) {
-            const data = await response.json();
-            setIsHomeroomTeacher(data.isHomeroomTeacher);
-          }
-        } catch (err) {
-          console.error('Error checking homeroom status:', err);
+    if (role !== ROLES.TEACHER || !membershipId) return undefined;
+    let cancelled = false;
+    academicsService
+      .classes()
+      .then((list) => {
+        if (!cancelled) {
+          setIsHomeroomTeacher(list.some((entry) => entry.homeroomTeacher?.membershipId === membershipId));
         }
-      };
-      checkHomeroom();
-    }
-  }, [role]);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [role, membershipId]);
 
   const handleLinkClick = (labelKey, routePath) => {
     if (routePath) {
@@ -172,7 +170,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
             type="button"
             onClick={onClose}
             aria-label={t('shell.closeMenu')}
-            className="md:hidden ml-auto -mr-1 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand shrink-0"
+            className="md:hidden ml-auto -mr-1 p-2 rounded-xl text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand shrink-0"
           >
             <X className="w-4 h-4" aria-hidden="true" />
           </button>
@@ -238,15 +236,22 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
               {t('shell.mainMenu')}
             </span>
             <nav className="space-y-0.5">
+              {/* A guardian's home is their children, so it is named that — and
+                  it is the only item they get: the other screens are a student's
+                  or a teacher's, with no guardian data behind them. */}
               <button
-                onClick={() => handleLinkClick('shell.dashboard', dashboardPath)}
+                onClick={() => handleLinkClick(role === ROLES.GUARDIAN ? 'shell.myChildren' : 'shell.dashboard', dashboardPath)}
                 className={isActive(dashboardPath) ? activeBtnClass : inactiveBtnClass}
               >
-                <LayoutGrid className={`w-4 h-4 shrink-0 transition-colors ${isActive(dashboardPath) ? 'text-white' : 'text-brand'}`} />
-                {t('shell.dashboard')}
+                {role === ROLES.GUARDIAN ? (
+                  <Users className={`w-4 h-4 shrink-0 transition-colors ${isActive(dashboardPath) ? 'text-white' : 'text-brand'}`} />
+                ) : (
+                  <LayoutGrid className={`w-4 h-4 shrink-0 transition-colors ${isActive(dashboardPath) ? 'text-white' : 'text-brand'}`} />
+                )}
+                {t(role === ROLES.GUARDIAN ? 'shell.myChildren' : 'shell.dashboard')}
               </button>
 
-              {role !== ROLES.PRINCIPAL && (
+              {(role === ROLES.STUDENT || role === ROLES.TEACHER) && (
                 <button
                   onClick={() => handleLinkClick('shell.myCourses', role === ROLES.TEACHER ? '/teacher/courses' : '/classroom')}
                   className={isActive(role === ROLES.TEACHER ? '/teacher/courses' : '/classroom') ? activeBtnClass : inactiveBtnClass}
@@ -258,8 +263,8 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
 
               {/*
                 Reviewing who may join. Both roles get it, which is what the backend
-                allows — and a Teacher who is not a homeroom teacher will find it
-                empty until classes exist, because there is nothing they can release.
+                allows — and a Teacher who is not homeroom of any class will find
+                it empty, because there is nothing they can release.
                 An empty page they can reach beats a decision hidden from them.
               */}
               {(role === ROLES.PRINCIPAL || role === ROLES.TEACHER) && (
@@ -269,6 +274,30 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
                 >
                   <UserPlus className={`w-4 h-4 shrink-0 transition-colors ${isActive('/join-requests') ? 'text-white' : 'text-brand'}`} />
                   {t('shell.joinRequests')}
+                </button>
+              )}
+
+              {/* Classes and their academic years — every write there is the
+                  Principal's, so the Principal is the only one sent. */}
+              {role === ROLES.PRINCIPAL && (
+                <button
+                  onClick={() => handleLinkClick('shell.classes', '/headmaster/classes')}
+                  className={isActive('/headmaster/classes') ? activeBtnClass : inactiveBtnClass}
+                >
+                  <School className={`w-4 h-4 shrink-0 transition-colors ${isActive('/headmaster/classes') ? 'text-white' : 'text-brand'}`} />
+                  {t('shell.classes')}
+                </button>
+              )}
+
+              {/* The school's people. Listing them is the Principal's alone
+                  (/api/members answers a teacher 403). */}
+              {role === ROLES.PRINCIPAL && (
+                <button
+                  onClick={() => handleLinkClick('shell.members', '/headmaster/members')}
+                  className={isActive('/headmaster/members') ? activeBtnClass : inactiveBtnClass}
+                >
+                  <Users className={`w-4 h-4 shrink-0 transition-colors ${isActive('/headmaster/members') ? 'text-white' : 'text-brand'}`} />
+                  {t('shell.members')}
                 </button>
               )}
 
@@ -365,78 +394,12 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
       </div>
 
       {/*
-        Pinned, not scrolled. Log Out used to live at the end of a scrolling
-        column, so scrolling up took it off screen — and the decorative circle
-        that used to sit here was painted *under* this text at 1.9:1 contrast,
-        which is what made the group look covered. The circle is gone and this
-        group no longer moves.
+        The Account group — My Profile, Account & Security, Switch Role, the
+        language switch and Log out — used to be pinned here. It took so much
+        height that the main menu above had to scroll with a handful of items in
+        it. All five now live behind the avatar in the navbar (AccountMenu), which
+        is on screen at every width; the language switch moved to Settings.
       */}
-      <div className="shrink-0 border-t border-slate-100 px-3 py-3">
-        <div className="space-y-1">
-            <span className="px-3 text-[10px] font-bold text-slate-500 tracking-wider block select-none">
-              {t('shell.account')}
-            </span>
-            <nav className="space-y-0.5">
-              <button
-                onClick={() => handleLinkClick('shell.myProfile', '/profile')}
-                className={isActive('/profile') ? activeBtnClass : inactiveBtnClass}
-              >
-                <User className={`w-4 h-4 shrink-0 transition-colors ${isActive('/profile') ? 'text-white' : 'text-brand'}`} />
-                {t('shell.myProfile')}
-              </button>
-
-              {/* Stays inside the shell, so it highlights like its neighbours.
-                  /account is guarded by RequireAuth alone and picks its own
-                  frame, which is what keeps it working for people who have no
-                  role to build this sidebar from — see AccountChrome. */}
-              <button
-                onClick={() => handleLinkClick('account.title', '/account')}
-                className={isActive('/account') ? activeBtnClass : inactiveBtnClass}
-              >
-                <ShieldCheck className={`w-4 h-4 shrink-0 transition-colors ${isActive('/account') ? 'text-white' : 'text-brand'}`} />
-                {t('account.title')}
-              </button>
-
-              {/* Only somebody holding more than one role has anything to switch
-                  between, and only then is the entry worth the space. */}
-              {roles.length > 1 && (
-                <button
-                  onClick={() => handleLinkClick('shell.switchRole', '/select-role')}
-                  className={inactiveBtnClass}
-                >
-                  <Repeat className="w-4 h-4 shrink-0 text-brand transition-colors" />
-                  {t('shell.switchRole')}
-                </button>
-              )}
-              <div className="px-3.5 py-2">
-                <LanguageSwitch />
-              </div>
-              <button
-                onClick={() => setIsLogOutOpen(true)}
-                className="w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-bold rounded-xl text-slate-700 hover:text-rose-600 hover:bg-rose-50/50 select-none cursor-pointer group transition-all"
-              >
-                <LogOut className="w-4 h-4 shrink-0 text-brand group-hover:text-rose-500 transition-colors" />
-                {t('shell.logOut')}
-              </button>
-          </nav>
-        </div>
-      </div>
-
-      {/*
-        No success toast after this resolves: clearing the session unmounts this
-        layout — ProtectedRoute sends the now-signed-out person to /login — so
-        anything shown at that point would vanish in the same frame.
-      */}
-      <ConfirmDialog
-        open={isLogOutOpen}
-        title={t('confirm.logOut.title')}
-        body={t('confirm.logOut.body')}
-        confirmLabel={t('shell.logOut')}
-        cancelLabel={t('common.cancel')}
-        onCancel={() => setIsLogOutOpen(false)}
-        onConfirm={logout}
-      />
-
     </aside>
   );
 };

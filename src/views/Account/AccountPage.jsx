@@ -4,6 +4,8 @@ import { ArrowLeft } from 'lucide-react';
 
 import AuthLayout from '../../layouts/AuthLayout';
 import Toast from '../../components/ui/Toast';
+import LanguageSwitch from '../../components/ui/LanguageSwitch';
+import { useTheme } from '../../theme/useTheme';
 import ProfileForm from './ProfileForm';
 import PasswordForm from './PasswordForm';
 import { useAuth } from '../../context/AuthContext';
@@ -11,7 +13,9 @@ import { useT } from '../../i18n/LanguageContext';
 import { homeFor } from '../../constants/roles';
 
 /*
-  Account & Security.
+  Settings — "Pengaturan". It was "Account & Security" until the account group
+  left the sidebar for the avatar menu; the path stays /account, because
+  /select-role and the navbar's title table both point at it.
 
   **Guarded by RequireAuth, not ProtectedRoute**, and that is why it exists as
   its own route rather than as a section of /profile.
@@ -42,8 +46,19 @@ export const AccountPage = () => {
   const navigate = useNavigate();
   const { user, activeRole } = useAuth();
   const { t } = useT();
+  const { isDark, followsDevice, setDark } = useTheme();
 
   const [toast, setToast] = useState(null);
+
+  /*
+    "Leave the school" used to be the last card here, and is gone on purpose
+    (owner, 2026-09-24): students and teachers must not leave on their own. The
+    way out is to be an application with a letter from the school, uploaded and
+    reviewed by the Principal — which the backend has no routes for yet, so it
+    is not built. LeaveSchoolDialog and membershipService.leaveSchool are kept,
+    unused, for that flow. Being removed by the school still works, and
+    /select-role still explains it.
+  */
 
   const body = (
     <>
@@ -98,9 +113,60 @@ export const AccountPage = () => {
             two: without it the profile card would stretch to match and carry a
             gap of dead space under its button.
           */}
+          {/*
+            The language used to be switched from the foot of the sidebar, on
+            screen at all times for something changed once. It lives here now.
+            Only in this branch: the standalone one below sits in AuthLayout,
+            whose purple column already carries the same switch.
+          */}
+          <Card title={t('account.language.title')}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                {t('account.language.hint')}
+              </p>
+              <LanguageSwitch className="self-start sm:self-auto shrink-0" />
+            </div>
+          </Card>
+
+          {/*
+            Dark mode, as one switch. Nobody has to choose: until they do, the
+            device decides, and the hint says so — the switch shows what is on
+            screen now, which is the only honest state for it to show.
+          */}
+          <Card title={t('account.theme.title')}>
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p id="theme-switch-label" className="text-sm font-semibold text-slate-800">
+                  {t('account.theme.dark')}
+                </p>
+                <p className="text-xs text-slate-500 font-medium leading-relaxed mt-0.5">
+                  {t(followsDevice ? 'account.theme.hint.device' : 'account.theme.hint.chosen')}
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isDark}
+                aria-labelledby="theme-switch-label"
+                onClick={() => setDark(!isDark)}
+                className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 ${
+                  isDark ? 'bg-brand' : 'bg-slate-300'
+                }`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                    isDark ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          </Card>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
             {body}
           </div>
+
         </div>
       </>
     );

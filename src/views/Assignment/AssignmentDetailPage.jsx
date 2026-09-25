@@ -312,7 +312,7 @@ export const AssignmentDetailPage = () => {
                   {status !== 'completed' && (
                     <button 
                       onClick={handleDeleteFile}
-                      className="p-1 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
+                      className="p-1 hover:bg-slate-200 rounded-lg text-slate-500 hover:text-red-500 transition-colors cursor-pointer"
                       title="Hapus draf"
                     >
                       <Trash2 className="w-4 h-4" />

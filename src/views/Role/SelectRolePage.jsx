@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { PowerOff, UserMinus } from 'lucide-react';
 
 import AuthLayout from '../../layouts/AuthLayout';
 import { useAuth } from '../../context/AuthContext';
@@ -12,10 +13,19 @@ import {
   SELECTABLE_ROLES,
   GET_STARTED_PATH,
   homeFor,
+  endedMembership,
+  heldRolesOf,
+  isEstablishedMember,
+  isSchoolDeactivated,
+  rolesToAdd,
+  roleToEnter,
+  cancellableRolesOf,
 } from '../../constants/roles';
 import RejectionNotice from './RejectionNotice';
+import { hasUnseenRejection } from './rejections';
 import { useT } from '../../i18n/LanguageContext';
-import { apiErrorMessage } from '../../i18n/apiError';
+import { apiErrorMessage, cancelErrorMessage } from '../../i18n/apiError';
+import { membershipService } from '../../services/membershipService';
 import { schoolService } from '../../services/schoolService';
 import { authService } from '../../services/authService';
 import { adminService } from '../../services/adminService';
@@ -42,8 +52,14 @@ import { accessTokenClaims } from '../../services/apiClient';
 
   So a card is selectable whenever choosing it leads somewhere. Holding the role
   means entering it; not holding it means continuing to /get-started, which says
-  what that path will ask for. Only PENDING is unselectable, and only because a
-  request is already in flight and the database allows exactly one.
+  what that path will ask for. PENDING is unselectable, because a request is
+  already in flight and the database allows exactly one.
+
+  **And for somebody already at a school, most cards lead nowhere.** Joining and
+  founding are both refused while a membership is ACTIVE, so those cards used to
+  walk a member into a form the server was always going to turn down. Now they
+  are locked, each with the reason — see `lockOf`. TEACHER stays open when it can
+  be added (`rolesToAdd`), and /get-started/teacher adds it rather than joining.
 */
 
 const roleIcons = {
@@ -110,6 +126,16 @@ const REGISTRATION_STATE = {
 };
 
 const cardStatusOf = (membership, role, registration) => {
+  /* A membership that has ended keeps its role rows as history — an ACTIVE
+     TEACHER, a REJECTED one closed by the removal. None of it describes what this
+     person can do now, and the panel above the cards already says what happened.
+     A join request the person withdrew (CANCELLED) is the same: every card is
+     open again, exactly as for somebody who never asked. */
+  const ended = membership?.status === 'LEFT' || membership?.status === 'CANCELLED';
+  if (ended && !(role === ROLES.PRINCIPAL && registration)) {
+    return { state: 'NONE', reason: null, noteKey: null };
+  }
+
   if (role === ROLES.PRINCIPAL && registration) {
     const mapped = REGISTRATION_STATE[registration.status];
     if (mapped) {
@@ -131,11 +157,41 @@ const STATUS_BADGE = {
 
 
 /*
-  A card can be chosen unless a request for it is already in flight. PENDING is
-  the one dead end: the database allows a single PENDING-or-ACTIVE membership per
-  person, so asking twice is not a thing anybody can do.
+  Why a card a member does not hold cannot be chosen — or null when it can.
+
+  Only for somebody already at a school; a newcomer's cards all lead somewhere.
+  Each reason is the server's own rule, said before the press instead of as a 409
+  after a form has been filled in:
+
+    STUDENT held    nothing can be added to a student (approval.js:34), and a
+                    student card is never added to anybody else
+    PRINCIPAL       founding a school is refused to a member of one
+                    (school.service.js, "already belong to a school")
+    TEACHER,        open whenever `rolesToAdd` offers them — which is always,
+    GUARDIAN        except to a student or somebody holding or awaiting the role
 */
-const isSelectable = (membership, role) => statusOf(membership, role).state !== 'PENDING';
+const LOCK_KEY = {
+  [ROLES.STUDENT]: 'selectRole.locked.student',
+  [ROLES.PRINCIPAL]: 'selectRole.locked.principal',
+};
+
+const lockOf = (membership, role, state) => {
+  if (state === 'ACTIVE' || state === 'PENDING') return null;
+  if (!isEstablishedMember(membership)) return null;
+  if (rolesToAdd(membership).includes(role)) return null;
+  if (heldRolesOf(membership).includes(ROLES.STUDENT)) return LOCK_KEY[ROLES.STUDENT];
+  return LOCK_KEY[role] ?? LOCK_KEY[ROLES.STUDENT];
+};
+
+/*
+  A card can be chosen unless a request for it is already in flight — the
+  database allows a single PENDING-or-ACTIVE membership per person, so asking
+  twice is not a thing anybody can do — or `lockOf` has a reason it cannot.
+*/
+const isSelectable = (membership, role) => {
+  const { state } = statusOf(membership, role);
+  return state !== 'PENDING' && !lockOf(membership, role, state);
+};
 
 /*
   What Continue should point at before anybody has touched anything: a role they
@@ -150,7 +206,7 @@ export const SelectRolePage = () => {
   const navigate = useNavigate();
   const { user, membership, roles, activeRole, isPlatformAdmin, refreshMe, selectRole, logout } =
     useAuth();
-  const { t } = useT();
+  const { t, lang } = useT();
 
   /*
     Start from what is already known, so a failed refresh still leaves something
@@ -175,6 +231,10 @@ export const SelectRolePage = () => {
   const [toast, setToast] = useState(null);
   const [isSignOutOpen, setIsSignOutOpen] = useState(false);
   const [registration, setRegistration] = useState(null);
+  /* What is being taken back: { kind: 'request' } for a whole join request, or
+     { kind: 'role', role } for one role added to an ACTIVE membership. */
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   /*
     Re-read on arrival, and again whenever asked.
@@ -235,11 +295,9 @@ export const SelectRolePage = () => {
           back as theft. Fewer trades is not an optimisation here; it is the safer
           behaviour.
         */
-        /* `session.roles` comes from activeRolesOf, which drops any role missing
-           from ROLE_HOME — and GUARDIAN is missing, because no guardian screen
-           exists to send them to. So an approved guardian will not trade their
-           token in here. Unreachable today (nobody can release a GUARDIAN until
-           classes exist), and due to become real alongside a guardian dashboard. */
+        /* `session.roles` comes from activeRolesOf, which keeps only roles with
+           a ROLE_HOME — every role has one since /guardian, so an approved
+           guardian trades their token in here like anybody else. */
         if (session.roles.length > 0 && !accessTokenClaims()?.schoolId) {
           await authService.refresh();
           session = await refreshMe();
@@ -272,6 +330,37 @@ export const SelectRolePage = () => {
           return;
         }
 
+        /*
+          A role to enter, and nothing else here for this person.
+
+          Sign-in already skips this page; arriving any other way — Back after
+          signing in, a restored tab, a link from /unauthorized — used to stop
+          them at four cards, and since 2026-09-24 even somebody holding several
+          roles is taken to the default one (defaultRoleOf) instead of asked. The
+          rule and its exceptions live in roleToEnter (constants/roles.js); a
+          rejection holds the page only until the notice below has been seen.
+
+          Also what "Check again" turns into once an approval lands: the waiting
+          person is taken straight in rather than asked to press Continue.
+
+          After the token swap above, so the dashboard this leads to is opened
+          with a token that already names the school.
+        */
+        const enter = roleToEnter(session.membership, latest, {
+          unseenRejection: hasUnseenRejection(session.membership, latest),
+        });
+        if (enter) {
+          /* Not selectRole(): it checks the `roles` of the render this callback
+             was made in, which refreshMe has just made stale — for somebody whose
+             approval landed a moment ago it would still be empty, and refuse.
+             applySession has already made a role active — the one chosen before,
+             or the default — in state and in storage, so moving to it is all that
+             is left. Its home, not `enter`'s: they differ for somebody who picked
+             Teacher last and is also the Principal. */
+          navigate(homeFor(session.activeRole ?? enter), { replace: true });
+          return;
+        }
+
         setRegistration(latest);
 
         setSelected((current) =>
@@ -300,6 +389,35 @@ export const SelectRolePage = () => {
     // Once on arrival; the Check again button covers every look after that.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /*
+    Taking a request back. Either way the answer is read again from /users/me
+    rather than patched in — including after a refusal, because a 404 or 409 here
+    means the request was decided or withdrawn elsewhere, and the cards should
+    show what is true now. Nothing about the token changes: a PENDING role or
+    membership was never in it.
+  */
+  const handleCancel = async () => {
+    if (!cancelTarget) return;
+    setIsCancelling(true);
+    try {
+      if (cancelTarget.kind === 'request') await membershipService.cancelJoinRequest();
+      else await membershipService.cancelRole(cancelTarget.role);
+      setToast({
+        message:
+          cancelTarget.kind === 'request'
+            ? t('selectRole.cancel.request.done')
+            : t('selectRole.cancel.role.done', { role: t(ROLE_LABEL_KEY[cancelTarget.role]) }),
+        type: 'success',
+      });
+    } catch (err) {
+      setToast({ message: cancelErrorMessage(err, t), type: 'error' });
+    } finally {
+      setIsCancelling(false);
+      setCancelTarget(null);
+    }
+    await check();
+  };
 
   /*
     Continue means two different things, decided by what the chosen card is.
@@ -339,13 +457,55 @@ export const SelectRolePage = () => {
 
   const hasRoles = roles.length > 0;
   const isPending = membership?.status === 'PENDING';
+  const waitingRoles = cancellableRolesOf(membership);
   const schoolName = membership?.school?.name ?? membership?.schoolName;
 
-  const blurb = hasRoles
-    ? t('selectRole.blurb.hasRoles', { school: schoolName })
-    : isPending
-      ? t('selectRole.blurb.pending')
-      : t('selectRole.blurb.fresh');
+  /*
+    A school a platform admin has switched off.
+
+    The membership is still ACTIVE and so are its roles, but the token behind
+    them carries no school and every dashboard would answer 403. `activeRolesOf`
+    already returns nothing for it, so ProtectedRoute sends the person here; this
+    is where they are told why, instead of being shown four cards whose every
+    "join" path the server would refuse — they still hold a membership.
+
+    The reason is present only for a Principal: /users/me withholds it from
+    everybody else (users.service.js schoolForMember), and so does this.
+  */
+  const deactivated = isSchoolDeactivated(membership);
+  const ended = endedMembership(membership);
+  const endedOn = ended?.since
+    ? new Date(ended.since).toLocaleDateString(lang === 'en' ? 'en-GB' : 'id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    : '';
+  const deactivation = deactivated
+    ? {
+        reason: membership.school.deactivationReason ?? null,
+        since: new Date(membership.school.deactivatedAt).toLocaleDateString(
+          lang === 'en' ? 'en-GB' : 'id-ID',
+          { day: 'numeric', month: 'long', year: 'numeric' }
+        ),
+      }
+    : null;
+
+  const blurb = deactivated
+    ? t('selectRole.blurb.deactivated')
+    : hasRoles
+      ? t('selectRole.blurb.hasRoles', { school: schoolName })
+      : isPending
+        ? t('selectRole.blurb.pending')
+        : t('selectRole.blurb.fresh');
+
+  const panelHeading = deactivated
+    ? 'selectRole.panel.deactivated'
+    : hasRoles
+      ? 'selectRole.panel.hasRoles'
+      : isPending
+        ? 'selectRole.panel.pending'
+        : 'selectRole.panel.fresh';
 
   /*
     The ways out, and the one way sideways.
@@ -382,13 +542,13 @@ export const SelectRolePage = () => {
       )}
 
       <AuthLayout
-        heading={t(hasRoles ? 'selectRole.panel.hasRoles' : isPending ? 'selectRole.panel.pending' : 'selectRole.panel.fresh')}
+        heading={t(panelHeading)}
         blurb={blurb}
         footer={footer}
       >
         <div>
           <h2 className="text-3xl sm:text-[34px] font-extrabold text-brand leading-tight select-none">
-            {t('selectRole.title')}
+            {t(deactivated ? 'selectRole.deactivated.title' : 'selectRole.title')}
           </h2>
           <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold break-all">
             {user?.fullName ? t('selectRole.signedInAs', { name: user.fullName }) : ''}
@@ -411,7 +571,70 @@ export const SelectRolePage = () => {
         {/* What the three cards mean for somebody who holds none of them yet —
             the difference between joining a school and starting one is the whole
             point, and three boxes alone do not make it. */}
-        {hasChecked && !hasRoles && (
+        {hasChecked && deactivated && (
+          <div className="border border-amber-200 bg-amber-50 rounded-2xl p-4 text-left space-y-2.5" role="status">
+            <div className="flex items-start gap-3">
+              <PowerOff className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />
+              <div className="space-y-1.5 min-w-0">
+                <p className="text-sm text-slate-800 font-semibold leading-relaxed">
+                  {t('selectRole.deactivated.body', { school: schoolName })}
+                </p>
+                <p className="text-xs text-slate-600 font-medium">
+                  {t('selectRole.deactivated.since', { date: deactivation.since })}
+                </p>
+              </div>
+            </div>
+
+            {/* The platform admin's own words, so marked as a quotation — the
+                same treatment a rejection reason gets on a card. */}
+            {deactivation.reason && (
+              <div className="ml-8 pl-3 border-l-2 border-amber-300">
+                <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">
+                  {t('selectRole.deactivated.reason')}
+                </p>
+                <p className="text-sm text-slate-700 font-medium break-words mt-0.5">{deactivation.reason}</p>
+              </div>
+            )}
+
+            <p className="ml-8 text-xs text-slate-600 font-medium leading-relaxed">
+              {t('selectRole.deactivated.after')}
+            </p>
+          </div>
+        )}
+
+        {/*
+          Left, or taken out. Told once, above the four cards that are the way on:
+          every one of them is open again, since the partial unique index counts
+          only PENDING and ACTIVE memberships. The reason is the words of whoever
+          removed them, so it is marked as a quotation; none means they left on
+          their own.
+        */}
+        {hasChecked && ended && !hasRoles && (
+          <div className="border border-slate-200 bg-slate-50 rounded-2xl p-4 text-left space-y-2.5" role="status">
+            <div className="flex items-start gap-3">
+              <UserMinus className="w-5 h-5 text-slate-500 shrink-0 mt-0.5" aria-hidden="true" />
+              <div className="space-y-1 min-w-0">
+                <p className="text-sm text-slate-800 font-semibold leading-relaxed">
+                  {t(ended.reason ? 'selectRole.ended.removed' : 'selectRole.ended.left', {
+                    school: ended.school ?? '',
+                    date: endedOn,
+                  })}
+                </p>
+              </div>
+            </div>
+            {ended.reason && (
+              <div className="ml-8 pl-3 border-l-2 border-slate-300">
+                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  {t('selectRole.ended.reason')}
+                </p>
+                <p className="text-sm text-slate-700 font-medium break-words mt-0.5">{ended.reason}</p>
+              </div>
+            )}
+            <p className="ml-8 text-xs text-slate-600 font-medium leading-relaxed">{t('selectRole.ended.after')}</p>
+          </div>
+        )}
+
+        {hasChecked && !hasRoles && !deactivated && (
           <div className="border border-slate-200 rounded-2xl p-4 text-left bg-white shadow-sm">
             <p className="text-sm text-slate-600 font-medium leading-relaxed">
               {isPending ? (
@@ -434,10 +657,11 @@ export const SelectRolePage = () => {
           </div>
         )}
 
-        <div className={`space-y-3.5 ${hasChecked ? '' : 'hidden'}`}>
+        <div className={`space-y-3.5 ${hasChecked && !deactivated ? '' : 'hidden'}`}>
           {SELECTABLE_ROLES.map((role) => {
             const { state, reason, noteKey } = cardStatusOf(membership, role, registration);
-            const selectable = state !== 'PENDING';
+            const lockKey = lockOf(membership, role, state);
+            const selectable = state !== 'PENDING' && !lockKey;
             const isSelected = selectable && selected === role;
             const badge = STATUS_BADGE[state];
 
@@ -451,11 +675,13 @@ export const SelectRolePage = () => {
               The reason now gets its own line below, and the dialog says it
               properly on arrival.
             */
-            const note = noteKey
-              ? t(noteKey)
-              : state === 'PENDING'
-                ? t(CARD_NOTE_KEY.PENDING)
-                : t(ROLE_TAGLINE_KEY[role]);
+            const note = lockKey
+              ? t(lockKey)
+              : noteKey
+                ? t(noteKey)
+                : state === 'PENDING'
+                  ? t(CARD_NOTE_KEY.PENDING)
+                  : t(ROLE_TAGLINE_KEY[role]);
 
             return (
               <button
@@ -515,12 +741,40 @@ export const SelectRolePage = () => {
         </div>
 
         {/*
+          A role added to a membership already held, still waiting. Its card above
+          is a <button>, so the way to take it back cannot live inside it — a
+          button in a button is not valid HTML and no screen reader agrees on it.
+        */}
+        {hasChecked && !deactivated && waitingRoles.length > 0 && (
+          <ul className="space-y-2">
+            {waitingRoles.map((role) => (
+              <li
+                key={role}
+                className="flex items-center justify-between gap-3 border border-amber-200 bg-amber-50 rounded-2xl px-4 py-3 text-left"
+              >
+                <p className="text-xs text-amber-800 font-semibold leading-relaxed min-w-0 break-words">
+                  {t('selectRole.cancel.role.waiting', { role: t(ROLE_LABEL_KEY[role]) })}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setCancelTarget({ kind: 'role', role })}
+                  disabled={isLoading}
+                  className="shrink-0 text-xs font-extrabold text-rose-600 hover:text-rose-700 underline underline-offset-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 rounded"
+                >
+                  {t('selectRole.cancel.role.action')}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {/*
           Continue is always the way forward now, whether that means entering a
           role or starting to ask for one. Check again is a second, quieter
           button and only for somebody whose request is already in flight —
           looking again is genuinely all they can do.
         */}
-        <div className="space-y-3">
+        <div className={`space-y-3 ${deactivated ? 'hidden' : ''}`}>
           <button
             type="button"
             onClick={handleContinue}
@@ -545,6 +799,19 @@ export const SelectRolePage = () => {
               {isLoading ? t('common.checking') : t('selectRole.checkAgain')}
             </button>
           )}
+
+          {/* Taking the whole request back — the only other thing somebody
+              waiting can do, and what frees them to ask a different school. */}
+          {isPending && hasChecked && (
+            <button
+              type="button"
+              onClick={() => setCancelTarget({ kind: 'request' })}
+              disabled={isLoading}
+              className="w-full justify-center py-2 text-rose-600 hover:text-rose-700 font-bold text-sm flex items-center select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:underline"
+            >
+              {t('selectRole.cancel.request.action')}
+            </button>
+          )}
         </div>
       </AuthLayout>
 
@@ -554,6 +821,26 @@ export const SelectRolePage = () => {
         renders nothing when there is not — which is almost always.
       */}
       <RejectionNotice membership={membership} registration={registration} />
+
+      <ConfirmDialog
+        open={!!cancelTarget}
+        title={
+          cancelTarget?.kind === 'role'
+            ? t('selectRole.cancel.role.title', { role: t(ROLE_LABEL_KEY[cancelTarget.role]) })
+            : t('selectRole.cancel.request.title')
+        }
+        body={
+          cancelTarget?.kind === 'role'
+            ? t('selectRole.cancel.role.body', { school: schoolName ?? '' })
+            : t('selectRole.cancel.request.body', { school: schoolName ?? '' })
+        }
+        confirmLabel={t('selectRole.cancel.confirm')}
+        cancelLabel={t('selectRole.cancel.keep')}
+        busy={isCancelling}
+        busyLabel={t('common.loading')}
+        onCancel={() => setCancelTarget(null)}
+        onConfirm={handleCancel}
+      />
 
       {/* The sign-out here is a small text link in the footer, easy to hit by
           accident. It asks first, like the sidebar's does. */}

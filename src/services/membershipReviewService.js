@@ -26,11 +26,12 @@ const BASE = '/membership-requests';
     STUDENT  -> a homeroom teacher of a class at the grade that was asked for.
     GUARDIAN -> the homeroom teacher of the class the claimed child sits in.
 
-  **In practice only the first of those can happen today.** A homeroom teacher is
-  a Teacher named on a Class, and classes cannot be created yet (ticket 07), so
-  no reviewer has any grades in scope and student and guardian requests are
-  visible to nobody. That is honest rather than broken, and it is why this screen
-  does not collect a `classId`.
+  **Classes exist now (backend `36476f3`, /headmaster/classes), and that changes
+  what reaches this screen.** A teacher named homeroom of a class has that grade in
+  scope, so STUDENT requests for it appear in their queue with `canRelease`.
+  Releasing one needs a `classId` (`resolveTargetClass` refuses without one);
+  `JoinRequestReview` asks for it, from `GET /api/academics/classes`, and
+  `approve` below sends it.
 
   A teacher who is neither Principal nor homeroom of anything gets an **empty
   list rather than a 403** — there is nothing for them to release, and nothing
@@ -55,25 +56,36 @@ export const membershipReviewService = {
     `GET /:id` is deliberately absent. The queue already carries every field the
     review panel shows, including `canRelease` per role, so fetching one request
     again would be a second round trip for data already in hand. It becomes worth
-    writing the day that response says something the list does not — the reviewer
-    classes a student approval needs, for one.
+    writing the day that response says something the list does not. (The
+    reviewer's classes, which it once seemed it might, come from
+    `GET /api/academics/classes` instead.)
   */
 
   /**
    * Release the roles this reviewer may release.
    *
-   * `classId` is required only when a STUDENT role is being released, and
-   * **nothing in this app can supply one**: the reviewer's classes are computed
-   * server-side (`membership.service.js:377`) and never sent back, and there is
-   * no `/api/classes`. It is accepted here so the call is shaped correctly the
-   * day that changes; until then a student approval answers 400 `Choose the
-   * class this student joins`, which the screen shows as it arrives rather than
-   * swallowing.
+   * `classId` is required only when a STUDENT role is being released: it is
+   * the class the student is placed in. It must be one the reviewer is homeroom
+   * teacher of, at the grade the student asked for (`resolveTargetClass`).
+   * `JoinRequestReview` offers exactly those, from `academicsService.classes()`.
+   * Sent only when given — a TEACHER or GUARDIAN release takes no body at all.
    *
    * @throws {ApiError} CONFLICT if another reviewer decided it first,
-   *   BAD_REQUEST for a student with no class
+   *   BAD_REQUEST for a student with no class or a class at another grade,
+   *   NOT_FOUND for a class that is not this reviewer's
    */
   approve: (id, classId) => api.post(`${BASE}/${id}/approve`, classId ? { classId } : {}),
+
+  /**
+   * Release several at once — `POST /membership-requests/approve`.
+   *
+   * At most 50 ids, one optional `classId` for all of them; each id is approved
+   * in its own transaction, so one refusal never costs the others. Answers
+   * `{ results: [{ id, ok, status } | { id, ok: false, error: { code, message } }],
+   * summary: { released, failed } }` — a 200 even when some failed.
+   * `views/Requests/bulk.js` groups and chunks the calls.
+   */
+  approveMany: (ids, classId) => api.post(`${BASE}/approve`, classId ? { ids, classId } : { ids }),
 
   /**
    * `reason` is required despite the zod schema marking it optional — the same

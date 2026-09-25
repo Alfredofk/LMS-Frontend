@@ -3,6 +3,9 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from '../views/Dashboard/components/Sidebar';
 import Navbar from '../views/Dashboard/components/Navbar';
 import Toast from '../components/ui/Toast';
+import SessionRejectionNotice from '../components/SessionRejectionNotice';
+import MembershipGoneWatcher from '../components/MembershipGoneWatcher';
+import { useTheme } from '../theme/useTheme';
 
 /*
   The shell every signed-in screen wears.
@@ -19,6 +22,20 @@ import Toast from '../components/ui/Toast';
 export const MainLayout = () => {
   const [toast, setToast] = useState(null);
   const { pathname } = useLocation();
+  const { isDark } = useTheme();
+
+  /*
+    Dark mode belongs to the signed-in app, so this layout is what turns it on,
+    and turns it off again when it unmounts — the landing page and the sign-in
+    screens never see it. On <html>, not on the div below, so dialogs rendered
+    through a portal into <body> follow. The palette itself is src/theme/dark.css.
+  */
+  useEffect(() => {
+    document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+    return () => {
+      delete document.documentElement.dataset.theme;
+    };
+  }, [isDark]);
 
   /*
     The drawer remembers which route it was opened on, and is open only while
@@ -71,6 +88,11 @@ export const MainLayout = () => {
        `h-dvh` — so the fallback would win and the fix would vanish silently.
        `dvh` has been in Safari since 15.4 and Chrome since 108. */
     <div className="h-dvh w-full flex flex-row overflow-hidden bg-canvas font-sans antialiased text-slate-800">
+      {/* A refusal not yet announced — sign-in no longer passes the role picker. */}
+      <SessionRejectionNotice />
+      {/* Removed, left, or school switched off: go to the page that says so. */}
+      <MembershipGoneWatcher />
+
       {/* Toast Alert Notifier container */}
       {toast && (
         <Toast

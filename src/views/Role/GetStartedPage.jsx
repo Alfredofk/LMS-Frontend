@@ -4,7 +4,9 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import AuthLayout from '../../layouts/AuthLayout';
 import SchoolRegistrationForm from './SchoolRegistrationForm';
 import JoinSchoolForm from './JoinSchoolForm';
+import AddRoleForm from '../../components/AddRoleForm';
 import { useAuth } from '../../context/AuthContext';
+import { ROLES, isEstablishedMember, rolesToAdd } from '../../constants/roles';
 import { useT } from '../../i18n/LanguageContext';
 
 /*
@@ -115,20 +117,69 @@ const INTENTS = {
   },
 };
 
+/*
+  The teacher and guardian paths for somebody who is **already** at a school.
+
+  Joining is refused to them — one PENDING-or-ACTIVE membership per person — so
+  the same address adds the role instead, through `/me/roles`. No School Code:
+  the school is the one they are already in. Reached from the TEACHER card on
+  /select-role and from the rejection notice's "ask again", both of which point
+  here through GET_STARTED_PATH and need to know nothing about the difference.
+
+  No "then what" section: AddRoleForm says what happens next right above its
+  button, and differently for a Principal (at once) and anybody else (reviewed).
+*/
+const ADDING = {
+  teacher: {
+    role: ROLES.TEACHER,
+    icon: <KeyIcon />,
+    heading: ['addRole.page.title', 'addRole.page.titleAccent'],
+    panelHeading: 'addRole.page.panelHeading',
+    panelBlurb: 'addRole.page.panelBlurb',
+    needs: [['getStarted.join.need.teacherIds', 'addRole.page.needDetail']],
+    approval: null,
+  },
+  guardian: {
+    role: ROLES.GUARDIAN,
+    icon: <KeyIcon />,
+    heading: ['addRole.page.title', 'addRole.guardian.titleAccent'],
+    panelHeading: 'addRole.page.panelHeading',
+    panelBlurb: 'addRole.page.panelBlurb',
+    needs: [['addRole.guardian.need', 'addRole.guardian.needDetail']],
+    approval: null,
+  },
+};
+
 export const GetStartedPage = () => {
   const navigate = useNavigate();
   const { intent } = useParams();
-  const { user } = useAuth();
+  const { user, membership } = useAuth();
   const { t } = useT();
 
   /* Role names inside a sentence are keys too, so they bend with the language. */
   const fill = (vars) =>
     Object.fromEntries(Object.entries(vars ?? {}).map(([k, v]) => [k, t(v)]));
 
-  const content = INTENTS[intent];
+  const established = isEstablishedMember(membership);
+  const adding =
+    established && ADDING[intent] && rolesToAdd(membership).includes(ADDING[intent].role)
+      ? ADDING[intent]
+      : null;
+  const schoolName = membership?.school?.name ?? membership?.schoolName ?? '';
+
+  const content = adding
+    ? { ...adding, subheading: ['addRole.page.subtitle', null] }
+    : INTENTS[intent];
 
   // A hand-typed or stale URL should land somewhere real, not on a blank card.
   if (!content) return <Navigate to="/select-role" replace />;
+
+  /*
+    Every other path is one the server would refuse somebody who already belongs
+    to a school: joining again, founding one, or a role this app does not add.
+    The picker says why for each card, so that is where they go.
+  */
+  if (established && !adding) return <Navigate to="/select-role" replace />;
 
   const footer = (
     <button
@@ -151,7 +202,9 @@ export const GetStartedPage = () => {
           {t(content.heading[0])} <span className="text-brand">{t(content.heading[1])}</span>
         </h2>
         <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold">
-          {t(content.subheading[0], fill(content.subheading[1]))}
+          {adding
+            ? t(content.subheading[0], { school: schoolName })
+            : t(content.subheading[0], fill(content.subheading[1]))}
           {user?.fullName ? ` · ${user.fullName}` : ''}
         </p>
       </div>
@@ -174,14 +227,16 @@ export const GetStartedPage = () => {
           </ul>
         </div>
 
-        <div className="pt-1 border-t border-slate-100">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-            {t('getStarted.thenWhat')}
-          </span>
-          <p className="text-xs text-slate-500 font-medium leading-relaxed mt-1.5">
-            {t(content.approval[0], fill(content.approval[1]))}
-          </p>
-        </div>
+        {content.approval && (
+          <div className="pt-1 border-t border-slate-100">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              {t('getStarted.thenWhat')}
+            </span>
+            <p className="text-xs text-slate-500 font-medium leading-relaxed mt-1.5">
+              {t(content.approval[0], fill(content.approval[1]))}
+            </p>
+          </div>
+        )}
       </div>
 
       {/*
@@ -193,7 +248,11 @@ export const GetStartedPage = () => {
         That button and its apology are gone. There is no closed path left to
         describe.
       */}
-      {intent === 'organization' ? (
+      {adding ? (
+        /* The picker re-reads /users/me on arrival, so the new card state —
+           entered, or waiting — is what greets them there. */
+        <AddRoleForm role={adding.role} onDone={() => navigate('/select-role', { replace: true })} />
+      ) : intent === 'organization' ? (
         <SchoolRegistrationForm />
       ) : (
         <JoinSchoolForm intent={intent} />

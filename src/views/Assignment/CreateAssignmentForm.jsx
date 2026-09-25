@@ -293,7 +293,7 @@ export const CreateAssignmentForm = () => {
                     <button
                       type="button"
                       onClick={() => removeFile(file)}
-                      className="p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-red-500 transition-colors focus:outline-none cursor-pointer"
+                      className="p-1 hover:bg-slate-200 rounded text-slate-500 hover:text-red-500 transition-colors focus:outline-none cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>

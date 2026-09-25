@@ -7,7 +7,6 @@ import PasswordRules from '../../components/ui/PasswordRules';
 import { useT } from '../../i18n/LanguageContext';
 import CheckEmailStep from './CheckEmailStep';
 import GoogleButton from './GoogleButton';
-import DevSignIn from '../../components/dev/DevSignIn';
 
 /*
   One form, two modes.
@@ -255,8 +254,6 @@ export const LoginForm = ({ formState, notice }) => {
         text={isSignUp ? 'signup_with' : 'continue_with'}
       />
 
-      {/* Renders nothing unless this is `npm run dev` — see the file. */}
-      <DevSignIn />
     </div>
   );
 };

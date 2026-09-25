@@ -86,6 +86,9 @@ export const LanguageProvider = ({ children }) => {
 };
 
 /** @returns {{ t: (key: string, vars?: object) => string, lang: string, setLang: (l: string) => void }} */
+/* Beside its provider on purpose, like useAuth: sixty-odd files import it from
+   here, and the only cost is a full reload in dev when this file changes. */
+// eslint-disable-next-line react-refresh/only-export-components
 export const useT = () => {
   const context = useContext(LanguageContext);
   if (!context) throw new Error('useT must be used within a LanguageProvider');

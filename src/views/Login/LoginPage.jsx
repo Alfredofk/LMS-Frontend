@@ -39,8 +39,10 @@ export const LoginPage = () => {
     Where somebody lands is decided by what they actually hold, not by anything
     they typed. No usable role at all — no school, or a membership still waiting
     on approval — means /select-role, where every card is locked and says why.
-    Exactly one usable role is entered without asking.
-    More than one, and only then, is worth a question.
+    Otherwise the session's active role is entered without asking — the only one,
+    or the default among several (defaultRoleOf: Principal, Teacher, Student,
+    Guardian). Switching is the avatar menu's job. A rejection not yet announced
+    is said over the dashboard by the shell (SessionRejectionNotice).
   */
   const formState = useLoginForm(initialAuthStep, ({ roles, activeRole, isPlatformAdmin }) => {
     /*

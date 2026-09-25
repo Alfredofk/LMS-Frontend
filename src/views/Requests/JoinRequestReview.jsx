@@ -1,27 +1,43 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Check, X, Lock } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ArrowLeft, Check, X, Lock, School } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import SelectField from '../../components/ui/SelectField';
 import { membershipReviewService } from '../../services/membershipReviewService';
-import { ROLES, ROLE_LABEL_KEY } from '../../constants/roles';
+import { academicsService } from '../../services/academicsService';
+import { useAuth } from '../../context/AuthContext';
+import { ROLES, ROLE_LABEL_KEY, releasableInPov, releasableLinksInPov } from '../../constants/roles';
+import { classesFor } from './bulk';
 import { useT } from '../../i18n/LanguageContext';
-import { apiErrorMessage } from '../../i18n/apiError';
+import { apiErrorMessage, decisionErrorMessage, isAlreadyDecided } from '../../i18n/apiError';
 
 const MIN_REASON = 3;
 const MAX_REASON = 500;
 
 /*
-  A student approval must name the class, and this app has no way to name one:
-  `reviewerScope` works the reviewer's classes out server-side and neither
-  `GET /membership-requests` nor `/:id` sends them back, and there is no
-  `/api/classes`. The server answers 400 `Choose the class this student joins`.
+  Releasing a STUDENT places them in a class, so the approval must name one.
 
-  `error.badRequest` would render that as "check what you typed", which blames
-  the reader for a field this screen never offered. So the one code gets its own
-  sentence here, and only when a student role is actually in play.
+  `resolveTargetClass` (membership.service.js) accepts a class only if the
+  reviewer is its homeroom teacher and its grade is the one the student asked
+  for; anything else is 404 or 400. The requests themselves never carry the
+  reviewer's classes, but `GET /api/academics/classes` does since backend
+  `36476f3` — a teacher gets exactly the classes they are homeroom of, a
+  Principal gets every class, so the list is narrowed here to the reader's own.
+
+  **Only classes in an ACTIVE academic year are offered.** The backend would
+  also accept a class in a closed year, and place a new student in a year that
+  has finished — the owner's decision (2026-09-24) was not to offer that. When
+  the only match is in a closed year, the screen says so rather than offering
+  nothing without a reason.
+
+  Every refusal that can still come back gets its own sentence through
+  decisionErrorMessage (i18n/apiError.js): no class, a grade that does not
+  match, a class no longer the reviewer's — and a NISN already at this school,
+  which is a CONFLICT like "decided elsewhere" but means something else.
 */
-const NEEDS_CLASS = { BAD_REQUEST: 'requests.approve.needsClass' };
+
+/* The reader's own classes at this grade: shared with bulk approval (./bulk.js). */
 
 /* Local, like RegistrationReview's own copy. Ten presentational lines are not
    worth a shared module that two folders then have to agree about. */
@@ -58,6 +74,7 @@ const Row = ({ label, children }) => (
 */
 export const JoinRequestReview = ({ request, onBack, onDecided, showToast }) => {
   const { t, lang } = useT();
+  const { membership, activeRole } = useAuth();
 
   const [reason, setReason] = useState('');
   const [reasonError, setReasonError] = useState(null);
@@ -72,10 +89,66 @@ export const JoinRequestReview = ({ request, onBack, onDecided, showToast }) => 
       : null;
 
   const roles = request.roles ?? [];
-  const releasable = roles.filter((entry) => entry.canRelease);
+  /*
+    What this desk may release: the backend's canRelease, narrowed to the active
+    role's kinds (releasableInPov). A Principal who is also homeroom teacher
+    releases teachers as Principal and students as Teacher — never both at once.
+
+    The backend cannot be told to release only part: approve and reject act on
+    every role the reviewer may release. So when a role outside this desk is
+    releasable too — a teacher who is also a guardian of a child in the reader's
+    own class — the dialog says it goes with it, rather than doing it silently.
+  */
+  const releasable = releasableInPov(request, activeRole);
+  const alongside = roles.filter((entry) => entry.canRelease && !releasable.includes(entry));
+  const alongsideNames = alongside.map((entry) => t(ROLE_LABEL_KEY[entry.role] ?? 'requests.role.unknown')).join(', ');
   const isPending = request.status === 'PENDING';
-  const canDecide = isPending && releasable.length > 0;
+  /*
+    A further child: a guardian already ACTIVE here claims another child
+    (POST /me/children). Only the link waits — the membership and its GUARDIAN
+    role were decided long ago — and the backend approves or rejects it alone
+    through the same two routes ("link alone", decideRequest). Deciding it needs
+    no class: the child already sits in one.
+  */
+  const links = releasableLinksInPov(request, activeRole);
+  const linkOnly = !isPending && links.length > 0;
+  const linkNames = links.map((link) => `${link.student?.fullName ?? '—'} (${link.relationship})`).join(', ');
+  const canDecide = (isPending && releasable.length > 0) || links.length > 0;
   const releasingStudent = releasable.some((entry) => entry.role === ROLES.STUDENT);
+  const grade = request.student?.gradeLevel ?? null;
+
+  /*
+    Asked for only when a student is about to be released by this reader —
+    a teacher or a rejection needs no class, and neither does a Principal
+    reading a request that is somebody else's.
+  */
+  const needsClass = isPending && releasingStudent;
+  const [classes, setClasses] = useState(null);
+  const [classesError, setClassesError] = useState(null);
+  const [classId, setClassId] = useState('');
+
+  useEffect(() => {
+    if (!needsClass) return undefined;
+    let cancelled = false;
+    academicsService
+      .classes()
+      .then((list) => {
+        if (cancelled) return;
+        setClasses(list);
+        /* One possible class is the answer; picking it for them saves a step
+           without hiding it — the select still shows what was chosen. */
+        const { open } = classesFor(list, membership?.id, grade);
+        if (open.length === 1) setClassId(open[0].id);
+      })
+      .catch((err) => !cancelled && setClassesError(apiErrorMessage(err, t)));
+    return () => {
+      cancelled = true;
+    };
+  }, [needsClass, membership?.id, grade, t]);
+
+  const { open: openClasses, closedOnly } = classesFor(classes ?? [], membership?.id, grade);
+  const chosenClass = openClasses.find((entry) => entry.id === classId) ?? null;
+  const approveBlocked = needsClass && !chosenClass;
 
   const applicantName = request.applicant?.fullName ?? t('requests.applicant.unnamed');
 
@@ -101,19 +174,22 @@ export const JoinRequestReview = ({ request, onBack, onDecided, showToast }) => 
     try {
       const answer =
         kind === 'approve'
-          ? await membershipReviewService.approve(request.id)
+          ? await membershipReviewService.approve(request.id, needsClass ? chosenClass?.id : undefined)
           : await membershipReviewService.reject(request.id, reason.trim());
 
       showToast?.(t(kind === 'approve' ? 'requests.approve.done' : 'requests.reject.done'), 'success');
       onDecided(answer.request);
     } catch (err) {
-      if (err.code === 'CONFLICT') {
+      if (isAlreadyDecided(err)) {
         /* Somebody decided first. Nothing is wrong; the queue is just stale. */
         showToast?.(t('requests.alreadyDecided'), 'info');
         onDecided(null);
         return;
       }
-      setError(apiErrorMessage(err, t, kind === 'approve' && releasingStudent ? NEEDS_CLASS : undefined));
+      /* Any other refusal stays on this screen, in words that say which it is —
+         a NISN already at the school used to be taken for "decided" and the
+         request vanished from view while still waiting. */
+      setError(decisionErrorMessage(err, t));
     } finally {
       setIsSending(false);
     }
@@ -145,6 +221,11 @@ export const JoinRequestReview = ({ request, onBack, onDecided, showToast }) => 
             <Row label={t('requests.field.name')}>{request.applicant?.fullName}</Row>
             <Row label={t('requests.field.email')}>{request.applicant?.email}</Row>
             <Row label={t('requests.field.status')}>{t(`requests.status.${request.status}`)}</Row>
+            {linkOnly && (
+              <p className="mt-2 text-[11px] font-semibold text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 leading-relaxed">
+                {t('requests.link.notice')}
+              </p>
+            )}
             <Row label={t('requests.field.requested')}>{asDate(request.requestedAt)}</Row>
             {request.approvedAt && (
               <Row label={t('requests.field.approved')}>{asDate(request.approvedAt)}</Row>
@@ -177,7 +258,7 @@ export const JoinRequestReview = ({ request, onBack, onDecided, showToast }) => 
                     )}
                   </div>
 
-                  {entry.canRelease ? (
+                  {releasable.includes(entry) ? (
                     <span className="shrink-0 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-brand-tint text-brand">
                       {t('requests.role.yours')}
                     </span>
@@ -231,6 +312,16 @@ export const JoinRequestReview = ({ request, onBack, onDecided, showToast }) => 
                 <Row key={link.id} label={link.relationship}>
                   {link.student?.fullName}
                   {link.student?.nisn ? ` · ${link.student.nisn}` : ''}
+                  {/* Whose link this is, beside the child it names. */}
+                  {links.includes(link) ? (
+                    <span className="ml-2 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-brand-tint text-brand">
+                      {t('requests.role.yours')}
+                    </span>
+                  ) : (
+                    <span className="ml-2 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-slate-100 text-slate-500">
+                      {t(`requests.link.status.${link.status}`)}
+                    </span>
+                  )}
                 </Row>
               ))}
             </section>
@@ -238,6 +329,50 @@ export const JoinRequestReview = ({ request, onBack, onDecided, showToast }) => 
 
           {canDecide && (
             <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-4">
+              {needsClass && (
+                <div className="space-y-2 pb-4 border-b border-slate-100">
+                  <div className="flex items-center gap-2 text-slate-500">
+                    <School className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    <h3 className="text-[11px] font-bold uppercase tracking-wider">
+                      {t('requests.class.heading')}
+                    </h3>
+                  </div>
+
+                  {classesError ? (
+                    <p className="text-xs font-semibold text-red-600" role="alert">{classesError}</p>
+                  ) : classes === null ? (
+                    <div className="h-12 bg-slate-50 rounded-xl animate-pulse" aria-label={t('common.loading')} />
+                  ) : openClasses.length === 0 ? (
+                    <p className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-2.5 leading-relaxed">
+                      {t(closedOnly ? 'requests.class.onlyClosed' : 'requests.class.none', { n: grade ?? '—' })}
+                    </p>
+                  ) : (
+                    <>
+                      <SelectField
+                        id="targetClass"
+                        label={t('requests.class.label', { n: grade ?? '—' })}
+                        value={classId}
+                        onChange={(e) => setClassId(e.target.value)}
+                      >
+                        <option value="">{t('requests.class.placeholder')}</option>
+                        {openClasses.map((entry) => (
+                          <option key={entry.id} value={entry.id}>
+                            {t('requests.class.option', {
+                              name: entry.name,
+                              year: entry.academicYear?.label ?? '',
+                              n: entry.studentCount ?? 0,
+                            })}
+                          </option>
+                        ))}
+                      </SelectField>
+                      <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+                        {t('requests.class.hint')}
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-1.5">
                 <label htmlFor="reason" className="text-sm font-semibold text-slate-700 block">
                   {t('requests.reject.reason')}
@@ -266,6 +401,7 @@ export const JoinRequestReview = ({ request, onBack, onDecided, showToast }) => 
                 <Button
                   type="button"
                   isLoading={isSending}
+                  isDisabled={approveBlocked}
                   onClick={() => setConfirming('approve')}
                   className="flex-1 py-3 rounded-2xl justify-center text-sm gap-1.5"
                 >
@@ -293,7 +429,7 @@ export const JoinRequestReview = ({ request, onBack, onDecided, showToast }) => 
             Principal who sees a student request sitting here needs to know it is
             the homeroom teacher's to release, not that the screen is broken.
           */}
-          {isPending && releasable.length === 0 && (
+          {isPending && releasable.length === 0 && links.length === 0 && (
             <section className="border border-dashed border-slate-200 rounded-2xl p-5 bg-white text-center">
               <Lock className="w-5 h-5 text-slate-300 mx-auto" aria-hidden="true" />
               <p className="mt-2 text-xs font-extrabold text-slate-500">{t('requests.notYours.title')}</p>
@@ -311,10 +447,21 @@ export const JoinRequestReview = ({ request, onBack, onDecided, showToast }) => 
           confirming === 'reject' ? 'requests.reject.confirm.title' : 'requests.approve.confirm.title',
           { name: applicantName }
         )}
-        body={t(
-          confirming === 'reject' ? 'requests.reject.confirm.body' : 'requests.approve.confirm.body',
-          { name: applicantName }
-        )}
+        body={
+          linkOnly
+            ? t(confirming === 'reject' ? 'requests.link.reject.body' : 'requests.link.approve.body', {
+                name: applicantName,
+                children: linkNames,
+              })
+            : t(
+                confirming === 'reject'
+                  ? 'requests.reject.confirm.body'
+                  : chosenClass
+                    ? 'requests.approve.confirm.bodyClass'
+                    : 'requests.approve.confirm.body',
+                { name: applicantName, className: chosenClass?.name ?? '' }
+              ) + (alongside.length > 0 ? ' ' + t('requests.decide.alongside', { roles: alongsideNames }) : '')
+        }
         confirmLabel={t(confirming === 'reject' ? 'requests.reject' : 'requests.approve')}
         cancelLabel={t('common.cancel')}
         tone={confirming === 'approve' ? 'brand' : 'danger'}

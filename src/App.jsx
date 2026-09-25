@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { LanguageProvider } from './i18n/LanguageContext';
+import ThemeProvider from './theme/ThemeProvider';
 import ProtectedRoute, { RequireAuth } from './components/ProtectedRoute';
 import MainLayout from './layouts/MainLayout';
 import LandingPage from './views/Landing/LandingPage';
@@ -27,6 +28,7 @@ import UnauthorizedPage from './views/Unauthorized/UnauthorizedPage';
 import CourseDetail from './views/Course/CourseDetail';
 import TeacherCourses from './views/Course/TeacherCourses';
 import HomeroomDashboard from './views/Homeroom/HomeroomDashboard';
+import GuardianPage from './views/Guardian/GuardianPage';
 import HeadmasterDashboard from './views/Dashboard/HeadmasterDashboard';
 import StudentScores from './views/Scores/StudentScores';
 import AnnouncementPage from './views/Announcement/AnnouncementPage';
@@ -34,6 +36,8 @@ import SchedulePage from './views/Schedule/SchedulePage';
 import AssessmentPage from './views/Assessment/AssessmentPage';
 import AttendancePage from './views/Attendance/AttendancePage';
 import JoinRequestsPage from './views/Requests/JoinRequestsPage';
+import ClassesPage from './views/Classes/ClassesPage';
+import MembersPage from './views/Members/MembersPage';
 
 function App() {
   return (
@@ -43,6 +47,7 @@ function App() {
       storage — so anything inside it would have no language during that moment.
     */
     <LanguageProvider>
+      <ThemeProvider>
       <AuthProvider>
         <BrowserRouter>
         <Routes>
@@ -155,6 +160,8 @@ function App() {
             }
           >
             <Route path="/headmaster/dashboard" element={<HeadmasterDashboard />} />
+            <Route path="/headmaster/classes" element={<ClassesPage />} />
+            <Route path="/headmaster/members" element={<MembersPage />} />
           </Route>
 
           {/*
@@ -175,6 +182,30 @@ function App() {
             <Route path="/join-requests" element={<JoinRequestsPage />} />
           </Route>
 
+          {/* The guardian's home: their children, and nothing borrowed from the
+              student screens, which have no guardian data behind them. */}
+          <Route
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.GUARDIAN]}>
+                <MainLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/guardian" element={<GuardianPage />} />
+          </Route>
+
+          {/* My Profile is every role's, a guardian's included — the avatar menu
+              offers it to all of them. */}
+          <Route
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT, ROLES.TEACHER, ROLES.PRINCIPAL, ROLES.GUARDIAN]}>
+                <MainLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/profile" element={<ProfilePage />} />
+          </Route>
+
           <Route
             element={
               <ProtectedRoute allowedRoles={[ROLES.STUDENT, ROLES.TEACHER, ROLES.PRINCIPAL]}>
@@ -182,7 +213,6 @@ function App() {
               </ProtectedRoute>
             }
           >
-            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/announcements" element={<AnnouncementPage />} />
             <Route path="/schedule" element={<SchedulePage />} />
           </Route>
@@ -191,6 +221,7 @@ function App() {
         </Routes>
         </BrowserRouter>
       </AuthProvider>
+      </ThemeProvider>
     </LanguageProvider>
   );
 }

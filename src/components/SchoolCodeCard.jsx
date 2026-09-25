@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { KeyRound, Copy, Check } from 'lucide-react';
+import { KeyRound, Copy, Check, RefreshCw } from 'lucide-react';
 
+import ConfirmDialog from './ui/ConfirmDialog';
 import { schoolService } from '../services/schoolService';
 import { useT } from '../i18n/LanguageContext';
+import { apiErrorMessage } from '../i18n/apiError';
 
 const COPIED_MS = 2000;
 
@@ -84,9 +86,31 @@ const copyText = async (text) => {
   three are still thrown away — the city is on the header card directly above, and
   nobody opens their own profile to look up their own phone number.
 
+  ## Replacing a code that has spread
+
+  Backend `60ea459` added `POST /api/school/code/rotate`. A code sent to one
+  class's WhatsApp group ends up in others; this is how the Principal takes it
+  back. The button is quieter than Copy on purpose — copying is what the card is
+  for, replacing is rare and cannot be undone — and it asks first, naming the code
+  that is about to stop working.
+
+  The new code is taken from the answer rather than refetched: the answer already
+  carries it, and a second request would only open a window in which the card
+  shows the dead one.
+
+  Two refusals get their own sentences. NOT_FOUND here does not mean "not found"
+  — the backend answers it for a school that has been switched off — and
+  FORBIDDEN has no sentence in the shared map at all, so it would otherwise arrive
+  in the server's English.
+
   Deliberately **not** a `components/ui/` primitive: it fetches. Those are all
   presentational, and it sits beside `ProtectedRoute.jsx` instead.
 */
+
+const ROTATE_ERRORS = {
+  NOT_FOUND: 'schoolCode.rotate.deactivated',
+  FORBIDDEN: 'schoolCode.rotate.forbidden',
+};
 export const SchoolCodeCard = () => {
   const { t } = useT();
 
@@ -94,6 +118,11 @@ export const SchoolCodeCard = () => {
      effects, and there is only one answer to wait for. */
   const [school, setSchool] = useState(null);
   const [copied, setCopied] = useState(false);
+
+  const [confirming, setConfirming] = useState(false);
+  const [rotating, setRotating] = useState(false);
+  const [rotated, setRotated] = useState(false);
+  const [rotateError, setRotateError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -141,6 +170,26 @@ export const SchoolCodeCard = () => {
     if (await copyText(school.code)) setCopied(true);
   };
 
+  const handleRotate = async () => {
+    setRotating(true);
+    setRotateError(null);
+    try {
+      const fresh = await schoolService.rotateCode();
+      if (fresh?.schoolCode) {
+        setSchool((prev) => ({ ...prev, code: fresh.schoolCode }));
+        /* "Copied" described the old code. */
+        setCopied(false);
+        setRotated(true);
+      }
+    } catch (err) {
+      setRotated(false);
+      setRotateError(apiErrorMessage(err, t, ROTATE_ERRORS));
+    } finally {
+      setRotating(false);
+      setConfirming(false);
+    }
+  };
+
   return (
     <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4 sm:justify-between">
       <div className="min-w-0">
@@ -168,26 +217,62 @@ export const SchoolCodeCard = () => {
             </span>
           </p>
         )}
+
+        {rotated && (
+          <p className="mt-2 text-xs font-semibold text-emerald-700" role="status">
+            {t('schoolCode.rotate.done')}
+          </p>
+        )}
+        {rotateError && (
+          <p className="mt-2 text-xs font-semibold text-rose-600" role="alert">
+            {rotateError}
+          </p>
+        )}
       </div>
 
-      <button
-        type="button"
-        onClick={handleCopy}
-        aria-label={t('schoolCode.copy.aria')}
-        className="shrink-0 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 text-xs font-extrabold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-      >
-        {copied ? (
-          <>
-            <Check className="w-4 h-4 shrink-0 text-emerald-600" aria-hidden="true" />
-            {t('schoolCode.copied')}
-          </>
-        ) : (
-          <>
-            <Copy className="w-4 h-4 shrink-0" aria-hidden="true" />
-            {t('schoolCode.copy')}
-          </>
-        )}
-      </button>
+      <div className="shrink-0 flex flex-col sm:items-end gap-2">
+        <button
+          type="button"
+          onClick={handleCopy}
+          aria-label={t('schoolCode.copy.aria')}
+          className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 text-xs font-extrabold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        >
+          {copied ? (
+            <>
+              <Check className="w-4 h-4 shrink-0 text-emerald-600" aria-hidden="true" />
+              {t('schoolCode.copied')}
+            </>
+          ) : (
+            <>
+              <Copy className="w-4 h-4 shrink-0" aria-hidden="true" />
+              {t('schoolCode.copy')}
+            </>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          disabled={rotating}
+          className="inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-bold text-slate-500 hover:text-brand transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50 disabled:cursor-default"
+        >
+          <RefreshCw className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+          {t('schoolCode.rotate')}
+        </button>
+      </div>
+
+      <ConfirmDialog
+        open={confirming}
+        tone="brand"
+        title={t('schoolCode.rotate.title')}
+        body={t('schoolCode.rotate.body', { code: school.code })}
+        confirmLabel={t('schoolCode.rotate.confirm')}
+        cancelLabel={t('common.cancel')}
+        busy={rotating}
+        busyLabel={t('schoolCode.rotate.busy')}
+        onConfirm={handleRotate}
+        onCancel={() => setConfirming(false)}
+      />
     </section>
   );
 };

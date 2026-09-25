@@ -22,6 +22,9 @@ const BY_CODE = {
   BAD_REQUEST: 'error.badRequest',
   NOT_FOUND: 'error.notFound',
   INVALID_RESPONSE: 'error.unreachable',
+  /* generalLimiter counts every request per IP, before sign-in is even checked
+     (server.js), so a busy school behind one address meets it first. */
+  TOO_MANY_REQUESTS: 'error.tooManyRequests',
   UNKNOWN_ERROR: 'error.unknown',
 };
 
@@ -85,6 +88,161 @@ export function registrationErrorMessage(err, t) {
   const message = err.message ?? '';
   const hit = CONFLICT_BY_MESSAGE.find(([needle]) => message.includes(needle));
   return t(hit ? hit[1] : 'reg.conflict.other');
+}
+
+/*
+  The school's calendar and classes: the same problem as registration, wider.
+
+  `academics.service.js` answers CONFLICT for four things — a label, a semester
+  or a class name already taken, and a year already closed — and BAD_REQUEST for
+  rules only the database can check: a semester outside its year or overlapping
+  the other half, a grade the school does not have, a homeroom teacher who does
+  not teach. None of them carries a code of its own, and the shared defaults say
+  the wrong thing here (CONFLICT's is about an email address).
+
+  So the same deliberate exception as above: a stable fragment of each string
+  literal in `academics.service.js`, most specific first — "is already closed"
+  before "is closed" would be wrong, since the second is not a substring of the
+  first but reads like it. Anything unrecognised falls to a sentence that is true
+  for every CONFLICT here, rather than to the server's English.
+*/
+const ACADEMICS_BY_MESSAGE = [
+  ['is already closed', 'classes.error.alreadyClosed'],
+  ['is closed', 'classes.error.yearClosed'],
+  ['academic year with that label already exists', 'classes.error.yearExists'],
+  ['semester already exists', 'classes.error.semesterExists'],
+  ['class with that name already exists', 'classes.error.classExists'],
+  ['must fall inside academic year', 'classes.error.semesterOutside'],
+  ['overlaps semester', 'classes.error.semesterOverlap'],
+  ['must be an active teacher', 'classes.error.notTeacher'],
+  ['Teacher not found', 'classes.error.teacherGone'],
+  ['does not exist at a', 'classes.error.gradeInvalid'],
+];
+
+/*
+  Removing a member: three CONFLICTs, one of which names classes.
+
+  `removeMember` (membership.service.js) answers CONFLICT for a Principal, for a
+  membership that has already ended, and for somebody still homeroom teacher of a
+  class in an ACTIVE year — the last carrying the class names in
+  `details.classes`, which is the part worth repeating: it is what the Principal
+  has to go and hand on first. NOT_FOUND covers everyone this reader may not
+  remove, including a student who is not in their class; FORBIDDEN is the member
+  list refusing a teacher.
+*/
+export function membersErrorMessage(err, t) {
+  const message = err?.message ?? '';
+  if (err?.code === 'CONFLICT') {
+    if (Array.isArray(err.details?.classes) && err.details.classes.length > 0) {
+      return t('members.error.homeroom', { classes: err.details.classes.join(', ') });
+    }
+    if (message.includes('Principal cannot be removed')) return t('members.error.principal');
+    if (message.includes('already ended')) return t('members.error.ended');
+  }
+  return apiErrorMessage(err, t, {
+    CONFLICT: 'members.error.conflict',
+    NOT_FOUND: 'members.error.notFound',
+    FORBIDDEN: 'members.error.forbidden',
+  });
+}
+
+/*
+  Leaving, and taking a request back. Each 409 is somebody else having got there
+  first or a rule about who may go; the prose fragments are matched the same
+  deliberate way as above, and the homeroom refusal reads details.classes.
+*/
+export function leaveErrorMessage(err, t) {
+  const message = err?.message ?? '';
+  if (err?.code === 'CONFLICT') {
+    if (Array.isArray(err.details?.classes) && err.details.classes.length > 0) {
+      return t('account.leave.error.homeroom', { classes: err.details.classes.join(', ') });
+    }
+    if (message.includes('without its Principal')) return t('account.leave.error.principal');
+    if (message.includes('already ended')) return t('account.leave.error.ended');
+  }
+  return apiErrorMessage(err, t, {
+    NOT_FOUND: 'account.leave.error.ended',
+    CONFLICT: 'account.leave.error.ended',
+  });
+}
+
+/*
+  Deciding a join request — the single review and bulk approval alike.
+
+  CONFLICT here is not one thing. `decideRequest` answers it when somebody else
+  decided first, but `translateUniqueViolation` (membership.service.js:1383)
+  answers it too when the profile an approval writes already exists — most often
+  a student who left or was removed and asked to join the same school again: the
+  old StudentProfile is kept on purpose, NISN is unique per school, and approval
+  always creates a new one. Calling all of that "already decided" hid the one
+  case the reviewer can do nothing about from the app. So each is told apart on
+  the server's own words, and anything unrecognised is shown in them.
+*/
+const DECISION_BY_MESSAGE = [
+  ['already been decided', 'requests.alreadyDecided'],
+  ['student with this NISN already exists', 'requests.error.nisnTaken'],
+  ['NIP or NUPTK already exists', 'requests.error.teacherIdTaken'],
+  ['already linked to that student', 'requests.error.guardianLinked'],
+  ['cannot be combined with any other role', 'requests.error.studentExclusive'],
+  ['carries no NISN', 'requests.error.noNisn'],
+  ['Choose the class', 'requests.approve.needsClass'],
+  ['and this request asks for grade', 'requests.error.gradeMismatch'],
+];
+
+/** Whether the refusal only means the request was decided elsewhere — reload and move on. */
+export const isAlreadyDecided = (err) =>
+  err?.code === 'CONFLICT' && String(err?.message ?? '').includes('already been decided');
+
+export function decisionErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  const hit = DECISION_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  if (hit) return t(hit[1]);
+  /* An unrecognised CONFLICT keeps the server's words: the app-wide sentence for it
+     is about an email already registered, which is never what this is. */
+  if (err?.code === 'CONFLICT' && message) return message;
+  return apiErrorMessage(err, t, { NOT_FOUND: 'requests.class.gone' });
+}
+
+/*
+  Claiming a child — as a new GUARDIAN role or as a further child. The 400 is one
+  sentence for every reason on purpose (resolveChild): wrong NISN, wrong name, or
+  a child not yet placed in a class all read the same, so a code cannot be used
+  to fish for which children exist.
+*/
+export function guardianErrorMessage(err, t) {
+  const message = err?.message ?? '';
+  if (err?.code === 'BAD_REQUEST' && message.includes('child details do not match')) {
+    return t('guardian.error.noMatch');
+  }
+  if (err?.code === 'CONFLICT') {
+    if (message.includes('already linked')) return t('guardian.error.linked');
+    if (message.includes('link to that student is already waiting')) return t('guardian.error.waiting');
+    if (message.includes('GUARDIAN role is still waiting')) return t('guardian.error.rolePending');
+    if (message.includes('GUARDIAN role is already waiting') || message.includes('already hold the GUARDIAN')) {
+      return t('guardian.error.roleTaken');
+    }
+  }
+  return apiErrorMessage(err, t, {
+    NOT_FOUND: 'guardian.error.gone',
+    CONFLICT: 'guardian.error.conflict',
+  });
+}
+
+export function cancelErrorMessage(err, t) {
+  return apiErrorMessage(err, t, {
+    NOT_FOUND: 'selectRole.cancel.error.none',
+    CONFLICT: 'selectRole.cancel.error.decided',
+  });
+}
+
+export function academicsErrorMessage(err, t) {
+  const message = err?.message ?? '';
+  const hit = ACADEMICS_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  if (hit) return t(hit[1]);
+  return apiErrorMessage(err, t, {
+    CONFLICT: 'classes.error.conflict',
+    FORBIDDEN: 'classes.error.forbidden',
+  });
 }
 
 export default apiErrorMessage;

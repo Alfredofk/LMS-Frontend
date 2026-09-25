@@ -4,7 +4,7 @@ import { authService } from '../services/authService';
 import { usersService } from '../services/usersService';
 import { activeStore } from '../services/apiClient';
 import { adminService } from '../services/adminService';
-import { activeRolesOf } from '../constants/roles';
+import { activeRolesOf, defaultRoleOf } from '../constants/roles';
 
 const AuthContext = createContext(null);
 
@@ -151,9 +151,11 @@ export const AuthProvider = ({ children }) => {
   const applySession = useCallback((nextUser, nextMembership, previousRole) => {
     const available = activeRolesOf(nextMembership);
 
-    let nextRole = null;
-    if (previousRole && available.includes(previousRole)) nextRole = previousRole;
-    else if (available.length === 1) nextRole = available[0];
+    /* The role chosen before, while it is still held; otherwise the default —
+       Principal before Teacher before Student before Guardian (owner,
+       2026-09-24). It used to be null for anybody holding two, which sent them
+       to /select-role at every sign-in to answer the same question. */
+    const nextRole = previousRole && available.includes(previousRole) ? previousRole : defaultRoleOf(available);
 
     setUser(nextUser);
     setMembership(nextMembership);
@@ -313,6 +315,10 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
+/* The hook lives beside its provider on purpose — thirty-odd files import both
+   from here. The cost is only that editing this file reloads the page in dev
+   instead of hot-swapping it. */
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {

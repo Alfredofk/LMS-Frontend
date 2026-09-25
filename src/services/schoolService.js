@@ -49,6 +49,31 @@ export const schoolService = {
   async listMyRegistrations() {
     return api.get('/school-registrations/mine');
   },
+
+  /**
+   * Replace the School Code — for when it has spread further than it should.
+   *
+   * A different namespace from everything above: `/api/school` (backend
+   * `60ea459`), for the school's own people rather than its founder's paperwork.
+   * No id in the path — the school is the one the caller's token names — and
+   * PRINCIPAL only, re-checked against the database rather than the token.
+   *
+   * The old code stops resolving at once. Requests already PENDING are untouched:
+   * they name the school by id, and the code only located it.
+   *
+   * The controller answers `{ school, message }` (`school.controller.js`
+   * `rotateCode`), so this unwraps one level — the same shape `lookupSchool` had
+   * to learn to unwrap the hard way.
+   *
+   * @returns {Promise<{ id: string, name: string, schoolCode: string,
+   *   deactivatedAt: string|null, deactivationReason: string|null }>}
+   * @throws {ApiError} FORBIDDEN when the caller is not the Principal,
+   *   NOT_FOUND when the school is switched off
+   */
+  async rotateCode() {
+    const answer = await api.post('/school/code/rotate');
+    return answer?.school ?? null;
+  },
 };
 
 export default schoolService;

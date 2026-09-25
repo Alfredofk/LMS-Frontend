@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
-import { activeStore } from '../../services/apiClient';
-import { ROLE_LABEL_KEY, GET_STARTED_PATH } from '../../constants/roles';
+import { ROLE_LABEL_KEY } from '../../constants/roles';
+import { readSeen, rememberRejection, rejectionsOf } from './rejections';
 import { useT } from '../../i18n/LanguageContext';
 
 /*
@@ -40,77 +40,6 @@ import { useT } from '../../i18n/LanguageContext';
   the teacher who was turned down reading small grey text again.
 */
 
-const SEEN_KEY = 'lms_seen_rejections';
-
-/* A short tail is enough: this only has to stop the dialog repeating, and an
-   id that falls off the end belongs to a decision made long ago. */
-const REMEMBER_LAST = 20;
-
-const readSeen = () => {
-  try {
-    const raw = activeStore().getItem(SEEN_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    /* Private mode, blocked storage, or something that is not JSON. Treating it
-       as "nothing seen" shows the dialog again, which is the harmless way to be
-       wrong. */
-    return [];
-  }
-};
-
-const remember = (id) => {
-  try {
-    const next = [...new Set([...readSeen(), id])].slice(-REMEMBER_LAST);
-    activeStore().setItem(SEEN_KEY, JSON.stringify(next));
-  } catch {
-    /* Storage refused. The dialog will simply say it again next time. */
-    return;
-  }
-};
-
-/*
-  Everything that was turned down, newest concern first.
-
-  The registration comes before the roles because founding a school is the larger
-  decision, and somebody holding both a refused registration and a refused join
-  request is looking at two different schools.
-*/
-const rejectionsOf = (membership, registration) => {
-  const found = [];
-
-  if (registration?.status === 'REJECTED') {
-    found.push({
-      id: `registration:${registration.id}`,
-      titleKey: 'rejected.registration.title',
-      againKey: 'rejected.registration.again',
-      next: GET_STARTED_PATH.PRINCIPAL,
-      reason: registration.rejectionReason ?? null,
-      role: null,
-    });
-  }
-
-  for (const entry of membership?.roles ?? []) {
-    /* Sign-in sends bare strings and only the ACTIVE ones; a rejection can only
-       arrive in the `/users/me` shape, which is an object. */
-    if (typeof entry === 'string' || entry?.status !== 'REJECTED') continue;
-
-    const next = GET_STARTED_PATH[entry.role];
-    if (!next) continue;
-
-    found.push({
-      id: `role:${membership.id}:${entry.role}`,
-      titleKey: 'rejected.role.title',
-      againKey: 'rejected.role.again',
-      next,
-      reason: entry.rejectionReason ?? null,
-      role: entry.role,
-    });
-  }
-
-  return found;
-};
-
 export const RejectionNotice = ({ membership, registration }) => {
   const navigate = useNavigate();
   const { t } = useT();
@@ -136,12 +65,12 @@ export const RejectionNotice = ({ membership, registration }) => {
   if (!shown) return null;
 
   const close = () => {
-    remember(shown.id);
+    rememberRejection(shown.id);
     setDismissed((prev) => [...prev, shown.id]);
   };
 
   const tryAgain = () => {
-    remember(shown.id);
+    rememberRejection(shown.id);
     navigate(shown.next);
   };
 

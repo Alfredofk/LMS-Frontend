@@ -17,14 +17,23 @@ import { ROLES, ROLE_LABEL_KEY, heldRolesOf } from '../../../constants/roles';
     user.username  no such field anywhere, so the NIS fallback ran too
     the class      never read from anything at all — a literal string
 
-  Only the first of those is fixable from the client. The other two have no
-  source: `GET /api/users/me` returns the account and the membership, and
-  neither carries a class placement or a NISN. `StudentProfile.nisn` is a real
-  column in the schema, but nothing serves it yet, and `ClassMembership` — which
-  is what places a student in a class — is not in the response either.
+  The name was fixable from the client at once. The NISN became fixable with
+  backend `60ea459`, which put the member's own identifiers on `/users/me`:
+  `membership.student { nisn, birthDate }` and `membership.teacher { nip, nuptk }`.
+  The class still has no source — `ClassMembership`, which is what places a
+  student in a class, is not in the response — so that row stays **empty**, and
+  says so. An invented value that reads as fact is worse than a blank: somebody
+  would have quoted it.
 
-  So those rows render **empty**, and say so. An invented value that reads as
-  fact is worse than a blank: somebody would have quoted it.
+  ## Two kinds of empty, and they are told apart
+
+  `undefined` — the shape in hand does not carry the field at all. Sign-in's
+  membership is thin, and ProfilePage calls `refreshMe()` on mount to replace it;
+  until that lands, the row shows the database dash rather than a claim.
+
+  `null` — `/users/me` answered and the value is not there. A teacher needs a NIP
+  **or** a NUPTK, not both, so a missing one is ordinary and reads "not provided",
+  not a dash that suggests something is broken.
 
   Same for the XP bar. There is no Xp, Badge, Level, Point or Streak model
   anywhere in `schema.prisma` — the whole idea is a design that no backend work
@@ -39,11 +48,10 @@ import { ROLES, ROLE_LABEL_KEY, heldRolesOf } from '../../../constants/roles';
   at all. The second kind should not be on screen, so staff get the facts that
   do exist about them instead — which school, as what, since when.
 
-  A teacher's NIP would belong here and **cannot be had**. It is written to
-  `TeacherProfile` when the request is released and never sent back to its owner:
-  `/users/me` does not carry it, and the only view that returns `nip` is the
-  reviewer's (`membership.service.js:140`), which refuses an ordinary teacher.
-  One for the backend.
+  A teacher's NIP and NUPTK belong here, and since `60ea459` they can be had. They
+  appear for anybody who holds the TEACHER role — including a Principal who also
+  teaches — and not for a Principal who does not, who has no teacher profile for
+  them to come from.
 */
 
 /** What a field looks like when the database has nothing to put in it. */
@@ -54,6 +62,19 @@ const Empty = () => {
       —
     </span>
   );
+};
+
+/**
+ * One identifier from /users/me, told apart by why it might be missing:
+ * `undefined` is "not loaded in this shape", `null` is "the owner never gave one".
+ */
+const Identifier = ({ value }) => {
+  const { t } = useT();
+  if (value === undefined) return <Empty />;
+  if (value === null || value === '') {
+    return <span className="text-slate-500 font-medium italic">{t('profile.notProvided')}</span>;
+  }
+  return <span className="text-slate-700 font-bold tabular-nums">{value}</span>;
 };
 
 const initialsOf = (fullName) => {
@@ -82,14 +103,38 @@ export const ProfileHeader = () => {
     learner, and does not depend on which role is currently selected.
   */
   const isLearner = held.includes(ROLES.STUDENT);
+  const teaches = held.includes(ROLES.TEACHER);
 
+  const locale = lang === 'en' ? 'en-GB' : 'id-ID';
   const joinedAt = membership?.approvedAt
-    ? new Date(membership.approvedAt).toLocaleDateString(lang === 'en' ? 'en-GB' : 'id-ID', {
+    ? new Date(membership.approvedAt).toLocaleDateString(locale, {
         day: 'numeric',
         month: 'long',
         year: 'numeric',
       })
     : null;
+
+  /* Absent on the thin sign-in shape (undefined), and an object or null once
+     /users/me has answered. The ?. keeps that distinction rather than folding
+     both into null. */
+  const student = membership?.student;
+  const teacher = membership?.teacher;
+
+  /*
+    A calendar date, stored as midnight UTC. Formatted in UTC so that a reader
+    west of Greenwich is not told they were born the day before.
+  */
+  const birthDate =
+    student === undefined
+      ? undefined
+      : student?.birthDate
+        ? new Date(student.birthDate).toLocaleDateString(locale, {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            timeZone: 'UTC',
+          })
+        : null;
 
   return (
     <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 select-none hover:shadow-md transition-shadow duration-200 text-left">
@@ -127,21 +172,35 @@ export const ProfileHeader = () => {
             ))}
           </div>
 
+          {/* flex-wrap: three pairs of label and value do not fit one line at 375px. */}
           {isLearner ? (
-            /* No endpoint reports either of these yet — see the note above. */
-            <div className="flex items-center gap-4 pt-1 text-[11px] font-semibold text-slate-500">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-[11px] font-semibold text-slate-500">
               <span>
+                {/* Still no source for this one — see the note above. */}
                 {t('profile.class')}: <Empty />
               </span>
               <span>
-                {t('profile.nisn')}: <Empty />
+                {t('profile.nisn')}: <Identifier value={student === undefined ? undefined : (student?.nisn ?? null)} />
+              </span>
+              <span>
+                {t('profile.birthDate')}: <Identifier value={birthDate} />
               </span>
             </div>
           ) : (
-            <div className="flex items-center gap-4 pt-1 text-[11px] font-semibold text-slate-500">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-[11px] font-semibold text-slate-500">
               <span>
                 {t('profile.joined')}: {joinedAt ?? <Empty />}
               </span>
+              {teaches && (
+                <>
+                  <span>
+                    {t('profile.nip')}: <Identifier value={teacher === undefined ? undefined : (teacher?.nip ?? null)} />
+                  </span>
+                  <span>
+                    {t('profile.nuptk')}: <Identifier value={teacher === undefined ? undefined : (teacher?.nuptk ?? null)} />
+                  </span>
+                </>
+              )}
             </div>
           )}
         </div>

@@ -79,7 +79,8 @@ export const StudentScores = () => {
   
   // Data States
   const [courses, setCourses] = useState([]);
-  const [protests, setProtests] = useState([]);
+  /* Fetched, but no list of appeals is rendered yet. */
+  const [, setProtests] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [notBuilt, setNotBuilt] = useState(false);
@@ -96,11 +97,14 @@ export const StudentScores = () => {
   const [isSubmittingProtest, setIsSubmittingProtest] = useState(false);
 
   // Sync Search Query from URL Search Params
+  /* Follows the URL only. Listing searchQuery would run this on every
+     keystroke and put the URL's value back over what was typed. */
   useEffect(() => {
     const q = searchParams.get('q');
     if (q !== null && q !== searchQuery) {
       setSearchQuery(q);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   // Fetch Scores and Protests
@@ -136,8 +140,10 @@ export const StudentScores = () => {
     setIsLoading(false);
   };
 
+  /* Once, on arrival. */
   useEffect(() => {
     fetchScoresData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Helper: Determine Letter Grade & Score Text
@@ -711,7 +717,7 @@ export const StudentScores = () => {
 
               <button
                 onClick={() => setIsProtestModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-600 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>

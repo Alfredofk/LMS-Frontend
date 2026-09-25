@@ -27,6 +27,7 @@ import {
   getRefreshToken,
   saveTokens,
   clearTokens,
+  isMembershipGone,
 } from './apiClient.js';
 
 class MemoryStorage {
@@ -211,5 +212,18 @@ describe('where a session lives — "Remember me"', () => {
     expect(() => saveTokens(pair, true)).not.toThrow();
     expect(() => clearTokens()).not.toThrow();
     expect(getAccessToken()).toBeNull();
+  });
+});
+
+describe('isMembershipGone — the 403 requireActiveMembership answers (shared/auth.js)', () => {
+  it('recognises the refusal of a membership that is no longer active', () => {
+    expect(isMembershipGone({ status: 403, code: 'FORBIDDEN', message: 'You are not an active member of any school' })).toBe(true);
+  });
+
+  it('leaves every other refusal alone — a role check, a 401, a 404', () => {
+    expect(isMembershipGone({ status: 403, code: 'FORBIDDEN', message: 'Only the Principal can do this' })).toBe(false);
+    expect(isMembershipGone({ status: 401, message: 'You are not an active member of any school' })).toBe(false);
+    expect(isMembershipGone({ status: 404, message: 'Not found' })).toBe(false);
+    expect(isMembershipGone(null)).toBe(false);
   });
 });
