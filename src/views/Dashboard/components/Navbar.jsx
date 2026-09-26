@@ -52,6 +52,7 @@ const TITLES = {
   '/headmaster/dashboard': { key: 'shell.title.principalDashboard' },
   '/headmaster/classes': { key: 'shell.classes' },
   '/headmaster/members': { key: 'shell.members' },
+  '/headmaster/subjects': { key: 'shell.subjects' },
   '/join-requests': { key: 'shell.joinRequests' },
   '/guardian': { key: 'shell.myChildren' },
 };
@@ -448,9 +449,13 @@ export const Navbar = ({ showToast, onOpenNav }) => {
             )}
           </button>
 
-          {/* Dropdown Panel Popover */}
+          {/* Dropdown Panel Popover.
+              Below sm it spans the screen, 16px from each edge, just under the
+              64px header: anchored to the bell it was 320px wide and ran off
+              the left edge, because the avatar sits to the bell's right. From
+              sm up it hangs from the bell as before. */}
           {isDropdownOpen && (
-            <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 text-left py-2 flex flex-col focus:outline-none">
+            <div className="fixed inset-x-4 top-[4.5rem] sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-3 sm:w-96 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 text-left py-2 flex flex-col focus:outline-none">
               
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-2 border-b border-slate-50">

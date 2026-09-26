@@ -2,30 +2,31 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Megaphone, Calendar, User, ChevronLeft, Search } from 'lucide-react';
 import { useT } from '../../i18n/LanguageContext';
-import { getAccessToken } from '../../services/apiClient';
+import NotBuiltYet from '../../components/ui/NotBuiltYet';
+import { api, isNotBuiltYet } from '../../services/apiClient';
 
+/*
+  `/api/announcements` does not exist — there is no Announcement model in the
+  schema — so the request 404s and the page says so with NotBuiltYet instead of
+  "no announcements yet", which would be a claim about the school. Every role
+  that reaches this route sees the same thing.
+*/
 export const AnnouncementPage = () => {
   const { t, lang } = useT();
   const locale = lang === 'id' ? 'id-ID' : 'en-GB';
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [notBuilt, setNotBuilt] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
 
   const fetchAnnouncements = async () => {
     try {
-      const token = getAccessToken();
-      if (!token) return;
-
-      const res = await fetch('/api/announcements', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setAnnouncements(data);
-      }
+      const data = await api.get('/announcements');
+      setAnnouncements(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error('Fetch Announcements Error:', err);
+      if (isNotBuiltYet(err)) setNotBuilt(true);
+      else console.error('Fetch Announcements Error:', err);
     } finally {
       setLoading(false);
     }
@@ -78,7 +79,8 @@ export const AnnouncementPage = () => {
           </div>
         </div>
 
-        {/* Search Bar */}
+        {/* Search Bar — nothing to search while the feature is not built */}
+        {!notBuilt && (
         <div className="relative w-full sm:w-72 select-none">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -89,6 +91,7 @@ export const AnnouncementPage = () => {
             className="w-full bg-white border border-slate-200 rounded-xl py-2 pl-9 pr-4 text-xs font-semibold text-slate-800 focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all shadow-sm"
           />
         </div>
+        )}
       </div>
 
       {/* Main Content List */}
@@ -106,6 +109,8 @@ export const AnnouncementPage = () => {
             </div>
           ))}
         </div>
+      ) : notBuilt ? (
+        <NotBuiltYet />
       ) : filteredAnnouncements.length === 0 ? (
         <div className="bg-white border border-slate-100 rounded-2xl p-12 text-center shadow-sm select-none">
           <div className="w-16 h-16 bg-brand-tint text-brand rounded-2xl flex items-center justify-center mx-auto mb-4">

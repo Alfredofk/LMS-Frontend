@@ -11,14 +11,17 @@ import {
 } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
-import { getAccessToken } from '../../services/apiClient';
+import NotBuiltYet from '../../components/ui/NotBuiltYet';
+import { api, isNotBuiltYet } from '../../services/apiClient';
 
 /*
   A student's own attendance record.
 
   `/api/attendance/student/summary` does not exist — there is no Attendance
-  model anywhere in the schema, and no Session for one to hang off — so the fetch
-  below always fails and the page renders its empty state. It is left in place
+  model anywhere in the schema, and no Session for one to hang off — so the
+  request below 404s and the page shows NotBuiltYet. Rendering the calendar
+  instead would show the default summary below — 100% present — which is a
+  claim about the student that nobody has made. The request is left in place
   because the shape it expects is the one to argue with when the endpoint is
   designed, not because it works.
 
@@ -64,6 +67,7 @@ export const AttendancePage = () => {
     dailyStreak: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [notBuilt, setNotBuilt] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const today = new Date();
@@ -93,19 +97,15 @@ export const AttendancePage = () => {
     const load = async () => {
       setLoading(true);
       try {
-        const token = getAccessToken();
-        if (!token) return;
-
-        const res = await fetch('/api/attendance/student/summary', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok && !cancelled) {
-          const data = await res.json();
-          setHistory(data.history || []);
-          if (data.summary) setSummary(data.summary);
+        const data = await api.get('/attendance/student/summary');
+        if (!cancelled) {
+          setHistory(data?.history || []);
+          if (data?.summary) setSummary(data.summary);
         }
       } catch (err) {
-        console.error('Fetch Attendance Summary Error:', err);
+        if (cancelled) return;
+        if (isNotBuiltYet(err)) setNotBuilt(true);
+        else console.error('Fetch Attendance Summary Error:', err);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -182,17 +182,30 @@ export const AttendancePage = () => {
     );
   });
 
+  const heading = (
+    <div>
+      <h1 className="text-xl sm:text-2xl font-extrabold text-slate-800 leading-tight">
+        {t('att.title')}
+      </h1>
+      <p className="text-xs text-slate-500 font-bold mt-1">{t('att.subtitle')}</p>
+    </div>
+  );
+
+  if (notBuilt) {
+    return (
+      <div className="flex-1 overflow-y-auto bg-slate-50 p-6 sm:p-8 font-sans flex flex-col gap-6">
+        <div className="select-none">{heading}</div>
+        <NotBuiltYet />
+      </div>
+    );
+  }
+
   try {
     return (
       <div className="flex-1 overflow-y-auto bg-slate-50 p-6 sm:p-8 font-sans flex flex-col gap-6">
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 select-none">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-800 leading-tight">
-              {t('att.title')}
-            </h1>
-            <p className="text-xs text-slate-500 font-bold mt-1">{t('att.subtitle')}</p>
-          </div>
+          {heading}
 
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" aria-hidden="true" />

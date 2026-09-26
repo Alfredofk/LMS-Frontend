@@ -52,6 +52,8 @@ import {
   childPayload,
   yearDatesMatchLabel,
   semesterFits,
+  validateLeaveReason,
+  validateLetterFile,
   monthsBetween,
   isUsualYearLength,
 } from './validation.js';
@@ -691,5 +693,27 @@ describe('semesterFits — createSemester, academics.service.js:200-207', () => 
   it('refuses overlapping the other semester, but not touching it', () => {
     expect(semesterFits(year, 2, '2026-12-01', '2027-06-20').end).toEqual({ key: 'validation.semester.overlap', vars: { n: 1 } });
     expect(semesterFits(year, 2, '2026-12-19', '2027-06-20').end).toBeNull();
+  });
+});
+
+describe('a leave request — leaveRequestBody and the letter upload (membership.routes.js)', () => {
+  const file = (type, size = 1000) => ({ type, size });
+
+  it('wants a reason of 3 to 500 characters', () => {
+    expect(validateLeaveReason('ab')).toEqual({ key: 'validation.leaveReason.short' });
+    expect(validateLeaveReason('  abc  ')).toBeNull();
+    // Counted after trim(), as zod's .trim().min(3) does: spaces do not make a reason.
+    expect(validateLeaveReason('  ab  ')).toEqual({ key: 'validation.leaveReason.short' });
+    expect(validateLeaveReason('x'.repeat(500))).toBeNull();
+    expect(validateLeaveReason('x'.repeat(501))).toEqual({ key: 'validation.leaveReason.long' });
+  });
+
+  it('takes a PDF, JPG or PNG letter of at most 5 MB', () => {
+    expect(validateLetterFile(null)).toEqual({ key: 'validation.letter.required' });
+    expect(validateLetterFile(file('application/pdf'))).toBeNull();
+    expect(validateLetterFile(file('image/jpeg'))).toBeNull();
+    expect(validateLetterFile(file('image/png', 5 * 1024 * 1024))).toBeNull();
+    expect(validateLetterFile(file('image/png', 5 * 1024 * 1024 + 1))?.key).toBe('validation.letter.tooLarge');
+    expect(validateLetterFile(file('application/msword'))).toEqual({ key: 'validation.letter.type' });
   });
 });

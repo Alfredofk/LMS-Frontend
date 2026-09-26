@@ -18,8 +18,26 @@ import {
   GraduationCap,
   UserPlus,
   School,
+  Library,
   X
 } from 'lucide-react';
+import { usePendingCounts } from '../../../hooks/usePendingCounts';
+
+/*
+  How many things wait at a menu item (usePendingCounts), beside its label.
+  Amber on either background, so it reads on the active purple button too; the
+  number is also said in words to a screen reader, as part of the button's name.
+*/
+const PendingBadge = ({ n }) => {
+  const { t } = useT();
+  if (!n) return null;
+  return (
+    <span className="ml-auto shrink-0 min-w-5 px-1.5 py-0.5 rounded-full text-[10px] font-extrabold tabular-nums text-center bg-amber-100 text-amber-800">
+      <span aria-hidden="true">{n > 99 ? '99+' : n}</span>
+      <span className="sr-only">{t('shell.pending', { n })}</span>
+    </span>
+  );
+};
 
 /* Outside the component: a lookup table, not state. */
 const ROLE_TITLE_KEY = {
@@ -42,6 +60,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
   */
   const role = userRole || activeRole || ROLES.STUDENT;
   const dashboardPath = ROLE_HOME[role] ?? '/dashboard';
+  const pending = usePendingCounts(role);
   const [isHomeroomTeacher, setIsHomeroomTeacher] = useState(false);
 
   /*
@@ -274,6 +293,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
                 >
                   <UserPlus className={`w-4 h-4 shrink-0 transition-colors ${isActive('/join-requests') ? 'text-white' : 'text-brand'}`} />
                   {t('shell.joinRequests')}
+                  <PendingBadge n={pending.joinRequests} />
                 </button>
               )}
 
@@ -289,6 +309,19 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
                 </button>
               )}
 
+              {/* Subjects and who teaches them (ticket 08). The teacher's side,
+                  asking to teach, is on My classes. */}
+              {role === ROLES.PRINCIPAL && (
+                <button
+                  onClick={() => handleLinkClick('shell.subjects', '/headmaster/subjects')}
+                  className={isActive('/headmaster/subjects') ? activeBtnClass : inactiveBtnClass}
+                >
+                  <Library className={`w-4 h-4 shrink-0 transition-colors ${isActive('/headmaster/subjects') ? 'text-white' : 'text-brand'}`} />
+                  {t('shell.subjects')}
+                  <PendingBadge n={pending.teachingRequests} />
+                </button>
+              )}
+
               {/* The school's people. Listing them is the Principal's alone
                   (/api/members answers a teacher 403). */}
               {role === ROLES.PRINCIPAL && (
@@ -298,6 +331,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
                 >
                   <Users className={`w-4 h-4 shrink-0 transition-colors ${isActive('/headmaster/members') ? 'text-white' : 'text-brand'}`} />
                   {t('shell.members')}
+                  <PendingBadge n={pending.leaveRequests} />
                 </button>
               )}
 
@@ -326,6 +360,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
                     >
                       <Users className={`w-4 h-4 shrink-0 transition-colors ${isActive('/teacher/homeroom') ? 'text-white' : 'text-brand'}`} />
                       {t('shell.homeroom')}
+                      <PendingBadge n={pending.classMoves} />
                     </button>
                   )}
                 </>

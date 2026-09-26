@@ -19,6 +19,7 @@ import {
 } from '../../constants/roles';
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage } from '../../i18n/apiError';
+import { notifyPendingChanged } from '../../hooks/usePendingCounts';
 
 /* Membership statuses, not the admin queue's registration statuses. Three words
    each, and not the same three words — PENDING is waiting, ACTIVE is released. */
@@ -169,6 +170,7 @@ export const JoinRequestsPage = () => {
     setSelectedId(null);
     setTicked(new Set());
     load();
+    notifyPendingChanged();
   };
 
   /*

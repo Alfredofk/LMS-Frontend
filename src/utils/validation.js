@@ -362,6 +362,72 @@ export function validateDurationYears(schoolType, value) {
   round: this check saves somebody a 2 MB upload that was never going to work,
   and claims nothing more.
 */
+/*
+  A leave request — leaveRequestBody and the letter upload (membership.routes.js,
+  backend `75e2fdd`): a reason of 3–500 characters, and a resignation letter of
+  PDF, JPG or PNG at most 5 MB. The server reads the type from the file's bytes;
+  checking the browser's MIME type here only says it sooner.
+*/
+const MAX_LETTER_BYTES = 5 * 1024 * 1024;
+const LETTER_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
+
+export function validateLeaveReason(value) {
+  const trimmed = String(value ?? '').trim();
+  if (trimmed.length < 3) return { key: 'validation.leaveReason.short' };
+  if (trimmed.length > 500) return { key: 'validation.leaveReason.long' };
+  return null;
+}
+
+/*
+  An optional reason — asking to move a student (classMoveBody,
+  academics.schema.js: `.trim().min(3).max(500).optional()`). Left empty it is
+  not sent at all; typed, it is held to the same 3–500 as every other reason.
+*/
+/*
+  A local subject (muatan lokal) — subjectBody, academics.schema.js: the code is
+  trimmed and folded to upper case, then 2–10 letters or digits; the name 2–100
+  characters after trim.
+*/
+export const normaliseSubjectCode = (value) => String(value ?? '').trim().toUpperCase();
+
+export function validateSubjectCode(value) {
+  const code = normaliseSubjectCode(value);
+  if (!code) return { key: 'validation.subjectCode.required' };
+  if (!/^[A-Z0-9]{2,10}$/.test(code)) return { key: 'validation.subjectCode.invalid' };
+  return null;
+}
+
+export function validateSubjectName(value) {
+  const name = String(value ?? '').trim();
+  if (name.length < 2) return { key: 'validation.subjectName.short' };
+  if (name.length > 100) return { key: 'validation.subjectName.long' };
+  return null;
+}
+
+/*
+  A semester's teaching-registration deadline — optional, and when given it must
+  fall inside the semester (createSemester, academics.service.js: refused when
+  before its start or after its end). Dates compared as calendar days.
+*/
+export function deadlineFits(start, end, deadline) {
+  if (!String(deadline ?? '').trim()) return null;
+  const day = (value) => String(value).slice(0, 10);
+  if (day(deadline) < day(start) || day(deadline) > day(end)) return { key: 'validation.deadline.outside' };
+  return null;
+}
+
+export function validateOptionalReason(value) {
+  if (String(value ?? '').trim() === '') return null;
+  return validateLeaveReason(value);
+}
+
+export function validateLetterFile(file) {
+  if (!file) return { key: 'validation.letter.required' };
+  if (file.size > MAX_LETTER_BYTES) return { key: 'validation.letter.tooLarge', vars: { max: '5 MB' } };
+  if (!LETTER_TYPES.includes(file.type)) return { key: 'validation.letter.type' };
+  return null;
+}
+
 export function validateKtpFile(file) {
   if (!file) return { key: 'validation.ktp.required' };
   if (file.size > MAX_KTP_BYTES) return { key: 'validation.ktp.tooLarge', vars: { max: '2 MB' } };

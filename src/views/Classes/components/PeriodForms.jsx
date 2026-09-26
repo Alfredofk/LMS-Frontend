@@ -11,6 +11,7 @@ import {
   validateDateRange,
   yearDatesMatchLabel,
   semesterFits,
+  deadlineFits,
   monthsBetween,
   isUsualYearLength,
   fieldErrorsFrom,
@@ -198,6 +199,8 @@ export const AcademicYearForm = ({ onCreated, onCancel }) => {
 export const SemesterForm = ({ year, ordinal, onCreated, onCancel }) => {
   const { t, lang } = useT();
   const { values, errors, setErrors, change } = useDateRange();
+  /* Optional (ticket 08): from this day on, only the Principal assigns teachers. */
+  const [deadline, setDeadline] = useState('');
   const [isWorking, setIsWorking] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
@@ -218,6 +221,8 @@ export const SemesterForm = ({ year, ordinal, onCreated, onCancel }) => {
       const fits = semesterFits(year, ordinal, values.startDate, values.endDate);
       if (fits.start) next.startDate = t(fits.start.key, fits.start.vars);
       if (fits.end) next.endDate = t(fits.end.key, fits.end.vars);
+      const late = deadlineFits(values.startDate, values.endDate, deadline);
+      if (late) next.deadline = t(late.key);
     }
     setErrors(next);
     if (Object.keys(next).length) return;
@@ -232,11 +237,16 @@ export const SemesterForm = ({ year, ordinal, onCreated, onCancel }) => {
         ordinal,
         startDate: values.startDate,
         endDate: values.endDate,
+        ...(deadline ? { classSubjectRegistrationDeadline: deadline } : {}),
       });
       setConfirming(false);
       onCreated(updated);
     } catch (err) {
       setConfirming(false);
+      if (String(err?.message ?? '').includes('registration deadline must fall inside')) {
+        setErrors({ deadline: t('validation.deadline.outside') });
+        return;
+      }
       const fields = fieldErrorsFrom(err.details, DATE_FIELDS);
       setErrors(Object.keys(fields).length ? fields : { global: academicsErrorMessage(err, t) });
     } finally {
@@ -273,6 +283,23 @@ export const SemesterForm = ({ year, ordinal, onCreated, onCancel }) => {
           onChange={change('endDate')}
         />
       </div>
+      <div className="space-y-1.5">
+        <Input
+          id={`semester${ordinal}Deadline`}
+          name="classSubjectRegistrationDeadline"
+          label={t('classes.semester.deadline')}
+          type="date"
+          value={deadline}
+          error={errors.deadline || undefined}
+          onChange={(e) => {
+            setDeadline(e.target.value);
+            if (errors.deadline) setErrors((prev) => ({ ...prev, deadline: null }));
+          }}
+        />
+        {!errors.deadline && (
+          <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{t('classes.semester.deadlineHint')}</p>
+        )}
+      </div>
 
       <GlobalError message={errors.global} />
       <Actions
@@ -285,10 +312,14 @@ export const SemesterForm = ({ year, ordinal, onCreated, onCancel }) => {
         open={confirming}
         tone="brand"
         title={t('classes.semester.confirm.title', { n: ordinal, label: year.label })}
-        body={t('classes.semester.confirm.body', {
+        body={`${t('classes.semester.confirm.body', {
           start: formatDay(values.startDate, lang),
           end: formatDay(values.endDate, lang),
-        })}
+        })} ${
+          deadline
+            ? t('classes.semester.confirm.deadline', { date: formatDay(deadline, lang) })
+            : t('classes.semester.confirm.noDeadline')
+        }`}
         confirmLabel={t('classes.semester.create', { n: ordinal })}
         cancelLabel={t('classes.year.confirm.back')}
         busy={isWorking}

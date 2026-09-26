@@ -1,12 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import React from 'react';
 import { BookOpen, ListTodo, Star, FileText } from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
-import { buildSampleStudentData } from './sampleStudentData';
 import StatCard from './components/StatCard';
-import { SampleDataBanner } from './components/SampleDataNotice';
 import {
   TodayActivities,
   ActiveAssessment,
@@ -15,22 +12,30 @@ import {
 } from './components/Widgets';
 
 /*
-  A student's home screen, built entirely from sample data.
+  A student's home screen: the full layout, with nothing invented in it.
 
-  Nothing on it is fetched, because nothing can be: `server.js` mounts only
-  `auth` and `users`, and there is no model anywhere in the schema for a lesson,
-  an assignment, a grade, a material or an announcement. Rather than show four
-  empty cards, the page shows what it is for and says plainly that the numbers
-  are invented — see components/SampleDataNotice.jsx.
+  Every card is here — four stat cards, today's activities, active assignments,
+  subject progress, announcements — so the screen shows what it is for. None of
+  them has a source yet: there is no model for a lesson, an assignment, a grade,
+  a material or an announcement in the schema, and no route a student can read
+  their own class from. So the stat cards read "—" and every widget renders its
+  `notBuilt` state, the same "not available yet" the pages behind them show.
 
-  Two things on screen are real and are not marked: the person's name and their
-  school, both of which come from `/users/me` through AuthContext.
+  It used to fill those cards with sample data under a banner. That stopped
+  making sense once the pages one click away began saying "not available yet":
+  the dashboard claimed three active assignments the Assessment page said did
+  not exist.
 
-  Only two states are worth rendering. A member still waiting on approval never
+  When an endpoint lands, feed its widget the payload and drop `notBuilt` from
+  it — the widgets are presentational and take their data as props.
+
+  Two things on screen are real: the person's name and their school, both from
+  `/users/me` through AuthContext.
+
+  Only one state is worth rendering. A member still waiting on approval never
   arrives here — `activeRolesOf` returns no roles for a membership that is not
   ACTIVE (constants/roles.js), and ProtectedRoute sends anybody with no usable
-  role to /select-role. A "waiting for approval" panel here would be unreachable
-  code, which is exactly what the error branch this file used to carry was.
+  role to /select-role.
 */
 
 /*
@@ -45,88 +50,19 @@ const greetingKeyFor = (hour) => {
   return 'dash.greeting.evening';
 };
 
+const STATS = [
+  { key: 'dash.stat.subjects', icon: BookOpen, iconBg: 'bg-brand-tint text-brand' },
+  { key: 'dash.stat.todo', icon: ListTodo, iconBg: 'bg-amber-50 text-amber-500' },
+  { key: 'dash.stat.avgScore', icon: Star, iconBg: 'bg-emerald-50 text-emerald-600' },
+  { key: 'dash.stat.newMaterials', icon: FileText, iconBg: 'bg-rose-50 text-rose-500' },
+];
+
 export const StudentDashboard = () => {
   const { user, membership } = useAuth();
-  const { showToast } = useOutletContext();
   const { t, lang } = useT();
-
-  const [isLoading, setIsLoading] = useState(true);
-
-  /* Built once per mount, relative to now — the dates in it are all relative. */
-  const data = useMemo(() => buildSampleStudentData(), []);
-
-  /*
-    A placeholder for the request that will eventually live here. Short enough
-    not to feel broken, long enough that the skeleton below is actually seen
-    rather than being dead code. Delete it along with the sample data.
-  */
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 400);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const handleStatCardClick = (labelKey) => {
-    if (showToast) showToast(t('shell.underConstruction', { feature: t(labelKey) }), 'info');
-  };
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6 text-left animate-pulse">
-        <div className="space-y-2 select-none">
-          <div className="h-8 bg-slate-200 rounded-lg w-2/3 md:w-1/3" />
-          <div className="h-4 bg-slate-200 rounded-lg w-1/2 md:w-1/4" />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {[1, 2, 3, 4].map((idx) => (
-            <div
-              key={idx}
-              className="bg-white border border-slate-100 rounded-2xl p-6 h-32 flex items-center justify-between shadow-sm"
-            >
-              <div className="space-y-2.5 w-1/2">
-                <div className="h-3 bg-slate-200 rounded w-3/4" />
-                <div className="h-6 bg-slate-200 rounded w-1/2" />
-                <div className="h-3 bg-slate-200 rounded w-2/3" />
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-slate-200 shrink-0" />
-            </div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {[1, 2, 3, 4].map((idx) => (
-            <div
-              key={idx}
-              className="bg-white border border-slate-100 rounded-2xl p-6 h-60 shadow-sm space-y-4"
-            >
-              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-                <div className="h-4 bg-slate-200 rounded w-1/3" />
-                <div className="h-4 bg-slate-200 rounded w-1/6" />
-              </div>
-              <div className="space-y-3 pt-2">
-                <div className="h-3.5 bg-slate-200 rounded w-full" />
-                <div className="h-3.5 bg-slate-200 rounded w-5/6" />
-                <div className="h-3.5 bg-slate-200 rounded w-4/5" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   const name = user?.fullName || t('dash.greeting.fallback');
   const schoolName = membership?.school?.name ?? membership?.schoolName ?? '';
-
-  /*
-    Semester has no name column in the schema — only `ordinal`, 1 or 2 — so the
-    phrase is composed here rather than read from a field that will never exist.
-  */
-  const term = t('dash.subline.term', {
-    school: schoolName,
-    year: data.context.academicYearLabel,
-    n: data.context.semesterOrdinal,
-  });
 
   const today = new Date().toLocaleDateString(lang === 'id' ? 'id-ID' : 'en-GB', {
     weekday: 'long',
@@ -135,37 +71,6 @@ export const StudentDashboard = () => {
     year: 'numeric',
   });
 
-  const stats = [
-    {
-      key: 'dash.stat.subjects',
-      sub: 'dash.stat.subjects.sub',
-      value: data.stats.subjectCount,
-      icon: BookOpen,
-      iconBg: 'bg-brand-tint text-brand',
-    },
-    {
-      key: 'dash.stat.todo',
-      sub: 'dash.stat.todo.sub',
-      value: data.stats.todoCount,
-      icon: ListTodo,
-      iconBg: 'bg-amber-50 text-amber-500',
-    },
-    {
-      key: 'dash.stat.avgScore',
-      sub: 'dash.stat.avgScore.sub',
-      value: data.stats.avgScore,
-      icon: Star,
-      iconBg: 'bg-emerald-50 text-emerald-600',
-    },
-    {
-      key: 'dash.stat.newMaterials',
-      sub: 'dash.stat.newMaterials.sub',
-      value: data.stats.newMaterialCount,
-      icon: FileText,
-      iconBg: 'bg-rose-50 text-rose-500',
-    },
-  ];
-
   return (
     <div className="space-y-6">
       <div className="select-none text-left">
@@ -173,32 +78,30 @@ export const StudentDashboard = () => {
           {t(greetingKeyFor(new Date().getHours()), { name })}
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 font-bold mt-1">
-          {schoolName ? `${term} · ` : ''}
+          {schoolName ? `${schoolName} · ` : ''}
           {today}
         </p>
       </div>
 
-      <SampleDataBanner />
-
+      {/* No onClick: an inert card, not a button that leads nowhere. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {stats.map((stat) => (
+        {STATS.map((stat) => (
           <StatCard
             key={stat.key}
             title={t(stat.key)}
-            value={stat.value ?? '—'}
-            subtext={t(stat.sub)}
+            value="—"
+            subtext={t('common.notBuilt.title')}
             icon={stat.icon}
             iconBg={stat.iconBg}
-            onClick={() => handleStatCardClick(stat.key)}
           />
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <TodayActivities activities={data.activities} isSample />
-        <ActiveAssessment assessments={data.assessments} isSample />
-        <CourseProgress courseProgress={data.courseProgress} isSample />
-        <SchoolAnnouncement announcements={data.announcements} isSample />
+        <TodayActivities notBuilt />
+        <ActiveAssessment notBuilt />
+        <CourseProgress notBuilt />
+        <SchoolAnnouncement notBuilt />
       </div>
     </div>
   );

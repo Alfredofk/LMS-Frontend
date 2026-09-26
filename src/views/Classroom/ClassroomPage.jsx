@@ -7,6 +7,7 @@ import MaterialContent from './components/MaterialContent';
 import AssignmentContent from './components/AssignmentContent';
 import MembersContent from './components/MembersContent';
 import { useT } from '../../i18n/LanguageContext';
+import NotBuiltYet from '../../components/ui/NotBuiltYet';
 
 export const ClassroomPage = () => {
   const { t } = useT();
@@ -33,23 +34,20 @@ export const ClassroomPage = () => {
     </h1>
   );
 
-  /* The guard stays where it is: renderTabContent reads activeCourse.sections,
-     and activeCourse is undefined while classroomData is empty. */
+  /*
+    The guard stays where it is: renderTabContent reads activeCourse.sections,
+    and activeCourse is undefined while classroomData is empty.
+
+    It is always empty today — there is no model for a lesson, a material or an
+    assignment, and no route a student can ask for their subjects on — so this
+    says the feature is not built rather than "no subjects yet", which would be
+    a claim about the student's class.
+  */
   if (classroomData.length === 0) {
     return (
       <div className="space-y-6">
         {title}
-        <div className="py-20 flex flex-col items-center justify-center text-center bg-white border border-slate-100 rounded-2xl p-6 shadow-sm select-none">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-slate-400 mb-3">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-        </svg>
-        <p className="text-sm font-extrabold text-slate-900">
-          {t('cls.empty')}
-        </p>
-          <p className="text-xs text-slate-500 font-bold mt-1 max-w-sm leading-relaxed">
-            {t('cls.emptyDetail')}
-          </p>
-        </div>
+        <NotBuiltYet />
       </div>
     );
   }

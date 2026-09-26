@@ -203,6 +203,29 @@ describe('every expansion of a dynamic key exists', () => {
     expectEvery(['PRINCIPAL', 'TEACHER', 'STUDENT', 'GUARDIAN'].map((r) => `roleTitle.${r}`));
   });
 
+  it('class moves: a name for every tab, a badge and an empty line for every status', () => {
+    const tabs = quotedIn('views/Homeroom/moves.js', /export const MOVE_TABS = \[([^\]]*)\]/);
+    const statuses = quotedIn('views/Homeroom/moves.js', /export const MOVE_STATUSES = \[([^\]]*)\]/);
+    expect(statuses).toEqual(['PENDING', 'ACTIVE', 'REJECTED', 'CANCELLED']);
+    expectEvery(tabs.flatMap((s) => [`moves.tab.${s}`, `moves.empty.${s}`]));
+    expectEvery(statuses.map((s) => `moves.status.${s}`));
+  });
+
+  it('the setup checklist: every step says done, to do, why, and where to go', () => {
+    const steps = quotedIn('views/Dashboard/setup.js', /export const SETUP_STEPS = \[([^\]]*)\]/);
+    expect(steps).toEqual(['YEAR', 'SEMESTER', 'TEACHERS', 'CLASSES', 'SUBJECTS', 'STUDENTS']);
+    expectEvery(steps.flatMap((s) => ['done', 'todo', 'hint', 'action'].map((k) => `setup.${s}.${k}`)));
+    expectEvery(['done', 'todo', 'blocked', 'unknown'].map((s) => `setup.state.${s}`));
+  });
+
+  it('subjects: a name for every tab', () => {
+    const tabs = quotedIn('views/Subjects/subjects.js', /export const SUBJECT_TABS = \[([^\]]*)\]/);
+    expect(tabs).toEqual(['BOARD', 'PENDING', 'CATALOG']);
+    expectEvery(tabs.map((s) => `subjects.tab.${s}`));
+    /* The board's year picker names a year's status in sentence case. */
+    expectEvery(['ACTIVE', 'CLOSED'].map((s) => `subjects.board.yearStatus.${s}`));
+  });
+
   it('the language switch: a name for every language offered', () => {
     expectEvery(LANGUAGES.map((code) => `lang.${code}`));
   });

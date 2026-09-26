@@ -27,6 +27,7 @@ import {
   isSchoolDeactivated,
   roleToEnter,
   defaultRoleOf,
+  leaveModeOf,
   ROLE_PRIORITY,
   ADDABLE_ROLES,
   isEstablishedMember,
@@ -131,6 +132,29 @@ describe('a school a platform admin has switched off', () => {
       'TEACHER',
       'GUARDIAN',
     ]);
+  });
+});
+
+describe('leaveModeOf — how a member may leave (membership.service.js, ticket 17)', () => {
+  it('lets no Principal leave, even one who also teaches', () => {
+    expect(leaveModeOf(me('ACTIVE', [['PRINCIPAL', 'ACTIVE']]))).toBe('NONE');
+    expect(leaveModeOf(me('ACTIVE', [['PRINCIPAL', 'ACTIVE'], ['TEACHER', 'ACTIVE']]))).toBe('NONE');
+  });
+
+  it('makes a teacher or a student ask with a letter — a teacher who is a guardian too', () => {
+    expect(leaveModeOf(me('ACTIVE', [['TEACHER', 'ACTIVE']]))).toBe('REQUEST');
+    expect(leaveModeOf(me('ACTIVE', [['STUDENT', 'ACTIVE']]))).toBe('REQUEST');
+    expect(leaveModeOf(me('ACTIVE', [['TEACHER', 'ACTIVE'], ['GUARDIAN', 'ACTIVE']]))).toBe('REQUEST');
+  });
+
+  it('lets a guardian leave at once, and reads only ACTIVE roles', () => {
+    expect(leaveModeOf(me('ACTIVE', [['GUARDIAN', 'ACTIVE']]))).toBe('DIRECT');
+    expect(leaveModeOf(me('ACTIVE', [['GUARDIAN', 'ACTIVE'], ['TEACHER', 'PENDING']]))).toBe('DIRECT');
+  });
+
+  it('has nothing to say to somebody not at a running school', () => {
+    expect(leaveModeOf(null)).toBeNull();
+    expect(leaveModeOf(me('PENDING', [['TEACHER', 'PENDING']]))).toBeNull();
   });
 });
 

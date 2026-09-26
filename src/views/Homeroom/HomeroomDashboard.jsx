@@ -1,13 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { ChevronRight, Inbox, School, Users, NotebookPen } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
 import ClassDetail from '../Classes/components/ClassDetail';
+import ClassMovesSection from './ClassMovesSection';
+import { pendingMoveByStudent } from './moves';
 import { academicsService } from '../../services/academicsService';
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
-import { academicsErrorMessage } from '../../i18n/apiError';
+import { academicsErrorMessage, movesErrorMessage } from '../../i18n/apiError';
+import { notifyPendingChanged } from '../../hooks/usePendingCounts';
 
 /*
   The homeroom teacher's own classes — real since backend `36476f3`.
@@ -24,8 +27,11 @@ import { academicsErrorMessage } from '../../i18n/apiError';
   be working here as TEACHER — so "mine" is checked against the membership id,
   not assumed from the role.
 
-  Read-only but for one act: a homeroom teacher may take a student out of their
-  own class (`ClassDetail`'s roster, `/api/members/:id/remove`). Naming or
+  Read-only: taking a student out of the school is the Principal's alone since
+  backend `89d1fc1`, so the roster offers no removal here. **Moving a student to
+  another class is this page's** (ticket 16, owner 2026-09-26): "Move" on each
+  roster row, and a "Class moves" section below the classes with what waits for
+  this teacher's decision, what they asked for, and the history. Naming or
   changing a homeroom teacher is the Principal's, on /headmaster/classes. What a homeroom teacher *does* with a class today is
   release its students' join requests — which happens on /join-requests, so the
   page points there.
@@ -44,6 +50,8 @@ export const HomeroomDashboard = () => {
   const [classes, setClasses] = useState(null);
   const [error, setError] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
+  const [moves, setMoves] = useState(null);
+  const [movesError, setMovesError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +63,32 @@ export const HomeroomDashboard = () => {
       cancelled = true;
     };
   }, [t]);
+
+  /* Its own request, so a failure here leaves the classes on screen. */
+  const loadMoves = useCallback(
+    () =>
+      academicsService
+        .classMoves()
+        .then((list) => {
+          setMoves(list);
+          setMovesError(null);
+        })
+        .catch((err) => setMovesError(movesErrorMessage(err, t))),
+    [t]
+  );
+
+  useEffect(() => {
+    loadMoves();
+  }, [loadMoves]);
+
+  /* After a move is decided the counts on the class list change too. */
+  const reloadAfterMove = () => {
+    loadMoves();
+    notifyPendingChanged();
+    academicsService.classes().then(setClasses).catch(() => {});
+  };
+
+  const pendingMoves = useMemo(() => pendingMoveByStudent(moves), [moves]);
 
   /* Open years first — that is where the work is — then closed ones, kept for reading. */
   const mine = (classes ?? [])
@@ -87,6 +121,9 @@ export const HomeroomDashboard = () => {
         <ClassDetail
           classId={selectedId}
           readOnly
+          canMove
+          pendingMoves={pendingMoves}
+          onMoveRequested={reloadAfterMove}
           onBack={() => setSelectedId(null)}
           onChanged={(updated) =>
             setClasses((prev) =>
@@ -185,6 +222,14 @@ export const HomeroomDashboard = () => {
               })}
             </ul>
           </section>
+
+          <ClassMovesSection
+            moves={moves}
+            error={movesError}
+            mineIds={new Set(mine.map((entry) => entry.id))}
+            onChanged={reloadAfterMove}
+            showToast={showToast}
+          />
 
           {/* What a homeroom teacher actually does here today: let students in. */}
           <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

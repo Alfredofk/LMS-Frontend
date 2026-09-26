@@ -11,6 +11,7 @@ import PasswordForm from './PasswordForm';
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
 import { homeFor } from '../../constants/roles';
+import LeaveCard from './LeaveCard';
 
 /*
   Settings — "Pengaturan". It was "Account & Security" until the account group
@@ -51,13 +52,11 @@ export const AccountPage = () => {
   const [toast, setToast] = useState(null);
 
   /*
-    "Leave the school" used to be the last card here, and is gone on purpose
-    (owner, 2026-09-24): students and teachers must not leave on their own. The
-    way out is to be an application with a letter from the school, uploaded and
-    reviewed by the Principal — which the backend has no routes for yet, so it
-    is not built. LeaveSchoolDialog and membershipService.leaveSchool are kept,
-    unused, for that flow. Being removed by the school still works, and
-    /select-role still explains it.
+    "Leave the school" is the last card, and how it works depends on who is
+    reading (LeaveCard, backend 75e2fdd): a teacher or a student sends a letter
+    for the Principal to decide (owner, 2026-09-24/26), a guardian leaves at
+    once, a Principal cannot. Only inside the app — the standalone branch below
+    belongs to somebody with no role, who has nothing to leave.
   */
 
   const body = (
@@ -166,6 +165,8 @@ export const AccountPage = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
             {body}
           </div>
+
+          <LeaveCard onToast={(message, type) => setToast({ message, type })} />
 
         </div>
       </>

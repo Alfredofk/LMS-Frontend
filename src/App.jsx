@@ -38,6 +38,7 @@ import AttendancePage from './views/Attendance/AttendancePage';
 import JoinRequestsPage from './views/Requests/JoinRequestsPage';
 import ClassesPage from './views/Classes/ClassesPage';
 import MembersPage from './views/Members/MembersPage';
+import SubjectsPage from './views/Subjects/SubjectsPage';
 
 function App() {
   return (
@@ -162,6 +163,7 @@ function App() {
             <Route path="/headmaster/dashboard" element={<HeadmasterDashboard />} />
             <Route path="/headmaster/classes" element={<ClassesPage />} />
             <Route path="/headmaster/members" element={<MembersPage />} />
+            <Route path="/headmaster/subjects" element={<SubjectsPage />} />
           </Route>
 
           {/*

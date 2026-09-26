@@ -137,6 +137,8 @@ export function membersErrorMessage(err, t) {
       return t('members.error.homeroom', { classes: err.details.classes.join(', ') });
     }
     if (message.includes('Principal cannot be removed')) return t('members.error.principal');
+    /* Since backend 75e2fdd: a member asking to leave is decided, not removed. */
+    if (message.includes('leave request waiting')) return t('members.error.leaveWaiting');
     if (message.includes('already ended')) return t('members.error.ended');
   }
   return apiErrorMessage(err, t, {
@@ -151,18 +153,53 @@ export function membersErrorMessage(err, t) {
   first or a rule about who may go; the prose fragments are matched the same
   deliberate way as above, and the homeroom refusal reads details.classes.
 */
+/*
+  Leaving — directly (a guardian) or by a leave request with a letter (a teacher
+  or a student, backend `75e2fdd`). The member's own side: sending, cancelling,
+  leaving at once. Told apart on the server's sentences (membership.service.js
+  loadLeaver / leaveSchool / submitLeaveRequest / cancelLeaveRequest, and the
+  letter upload in shared/upload.js).
+*/
+const LEAVE_BY_MESSAGE = [
+  ['without its Principal', 'account.leave.error.principal'],
+  ['already ended', 'account.leave.error.ended'],
+  ['already waiting for the Principal', 'account.leave.error.waiting'],
+  ['need nobody', 'account.leave.error.direct'],
+  ['leaves with the Principal', 'account.leave.error.needsRequest'],
+  ['You have no leave request waiting', 'account.leave.error.nothingWaiting'],
+  ['leave request has already been decided', 'account.leave.error.decided'],
+  ['file is required', 'validation.letter.required'],
+  ['file must be one of', 'validation.letter.type'],
+];
+
 export function leaveErrorMessage(err, t) {
-  const message = err?.message ?? '';
-  if (err?.code === 'CONFLICT') {
-    if (Array.isArray(err.details?.classes) && err.details.classes.length > 0) {
-      return t('account.leave.error.homeroom', { classes: err.details.classes.join(', ') });
-    }
-    if (message.includes('without its Principal')) return t('account.leave.error.principal');
-    if (message.includes('already ended')) return t('account.leave.error.ended');
+  const message = String(err?.message ?? '');
+  if (err?.code === 'CONFLICT' && Array.isArray(err.details?.classes) && err.details.classes.length > 0) {
+    return t('account.leave.error.homeroom', { classes: err.details.classes.join(', ') });
   }
+  if (message.includes('file must be at most')) return t('validation.letter.tooLarge', { max: '5 MB' });
+  const hit = LEAVE_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  if (hit) return t(hit[1]);
   return apiErrorMessage(err, t, {
     NOT_FOUND: 'account.leave.error.ended',
     CONFLICT: 'account.leave.error.ended',
+  });
+}
+
+/*
+  The Principal deciding a leave request (/api/leave-requests). A homeroom
+  teacher of an active-year class is refused at approval as at removal, with
+  `details.classes`; somebody deciding first is "already decided".
+*/
+export function leaveDecisionErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  if (err?.code === 'CONFLICT' && Array.isArray(err.details?.classes) && err.details.classes.length > 0) {
+    return t('members.error.homeroom', { classes: err.details.classes.join(', ') });
+  }
+  if (message.includes('already been decided')) return t('members.leave.error.decided');
+  return apiErrorMessage(err, t, {
+    NOT_FOUND: 'members.leave.error.gone',
+    FORBIDDEN: 'members.error.forbidden',
   });
 }
 
@@ -244,5 +281,72 @@ export function academicsErrorMessage(err, t) {
     FORBIDDEN: 'classes.error.forbidden',
   });
 }
+
+/*
+  Moving a student (ticket 16). academics.service.js answers CONFLICT for five
+  different things and NOT_FOUND for three, so they are told apart on its own
+  sentences, like the rest of this file. "is closed" falls through to
+  academicsErrorMessage, which already says it.
+*/
+const MOVES_BY_MESSAGE = [
+  ['has no homeroom teacher to accept', 'moves.error.noHomeroom'],
+  ['leave request waiting', 'moves.error.leaving'],
+  ['already has a class move waiting', 'moves.error.alreadyWaiting'],
+  ['has already been decided', 'moves.error.decided'],
+  ['is no longer in', 'moves.error.notThere'],
+  ['is already in', 'moves.error.sameClass'],
+  ['same academic year', 'moves.error.otherYear'],
+  ['Student not found', 'moves.error.notYours'],
+  ['No class move of yours', 'moves.error.gone'],
+  ['Class move not found', 'moves.error.gone'],
+  ['Class not found', 'moves.error.classGone'],
+];
+
+export function movesErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  const hit = MOVES_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  if (hit) return t(hit[1]);
+  return academicsErrorMessage(err, t);
+}
+
+/*
+  Subjects and teaching assignments (ticket 08). Told apart on the sentences of
+  academics.service.js (resolveSlot, translateSlotTaken, decideClassSubject) and
+  shared/approval.js (the deadline and the retry cap). Checked before the
+  academics map, which would call "The teacher must be an active teacher" a
+  homeroom problem.
+*/
+const SUBJECTS_BY_MESSAGE = [
+  ['already has a subject with that code', 'subjects.error.codeTaken'],
+  ['already has a teacher, or a request waiting', 'subjects.error.slotTaken'],
+  ['has already been decided', 'subjects.error.decided'],
+  ['is not open', 'subjects.error.semesterClosed'],
+  ['different academic years', 'subjects.error.otherYear'],
+  ['registration deadline for this semester has passed', 'subjects.error.deadline'],
+  ['Too many rejected requests for this teaching slot', 'subjects.error.tooMany'],
+  ['must be an active teacher', 'subjects.error.notTeacher'],
+  ['Teacher not found', 'subjects.error.notTeacher'],
+  ['Teaching assignment not found', 'subjects.error.gone'],
+  ['No request of yours is waiting', 'subjects.error.gone'],
+  ['Subject not found', 'subjects.error.subjectGone'],
+  ['Semester not found', 'subjects.error.semesterGone'],
+  ['Class not found', 'subjects.error.classGone'],
+];
+
+export function subjectsErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  const hit = SUBJECTS_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  if (hit) return t(hit[1]);
+  return academicsErrorMessage(err, t);
+}
+
+/* A teaching request decided or withdrawn elsewhere: the row on screen is stale. */
+export const isStaleTeaching = (err) =>
+  String(err?.message ?? '').includes('has already been decided') ||
+  String(err?.message ?? '').includes('Teaching assignment not found');
+
+/* Whether a move was decided or withdrawn elsewhere: the row on screen is stale. */
+export const isStaleMove = (err) =>
+  err?.code === 'NOT_FOUND' || String(err?.message ?? '').includes('has already been decided');
 
 export default apiErrorMessage;

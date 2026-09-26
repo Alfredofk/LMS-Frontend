@@ -1,4 +1,4 @@
-import { api } from './apiClient';
+import { api, requestBlob } from './apiClient';
 
 /**
  * Joining a school that already exists: the applicant's half of it.
@@ -171,7 +171,45 @@ export const membershipService = {
   },
 
   /**
-   * Leave the school this person belongs to.
+   * Ask the Principal to let this member leave — a teacher's or a student's only
+   * way out since backend `75e2fdd` (ticket 17). Multipart: the reason (3–500)
+   * and the resignation letter under `letter` (PDF, JPG or PNG, at most 5 MB —
+   * the type is read from the bytes, not the name). 201.
+   *
+   * 409 — a request already waiting; a homeroom teacher of an active-year class
+   * (`details.classes`); a Principal; or a guardian, who leaves directly instead.
+   * 400 — the letter missing, too large, or of another type.
+   *
+   * @param {{ reason: string, letter: File }} body
+   * @returns {Promise<{ id: string, status: string, reason: string, requestedAt: string, decidedAt: string|null, rejectionReason: string|null }|null>}
+   */
+  async submitLeaveRequest({ reason, letter }) {
+    const form = new FormData();
+    form.append('reason', reason);
+    form.append('letter', letter);
+    const answer = await api.post('/memberships/me/leave-requests', form);
+    return answer?.leaveRequest ?? null;
+  },
+
+  /** Every leave request this member sent to this school, newest first. */
+  async leaveRequests() {
+    const answer = await api.get('/memberships/me/leave-requests');
+    return answer?.leaveRequests ?? [];
+  },
+
+  /** Take the waiting request back. 404 — nothing waiting; 409 — decided meanwhile. */
+  async cancelLeaveRequest() {
+    const answer = await api.post('/memberships/me/leave-requests/cancel');
+    return answer?.leaveRequest ?? null;
+  },
+
+  /** This member's own letter, as a Blob. */
+  leaveLetter: (id) => requestBlob(`/memberships/me/leave-requests/${encodeURIComponent(id)}/letter`),
+
+  /**
+   * Leave the school this person belongs to — **directly, which only a member
+   * needing nobody's approval may do: a guardian** (backend `75e2fdd`). A
+   * teacher or student is refused with 409 and asks with a letter instead.
    *
    * `requireActiveMembership`. The membership becomes LEFT, every role row stays
    * as history, and waiting roles are cancelled. **Refresh tokens are not

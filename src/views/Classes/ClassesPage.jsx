@@ -483,9 +483,18 @@ export const ClassesPage = () => {
                         </div>
 
                         {semester ? (
-                          <p className="text-xs font-semibold text-slate-500">
-                            {formatDay(semester.startDate, lang)} – {formatDay(semester.endDate, lang)}
-                          </p>
+                          <>
+                            <p className="text-xs font-semibold text-slate-500">
+                              {formatDay(semester.startDate, lang)} – {formatDay(semester.endDate, lang)}
+                            </p>
+                            {semester.classSubjectRegistrationDeadline && (
+                              <p className="text-[11px] font-semibold text-slate-500">
+                                {t('classes.semester.deadlineOn', {
+                                  date: formatDay(semester.classSubjectRegistrationDeadline, lang),
+                                })}
+                              </p>
+                            )}
+                          </>
                         ) : openForm === formKey ? (
                           <SemesterForm
                             year={year}

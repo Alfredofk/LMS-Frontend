@@ -1,15 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Search, ShieldOff, UserMinus, Users } from 'lucide-react';
+import { DoorOpen, Search, ShieldOff, UserMinus, Users } from 'lucide-react';
 
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
 import RemoveMemberDialog from '../../components/RemoveMemberDialog';
+import LeaveRequestsPanel from './LeaveRequestsPanel';
 import { membersService } from '../../services/membersService';
+import { leaveRequestsService } from '../../services/leaveRequestsService';
 import { isNotBuiltYet } from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
-import { membersErrorMessage } from '../../i18n/apiError';
+import { membersErrorMessage, leaveDecisionErrorMessage } from '../../i18n/apiError';
 import { ROLES } from '../../constants/roles';
+import { notifyPendingChanged } from '../../hooks/usePendingCounts';
 
 /*
   The school's people — the Principal's list, backend `7a91eaf`.
@@ -34,6 +37,13 @@ import { ROLES } from '../../constants/roles';
 
   This page replaced the Teachers and Students tabs on the principal dashboard,
   which asked `/api/headmaster/*` — routes that were never written.
+
+  **Leave requests have a tab of their own** (owner, 2026-09-26) — a teacher or
+  a student asking to leave with a letter, backend `75e2fdd`. It sits apart from
+  TABS because it lists requests, not members: no search, its own rows, and its
+  own fetch, which may fail without taking the members down with it. It is read
+  on arrival so its count shows, and re-read — with the members — after every
+  decision, because approving one moves the person to "Left".
 */
 
 const TABS = ['ALL', 'TEACHER', 'STUDENT', 'GUARDIAN', 'LEFT'];
@@ -61,6 +71,8 @@ export const MembersPage = () => {
   const [denied, setDenied] = useState(false);
   const [notBuilt, setNotBuilt] = useState(false);
   const [removing, setRemoving] = useState(null);
+  const [leaveRequests, setLeaveRequests] = useState(null);
+  const [leaveError, setLeaveError] = useState(null);
 
   const fetchBoth = () =>
     Promise.all([membersService.list({ status: 'ACTIVE' }), membersService.list({ status: 'LEFT' })]);
@@ -79,6 +91,28 @@ export const MembersPage = () => {
     },
     [t]
   );
+
+  const loadLeaveRequests = useCallback(
+    () =>
+      leaveRequestsService
+        .list('PENDING')
+        .then((list) => {
+          setLeaveRequests(list);
+          setLeaveError(null);
+        })
+        .catch((err) => setLeaveError(leaveDecisionErrorMessage(err, t))),
+    [t]
+  );
+
+  useEffect(() => {
+    loadLeaveRequests();
+  }, [loadLeaveRequests]);
+
+  const handleLeaveChanged = () => {
+    loadLeaveRequests();
+    notifyPendingChanged();
+    fetchBoth().then(apply).catch(fail);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -181,8 +215,33 @@ export const MembersPage = () => {
             </button>
           );
         })}
+        <button
+          type="button"
+          onClick={() => setTab('LEAVE')}
+          aria-pressed={tab === 'LEAVE'}
+          className={`pb-3 text-sm font-extrabold transition-all border-b-2 cursor-pointer focus:outline-none flex items-center gap-2 shrink-0 whitespace-nowrap ${
+            tab === 'LEAVE' ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-600'
+          }`}
+        >
+          <DoorOpen className="w-4 h-4" aria-hidden="true" />
+          {t('members.tab.leave')}
+          {leaveRequests?.length > 0 && (
+            <span className="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold tabular-nums bg-amber-100 text-amber-800">
+              {leaveRequests.length}
+            </span>
+          )}
+        </button>
       </div>
 
+      {tab === 'LEAVE' ? (
+        <LeaveRequestsPanel
+          requests={leaveRequests}
+          error={leaveError}
+          onChanged={handleLeaveChanged}
+          showToast={showToast}
+        />
+      ) : (
+      <>
       <div className="relative max-w-md">
         <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" aria-hidden="true" />
         <input
@@ -270,6 +329,8 @@ export const MembersPage = () => {
             );
           })}
         </ul>
+      )}
+      </>
       )}
 
       {removing && (

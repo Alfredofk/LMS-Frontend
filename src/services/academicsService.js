@@ -106,6 +106,131 @@ export const academicsService = {
     });
     return answer?.class ?? null;
   },
+
+  /*
+    Moving a student to another class — ticket 16, backend `89d1fc1`. Between two
+    homeroom teachers only; the Principal takes no part. A move as it comes back
+    (`classMoveView`):
+
+      { id, status: PENDING|ACTIVE|REJECTED|CANCELLED, reason, requestedAt,
+        decidedAt, rejectionReason,
+        student: { studentProfileId, fullName, nisn },
+        fromClass: { id, name, gradeLevel }, toClass: { id, name, gradeLevel },
+        canDecide, canCancel }
+
+    canDecide / canCancel are the server's answer to "whose buttons are these".
+  */
+
+  /**
+   * Every other class of the same academic year, for a homeroom teacher of
+   * `classId`. One with no homeroom teacher is listed with `acceptsMoves: false`.
+   *
+   * @returns {Promise<Array<{ id, name, gradeLevel, homeroomTeacher: { membershipId, fullName }|null, acceptsMoves: boolean }>>}
+   */
+  async moveTargets(classId) {
+    const answer = await api.get(`/academics/classes/${classId}/move-targets`);
+    return answer?.classes ?? [];
+  },
+
+  /** Moves out of or into the reader's classes, every status, newest first. */
+  async classMoves() {
+    const answer = await api.get('/academics/class-moves');
+    return answer?.classMoves ?? [];
+  },
+
+  /**
+   * Asked by the homeroom teacher of the class the student sits in. Comes back
+   * ACTIVE at once when the reader is homeroom of the target class too.
+   *
+   * @param {{ studentProfileId: string, toClassId: string, reason?: string }} body
+   */
+  async requestMove(body) {
+    const answer = await api.post('/academics/class-moves', body);
+    return answer?.classMove ?? null;
+  },
+
+  async approveMove(id) {
+    const answer = await api.post(`/academics/class-moves/${id}/approve`);
+    return answer?.classMove ?? null;
+  },
+
+  async rejectMove(id, reason) {
+    const answer = await api.post(`/academics/class-moves/${id}/reject`, { reason });
+    return answer?.classMove ?? null;
+  },
+
+  async cancelMove(id) {
+    const answer = await api.post(`/academics/class-moves/${id}/cancel`);
+    return answer?.classMove ?? null;
+  },
+
+  /*
+    Subjects and who teaches them — ticket 08, backend `89d1fc1`.
+
+    A subject: { id, code, name, national } — the national catalog (seeded by a
+    migration) plus the school's local ones. A teaching assignment
+    (`classSubjectView`):
+
+      { id, status: PENDING|ACTIVE|REJECTED|CANCELLED, requestedAt, decidedAt,
+        rejectionReason, createdViaOverride, endedAt,
+        class: { id, name, gradeLevel }, subject: { id, code, name },
+        semester: { id, ordinal, academicYear: '2026/2027' },
+        teacher: { membershipId, fullName } }
+  */
+
+  /** National first, then the school's own, each by code. */
+  async subjects() {
+    const answer = await api.get('/academics/subjects');
+    return answer?.subjects ?? [];
+  },
+
+  /** A local subject; the Principal's. */
+  async createSubject(body) {
+    const answer = await api.post('/academics/subjects', body);
+    return answer?.subject ?? null;
+  },
+
+  /**
+   * Every class of the semester's year with what is taught in it (PENDING and
+   * ACTIVE). Not unwrapped: the answer *is* `{ semester, classes }`.
+   *
+   * @returns {Promise<{ semester: { id, ordinal, status, academicYear, classSubjectRegistrationDeadline },
+   *   classes: Array<{ id, name, gradeLevel, homeroomTeacher, subjects: Array<{ classSubjectId, status, subject, teacher }> }> }>}
+   */
+  async subjectBoard(semesterId) {
+    return api.get(`/academics/semesters/${semesterId}/class-subjects`);
+  },
+
+  /** The Principal: the queue (PENDING unless asked). A teacher: their own, every status. */
+  async classSubjects(status) {
+    const answer = await api.get('/academics/class-subjects', { query: status ? { status } : undefined });
+    return answer?.classSubjects ?? [];
+  },
+
+  async approveClassSubject(id) {
+    const answer = await api.post(`/academics/class-subjects/${id}/approve`);
+    return answer?.classSubject ?? null;
+  },
+
+  async rejectClassSubject(id, reason) {
+    const answer = await api.post(`/academics/class-subjects/${id}/reject`, { reason });
+    return answer?.classSubject ?? null;
+  },
+
+  /**
+   * At most 100 ids, each approved on its own. Always 200.
+   *
+   * @returns {Promise<{ results: Array<{ id, ok, status?, error?: { code, message } }>, summary: { approved, failed } }>}
+   */
+  async approveClassSubjects(ids) {
+    return api.post('/academics/class-subjects/approve', { ids });
+  },
+
+  /** The Principal names the teacher: ACTIVE at once, deadline or not. */
+  async assignClassSubject(body) {
+    const answer = await api.post('/academics/class-subjects/override', body);
+    return answer?.classSubject ?? null;
+  },
 };
 
 export default academicsService;

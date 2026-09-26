@@ -1,117 +1,146 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useT } from '../../i18n/LanguageContext';
-import { isNotBuiltYet } from '../../services/apiClient';
-import { headmasterService } from '../../services/headmasterService';
-import { buildSampleHeadmasterData } from './sampleHeadmasterData';
-import { SampleDataBanner } from './components/SampleDataNotice';
-import { getAccessToken } from '../../services/apiClient';
+import { api, isNotBuiltYet } from '../../services/apiClient';
+import { apiErrorMessage } from '../../i18n/apiError';
+import NotBuiltYet from '../../components/ui/NotBuiltYet';
+import { academicsService } from '../../services/academicsService';
+import { membersService } from '../../services/membersService';
+import SetupChecklist from './components/SetupChecklist';
+import { currentYear } from './setup';
+import { ROLES } from '../../constants/roles';
 import {
-  Users, 
-  GraduationCap, 
-  BookOpen, 
-  Plus, 
-  Trash2, 
-  UserPlus, 
+  Users,
+  GraduationCap,
+  BookOpen,
+  Plus,
+  Trash2,
   School,
   X,
-  PlusCircle,
-  Megaphone
+  Megaphone,
+  Library,
+  ArrowRight,
 } from 'lucide-react';
+
+/*
+  The Principal's dashboard. Its numbers are real since 2026-09-26 (owner):
+  they used to come from `/headmaster/stats`, a route never written, and showed
+  labelled sample numbers; and its "Manage classes & subjects" tab asked
+  `/api/courses` and `/api/headmaster/teachers` — never written either — and
+  offered to create a "course" in a way the backend has no idea of.
+
+  Now one read of each of four things feeds both the setup checklist and the
+  cards, each on its own so one failing costs only what needs it:
+
+    years       GET /academics/academic-years   — which year is current
+    classes     GET /academics/classes          — classes and students placed, this year
+    members     GET /members?status=ACTIVE      — teachers and students by role
+    assignments GET /academics/class-subjects?status=ACTIVE — who teaches what
+
+  The subjects tab is a summary of the real Subjects page, with a way there;
+  its two extra numbers (waiting, catalog) are read when it is first opened.
+  Announcements: the backend has no module for them yet, so `GET /announcements`
+  404s and the tab says so with NotBuiltYet and no Add button — rather than "no
+  announcements published", and a form whose every submit would fail.
+*/
+
+const soft = (promise) => promise.catch(() => null);
 
 export const HeadmasterDashboard = () => {
   const { showToast } = useOutletContext();
   const navigate = useNavigate();
   const { t, lang } = useT();
-  
-  // Navigation active tab: 'dashboard', 'courses', 'announcements'.
-  //
-  // 'teachers' and 'students' used to be here too, asking /api/headmaster/* —
-  // routes never written — and offering to create accounts with a password the
-  // principal chose, which contradicts how anybody gets into this app. The
-  // school's people now live on /headmaster/members, from /api/members; the two
-  // cards below lead there.
+
+  // Navigation active tab: 'dashboard', 'courses' (subjects), 'announcements'.
   const [activeTab, setActiveTab] = useState('dashboard');
-  
-  // Stats
-  const [stats, setStats] = useState({ totalTeachers: 0, totalStudents: 0, totalCourses: 0 });
-  /* Set around the stats request but not read by anything on screen yet. */
-  const [, setIsLoadingStats] = useState(true);
-  const [isSampleStats, setIsSampleStats] = useState(false);
+
+  /* The four reads; null until answered, and null again if one failed. */
+  const [overview, setOverview] = useState(null);
+  /* The subjects tab's own two numbers. */
+  const [subjectsExtra, setSubjectsExtra] = useState(null);
 
   // Lists
-  const [teachers, setTeachers] = useState([]);
-  const [courses, setCourses] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
-  
+
   // Loading states
   const [isLoadingList, setIsLoadingList] = useState(false);
+  const [announcementsNotBuilt, setAnnouncementsNotBuilt] = useState(false);
 
   // Modals Open/Close States
-  const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
   const [isAnnouncementModalOpen, setIsAnnouncementModalOpen] = useState(false);
 
   // Modal Form Inputs
-  const [courseForm, setCourseForm] = useState({ code: '', name: '', description: '', grade_level: '', teacher_id: '' });
   const [announcementForm, setAnnouncementForm] = useState({ title: '', content: '' });
 
-  /*
-    1. Overview stats.
-
-    This used to swallow its failure and leave the three cards showing the zeros
-    they were initialised with — so a 404 read as **0 teachers, 0 students,
-    0 subjects**, which is a confident statement about the school rather than an
-    admission that nothing was asked. Worse than an error message.
-
-    A 404 means the route is not written yet (the backend mounts four
-    namespaces; this is not one of them), so the cards show labelled sample
-    numbers. Any other failure keeps the old quiet behaviour, because the four
-    management tabs below still handle their own errors the old way and one
-    screen should not have two personalities.
-
-    All three numbers are countable from tables that already exist, so this is
-    among the cheapest endpoints for the backend to deliver.
-  */
-  const fetchStats = async () => {
-    setIsLoadingStats(true);
-    try {
-      setStats(await headmasterService.stats());
-      setIsSampleStats(false);
-    } catch (err) {
-      if (isNotBuiltYet(err)) {
-        setStats(buildSampleHeadmasterData().stats);
-        setIsSampleStats(true);
-      } else {
-        console.error(err);
-      }
-    } finally {
-      setIsLoadingStats(false);
-    }
-  };
-
   useEffect(() => {
-    fetchStats();
+    let cancelled = false;
+    Promise.all([
+      soft(academicsService.academicYears()),
+      soft(academicsService.classes()),
+      soft(membersService.list({ status: 'ACTIVE' })),
+      soft(academicsService.classSubjects('ACTIVE')),
+    ]).then(([years, classes, members, assignments]) => {
+      if (!cancelled) setOverview({ years, classes, members, assignments });
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // 2. Fetch lists based on active tab selection
+  /* Once, the first time the subjects tab is opened. */
+  useEffect(() => {
+    if (activeTab !== 'courses' || subjectsExtra) return;
+    let cancelled = false;
+    Promise.all([soft(academicsService.classSubjects('PENDING')), soft(academicsService.subjects())]).then(
+      ([pending, catalog]) => {
+        if (!cancelled) setSubjectsExtra({ pending, catalog });
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, subjectsExtra]);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const year = overview?.years ? currentYear(overview.years, today) : null;
+  const semesterIds = new Set((year?.semesters ?? []).map((semester) => semester.id));
+  const withRole = (role) => overview?.members?.filter((member) => member.roles.includes(role)) ?? null;
+  const teachers = withRole(ROLES.TEACHER);
+  const students = withRole(ROLES.STUDENT);
+  const classesNow = overview?.classes && year ? overview.classes.filter((entry) => entry.academicYear?.id === year.id) : null;
+  const assignmentsNow = overview?.assignments
+    ? overview.assignments.filter((entry) => semesterIds.has(entry.semester?.id))
+    : null;
+
+  /* The checklist reads the same four answers; teachers are the members holding TEACHER. */
+  const checklistData = overview && {
+    years: overview.years,
+    classes: overview.classes,
+    teachers,
+    assignments: overview.assignments,
+  };
+
+  /* A number, or a dash when its read failed — never a zero it did not count. */
+  const shown = (list) => (list ? list.length : '—');
+
+  /*
+    Announcements: still unanswered by the backend. Through `api`, not a raw
+    fetch: an error envelope's `error` is an object ({ code, message }), and the
+    raw path handed it to `new Error()`, so a failed save toasted
+    "[object Object]". `api` throws an ApiError whose code apiErrorMessage reads.
+  */
+  const annErrorMessage = (err, fallbackKey) => (err?.code ? apiErrorMessage(err, t) : t(fallbackKey));
+
   const fetchTabData = async () => {
-    const token = getAccessToken();
     setIsLoadingList(true);
     try {
-      if (activeTab === 'courses') {
-        // Fetch courses list
-        const resCourses = await fetch('/api/courses', { headers: { 'Authorization': `Bearer ${token}` } });
-        if (resCourses.ok) setCourses(await resCourses.json());
-
-        // Also fetch teachers list for the teacher selector in Create Course modal
-        const resTeachers = await fetch('/api/headmaster/teachers', { headers: { 'Authorization': `Bearer ${token}` } });
-        if (resTeachers.ok) setTeachers(await resTeachers.json());
-      } else if (activeTab === 'announcements') {
-        const res = await fetch('/api/announcements', { headers: { 'Authorization': `Bearer ${token}` } });
-        if (res.ok) setAnnouncements(await res.json());
+      if (activeTab === 'announcements') {
+        const data = await api.get('/announcements');
+        setAnnouncements(Array.isArray(data) ? data : []);
       }
     } catch (err) {
-      console.error(err);
+      if (isNotBuiltYet(err)) setAnnouncementsNotBuilt(true);
+      else console.error(err);
     } finally {
       setIsLoadingList(false);
     }
@@ -119,91 +148,36 @@ export const HeadmasterDashboard = () => {
 
   /* Once per tab switch — the fetch reads the tab itself. */
   useEffect(() => {
-    if (activeTab !== 'dashboard') {
+    if (activeTab === 'announcements') {
       fetchTabData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
-  // --- COURSE CRUD HANDLERS ---
-  const handleCreateCourse = async (e) => {
-    e.preventDefault();
-    try {
-      const token = getAccessToken();
-      const response = await fetch('/api/courses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(courseForm)
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || t('principal.courses.addFailed'));
-
-      showToast(data.message, 'success');
-      setCourseForm({ code: '', name: '', description: '', grade_level: '', teacher_id: '' });
-      setIsCourseModalOpen(false);
-      fetchStats();
-      fetchTabData();
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
-  };
-
-  const handleDeleteCourse = async (id, name) => {
-    if (!window.confirm(t('principal.courses.confirmDelete', { name }))) return;
-    try {
-      const token = getAccessToken();
-      const response = await fetch(`/api/courses/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || t('principal.courses.deleteFailed'));
-
-      showToast(data.message, 'success');
-      fetchStats();
-      fetchTabData();
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
-  };
-
   // --- ANNOUNCEMENT CRUD HANDLERS ---
   const handleCreateAnnouncement = async (e) => {
     e.preventDefault();
     try {
-      const token = getAccessToken();
-      const response = await fetch('/api/announcements', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(announcementForm)
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || t('principal.ann.addFailed'));
+      const data = await api.post('/announcements', announcementForm);
 
-      showToast(data.message, 'success');
+      if (data?.message) showToast(data.message, 'success');
       setAnnouncementForm({ title: '', content: '' });
       setIsAnnouncementModalOpen(false);
       fetchTabData();
     } catch (err) {
-      showToast(err.message, 'error');
+      showToast(annErrorMessage(err, 'principal.ann.addFailed'), 'error');
     }
   };
 
   const handleDeleteAnnouncement = async (id, title) => {
     if (!window.confirm(t('principal.ann.confirmDelete', { name: title }))) return;
     try {
-      const token = getAccessToken();
-      const response = await fetch(`/api/announcements/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || t('principal.ann.deleteFailed'));
+      const data = await api.del(`/announcements/${encodeURIComponent(id)}`);
 
-      showToast(data.message, 'success');
+      if (data?.message) showToast(data.message, 'success');
       fetchTabData();
     } catch (err) {
-      showToast(err.message, 'error');
+      showToast(annErrorMessage(err, 'principal.ann.deleteFailed'), 'error');
     }
   };
 
@@ -222,6 +196,11 @@ export const HeadmasterDashboard = () => {
           {t('dash.principal.subtitle')}
         </p>
       </div>
+
+      {/* Real data, unlike the stat cards below: what the school still needs
+          before it can teach anybody, in order (owner, 2026-09-26). Above the
+          tabs so it is seen whichever tab is open. */}
+      <SetupChecklist data={checklistData} />
 
       {/* The School Code sat here, then sat here smaller, and now does not sit
           here at all. It is reference data used in a burst and then left alone,
@@ -270,124 +249,89 @@ export const HeadmasterDashboard = () => {
       {/* 3. Render content based on active tab */}
       <div className="pt-2">
 
-        {/* Tab 1: Dashboard overview */}
+        {/* Tab 1: Dashboard overview — every number counted, for the current year. */}
         {activeTab === 'dashboard' && (
-          <div className="space-y-6">
-            {isSampleStats && <SampleDataBanner />}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 select-none">
-              <div 
-                onClick={() => navigate('/headmaster/members')} 
-                className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-slate-200 transition-all cursor-pointer flex items-center justify-between"
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 select-none">
+            {[
+              { label: t('dash.principal.stat.teachers'), value: shown(teachers), to: '/headmaster/members', Icon: Users, tint: 'bg-purple-50 text-brand' },
+              { label: t('dash.principal.stat.students'), value: shown(students), to: '/headmaster/members', Icon: GraduationCap, tint: 'bg-emerald-50 text-emerald-600' },
+              {
+                label: year ? t('dash.principal.stat.classesIn', { label: year.label }) : t('dash.principal.stat.classes'),
+                value: shown(classesNow),
+                to: '/headmaster/classes',
+                Icon: School,
+                tint: 'bg-blue-50 text-blue-600',
+              },
+            ].map(({ label, value, to, Icon: icon, tint }) => {
+              const StatIcon = icon;
+              return (
+              <button
+                key={to + label}
+                type="button"
+                onClick={() => navigate(to)}
+                className="text-left bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-slate-200 transition-all cursor-pointer flex items-center justify-between gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
               >
-                <div>
-                  <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('dash.principal.stat.teachers')}</p>
-                  <p className="text-3xl font-extrabold text-slate-800 mt-1">{stats.totalTeachers}</p>
-                </div>
-                <div className="w-12 h-12 rounded-xl bg-purple-50 text-brand flex items-center justify-center">
-                  <Users className="w-6 h-6" />
-                </div>
-              </div>
-
-              <div 
-                onClick={() => navigate('/headmaster/members')} 
-                className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-slate-200 transition-all cursor-pointer flex items-center justify-between"
-              >
-                <div>
-                  <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('dash.principal.stat.students')}</p>
-                  <p className="text-3xl font-extrabold text-slate-800 mt-1">{stats.totalStudents}</p>
-                </div>
-                <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                  <GraduationCap className="w-6 h-6" />
-                </div>
-              </div>
-
-              <div 
-                onClick={() => setActiveTab('courses')} 
-                className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-slate-200 transition-all cursor-pointer flex items-center justify-between"
-              >
-                <div>
-                  <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('dash.principal.stat.courses')}</p>
-                  <p className="text-3xl font-extrabold text-slate-800 mt-1">{stats.totalCourses}</p>
-                </div>
-                <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                  <BookOpen className="w-6 h-6" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 select-none flex flex-col md:flex-row items-center gap-6">
-              <div className="w-16 h-16 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-brand text-2xl font-extrabold shrink-0 shadow-sm">
-                🏢
-              </div>
-              <div>
-                {/* h3, like its six siblings at this depth. The H1 -> H3 jump on
-                    this page stays: making one of the seven an h2 would only make
-                    it the odd one out. */}
-                <h3 className="text-sm font-extrabold text-slate-800">{t('dash.principal.guide.title')}</h3>
-                <p className="text-xs text-slate-500 font-semibold mt-1 leading-relaxed">
-                  {t('dash.principal.guide.body')}
-                </p>
-              </div>
-            </div>
+                <span className="min-w-0">
+                  <span className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{label}</span>
+                  <span className="block text-3xl font-extrabold text-slate-800 mt-1 tabular-nums">
+                    {overview ? value : <span className="inline-block w-10 h-8 bg-slate-100 rounded-lg animate-pulse align-middle" aria-label={t('common.loading')} />}
+                  </span>
+                </span>
+                <span className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${tint}`}>
+                  <StatIcon className="w-6 h-6" aria-hidden="true" />
+                </span>
+              </button>
+              );
+            })}
           </div>
         )}
 
-        {/* Tab 4: Manage Classes & Courses */}
+        {/* Tab 2: Subjects — a summary of the real page (ticket 08), not a second copy of it. */}
         {activeTab === 'courses' && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center select-none">
-              <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.courses.title')}</h3>
-              <button 
-                onClick={() => setIsCourseModalOpen(true)}
-                className="px-4 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
-              >
-                <PlusCircle className="w-4 h-4" />
-                {t('principal.courses.add')}
-              </button>
-            </div>
-
-            {isLoadingList ? (
-              <div className="h-40 bg-white border border-slate-100 rounded-2xl animate-pulse"></div>
-            ) : (
-              <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm overflow-x-auto">
-                <table className="w-full min-w-max text-xs font-medium text-slate-600">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-slate-500 font-extrabold text-left">
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.courses.th.code')}</th>
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.courses.th.name')}</th>
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.courses.th.grade')}</th>
-                      <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.courses.th.teacher')}</th>
-                      <th className="pb-3 text-right font-extrabold text-[10px] uppercase">{t('principal.th.action')}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {courses.map((row) => (
-                      <tr key={row.id} className="hover:bg-slate-50/20 transition-colors">
-                        <td className="py-3.5 text-slate-500 font-bold">{row.code}</td>
-                        <td className="py-3.5 font-extrabold text-slate-800">{row.name}</td>
-                        <td className="py-3.5">
-                          <span className="px-2 py-0.5 rounded bg-purple-50 text-brand text-[10px] font-extrabold">
-                            {row.grade_level || t('principal.courses.noGrade')}
-                          </span>
-                        </td>
-                        <td className="py-3.5 text-slate-500 font-semibold">
-                          {teachers.find((guru) => guru.id === row.teacher_id)?.name || t('principal.courses.noTeacher')}
-                        </td>
-                        <td className="py-3.5 text-right">
-                          <button
-                            onClick={() => handleDeleteCourse(row.id, row.name)}
-                            className="p-1.5 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
-                            title={t('principal.courses.delete')}
-                          >
-                            <Trash2 className="w-4.5 h-4.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm space-y-5">
+            <div className="flex items-start gap-3">
+              <span className="w-10 h-10 rounded-xl bg-brand-tint text-brand flex items-center justify-center shrink-0">
+                <Library className="w-5 h-5" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <h2 className="text-sm font-extrabold text-slate-900">{t('dash.principal.subjects.title')}</h2>
+                <p className="text-xs font-semibold text-slate-500 leading-relaxed mt-0.5">
+                  {year ? t('dash.principal.subjects.body', { label: year.label }) : t('dash.principal.subjects.noYear')}
+                </p>
               </div>
-            )}
+            </div>
+            <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                { term: t('dash.principal.subjects.active'), value: overview ? shown(assignmentsNow) : null },
+                { term: t('dash.principal.subjects.pending'), value: subjectsExtra ? shown(subjectsExtra.pending) : null },
+                {
+                  term: t('dash.principal.subjects.catalog'),
+                  value: subjectsExtra
+                    ? subjectsExtra.catalog
+                      ? t('dash.principal.subjects.catalogValue', {
+                          n: subjectsExtra.catalog.length,
+                          local: subjectsExtra.catalog.filter((subject) => !subject.national).length,
+                        })
+                      : '—'
+                    : null,
+                },
+              ].map(({ term, value }) => (
+                <div key={term} className="rounded-xl border border-slate-100 px-4 py-3">
+                  <dt className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{term}</dt>
+                  <dd className="text-xl font-extrabold text-slate-800 mt-1 tabular-nums">
+                    {value ?? <span className="inline-block w-10 h-6 bg-slate-100 rounded-lg animate-pulse align-middle" aria-label={t('common.loading')} />}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            <button
+              type="button"
+              onClick={() => navigate('/headmaster/subjects')}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand hover:bg-brand-deep text-white text-xs font-extrabold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+            >
+              {t('dash.principal.subjects.open')}
+              <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+            </button>
           </div>
         )}
         {/* Tab 5: Manage Announcements */}
@@ -395,17 +339,21 @@ export const HeadmasterDashboard = () => {
           <div className="space-y-4">
             <div className="flex justify-between items-center select-none">
               <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.ann.title')}</h3>
-              <button 
+              {!announcementsNotBuilt && (
+              <button
                 onClick={() => setIsAnnouncementModalOpen(true)}
                 className="px-4 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
               >
                 <Plus className="w-4 h-4" />
                 {t('principal.ann.add')}
               </button>
+              )}
             </div>
 
             {isLoadingList ? (
               <div className="h-40 bg-white border border-slate-100 rounded-2xl animate-pulse"></div>
+            ) : announcementsNotBuilt ? (
+              <NotBuiltYet />
             ) : (
               <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm overflow-x-auto">
                 {announcements.length === 0 ? (
@@ -450,78 +398,6 @@ export const HeadmasterDashboard = () => {
         )}
 
       </div>
-
-      {/* --- COURSE CREATION MODAL DIALOG --- */}
-      {isCourseModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <form onSubmit={handleCreateCourse} className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center select-none">
-              <h3 className="text-sm font-extrabold text-slate-800">{t('principal.modal.course.title')}</h3>
-              <button type="button" onClick={() => setIsCourseModalOpen(false)} className="p-1 hover:bg-slate-50 text-slate-500 hover:text-slate-900 rounded-lg cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="p-6 space-y-4 text-left">
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.course.code')}</label>
-                <input
-                  type="text"
-                  required
-                  placeholder={t('principal.modal.course.code.hint')}
-                  value={courseForm.code}
-                  onChange={(e) => setCourseForm(prev => ({ ...prev, code: e.target.value }))}
-                  className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.course.name')}</label>
-                <input
-                  type="text"
-                  required
-                  placeholder={t('principal.modal.course.name.hint')}
-                  value={courseForm.name}
-                  onChange={(e) => setCourseForm(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.course.grade')}</label>
-                <input
-                  type="text"
-                  required
-                  placeholder={t('principal.modal.course.grade.hint')}
-                  value={courseForm.grade_level}
-                  onChange={(e) => setCourseForm(prev => ({ ...prev, grade_level: e.target.value }))}
-                  className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.modal.course.teacher')}</label>
-                <select
-                  required
-                  value={courseForm.teacher_id}
-                  onChange={(e) => setCourseForm(prev => ({ ...prev, teacher_id: e.target.value }))}
-                  className="w-full text-xs font-semibold border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-brand transition-colors bg-white cursor-pointer"
-                >
-                  <option value="">{t('principal.modal.course.teacher.none')}</option>
-                  {teachers.map((guru) => (
-                    <option key={guru.id} value={guru.id}>{guru.name} (NIP {guru.nip})</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="p-6 border-t border-slate-100 flex justify-end gap-2 select-none">
-              <button type="button" onClick={() => setIsCourseModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-lg cursor-pointer">{t('principal.common.cancel')}</button>
-              <button type="submit" className="px-5 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl cursor-pointer">{t('principal.modal.course.submit')}</button>
-            </div>
-          </form>
-        </div>
-      )}
 
       {/* --- ANNOUNCEMENT CREATION MODAL DIALOG --- */}
       {isAnnouncementModalOpen && (

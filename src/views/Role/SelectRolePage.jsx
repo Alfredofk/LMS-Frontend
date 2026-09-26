@@ -605,9 +605,11 @@ export const SelectRolePage = () => {
         {/*
           Left, or taken out. Told once, above the four cards that are the way on:
           every one of them is open again, since the partial unique index counts
-          only PENDING and ACTIVE memberships. The reason is the words of whoever
-          removed them, so it is marked as a quotation; none means they left on
-          their own.
+          only PENDING and ACTIVE memberships. A reason is either the school's
+          words when it removed them or — since backend 75e2fdd — their own, from
+          a leave request the Principal approved. /users/me cannot tell the two
+          apart, so the sentence says only that the membership ended and the
+          reason is "on record". None means they left on their own (a guardian).
         */}
         {hasChecked && ended && !hasRoles && (
           <div className="border border-slate-200 bg-slate-50 rounded-2xl p-4 text-left space-y-2.5" role="status">

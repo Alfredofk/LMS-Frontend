@@ -12,7 +12,8 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
 import { ROLES } from '../../constants/roles';
-import { getAccessToken } from '../../services/apiClient';
+import NotBuiltYet from '../../components/ui/NotBuiltYet';
+import { api, isNotBuiltYet } from '../../services/apiClient';
 
 export const SchedulePage = () => {
   const { activeRole } = useAuth();
@@ -24,6 +25,9 @@ export const SchedulePage = () => {
   const [weeklySchedules, setWeeklySchedules] = useState([]);
   const [deadlines, setDeadlines] = useState([]);
   const [loading, setLoading] = useState(true);
+  /* `/api/schedule/:role` does not exist for any role, so this is the state
+     every role lands in today — an empty calendar would read as a free week. */
+  const [notBuilt, setNotBuilt] = useState(false);
 
   // Calendar State (0-indexed month)
   const today = new Date();
@@ -52,23 +56,15 @@ export const SchedulePage = () => {
   const fetchScheduleData = async () => {
     setLoading(true);
     try {
-      const token = getAccessToken();
-      if (!token) return;
-
       // Lowercased only here: the role name is uppercase everywhere in this app,
       // but this path segment is a URL, and this endpoint does not exist yet
       // anyway — its real shape is the backend's to decide.
-      const endpoint = `/api/schedule/${role.toLowerCase()}`;
-      const res = await fetch(endpoint, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setWeeklySchedules(data.weeklySchedules || []);
-        setDeadlines(data.deadlines || []);
-      }
+      const data = await api.get(`/schedule/${role.toLowerCase()}`);
+      setWeeklySchedules(data?.weeklySchedules || []);
+      setDeadlines(data?.deadlines || []);
     } catch (err) {
-      console.error('Fetch Schedule Error:', err);
+      if (isNotBuiltYet(err)) setNotBuilt(true);
+      else console.error('Fetch Schedule Error:', err);
     } finally {
       setLoading(false);
     }
@@ -166,6 +162,17 @@ export const SchedulePage = () => {
 
   const selectedClasses = weeklySchedules.filter(s => s.dayOfWeek === selectedDayOfWeek);
   const selectedDeadlines = deadlines.filter(d => d.deadline.substring(0, 10) === selectedDateStr);
+
+  if (notBuilt) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+          {t('shell.schedule')}
+        </h1>
+        <NotBuiltYet />
+      </div>
+    );
+  }
 
   return (
     /* The row below becomes two side-by-side columns at xl, so a heading dropped

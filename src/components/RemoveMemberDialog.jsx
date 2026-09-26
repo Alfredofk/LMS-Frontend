@@ -99,7 +99,7 @@ export const RemoveMemberDialog = ({ member, onClose, onRemoved }) => {
         aria-describedby="remove-member-body"
         aria-busy={busy}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 sm:p-7 space-y-4 text-left"
+        className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 sm:p-7 space-y-4 text-left max-h-[90dvh] overflow-y-auto"
       >
         <div className="space-y-2">
           <h2 id="remove-member-title" className="text-base font-extrabold text-slate-900 tracking-tight break-words">

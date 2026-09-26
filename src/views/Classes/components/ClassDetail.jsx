@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, UserMinus, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, Clock, UserMinus, Users } from 'lucide-react';
 
 import Button from '../../../components/ui/Button';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import SelectField from '../../../components/ui/SelectField';
 import RemoveMemberDialog from '../../../components/RemoveMemberDialog';
+import MoveStudentDialog from '../../Homeroom/MoveStudentDialog';
 import { academicsService } from '../../../services/academicsService';
 import { useT } from '../../../i18n/LanguageContext';
 import { academicsErrorMessage } from '../../../i18n/apiError';
@@ -28,18 +29,34 @@ import { formatDay } from '../format';
   A closed year's class is read-only: the backend refuses the change with a 409,
   so the control is not offered.
 
-  **A student can be taken out from the roster** — `POST /api/members/:id/remove`,
-  which both readers of this component may do: the Principal for anyone, the
-  homeroom teacher for a student in their own class (the backend checks the
-  placement, not this screen). `membershipId` on each roster row is exactly what
-  that route takes. The row leaves the roster at once, and `onChanged` hears the
+  **The Principal can take a student out from the roster** — `POST
+  /api/members/:id/remove`. Only the Principal since backend `89d1fc1` (owner,
+  2026-09-24): a homeroom teacher who released a student into the wrong class
+  moves them instead (ticket 16), so on the homeroom teacher's page (`readOnly`)
+  the button is not rendered — the backend would answer it 403. `membershipId`
+  on each roster row is exactly what that route takes. The row leaves the roster at once, and `onChanged` hears the
   smaller count so the list behind this page does not keep the old number.
 
   `readOnly` is for the homeroom teacher's own page (/teacher/homeroom): they see
   the same class and roster, and the change-homeroom control is not rendered —
   the list of teachers behind it answers a teacher 403.
+
+  **There, each student can be moved to another class** (`canMove`, ticket 16)
+  while the year is open. A student with a move already waiting shows where to,
+  instead of a second "Move" the server would refuse. `pendingMoves` is that
+  map (moves.js `pendingMoveByStudent`), and `onMoveRequested` tells the page
+  to re-read its moves — and its classes, when the move happened at once.
 */
-export const ClassDetail = ({ classId, onBack, onChanged, showToast, readOnly = false }) => {
+export const ClassDetail = ({
+  classId,
+  onBack,
+  onChanged,
+  showToast,
+  readOnly = false,
+  canMove = false,
+  pendingMoves = null,
+  onMoveRequested,
+}) => {
   const { t, lang } = useT();
 
   const [target, setTarget] = useState(null);
@@ -51,6 +68,7 @@ export const ClassDetail = ({ classId, onBack, onChanged, showToast, readOnly = 
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const [removing, setRemoving] = useState(null);
+  const [moving, setMoving] = useState(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -229,6 +247,26 @@ export const ClassDetail = ({ classId, onBack, onChanged, showToast, readOnly = 
                     {t('profile.nisn')} {student.nisn ?? '—'} · {t('classes.detail.since', { date: formatDay(student.placedAt, lang) })}
                   </span>
                 </span>
+                {canMove && open && (
+                  pendingMoves?.get(student.studentProfileId) ? (
+                    <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold text-amber-800 bg-amber-50">
+                      <Clock className="w-4 h-4 shrink-0" aria-hidden="true" />
+                      {t('moves.roster.waiting', { to: pendingMoves.get(student.studentProfileId).toClass.name })}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setMoving(student)}
+                      aria-label={t('moves.roster.moveNamed', { name: student.fullName })}
+                      title={t('moves.roster.move')}
+                      className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold text-brand hover:bg-brand-tint transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    >
+                      <ArrowRightLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
+                      <span className="hidden sm:inline">{t('moves.roster.move')}</span>
+                    </button>
+                  )
+                )}
+                {!readOnly && (
                 <button
                   type="button"
                   onClick={() => setRemoving({ membershipId: student.membershipId, fullName: student.fullName })}
@@ -239,11 +277,34 @@ export const ClassDetail = ({ classId, onBack, onChanged, showToast, readOnly = 
                   <UserMinus className="w-4 h-4 shrink-0" aria-hidden="true" />
                   <span className="hidden sm:inline">{t('members.remove')}</span>
                 </button>
+                )}
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      {moving && (
+        <MoveStudentDialog
+          key={moving.studentProfileId}
+          student={moving}
+          fromClass={target}
+          onClose={() => setMoving(null)}
+          onRequested={(move) => {
+            setMoving(null);
+            if (move?.status === 'ACTIVE') {
+              /* Both classes were the reader's: the student has already gone. */
+              const remaining = students.filter((entry) => entry.studentProfileId !== moving.studentProfileId);
+              setTarget((prev) => ({ ...prev, students: remaining, studentCount: remaining.length }));
+              onChanged({ ...target, students: undefined, studentCount: remaining.length });
+              showToast(t('moves.request.moved', { name: moving.fullName, to: move.toClass.name }), 'success');
+            } else {
+              showToast(t('moves.request.sent', { name: moving.fullName, to: move?.toClass?.name ?? '' }), 'success');
+            }
+            onMoveRequested?.(move);
+          }}
+        />
+      )}
 
       {removing && (
         <RemoveMemberDialog

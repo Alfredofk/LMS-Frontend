@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 
+import { useT } from '../../i18n/LanguageContext';
+
 /**
  * Reusable and accessible Input component.
  * Supports prepended icons, password show/hide functionality, and error messages.
@@ -15,6 +17,7 @@ export const Input = React.forwardRef(({
   className = '',
   ...props
 }, ref) => {
+  const { t } = useT();
   const [showPassword, setShowPassword] = useState(false);
 
   const isPassword = type === 'password';
@@ -76,7 +79,7 @@ export const Input = React.forwardRef(({
             type="button"
             onClick={() => setShowPassword((prev) => !prev)}
             className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-600 transition-colors focus:outline-none focus-visible:text-brand"
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            aria-label={t(showPassword ? 'common.password.hide' : 'common.password.show')}
           >
             {showPassword ? (
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">

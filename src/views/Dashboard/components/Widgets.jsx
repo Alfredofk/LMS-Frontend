@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, ListTodo, Megaphone, Calendar } from 'lucide-react';
+import { BookOpen, ListTodo, Megaphone, Calendar, Wrench } from 'lucide-react';
 
 import { useT } from '../../../i18n/LanguageContext';
 import { SampleTag } from './SampleDataNotice';
@@ -12,6 +12,12 @@ import { SampleTag } from './SampleDataNotice';
   That is not a temporary arrangement waiting for endpoints — it is what lets the
   same components render sample data today and a real payload tomorrow without
   being touched.
+
+  `notBuilt` is the third state, beside loading and a payload: the endpoint
+  behind the card does not exist yet. It keeps the card's heading, so the
+  dashboard still shows what it will hold, and replaces the body with "not
+  available yet" — never the card's own empty message, because "no activities
+  today" is a claim about the student that nobody has made.
 
   Field names are camelCase and follow `prisma/schema.prisma`, which has no
   snake_case column anywhere. They used to read `subject_name`, `total_tasks`,
@@ -76,7 +82,7 @@ const EmptyState = ({ icon: Icon, messageKey }) => {
   before this existed. `footer` is for the one widget that puts something below
   the list.
 */
-const WidgetCard = ({ titleKey, seeAllTo, isSample, footer, children }) => {
+const WidgetCard = ({ titleKey, seeAllTo, isSample, notBuilt, footer, children }) => {
   const navigate = useNavigate();
   const { t } = useT();
 
@@ -99,10 +105,10 @@ const WidgetCard = ({ titleKey, seeAllTo, isSample, footer, children }) => {
           </button>
         </div>
 
-        {children}
+        {notBuilt ? <EmptyState icon={Wrench} messageKey="common.notBuilt.title" /> : children}
       </div>
 
-      {footer}
+      {!notBuilt && footer}
     </div>
   );
 };
@@ -115,13 +121,13 @@ const WidgetCard = ({ titleKey, seeAllTo, isSample, footer, children }) => {
  * @param {Array<{id, startTime, endTime, subjectName, teacherName, room?}>} activities
  *   `startTime` / `endTime` are "HH:MM".
  */
-export const TodayActivities = ({ activities = [], isLoading, isSample }) => {
+export const TodayActivities = ({ activities = [], isLoading, isSample, notBuilt }) => {
   const { t } = useT();
 
   if (isLoading) return <WidgetSkeleton />;
 
   return (
-    <WidgetCard titleKey="dash.today.title" seeAllTo="/schedule" isSample={isSample}>
+    <WidgetCard titleKey="dash.today.title" seeAllTo="/schedule" isSample={isSample} notBuilt={notBuilt}>
       {activities.length === 0 ? (
         <EmptyState icon={Calendar} messageKey="dash.today.empty" />
       ) : (
@@ -164,7 +170,7 @@ export const TodayActivities = ({ activities = [], isLoading, isSample }) => {
  * @param {Array<{id, title, subjectName, dueAt}>} assessments  `dueAt` is ISO.
  * @param {boolean} isSample  sample rows do not navigate — see below.
  */
-export const ActiveAssessment = ({ assessments = [], isLoading, isSample }) => {
+export const ActiveAssessment = ({ assessments = [], isLoading, isSample, notBuilt }) => {
   const navigate = useNavigate();
   const { t, lang } = useT();
 
@@ -234,6 +240,7 @@ export const ActiveAssessment = ({ assessments = [], isLoading, isSample }) => {
       titleKey="dash.assessment.title"
       seeAllTo="/assessment"
       isSample={isSample}
+      notBuilt={notBuilt}
       footer={footer}
     >
       {shown.length === 0 ? (
@@ -297,13 +304,13 @@ export const ActiveAssessment = ({ assessments = [], isLoading, isSample }) => {
 /**
  * @param {Array<{classSubjectId, subjectName, teacherName, totalTasks, submittedTasks}>} courseProgress
  */
-export const CourseProgress = ({ courseProgress = [], isLoading, isSample }) => {
+export const CourseProgress = ({ courseProgress = [], isLoading, isSample, notBuilt }) => {
   const { t } = useT();
 
   if (isLoading) return <WidgetSkeleton rows={2} />;
 
   return (
-    <WidgetCard titleKey="dash.progress.title" seeAllTo="/classroom" isSample={isSample}>
+    <WidgetCard titleKey="dash.progress.title" seeAllTo="/classroom" isSample={isSample} notBuilt={notBuilt}>
       {courseProgress.length === 0 ? (
         <EmptyState icon={BookOpen} messageKey="dash.progress.empty" />
       ) : (
@@ -356,7 +363,7 @@ export const CourseProgress = ({ courseProgress = [], isLoading, isSample }) => 
 /**
  * @param {Array<{id, title, body, createdAt, authorName}>} announcements
  */
-export const SchoolAnnouncement = ({ announcements = [], isLoading, isSample }) => {
+export const SchoolAnnouncement = ({ announcements = [], isLoading, isSample, notBuilt }) => {
   const { t } = useT();
 
   if (isLoading) return <WidgetSkeleton rows={2} />;
@@ -371,7 +378,7 @@ export const SchoolAnnouncement = ({ announcements = [], isLoading, isSample }) 
   };
 
   return (
-    <WidgetCard titleKey="dash.announcement.title" seeAllTo="/announcements" isSample={isSample}>
+    <WidgetCard titleKey="dash.announcement.title" seeAllTo="/announcements" isSample={isSample} notBuilt={notBuilt}>
       {announcements.length === 0 ? (
         <EmptyState icon={Megaphone} messageKey="dash.announcement.empty" />
       ) : (

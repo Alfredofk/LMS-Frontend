@@ -103,7 +103,7 @@ export const ConfirmDialog = ({
         aria-busy={busy}
         /* The backdrop closes on click; the panel must not pass its own clicks up. */
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 sm:p-7 space-y-3 text-left"
+        className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 sm:p-7 space-y-3 text-left max-h-[90dvh] overflow-y-auto"
       >
         <h2 id="confirm-dialog-title" className="text-base font-extrabold text-slate-900 tracking-tight">
           {title}

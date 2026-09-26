@@ -160,6 +160,30 @@ export function heldRolesOf(membership) {
     .map((entry) => entry.role);
 }
 
+/**
+ * How this member may leave the school (backend `75e2fdd`, ticket 17):
+ *
+ *   'NONE'    — a Principal: a school is not left without its Principal
+ *               (loadLeaver checks this first, so a Principal who also teaches
+ *               cannot leave either);
+ *   'REQUEST' — holding TEACHER or STUDENT: with a resignation letter the
+ *               Principal approves (NEEDS_LEAVE_APPROVAL in membership.service.js);
+ *   'DIRECT'  — anybody else, which today means a guardian: at once.
+ *
+ * Read from the ACTIVE roles, as the backend reads them. Null for somebody not
+ * at a running school.
+ *
+ * @param {object|null} membership either shape
+ * @returns {'NONE'|'REQUEST'|'DIRECT'|null}
+ */
+export function leaveModeOf(membership) {
+  const held = heldRolesOf(membership);
+  if (held.length === 0) return null;
+  if (held.includes(ROLES.PRINCIPAL)) return 'NONE';
+  if (held.includes(ROLES.TEACHER) || held.includes(ROLES.STUDENT)) return 'REQUEST';
+  return 'DIRECT';
+}
+
 /*
   Which role somebody holding several walks in as, when nobody has chosen.
 

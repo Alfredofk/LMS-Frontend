@@ -10,32 +10,33 @@ import {
   AlertTriangle 
 } from 'lucide-react';
 import { useT } from '../../i18n/LanguageContext';
-import { getAccessToken } from '../../services/apiClient';
+import NotBuiltYet from '../../components/ui/NotBuiltYet';
+import { api, isNotBuiltYet } from '../../services/apiClient';
 
+/*
+  `/api/assessment/student` does not exist — there is no model for an
+  assignment or a submission in the schema — so the request 404s. The page then
+  shows its heading and NotBuiltYet, not the tabs and an "all done" empty state,
+  which would tell a student they have nothing due.
+*/
 export const AssessmentPage = () => {
   const { t, lang } = useT();
   const locale = lang === 'id' ? 'id-ID' : 'en-GB';
   const navigate = useNavigate();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [notBuilt, setNotBuilt] = useState(false);
   const [activeTab, setActiveTab] = useState('active'); // 'active' | 'submitted' | 'graded'
   const [searchQuery, setSearchQuery] = useState('');
 
   const fetchTasks = async () => {
     setLoading(true);
     try {
-      const token = getAccessToken();
-      if (!token) return;
-
-      const res = await fetch('/api/assessment/student', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setTasks(data);
-      }
+      const data = await api.get('/assessment/student');
+      setTasks(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error('Fetch Student Assessments Error:', err);
+      if (isNotBuiltYet(err)) setNotBuilt(true);
+      else console.error('Fetch Student Assessments Error:', err);
     } finally {
       setLoading(false);
     }
@@ -126,19 +127,32 @@ export const AssessmentPage = () => {
     return t('asm.remaining.minutes', { n: Math.floor(diffMs / 60000) });
   };
 
+  const heading = (
+    <div>
+      <h1 className="text-xl sm:text-2xl font-extrabold text-slate-800 leading-tight">
+        {t('asm.title')}
+      </h1>
+      <p className="text-xs text-slate-500 font-bold mt-1">
+        {t('asm.subtitle')}
+      </p>
+    </div>
+  );
+
+  if (notBuilt) {
+    return (
+      <div className="flex-1 overflow-y-auto bg-slate-50 p-6 sm:p-8 font-sans flex flex-col">
+        <div className="mb-8 select-none">{heading}</div>
+        <NotBuiltYet />
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50 p-6 sm:p-8 font-sans flex flex-col">
-      
+
       {/* Header section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 select-none">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-800 leading-tight">
-            {t('asm.title')}
-          </h1>
-          <p className="text-xs text-slate-500 font-bold mt-1">
-            {t('asm.subtitle')}
-          </p>
-        </div>
+        {heading}
 
         {/* Search Input */}
         <div className="relative w-full sm:w-72">
