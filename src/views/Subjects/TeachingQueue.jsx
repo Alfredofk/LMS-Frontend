@@ -6,7 +6,7 @@ import ReasonDialog from '../../components/ReasonDialog';
 import { academicsService } from '../../services/academicsService';
 import { useT } from '../../i18n/LanguageContext';
 import { subjectsErrorMessage, isStaleTeaching } from '../../i18n/apiError';
-import { bulkOutcome } from './subjects';
+import { bulkOutcome, isOwnRequest } from './subjects';
 
 /*
   Teachers asking to teach a subject in a class — the Principal's queue,
@@ -19,8 +19,12 @@ import { bulkOutcome } from './subjects';
   slot must not hide that the other twenty went through. There is no bulk
   reject in the backend. A request decided elsewhere closes its dialog and
   re-reads the queue.
+
+  `selfId` is set for a Vice Principal (ticket 19): the queue is theirs to run,
+  except their own requests, which the server refuses them (403). Those rows are
+  shown with a line saying who decides, and no box and no buttons.
 */
-export const TeachingQueue = ({ requests, error, onChanged, showToast }) => {
+export const TeachingQueue = ({ requests, error, onChanged, showToast, selfId = null }) => {
   const { t, lang } = useT();
   const [ticked, setTicked] = useState(() => new Set());
   const [approving, setApproving] = useState(null); // one request, or 'BULK'
@@ -108,7 +112,8 @@ export const TeachingQueue = ({ requests, error, onChanged, showToast }) => {
     return <div className="h-48 bg-white border border-slate-100 rounded-2xl animate-pulse" aria-label={t('common.loading')} />;
   }
 
-  const allTicked = requests.length > 0 && requests.every((request) => ticked.has(request.id));
+  const decidable = requests.filter((request) => !isOwnRequest(request, selfId));
+  const allTicked = decidable.length > 0 && decidable.every((request) => ticked.has(request.id));
 
   return (
     <div className="space-y-4">
@@ -139,7 +144,8 @@ export const TeachingQueue = ({ requests, error, onChanged, showToast }) => {
               <input
                 type="checkbox"
                 checked={allTicked}
-                onChange={() => setTicked(allTicked ? new Set() : new Set(requests.map((request) => request.id)))}
+                disabled={decidable.length === 0}
+                onChange={() => setTicked(allTicked ? new Set() : new Set(decidable.map((request) => request.id)))}
                 className="w-4 h-4 accent-brand cursor-pointer"
               />
               {t('subjects.queue.selectAll')}
@@ -157,9 +163,14 @@ export const TeachingQueue = ({ requests, error, onChanged, showToast }) => {
           </div>
 
           <ul className="bg-white border border-slate-100 rounded-2xl shadow-sm divide-y divide-slate-100">
-            {requests.map((request) => (
+            {requests.map((request) => {
+              const own = isOwnRequest(request, selfId);
+              return (
               <li key={request.id} className="px-5 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                 <div className="flex items-start gap-3 min-w-0">
+                  {own ? (
+                    <span className="w-4 shrink-0" aria-hidden="true" />
+                  ) : (
                   <input
                     type="checkbox"
                     checked={ticked.has(request.id)}
@@ -167,6 +178,7 @@ export const TeachingQueue = ({ requests, error, onChanged, showToast }) => {
                     aria-label={t('subjects.queue.tick', { teacher: request.teacher.fullName, subject: request.subject.name })}
                     className="mt-1 w-4 h-4 accent-brand cursor-pointer shrink-0"
                   />
+                  )}
                   <div className="min-w-0 space-y-1">
                     <p className="text-sm font-extrabold text-slate-800 break-words">{request.teacher.fullName}</p>
                     <p className="text-xs font-bold text-slate-700 break-words">
@@ -181,8 +193,12 @@ export const TeachingQueue = ({ requests, error, onChanged, showToast }) => {
                         date: day(request.requestedAt),
                       })}
                     </p>
+                    {own && (
+                      <p className="text-[11px] font-semibold text-amber-800">{t('subjects.queue.own')}</p>
+                    )}
                   </div>
                 </div>
+                {!own && (
                 <div className="flex flex-wrap gap-2 shrink-0 pl-7 lg:pl-0">
                   <button
                     type="button"
@@ -201,8 +217,10 @@ export const TeachingQueue = ({ requests, error, onChanged, showToast }) => {
                     {t('subjects.queue.approve')}
                   </button>
                 </div>
+                )}
               </li>
-            ))}
+              );
+            })}
           </ul>
         </>
       )}

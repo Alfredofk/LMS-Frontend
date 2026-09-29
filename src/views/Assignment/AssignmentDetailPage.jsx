@@ -141,7 +141,7 @@ export const AssignmentDetailPage = () => {
       );
     }
     return (
-      <span className="px-2.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-500 text-[10px] font-extrabold rounded-md inline-flex items-center gap-1 uppercase select-none">
+      <span className="px-2.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-600 text-[10px] font-extrabold rounded-md inline-flex items-center gap-1 uppercase select-none">
         Belum Mengumpulkan
       </span>
     );

@@ -1,16 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { DoorOpen, Search, ShieldOff, UserMinus, Users } from 'lucide-react';
+import { DoorOpen, Search, ShieldCheck, ShieldOff, ShieldX, UserMinus, Users } from 'lucide-react';
 
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
 import RemoveMemberDialog from '../../components/RemoveMemberDialog';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import LeaveRequestsPanel from './LeaveRequestsPanel';
 import { membersService } from '../../services/membersService';
 import { leaveRequestsService } from '../../services/leaveRequestsService';
 import { isNotBuiltYet } from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
-import { membersErrorMessage, leaveDecisionErrorMessage } from '../../i18n/apiError';
+import { membersErrorMessage, leaveDecisionErrorMessage, viceErrorMessage } from '../../i18n/apiError';
 import { ROLES } from '../../constants/roles';
 import { notifyPendingChanged } from '../../hooks/usePendingCounts';
 
@@ -44,9 +45,18 @@ import { notifyPendingChanged } from '../../hooks/usePendingCounts';
   own fetch, which may fail without taking the members down with it. It is read
   on arrival so its count shows, and re-read — with the members — after every
   decision, because approving one moves the person to "Left".
+
+  **A Vice Principal reads this page too** (backend `89a5666`, ticket 19), and
+  everything that changes who is in the school stays the Principal's: removing,
+  the leave-request tab and appointing or revoking a Vice Principal are not
+  rendered for them at all (owner, 2026-09-29) — the server would answer 403.
+
+  **The Principal appoints a Vice Principal from a teacher's row**, and revokes
+  from theirs. Either takes effect at that person's next token, which the
+  confirmation says; revoking leaves them a teacher.
 */
 
-const TABS = ['ALL', 'TEACHER', 'STUDENT', 'GUARDIAN', 'LEFT'];
+const TABS = ['ALL', 'VICE_PRINCIPAL', 'TEACHER', 'STUDENT', 'GUARDIAN', 'LEFT'];
 
 /* Name, and every number a school might search by. */
 const matches = (member, needle) => {
@@ -60,8 +70,10 @@ const matches = (member, needle) => {
 
 export const MembersPage = () => {
   const { showToast } = useOutletContext();
-  const { membership } = useAuth();
+  const { membership, activeRole } = useAuth();
   const { t, lang } = useT();
+  /* Removing, leave requests and the Vice Principal switch: the Principal's alone. */
+  const isPrincipal = activeRole === ROLES.PRINCIPAL;
 
   const [active, setActive] = useState(null);
   const [left, setLeft] = useState(null);
@@ -73,6 +85,9 @@ export const MembersPage = () => {
   const [removing, setRemoving] = useState(null);
   const [leaveRequests, setLeaveRequests] = useState(null);
   const [leaveError, setLeaveError] = useState(null);
+  /* { member, action: 'appoint'|'revoke' } while the question is on screen. */
+  const [viceChange, setViceChange] = useState(null);
+  const [viceBusy, setViceBusy] = useState(false);
 
   const fetchBoth = () =>
     Promise.all([membersService.list({ status: 'ACTIVE' }), membersService.list({ status: 'LEFT' })]);
@@ -105,8 +120,8 @@ export const MembersPage = () => {
   );
 
   useEffect(() => {
-    loadLeaveRequests();
-  }, [loadLeaveRequests]);
+    if (isPrincipal) loadLeaveRequests();
+  }, [loadLeaveRequests, isPrincipal]);
 
   const handleLeaveChanged = () => {
     loadLeaveRequests();
@@ -145,6 +160,23 @@ export const MembersPage = () => {
     /* They move from a role tab to "Left", with the reason — read back rather
        than patched, since the server is what wrote endedAt and endReason. */
     fetchBoth().then(apply).catch(fail);
+  };
+
+  const handleViceConfirm = async () => {
+    const { member, action } = viceChange;
+    setViceBusy(true);
+    try {
+      if (action === 'appoint') await membersService.appointVicePrincipal(member.membershipId);
+      else await membersService.revokeVicePrincipal(member.membershipId);
+      showToast(t(`members.vice.${action}.done`, { name: member.fullName }), 'success');
+    } catch (err) {
+      showToast(viceErrorMessage(err, t), 'error');
+    } finally {
+      setViceBusy(false);
+      setViceChange(null);
+      /* Read back either way: a 409 or 404 means it changed elsewhere. */
+      fetchBoth().then(apply).catch(fail);
+    }
   };
 
   const title = (
@@ -206,7 +238,7 @@ export const MembersPage = () => {
               {!loading && count > 0 && (
                 <span
                   className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold tabular-nums ${
-                    isActive ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-500'
+                    isActive ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-600'
                   }`}
                 >
                   {count}
@@ -215,6 +247,7 @@ export const MembersPage = () => {
             </button>
           );
         })}
+        {isPrincipal && (
         <button
           type="button"
           onClick={() => setTab('LEAVE')}
@@ -231,9 +264,10 @@ export const MembersPage = () => {
             </span>
           )}
         </button>
+        )}
       </div>
 
-      {tab === 'LEAVE' ? (
+      {tab === 'LEAVE' && isPrincipal ? (
         <LeaveRequestsPanel
           requests={leaveRequests}
           error={leaveError}
@@ -271,7 +305,13 @@ export const MembersPage = () => {
         <ul className="bg-white border border-slate-100 rounded-2xl shadow-sm divide-y divide-slate-100">
           {rows.map((member) => {
             const isSelf = member.membershipId === membership?.id;
-            const removable = tab !== 'LEFT' && !isSelf && !member.roles.includes(ROLES.PRINCIPAL);
+            const here = tab !== 'LEFT';
+            const removable = isPrincipal && here && !isSelf && !member.roles.includes(ROLES.PRINCIPAL);
+            const isVice = member.roles.includes(ROLES.VICE_PRINCIPAL);
+            /* The server's own rule: an active teacher, not the Principal. */
+            const appointable =
+              isPrincipal && here && !isVice && member.roles.includes(ROLES.TEACHER) && !member.roles.includes(ROLES.PRINCIPAL);
+            const revocable = isPrincipal && here && isVice;
             const ids = [
               member.nisn && `${t('profile.nisn')} ${member.nisn}`,
               member.nip && `${t('profile.nip')} ${member.nip}`,
@@ -284,7 +324,7 @@ export const MembersPage = () => {
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-sm font-extrabold text-slate-800 break-words">{member.fullName}</span>
                     {isSelf && (
-                      <span className="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-slate-100 text-slate-500">
+                      <span className="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-slate-100 text-slate-600">
                         {t('members.you')}
                       </span>
                     )}
@@ -315,15 +355,39 @@ export const MembersPage = () => {
                   )}
                 </div>
 
+                {(removable || appointable || revocable) && (
+                <div className="self-start sm:self-center shrink-0 flex flex-wrap gap-2">
+                {appointable && (
+                  <button
+                    type="button"
+                    onClick={() => setViceChange({ member, action: 'appoint' })}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-brand hover:bg-brand-tint text-xs font-extrabold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                  >
+                    <ShieldCheck className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    {t('members.vice.appoint')}
+                  </button>
+                )}
+                {revocable && (
+                  <button
+                    type="button"
+                    onClick={() => setViceChange({ member, action: 'revoke' })}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-extrabold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                  >
+                    <ShieldX className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    {t('members.vice.revoke')}
+                  </button>
+                )}
                 {removable && (
                   <button
                     type="button"
                     onClick={() => setRemoving(member)}
-                    className="self-start sm:self-center shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-extrabold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-extrabold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
                   >
                     <UserMinus className="w-4 h-4 shrink-0" aria-hidden="true" />
                     {t('members.remove')}
                   </button>
+                )}
+                </div>
                 )}
               </li>
             );
@@ -332,6 +396,18 @@ export const MembersPage = () => {
       )}
       </>
       )}
+
+      <ConfirmDialog
+        open={Boolean(viceChange)}
+        tone={viceChange?.action === 'revoke' ? 'danger' : 'brand'}
+        title={viceChange ? t(`members.vice.${viceChange.action}.title`, { name: viceChange.member.fullName }) : ''}
+        body={viceChange ? t(`members.vice.${viceChange.action}.body`, { name: viceChange.member.fullName }) : ''}
+        confirmLabel={viceChange ? t(`members.vice.${viceChange.action}`) : ''}
+        cancelLabel={t('common.cancel')}
+        busy={viceBusy}
+        onConfirm={handleViceConfirm}
+        onCancel={() => setViceChange(null)}
+      />
 
       {removing && (
         <RemoveMemberDialog

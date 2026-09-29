@@ -11,6 +11,7 @@ import {
   validateDateRange,
   yearDatesMatchLabel,
   semesterFits,
+  yearHoldsSemesters,
   deadlineFits,
   monthsBetween,
   isUsualYearLength,
@@ -30,8 +31,11 @@ import { formatDay, suggestedYearLabel } from '../format';
 
 const DATE_FIELDS = ['startDate', 'endDate'];
 
-const useDateRange = () => {
-  const [values, setValues] = useState({ startDate: '', endDate: '' });
+/* An API date ("2028-08-18T00:00:00.000Z") as a date input wants it. */
+const dayOf = (value) => (value ? String(value).slice(0, 10) : '');
+
+const useDateRange = (initial) => {
+  const [values, setValues] = useState({ startDate: dayOf(initial?.startDate), endDate: dayOf(initial?.endDate) });
   const [errors, setErrors] = useState({});
 
   const change = (name) => (e) => {
@@ -70,20 +74,26 @@ const Actions = ({ onCancel, isWorking, submitLabel }) => {
 };
 
 /**
- * A new academic year. Several may be ACTIVE at once — next year can be set up
- * before this one closes — so this is offered whether or not one exists.
+ * A new academic year — or, given `initial`, a correction to one.
  *
- * **Nothing about a year can be changed once it exists**: the backend has no
- * route to edit or delete one, its label is unique per school, and every
- * semester must fit inside its dates. A year created as "2028/2029, 18 Aug –
- * 18 Sep 2028" (it happened) is stuck that way. So the dates are checked against
- * the label (`yearDatesMatchLabel`), and the press is confirmed with the whole
- * year spelled out — its length too, with a warning outside 9–13 months.
+ * Several may be ACTIVE at once — next year can be set up before this one
+ * closes — so a new one is offered whether or not one exists.
+ *
+ * **An ACTIVE year can be corrected since backend `f669286`**, label and dates,
+ * as long as the dates still hold every semester in it (`yearHoldsSemesters`).
+ * Until then a year created as "2028/2029, 18 Aug – 18 Sep 2028" (it happened)
+ * was stuck that way, which is why the dates are checked against the label
+ * (`yearDatesMatchLabel`) and the press is confirmed with the whole year spelled
+ * out — its length too, with a warning outside 9–13 months. Both stay: a CLOSED
+ * year still cannot be changed, and the label stays unique per school forever.
+ *
+ * Editing sends only what changed; the server refuses an empty change.
  */
-export const AcademicYearForm = ({ onCreated, onCancel }) => {
+export const AcademicYearForm = ({ onCreated, onCancel, initial = null, onSaved }) => {
   const { t, lang } = useT();
-  const { values, errors, setErrors, change } = useDateRange();
-  const [label, setLabel] = useState('');
+  const editing = Boolean(initial);
+  const { values, errors, setErrors, change } = useDateRange(initial);
+  const [label, setLabel] = useState(initial?.label ?? '');
   const [isWorking, setIsWorking] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
@@ -102,10 +112,31 @@ export const AcademicYearForm = ({ onCreated, onCancel }) => {
       if (match.start) next.startDate = t(match.start.key, match.start.vars);
       if (match.end) next.endDate = t(match.end.key, match.end.vars);
     }
+    if (editing && !next.startDate && !next.endDate && !range.start && !range.end) {
+      const held = yearHoldsSemesters(initial, values.startDate, values.endDate);
+      if (held) {
+        /* On the side that moved past a semester: a start too late, else the end. */
+        const startTooLate = yearHoldsSemesters(initial, values.startDate, '9999-12-31');
+        next[startTooLate ? 'startDate' : 'endDate'] = t(held.key, held.vars);
+      }
+    }
+    if (editing && Object.keys(next).length === 0 && Object.keys(changes()).length === 0) {
+      next.global = t('classes.edit.nothing');
+    }
     setErrors(next);
     if (Object.keys(next).length) return;
 
     setConfirming(true);
+  };
+
+  /* What differs from the year as it stands — all of it, for a new one. */
+  const changes = () => {
+    const body = { label: label.trim(), startDate: values.startDate, endDate: values.endDate };
+    if (!editing) return body;
+    if (body.label === initial.label) delete body.label;
+    if (body.startDate === dayOf(initial.startDate)) delete body.startDate;
+    if (body.endDate === dayOf(initial.endDate)) delete body.endDate;
+    return body;
   };
 
   const months = values.startDate && values.endDate ? monthsBetween(values.startDate, values.endDate) : 0;
@@ -113,13 +144,11 @@ export const AcademicYearForm = ({ onCreated, onCancel }) => {
   const create = async () => {
     setIsWorking(true);
     try {
-      const year = await academicsService.createAcademicYear({
-        label: label.trim(),
-        startDate: values.startDate,
-        endDate: values.endDate,
-      });
+      const year = editing
+        ? await academicsService.updateAcademicYear(initial.id, changes())
+        : await academicsService.createAcademicYear(changes());
       setConfirming(false);
-      onCreated(year);
+      (editing ? onSaved : onCreated)(year);
     } catch (err) {
       setConfirming(false);
       const fields = fieldErrorsFrom(err.details, ['label', ...DATE_FIELDS]);
@@ -132,7 +161,7 @@ export const AcademicYearForm = ({ onCreated, onCancel }) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4 text-left" noValidate>
       <Input
-        id="yearLabel"
+        id={editing ? 'yearLabelEdit' : 'yearLabel'}
         name="label"
         label={t('classes.year.field.label')}
         placeholder={suggestedYearLabel()}
@@ -148,7 +177,7 @@ export const AcademicYearForm = ({ onCreated, onCancel }) => {
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Input
-          id="yearStart"
+          id={editing ? 'yearStartEdit' : 'yearStart'}
           name="startDate"
           label={t('classes.field.startDate')}
           type="date"
@@ -157,7 +186,7 @@ export const AcademicYearForm = ({ onCreated, onCancel }) => {
           onChange={change('startDate')}
         />
         <Input
-          id="yearEnd"
+          id={editing ? 'yearEndEdit' : 'yearEnd'}
           name="endDate"
           label={t('classes.field.endDate')}
           type="date"
@@ -168,12 +197,16 @@ export const AcademicYearForm = ({ onCreated, onCancel }) => {
       </div>
 
       <GlobalError message={errors.global} />
-      <Actions onCancel={onCancel} isWorking={isWorking} submitLabel={t('classes.year.create')} />
+      <Actions
+        onCancel={onCancel}
+        isWorking={isWorking}
+        submitLabel={t(editing ? 'classes.edit.save' : 'classes.year.create')}
+      />
 
       <ConfirmDialog
         open={confirming}
         tone="brand"
-        title={t('classes.year.confirm.title', { label: label.trim() })}
+        title={t(editing ? 'classes.year.edit.confirmTitle' : 'classes.year.confirm.title', { label: label.trim() })}
         body={
           t('classes.year.confirm.body', {
             start: formatDay(values.startDate, lang),
@@ -181,7 +214,7 @@ export const AcademicYearForm = ({ onCreated, onCancel }) => {
             months,
           }) + (isUsualYearLength(months) ? '' : ' ' + t('classes.year.confirm.unusual', { months }))
         }
-        confirmLabel={t('classes.year.create')}
+        confirmLabel={t(editing ? 'classes.edit.save' : 'classes.year.create')}
         cancelLabel={t('classes.year.confirm.back')}
         busy={isWorking}
         busyLabel={t('common.loading')}
@@ -193,21 +226,27 @@ export const AcademicYearForm = ({ onCreated, onCancel }) => {
 };
 
 /**
- * Semester 1 or 2 of one year. The dates must sit inside the year and clear of
- * the other half; the year's own range is shown so nobody has to guess it.
+ * Semester 1 or 2 of one year — or, given `initial`, a correction to one. The
+ * dates must sit inside the year and clear of the other half; the year's own
+ * range is shown so nobody has to guess it.
+ *
+ * An OPEN semester's dates and deadline can be corrected since backend
+ * `f669286`; its ordinal never changes. A deadline emptied is sent as null,
+ * which removes it.
  */
-export const SemesterForm = ({ year, ordinal, onCreated, onCancel }) => {
+export const SemesterForm = ({ year, ordinal, onCreated, onCancel, initial = null, onSaved }) => {
   const { t, lang } = useT();
-  const { values, errors, setErrors, change } = useDateRange();
+  const editing = Boolean(initial);
+  const { values, errors, setErrors, change } = useDateRange(initial);
   /* Optional (ticket 08): from this day on, only the Principal assigns teachers. */
-  const [deadline, setDeadline] = useState('');
+  const [deadline, setDeadline] = useState(dayOf(initial?.classSubjectRegistrationDeadline));
   const [isWorking, setIsWorking] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
   /*
-    Like the year: a semester cannot be edited or deleted once it exists, so its
-    dates are checked against the year and the other semester here
-    (`semesterFits`), and the press is confirmed with the dates spelled out.
+    Checked against the year and the other semester here (`semesterFits` — it
+    skips this semester's own ordinal, so an edit is not measured against
+    itself), and the press is confirmed with the dates spelled out.
   */
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -224,23 +263,42 @@ export const SemesterForm = ({ year, ordinal, onCreated, onCancel }) => {
       const late = deadlineFits(values.startDate, values.endDate, deadline);
       if (late) next.deadline = t(late.key);
     }
+    if (editing && Object.keys(next).length === 0 && Object.keys(changes()).length === 0) {
+      next.global = t('classes.edit.nothing');
+    }
     setErrors(next);
     if (Object.keys(next).length) return;
 
     setConfirming(true);
   };
 
-  const create = async () => {
-    setIsWorking(true);
-    try {
-      const updated = await academicsService.createSemester(year.id, {
+  /* What differs from the semester as it stands; an emptied deadline is null. */
+  const changes = () => {
+    if (!editing) {
+      return {
         ordinal,
         startDate: values.startDate,
         endDate: values.endDate,
         ...(deadline ? { classSubjectRegistrationDeadline: deadline } : {}),
-      });
+      };
+    }
+    const body = {};
+    if (values.startDate !== dayOf(initial.startDate)) body.startDate = values.startDate;
+    if (values.endDate !== dayOf(initial.endDate)) body.endDate = values.endDate;
+    if (deadline !== dayOf(initial.classSubjectRegistrationDeadline)) {
+      body.classSubjectRegistrationDeadline = deadline || null;
+    }
+    return body;
+  };
+
+  const create = async () => {
+    setIsWorking(true);
+    try {
+      const updated = editing
+        ? await academicsService.updateSemester(initial.id, changes())
+        : await academicsService.createSemester(year.id, changes());
       setConfirming(false);
-      onCreated(updated);
+      (editing ? onSaved : onCreated)(updated);
     } catch (err) {
       setConfirming(false);
       if (String(err?.message ?? '').includes('registration deadline must fall inside')) {
@@ -265,7 +323,7 @@ export const SemesterForm = ({ year, ordinal, onCreated, onCancel }) => {
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Input
-          id={`semester${ordinal}Start`}
+          id={`semester${ordinal}Start${editing ? 'Edit' : ''}`}
           name="startDate"
           label={t('classes.field.startDate')}
           type="date"
@@ -274,7 +332,7 @@ export const SemesterForm = ({ year, ordinal, onCreated, onCancel }) => {
           onChange={change('startDate')}
         />
         <Input
-          id={`semester${ordinal}End`}
+          id={`semester${ordinal}End${editing ? 'Edit' : ''}`}
           name="endDate"
           label={t('classes.field.endDate')}
           type="date"
@@ -285,7 +343,7 @@ export const SemesterForm = ({ year, ordinal, onCreated, onCancel }) => {
       </div>
       <div className="space-y-1.5">
         <Input
-          id={`semester${ordinal}Deadline`}
+          id={`semester${ordinal}Deadline${editing ? 'Edit' : ''}`}
           name="classSubjectRegistrationDeadline"
           label={t('classes.semester.deadline')}
           type="date"
@@ -305,13 +363,13 @@ export const SemesterForm = ({ year, ordinal, onCreated, onCancel }) => {
       <Actions
         onCancel={onCancel}
         isWorking={isWorking}
-        submitLabel={t('classes.semester.create', { n: ordinal })}
+        submitLabel={editing ? t('classes.edit.save') : t('classes.semester.create', { n: ordinal })}
       />
 
       <ConfirmDialog
         open={confirming}
         tone="brand"
-        title={t('classes.semester.confirm.title', { n: ordinal, label: year.label })}
+        title={t(editing ? 'classes.semester.edit.confirmTitle' : 'classes.semester.confirm.title', { n: ordinal, label: year.label })}
         body={`${t('classes.semester.confirm.body', {
           start: formatDay(values.startDate, lang),
           end: formatDay(values.endDate, lang),
@@ -320,7 +378,7 @@ export const SemesterForm = ({ year, ordinal, onCreated, onCancel }) => {
             ? t('classes.semester.confirm.deadline', { date: formatDay(deadline, lang) })
             : t('classes.semester.confirm.noDeadline')
         }`}
-        confirmLabel={t('classes.semester.create', { n: ordinal })}
+        confirmLabel={editing ? t('classes.edit.save') : t('classes.semester.create', { n: ordinal })}
         cancelLabel={t('classes.year.confirm.back')}
         busy={isWorking}
         busyLabel={t('common.loading')}

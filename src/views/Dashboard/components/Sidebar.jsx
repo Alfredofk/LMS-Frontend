@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { ROLES, ROLE_HOME } from '../../../constants/roles';
+import { ROLES, ROLE_HOME, isPrincipalDesk } from '../../../constants/roles';
 import BrandMark from '../../../components/ui/BrandMark';
 import { useT } from '../../../i18n/LanguageContext';
 import { academicsService } from '../../../services/academicsService';
@@ -45,6 +45,7 @@ const ROLE_TITLE_KEY = {
   [ROLES.PRINCIPAL]: 'roleTitle.PRINCIPAL',
   [ROLES.STUDENT]: 'roleTitle.STUDENT',
   [ROLES.GUARDIAN]: 'roleTitle.GUARDIAN',
+  [ROLES.VICE_PRINCIPAL]: 'roleTitle.VICE_PRINCIPAL',
 };
 
 export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
@@ -298,8 +299,8 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
               )}
 
               {/* Classes and their academic years — every write there is the
-                  Principal's, so the Principal is the only one sent. */}
-              {role === ROLES.PRINCIPAL && (
+                  Principal's or a Vice Principal's (ticket 19). */}
+              {isPrincipalDesk(role) && (
                 <button
                   onClick={() => handleLinkClick('shell.classes', '/headmaster/classes')}
                   className={isActive('/headmaster/classes') ? activeBtnClass : inactiveBtnClass}
@@ -311,7 +312,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
 
               {/* Subjects and who teaches them (ticket 08). The teacher's side,
                   asking to teach, is on My classes. */}
-              {role === ROLES.PRINCIPAL && (
+              {isPrincipalDesk(role) && (
                 <button
                   onClick={() => handleLinkClick('shell.subjects', '/headmaster/subjects')}
                   className={isActive('/headmaster/subjects') ? activeBtnClass : inactiveBtnClass}
@@ -322,9 +323,9 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
                 </button>
               )}
 
-              {/* The school's people. Listing them is the Principal's alone
-                  (/api/members answers a teacher 403). */}
-              {role === ROLES.PRINCIPAL && (
+              {/* The school's people. The Principal's, and a Vice Principal
+                  reads them (/api/members answers a teacher 403). */}
+              {isPrincipalDesk(role) && (
                 <button
                   onClick={() => handleLinkClick('shell.members', '/headmaster/members')}
                   className={isActive('/headmaster/members') ? activeBtnClass : inactiveBtnClass}
@@ -332,6 +333,18 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
                   <Users className={`w-4 h-4 shrink-0 transition-colors ${isActive('/headmaster/members') ? 'text-white' : 'text-brand'}`} />
                   {t('shell.members')}
                   <PendingBadge n={pending.leaveRequests} />
+                </button>
+              )}
+
+              {/* The school's holiday calendar lives on /schedule, and a Vice
+                  Principal runs it (ticket 19). */}
+              {role === ROLES.VICE_PRINCIPAL && (
+                <button
+                  onClick={() => handleLinkClick('shell.schedule', '/schedule')}
+                  className={isActive('/schedule') ? activeBtnClass : inactiveBtnClass}
+                >
+                  <Calendar className={`w-4 h-4 shrink-0 transition-colors ${isActive('/schedule') ? 'text-white' : 'text-brand'}`} />
+                  {t('shell.schedule')}
                 </button>
               )}
 

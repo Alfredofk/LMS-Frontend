@@ -171,6 +171,19 @@ export const membershipService = {
   },
 
   /**
+   * A guardian correcting how they are related to a child — backend `f669286`.
+   * Their own word, as when they claimed the child, so it takes effect at once.
+   * Only a live link: waiting or active, not ended; anything else is 404.
+   *
+   * @param {string} linkId
+   * @param {string} relationship 3–50 characters, trimmed by the server
+   */
+  async updateLinkRelationship(linkId, relationship) {
+    const answer = await api.patch(`/memberships/me/children/${encodeURIComponent(linkId)}`, { relationship });
+    return answer?.link ?? null;
+  },
+
+  /**
    * Ask the Principal to let this member leave — a teacher's or a student's only
    * way out since backend `75e2fdd` (ticket 17). Multipart: the reason (3–500)
    * and the resignation letter under `letter` (PDF, JPG or PNG, at most 5 MB —

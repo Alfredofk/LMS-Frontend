@@ -74,7 +74,12 @@ export const membershipReviewService = {
    *   BAD_REQUEST for a student with no class or a class at another grade,
    *   NOT_FOUND for a class that is not this reviewer's
    */
-  approve: (id, classId) => api.post(`${BASE}/${id}/approve`, classId ? { classId } : {}),
+  approve: (id, classId, roles) =>
+    api.post(`${BASE}/${id}/approve`, {
+      ...(classId ? { classId } : {}),
+      /* The roles this decision covers — backend f669286; see decidedRolesInPov. */
+      ...(roles?.length ? { roles } : {}),
+    }),
 
   /**
    * Release several at once — `POST /membership-requests/approve`.
@@ -96,7 +101,7 @@ export const membershipReviewService = {
    * @throws {ApiError} BAD_REQUEST on a missing or too-short reason,
    *   CONFLICT if it was already decided
    */
-  reject: (id, reason) => api.post(`${BASE}/${id}/reject`, { reason }),
+  reject: (id, reason, roles) => api.post(`${BASE}/${id}/reject`, { reason, ...(roles?.length ? { roles } : {}) }),
 
   /*
     Deliberately absent: `POST /membership-requests/approve`, which releases up

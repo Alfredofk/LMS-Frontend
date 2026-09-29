@@ -1,15 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Info, Plus, Users } from 'lucide-react';
+import { Info, Pencil, Plus, Users } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
-import ChildFields from '../../components/ChildFields';
+import ChildFields, { RelationshipField } from '../../components/ChildFields';
+import NextHolidayCard from '../../components/holidays/NextHolidayCard';
 import { membershipService } from '../../services/membershipService';
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
 import { guardianErrorMessage } from '../../i18n/apiError';
-import { childErrors, childPayload, nestedFieldErrors } from '../../utils/validation';
+import { childErrors, childPayload, nestedFieldErrors, validateRelationship } from '../../utils/validation';
 
 /*
   "Anak Saya" — the guardian's home, /guardian.
@@ -28,6 +29,16 @@ import { childErrors, childPayload, nestedFieldErrors } from '../../utils/valida
     the child's own homeroom teacher; otherwise it waits for that teacher on
     /join-requests. The answer says which; nothing here guesses.
   - **Take back a claim still waiting** — `POST /me/children/:id/cancel`.
+  - **Correct the relationship** of a live link, waiting or active —
+    `PATCH /me/children/:id` (backend `f669286`). Before that route a wrong one
+    stood for good once the homeroom teacher had accepted it.
+
+  ## A child who left
+
+  Since `f669286` a link carries `endedAt`: a child who left the school ends the
+  link, which keeps its ACTIVE status as history. So an ACTIVE link with
+  `endedAt` reads "left the school" instead of "linked", and offers nothing to
+  change. A cancelled link carries `endedAt` as well and stays "Cancelled".
 
   The first child came with the GUARDIAN role itself; while that role waits, this
   page is not reachable (ProtectedRoute), and taking it back is the role's
@@ -43,7 +54,7 @@ const STATUS_BADGE = {
   ACTIVE: 'bg-emerald-50 text-emerald-700',
   PENDING: 'bg-amber-50 text-amber-700',
   REJECTED: 'bg-rose-50 text-rose-700',
-  CANCELLED: 'bg-slate-100 text-slate-500',
+  CANCELLED: 'bg-slate-100 text-slate-600',
 };
 
 const OWNED_FIELDS = ['childNisn', 'childFullName', 'relationship'];
@@ -64,6 +75,11 @@ export const GuardianPage = () => {
 
   const [cancelling, setCancelling] = useState(null);
   const [isCancelling, setIsCancelling] = useState(false);
+
+  /* The link whose relationship is being corrected: { id, relationship }. */
+  const [editing, setEditing] = useState(null);
+  const [editError, setEditError] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (asked.current) return;
@@ -131,6 +147,31 @@ export const GuardianPage = () => {
     }
   };
 
+  const handleSaveRelationship = async (e) => {
+    e.preventDefault();
+    if (!editing || isSaving) return;
+    const fail = validateRelationship(editing.relationship);
+    if (fail) {
+      setEditError(t(fail.key, fail.vars));
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const link = await membershipService.updateLinkRelationship(editing.id, editing.relationship.trim());
+      await refreshMe().catch(() => {});
+      showToast(t('guardian.relationship.done', { name: link?.student?.fullName ?? '' }), 'success');
+      setEditing(null);
+      setEditError(null);
+    } catch (err) {
+      /* 404 here is "No live link of yours": ended, cancelled or refused meanwhile. */
+      setEditError(err?.code === 'NOT_FOUND' ? t('guardian.relationship.gone') : guardianErrorMessage(err, t));
+      /* A 404 means the link ended or was decided meanwhile: show what is true now. */
+      await refreshMe().catch(() => {});
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="select-none">
@@ -139,6 +180,10 @@ export const GuardianPage = () => {
           {schoolName ? t('guardian.subtitle', { school: schoolName }) : ''}
         </p>
       </div>
+
+      {/* The school's next day off — a guardian's one view of the calendar, since
+          /schedule is not theirs; hence no link (owner, 2026-09-29). */}
+      <NextHolidayCard />
 
       <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -192,20 +237,63 @@ export const GuardianPage = () => {
           </div>
         ) : (
           <ul className="divide-y divide-slate-100">
-            {children.map((link) => (
+            {children.map((link) => {
+              /* "Left" is an ACTIVE link that ended. A cancelled or refused link carries
+                 endedAt too (measured: a link withdrawn on 2026-09-27 came back
+                 CANCELLED with endedAt set), and reads as its own status. */
+              const ended = link.status === 'ACTIVE' && Boolean(link.endedAt);
+              /* The server's own rule: PENDING or ACTIVE, and not ended. */
+              const live = !ended && (link.status === 'PENDING' || link.status === 'ACTIVE');
+              const isEditing = editing?.id === link.id;
+              return (
               <li key={link.id} className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div className="min-w-0 space-y-1">
+                <div className="min-w-0 space-y-1 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={`text-sm font-extrabold break-words ${link.status === 'CANCELLED' ? 'text-slate-500' : 'text-slate-800'}`}>
+                    <span className={`text-sm font-extrabold break-words ${link.status === 'CANCELLED' || ended ? 'text-slate-500' : 'text-slate-800'}`}>
                       {link.student?.fullName}
                     </span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_BADGE[link.status] ?? STATUS_BADGE.CANCELLED}`}>
-                      {t(`guardian.status.${link.status}`)}
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ended ? STATUS_BADGE.CANCELLED : STATUS_BADGE[link.status] ?? STATUS_BADGE.CANCELLED}`}>
+                      {ended ? t('guardian.status.ENDED') : t(`guardian.status.${link.status}`)}
                     </span>
                   </div>
-                  <p className="text-[11px] font-semibold text-slate-500">
-                    {t('guardian.list.relationship', { relationship: link.relationship })}
-                  </p>
+                  {isEditing ? (
+                    <form onSubmit={handleSaveRelationship} noValidate className="max-w-sm space-y-3 pt-2">
+                      <RelationshipField
+                        idPrefix={`link-${link.id}`}
+                        value={editing.relationship}
+                        error={editError}
+                        onChange={() => (e) => {
+                          setEditing((prev) => ({ ...prev, relationship: e.target.value }));
+                          setEditError(null);
+                        }}
+                      />
+                      <div className="flex gap-2">
+                        <Button type="button" size="sm" variant="outline" onClick={() => { setEditing(null); setEditError(null); }} isDisabled={isSaving}>
+                          {t('common.cancel')}
+                        </Button>
+                        <Button type="submit" size="sm" isLoading={isSaving}>
+                          {t('classes.edit.save')}
+                        </Button>
+                      </div>
+                    </form>
+                  ) : (
+                    <p className="text-[11px] font-semibold text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span>{t('guardian.list.relationship', { relationship: link.relationship })}</span>
+                      {live && !editing && (
+                        <button
+                          type="button"
+                          onClick={() => setEditing({ id: link.id, relationship: link.relationship ?? '' })}
+                          className="inline-flex items-center gap-1 font-bold text-slate-500 hover:text-brand cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+                        >
+                          <Pencil className="w-3 h-3" aria-hidden="true" />
+                          {t('guardian.relationship.edit')}
+                        </button>
+                      )}
+                    </p>
+                  )}
+                  {ended && (
+                    <p className="text-[11px] font-semibold text-slate-500">{t('guardian.list.endedHint')}</p>
+                  )}
                   {/* The homeroom teacher's own words, marked as a quotation. */}
                   {link.status === 'REJECTED' && link.rejectionReason && (
                     <p className="pl-2 border-l-2 border-rose-200 text-[11px] text-rose-700 font-semibold break-words">
@@ -226,7 +314,8 @@ export const GuardianPage = () => {
                   </button>
                 )}
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </section>

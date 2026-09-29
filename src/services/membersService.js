@@ -6,7 +6,8 @@ import { api } from './apiClient';
  * `/api/members` sits behind `requireActiveMembership` and
  * `requireRole('PRINCIPAL','TEACHER')`, and the service narrows further:
  *
- *   list    the Principal only (403 for a teacher)
+ *   list    the Principal or a Vice Principal (403 for a teacher)
+ *   remove, handover, appoint/revoke a Vice Principal — the Principal only
  *   remove  the Principal, anyone but a Principal; a homeroom teacher, only a
  *           student placed in one of their classes. Everyone else — and
  *           anyone at another school — gets the same 404.
@@ -47,6 +48,46 @@ export const membersService = {
   async remove(membershipId, reason) {
     const answer = await api.post(`/members/${membershipId}/remove`, { reason });
     return answer?.membership ?? null;
+  },
+
+  /**
+   * The Principal hands the school to an active teacher here — backend `1416e24`.
+   * At once, with no approval: the successor takes over at their next sign-in.
+   * `stay` keeps the caller as a teacher (the TEACHER role is given, with a NIP
+   * or NUPTK, if they did not hold it); leaving ends their membership, refused
+   * while they are homeroom of a class in an active year (`details.classes`).
+   *
+   * @param {string} membershipId the successor
+   * @param {{ stay: boolean, teacher?: { nip?: string, nuptk?: string } }} body
+   * @returns {Promise<{ principal: { membershipId: string, fullName: string }, you: { status: 'ACTIVE'|'LEFT' } }>}
+   */
+  async handover(membershipId, body) {
+    return api.post(`/members/${membershipId}/handover`, body);
+  },
+
+  /**
+   * The Principal appoints an active teacher Vice Principal — backend `89a5666`
+   * (ticket 19). 409 for the Principal or somebody already one, 400 for anybody
+   * not an active teacher. It takes effect at the appointee's next token.
+   *
+   * @param {string} membershipId
+   * @returns {Promise<{ membershipId: string, fullName: string, role: 'VICE_PRINCIPAL', status: 'ACTIVE' }|null>}
+   */
+  async appointVicePrincipal(membershipId) {
+    const answer = await api.post(`/members/${encodeURIComponent(membershipId)}/vice-principal`);
+    return answer?.member ?? null;
+  },
+
+  /**
+   * Revoking it ENDs the role; the person stays a teacher. 404 when they are no
+   * Vice Principal here, 409 when revoked a moment ago elsewhere.
+   *
+   * @param {string} membershipId
+   * @returns {Promise<{ membershipId: string, role: 'VICE_PRINCIPAL', status: 'ENDED' }|null>}
+   */
+  async revokeVicePrincipal(membershipId) {
+    const answer = await api.post(`/members/${encodeURIComponent(membershipId)}/vice-principal/revoke`);
+    return answer?.member ?? null;
   },
 };
 

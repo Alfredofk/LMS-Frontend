@@ -117,6 +117,13 @@ const ACADEMICS_BY_MESSAGE = [
   ['must be an active teacher', 'classes.error.notTeacher'],
   ['Teacher not found', 'classes.error.teacherGone'],
   ['does not exist at a', 'classes.error.gradeInvalid'],
+  /* Correcting and deleting — academics.service.js, backend f669286. */
+  ['would fall outside the academic year', 'classes.error.yearHoldsSemesters'],
+  ['Only an empty year can be deleted', 'classes.error.yearNotEmpty'],
+  ['Only a semester without any can be deleted', 'classes.error.semesterInUse'],
+  ['is not open', 'classes.error.semesterNotOpen'],
+  ['so its grade can no longer change', 'classes.error.gradeLocked'],
+  ['Only an empty class can be deleted', 'classes.error.classNotEmpty'],
 ];
 
 /*
@@ -130,6 +137,32 @@ const ACADEMICS_BY_MESSAGE = [
   remove, including a student who is not in their class; FORBIDDEN is the member
   list refusing a teacher.
 */
+/*
+  Handing the school over — membership.service.js handOverPrincipal and
+  loadSuccessor (backend 1416e24). Told apart on its sentences; a homeroom
+  refusal names its classes in `details.classes`, which is worth repeating:
+  those classes need another homeroom teacher before the Principal can leave.
+*/
+const HANDOVER_BY_MESSAGE = [
+  ['already the Principal', 'handover.error.alreadyPrincipal'],
+  ['must be an active teacher', 'handover.error.notTeacher'],
+  ['no longer the Principal', 'handover.error.notPrincipal'],
+  ['no longer a member here', 'handover.error.gone'],
+  ['Member not found', 'handover.error.gone'],
+  ['Give your NIP or NUPTK', 'handover.error.teacherIds'],
+  ['Only the Principal', 'handover.error.notPrincipal'],
+];
+
+export function handoverErrorMessage(err, t) {
+  if (Array.isArray(err?.details?.classes) && err.details.classes.length > 0) {
+    return t('handover.error.homeroom', { classes: err.details.classes.join(', ') });
+  }
+  const message = String(err?.message ?? '');
+  const hit = HANDOVER_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  if (hit) return t(hit[1]);
+  return apiErrorMessage(err, t);
+}
+
 export function membersErrorMessage(err, t) {
   const message = err?.message ?? '';
   if (err?.code === 'CONFLICT') {
@@ -144,6 +177,25 @@ export function membersErrorMessage(err, t) {
   return apiErrorMessage(err, t, {
     CONFLICT: 'members.error.conflict',
     NOT_FOUND: 'members.error.notFound',
+    FORBIDDEN: 'members.error.forbidden',
+  });
+}
+
+/*
+  Appointing or revoking a Vice Principal (backend `89a5666`, membership.service.js
+  appointVicePrincipal / revokeVicePrincipal). CONFLICT is three things and
+  matched on the server's sentences, as above.
+*/
+export function viceErrorMessage(err, t) {
+  const message = err?.message ?? '';
+  if (err?.code === 'CONFLICT') {
+    if (message.includes('already holds every power')) return t('members.vice.error.principal');
+    if (message.includes('already a Vice Principal')) return t('members.vice.error.already');
+    if (message.includes('already revoked')) return t('members.vice.error.revoked');
+  }
+  if (err?.code === 'BAD_REQUEST' && message.includes('active teacher')) return t('members.vice.error.notTeacher');
+  return apiErrorMessage(err, t, {
+    NOT_FOUND: 'members.vice.error.notFound',
     FORBIDDEN: 'members.error.forbidden',
   });
 }
@@ -325,6 +377,8 @@ const SUBJECTS_BY_MESSAGE = [
   ['registration deadline for this semester has passed', 'subjects.error.deadline'],
   ['Too many rejected requests for this teaching slot', 'subjects.error.tooMany'],
   ['must be an active teacher', 'subjects.error.notTeacher'],
+  /* Backend 89a5666: a Vice Principal deciding their own request. */
+  ['cannot decide their own teaching assignment', 'subjects.error.ownDecision'],
   ['Teacher not found', 'subjects.error.notTeacher'],
   ['Teaching assignment not found', 'subjects.error.gone'],
   ['No request of yours is waiting', 'subjects.error.gone'],

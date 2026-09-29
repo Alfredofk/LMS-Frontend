@@ -7,7 +7,7 @@ import SelectField from '../../components/ui/SelectField';
 import { membershipReviewService } from '../../services/membershipReviewService';
 import { academicsService } from '../../services/academicsService';
 import { useAuth } from '../../context/AuthContext';
-import { ROLES, ROLE_LABEL_KEY, releasableInPov, releasableLinksInPov } from '../../constants/roles';
+import { ROLES, ROLE_LABEL_KEY, releasableInPov, releasableLinksInPov, decidedRolesInPov } from '../../constants/roles';
 import { classesFor } from './bulk';
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage, decisionErrorMessage, isAlreadyDecided } from '../../i18n/apiError';
@@ -94,12 +94,15 @@ export const JoinRequestReview = ({ request, onBack, onDecided, showToast }) => 
     role's kinds (releasableInPov). A Principal who is also homeroom teacher
     releases teachers as Principal and students as Teacher — never both at once.
 
-    The backend cannot be told to release only part: approve and reject act on
-    every role the reviewer may release. So when a role outside this desk is
-    releasable too — a teacher who is also a guardian of a child in the reader's
-    own class — the dialog says it goes with it, rather than doing it silently.
+    Since backend `f669286` a decision names its roles (`decidedRolesInPov`), so
+    it covers this desk only. A role releasable from the reader's other desk — a
+    teacher who is also a guardian of a child in the reader's own class — stays
+    waiting for that desk, and the dialog says so. Until then approve and reject
+    acted on every role the reviewer could release, and the dialog could only
+    warn that the other one went with it.
   */
   const releasable = releasableInPov(request, activeRole);
+  const decidedRoles = decidedRolesInPov(request, activeRole);
   const alongside = roles.filter((entry) => entry.canRelease && !releasable.includes(entry));
   const alongsideNames = alongside.map((entry) => t(ROLE_LABEL_KEY[entry.role] ?? 'requests.role.unknown')).join(', ');
   const isPending = request.status === 'PENDING';
@@ -174,8 +177,8 @@ export const JoinRequestReview = ({ request, onBack, onDecided, showToast }) => 
     try {
       const answer =
         kind === 'approve'
-          ? await membershipReviewService.approve(request.id, needsClass ? chosenClass?.id : undefined)
-          : await membershipReviewService.reject(request.id, reason.trim());
+          ? await membershipReviewService.approve(request.id, needsClass ? chosenClass?.id : undefined, decidedRoles)
+          : await membershipReviewService.reject(request.id, reason.trim(), decidedRoles);
 
       showToast?.(t(kind === 'approve' ? 'requests.approve.done' : 'requests.reject.done'), 'success');
       onDecided(answer.request);
@@ -264,7 +267,7 @@ export const JoinRequestReview = ({ request, onBack, onDecided, showToast }) => 
                     </span>
                   ) : (
                     <span
-                      className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-slate-100 text-slate-500"
+                      className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-slate-100 text-slate-600"
                       title={t('requests.role.notYours.hint')}
                     >
                       <Lock className="w-3 h-3 shrink-0" aria-hidden="true" />
@@ -318,7 +321,7 @@ export const JoinRequestReview = ({ request, onBack, onDecided, showToast }) => 
                       {t('requests.role.yours')}
                     </span>
                   ) : (
-                    <span className="ml-2 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-slate-100 text-slate-500">
+                    <span className="ml-2 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-slate-100 text-slate-600">
                       {t(`requests.link.status.${link.status}`)}
                     </span>
                   )}

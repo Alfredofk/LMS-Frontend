@@ -60,6 +60,47 @@ export const academicsService = {
     return answer?.academicYear ?? null;
   },
 
+  /*
+    Correcting and deleting — backend `f669286` (owner, 2026-09-26). Only what is
+    sent changes; the server checks the result against the row as it stands.
+
+      year      ACTIVE only; its dates must still hold every semester in it.
+                Deleted only while empty — no semester, no class.
+      semester  OPEN, in an ACTIVE year; the ordinal never changes, and a
+                deadline sent as null is removed. Deleted only while nobody has
+                asked to teach in it (a rejected or cancelled request counts).
+      class     ACTIVE year; the grade changes only while it has never held a
+                student. Deleted only while it never held a student, a teaching
+                assignment or a class move.
+
+    Every one answers the whole year, like createSemester — except the two
+    deletes of a year and a class, which answer only `{ id, label|name }`.
+  */
+
+  /** @param {{ label?: string, startDate?: string, endDate?: string }} body */
+  async updateAcademicYear(id, body) {
+    const answer = await api.patch(`/academics/academic-years/${id}`, body);
+    return answer?.academicYear ?? null;
+  },
+
+  /** @returns {Promise<{ id: string, label: string }|null>} */
+  async deleteAcademicYear(id) {
+    const answer = await api.del(`/academics/academic-years/${id}`);
+    return answer?.academicYear ?? null;
+  },
+
+  /** @param {{ startDate?: string, endDate?: string, classSubjectRegistrationDeadline?: string|null }} body */
+  async updateSemester(id, body) {
+    const answer = await api.patch(`/academics/semesters/${id}`, body);
+    return answer?.academicYear ?? null;
+  },
+
+  /** Answers the year it belonged to, without it. */
+  async deleteSemester(id) {
+    const answer = await api.del(`/academics/semesters/${id}`);
+    return answer?.academicYear ?? null;
+  },
+
   /**
    * One of the year's two halves. Answers with the **whole year**, semesters
    * included, not the semester alone.
@@ -93,6 +134,22 @@ export const academicsService = {
    */
   async createClass(body) {
     const answer = await api.post('/academics/classes', body);
+    return answer?.class ?? null;
+  },
+
+  /**
+   * Name and grade only; the homeroom teacher has its own route below.
+   *
+   * @param {{ name?: string, gradeLevel?: number }} body
+   */
+  async updateClass(id, body) {
+    const answer = await api.patch(`/academics/classes/${id}`, body);
+    return answer?.class ?? null;
+  },
+
+  /** @returns {Promise<{ id: string, name: string }|null>} */
+  async deleteClass(id) {
+    const answer = await api.del(`/academics/classes/${id}`);
     return answer?.class ?? null;
   },
 

@@ -192,4 +192,108 @@ export const ClassForm = ({ year, grades, onCreated, onCancel }) => {
   );
 };
 
+/**
+ * Correcting a class's name or grade — backend `f669286`. The homeroom teacher
+ * is not here: it has its own route and its own control on the class page.
+ *
+ * **The grade is fixed once the class has held a student** — any placement, an
+ * ended one too, is history of a student sitting at that grade. The class
+ * carries only its *current* count, so a class with students now has the grade
+ * locked here, and one whose students have all left is left to the server's
+ * refusal (`classes.error.gradeLocked`).
+ */
+export const ClassEditForm = ({ target, grades, onSaved, onCancel }) => {
+  const { t } = useT();
+  const [values, setValues] = useState({ name: target.name, gradeLevel: String(target.gradeLevel) });
+  const [errors, setErrors] = useState({});
+  const [isWorking, setIsWorking] = useState(false);
+  const gradeLocked = (target.studentCount ?? target.students?.length ?? 0) > 0;
+
+  const change = (name) => (e) => {
+    const { value } = e.target;
+    setValues((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: null, global: null }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (isWorking) return;
+
+    const next = {};
+    const nameFail = validateClassName(values.name);
+    if (nameFail) next.name = t(nameFail.key, nameFail.vars);
+
+    const body = {};
+    if (!nameFail && values.name.trim() !== target.name) body.name = values.name.trim();
+    if (Number(values.gradeLevel) !== target.gradeLevel) body.gradeLevel = Number(values.gradeLevel);
+    if (!nameFail && Object.keys(body).length === 0) next.global = t('classes.edit.nothing');
+    setErrors(next);
+    if (Object.keys(next).length) return;
+
+    setIsWorking(true);
+    try {
+      onSaved(await academicsService.updateClass(target.id, body));
+    } catch (err) {
+      const fields = fieldErrorsFrom(err.details, ['name', 'gradeLevel']);
+      setErrors(Object.keys(fields).length ? fields : { global: academicsErrorMessage(err, t) });
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
+  /* The class's own grade stays on offer even if the school's list no longer has it. */
+  const offered = grades.includes(target.gradeLevel) ? grades : [target.gradeLevel, ...grades];
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 text-left" noValidate>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Input
+          id="classNameEdit"
+          name="name"
+          label={t('classes.class.field.name')}
+          type="text"
+          autoComplete="off"
+          value={values.name}
+          error={errors.name || undefined}
+          onChange={change('name')}
+        />
+        <div className="space-y-1.5">
+          <SelectField
+            id="gradeLevelEdit"
+            label={t('classes.class.field.grade')}
+            value={values.gradeLevel}
+            onChange={change('gradeLevel')}
+            error={errors.gradeLevel}
+            disabled={gradeLocked}
+          >
+            {offered.map((grade) => (
+              <option key={grade} value={grade}>
+                {t('classes.grade', { n: grade })}
+              </option>
+            ))}
+          </SelectField>
+          {gradeLocked && (
+            <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{t('classes.class.edit.gradeLocked')}</p>
+          )}
+        </div>
+      </div>
+
+      {errors.global && (
+        <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+          {errors.global}
+        </div>
+      )}
+
+      <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+        <Button type="button" variant="outline" onClick={onCancel} isDisabled={isWorking}>
+          {t('common.cancel')}
+        </Button>
+        <Button type="submit" isLoading={isWorking}>
+          {t('classes.edit.save')}
+        </Button>
+      </div>
+    </form>
+  );
+};
+
 export default ClassForm;

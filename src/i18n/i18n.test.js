@@ -93,7 +93,10 @@ describe('every literal key the code asks for exists', () => {
   it('including the keys that arrive through the role maps', () => {
     for (const role of Object.values(ROLES)) {
       expect(id).toHaveProperty([ROLE_LABEL_KEY[role]]);
-      expect(id).toHaveProperty([ROLE_TAGLINE_KEY[role]]);
+      /* A tagline is a picker card's, and VICE_PRINCIPAL has no card. */
+      if (ROLE_TAGLINE_KEY[role]) expect(id).toHaveProperty([ROLE_TAGLINE_KEY[role]]);
+      /* The sidebar, avatar menu and member rows name every role through this. */
+      expect(id).toHaveProperty([`roleTitle.${role}`]);
     }
   });
 });
@@ -197,10 +200,12 @@ describe('every expansion of a dynamic key exists', () => {
 
   it('members: a tab name for every tab, and a title for every role a member can hold', () => {
     const tabs = quotedIn('views/Members/MembersPage.jsx', /const TABS = \[([^\]]*)\]/);
-    expect(tabs).toEqual(['ALL', 'TEACHER', 'STUDENT', 'GUARDIAN', 'LEFT']);
+    expect(tabs).toEqual(['ALL', 'VICE_PRINCIPAL', 'TEACHER', 'STUDENT', 'GUARDIAN', 'LEFT']);
     expectEvery(tabs.map((s) => `members.tab.${s}`));
     /* Rows render roleTitle.${role} for every role on a member. */
-    expectEvery(['PRINCIPAL', 'TEACHER', 'STUDENT', 'GUARDIAN'].map((r) => `roleTitle.${r}`));
+    expectEvery(['PRINCIPAL', 'VICE_PRINCIPAL', 'TEACHER', 'STUDENT', 'GUARDIAN'].map((r) => `roleTitle.${r}`));
+    /* The Vice Principal switch renders members.vice.${action}[.title|.body|.done]. */
+    expectEvery(['appoint', 'revoke'].flatMap((a) => [`members.vice.${a}`, `members.vice.${a}.title`, `members.vice.${a}.body`, `members.vice.${a}.done`]));
   });
 
   it('class moves: a name for every tab, a badge and an empty line for every status', () => {

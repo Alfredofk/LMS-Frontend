@@ -66,6 +66,13 @@ export function deadlinePassed(semester, now = new Date()) {
 }
 
 /**
+ * Whether this waiting request is the reader's own — set only for a Vice
+ * Principal (`selfId`), whom the server refuses to decide their own teaching
+ * (`assertNotDecidingForSelf`, academics.service.js). A Principal passes null.
+ */
+export const isOwnRequest = (request, selfId) => Boolean(selfId) && request?.teacher?.membershipId === selfId;
+
+/**
  * The outcome of a bulk approval, per name: `{ approved, failed: [{ request, message }] }`,
  * in the order the requests were ticked.
  */

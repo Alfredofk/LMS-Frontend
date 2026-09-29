@@ -8,6 +8,7 @@ import SubjectCatalog from './SubjectCatalog';
 import { academicsService } from '../../services/academicsService';
 import { isNotBuiltYet } from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
+import { ROLES } from '../../constants/roles';
 import { useT } from '../../i18n/LanguageContext';
 import { subjectsErrorMessage } from '../../i18n/apiError';
 import { SUBJECT_TABS } from './subjects';
@@ -33,8 +34,12 @@ import { notifyPendingChanged } from '../../hooks/usePendingCounts';
 */
 export const SubjectsPage = () => {
   const { showToast } = useOutletContext();
-  const { membership } = useAuth();
+  const { membership, activeRole } = useAuth();
   const { t } = useT();
+  /* A Vice Principal never decides their own teaching (ticket 19): their own
+     rows in the queue have no buttons, and they are not offered to themselves
+     as the teacher to assign. The Principal is left as before. */
+  const selfId = activeRole === ROLES.VICE_PRINCIPAL ? membership?.id ?? null : null;
 
   const [tab, setTab] = useState('BOARD');
   const [years, setYears] = useState(null);
@@ -128,7 +133,7 @@ export const SubjectsPage = () => {
               {count[name] > 0 && (
                 <span
                   className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold tabular-nums ${
-                    name === 'PENDING' ? 'bg-amber-100 text-amber-800' : isActive ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-500'
+                    name === 'PENDING' ? 'bg-amber-100 text-amber-800' : isActive ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-600'
                   }`}
                 >
                   {count[name]}
@@ -148,7 +153,7 @@ export const SubjectsPage = () => {
               <SubjectBoard
                 years={years}
                 catalog={catalog}
-                teachers={teachers}
+                teachers={selfId && teachers ? teachers.filter((entry) => entry.membershipId !== selfId) : teachers}
                 loadTeachers={loadTeachers}
                 showToast={showToast}
               />
@@ -163,6 +168,7 @@ export const SubjectsPage = () => {
             notifyPendingChanged();
           }}
           showToast={showToast}
+          selfId={selfId}
         />
       )}
 

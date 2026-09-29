@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { defaultSlot, freeSubjects, boardWritable, deadlinePassed, bulkOutcome } from './subjects.js';
+import { defaultSlot, freeSubjects, boardWritable, deadlinePassed, bulkOutcome, isOwnRequest } from './subjects.js';
 import { validateSubjectCode, validateSubjectName, normaliseSubjectCode, deadlineFits } from '../../utils/validation.js';
 
 const sem = (id, ordinal, start, end, status = 'OPEN', deadline = null) => ({
@@ -107,5 +107,19 @@ describe('deadlineFits — the registration deadline inside its semester (create
     expect(deadlineFits('2026-07-13', '2026-12-19', '2026-12-19')).toBeNull();
     expect(deadlineFits('2026-07-13', '2026-12-19', '2026-07-12')).toEqual({ key: 'validation.deadline.outside' });
     expect(deadlineFits('2026-07-13', '2026-12-19', '2026-12-20')).toEqual({ key: 'validation.deadline.outside' });
+  });
+});
+
+describe('isOwnRequest — a Vice Principal never decides their own teaching (backend 89a5666)', () => {
+  const request = { id: 'r1', teacher: { membershipId: 'm-vice', fullName: 'Wakasek' } };
+
+  it("marks the reader's own request when a Vice Principal reads the queue", () => {
+    expect(isOwnRequest(request, 'm-vice')).toBe(true);
+    expect(isOwnRequest(request, 'm-other')).toBe(false);
+  });
+
+  it('marks nothing for the Principal, who passes no id', () => {
+    expect(isOwnRequest(request, null)).toBe(false);
+    expect(isOwnRequest({ id: 'r2', teacher: { membershipId: null } }, null)).toBe(false);
   });
 });

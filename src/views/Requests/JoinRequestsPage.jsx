@@ -257,7 +257,7 @@ export const JoinRequestsPage = () => {
                   {count > 0 && (
                     <span
                       className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold tabular-nums ${
-                        isActive ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-500'
+                        isActive ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-600'
                       }`}
                     >
                       {count}

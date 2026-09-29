@@ -4,6 +4,7 @@ import { ArrowLeft, Check, X, Trash2, RotateCcw } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import KtpViewer from './KtpViewer';
+import AppointPrincipalPanel from './AppointPrincipalPanel';
 import { adminService } from '../../services/adminService';
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage } from '../../i18n/apiError';
@@ -186,6 +187,21 @@ export const RegistrationReview = ({ registration, onBack, onDecided, showToast 
                 : null}
             </Row>
             <Row label={t('admin.field.city')}>{registration.city}</Row>
+            {/* The point and zone (backend 431513b, 0ad658f) — absent on a registration made before them.
+                A map link, so the admin can see the point is where the school says it is. */}
+            <Row label={t('admin.field.location')}>
+              {registration.latitude != null && registration.longitude != null ? (
+                <a
+                  href={`https://www.google.com/maps?q=${registration.latitude},${registration.longitude}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand hover:underline tabular-nums"
+                >
+                  {registration.latitude}, {registration.longitude}
+                </a>
+              ) : null}
+            </Row>
+            <Row label={t('admin.field.timeZone')}>{registration.timeZone}</Row>
             <Row label={t('admin.field.status')}>{t(`admin.status.${registration.status}`)}</Row>
             <Row label={t('admin.field.submitted')}>{asDate(registration.createdAt)}</Row>
             {registration.reviewedAt && (
@@ -300,6 +316,8 @@ export const RegistrationReview = ({ registration, onBack, onDecided, showToast 
             registration out of APPROVED — it sets `school.deactivatedAt` — so this
             branch and the one below it are the two faces of the same status.
           */}
+          {isApproved && <AppointPrincipalPanel registration={registration} showToast={showToast} />}
+
           {isApproved && !isDeactivated && (
             <section className="border border-rose-200 rounded-2xl p-5 bg-rose-50/40 shadow-sm space-y-4">
               <div>

@@ -194,7 +194,7 @@ export const ClassMovesSection = ({ moves, error, mineIds, onChanged, showToast 
                       ? 'bg-amber-100 text-amber-800'
                       : isActive
                         ? 'bg-brand-tint text-brand'
-                        : 'bg-slate-100 text-slate-500'
+                        : 'bg-slate-100 text-slate-600'
                   }`}
                 >
                   {counts[name]}

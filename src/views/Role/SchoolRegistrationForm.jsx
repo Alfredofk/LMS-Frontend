@@ -15,8 +15,12 @@ import {
   validateApplicantPhone,
   validateDurationYears,
   validateKtpFile,
+  validateCoordinate,
+  validateTimeZone,
+  parseCoordinate,
   fieldErrorsFrom,
 } from '../../utils/validation';
+import { LocationFields, TimeZoneField } from '../../components/SchoolPlaceFields';
 
 /*
   Founding a school. The first form in this app that talks to a real endpoint
@@ -28,13 +32,18 @@ import {
   the backend has no separate upload endpoint, so there is no "upload then
   submit" flow to build. `apiClient` passes a FormData through untouched.
 
+  **The point and the time zone are required** since backend 431513b / 0ad658f
+  (school.schema.js `registrationBody`): without them every registration is a
+  400. `LocationFields` and `TimeZoneField` are shared with the Principal's
+  own correction on Settings. A decimal comma is sent as a point.
+
   And `durationYears` is conditional. Only an SMK chooses its length; every
   other type has one legal value that the server fills in itself, and sending a
   different one is a 400 rather than a correction. So the selector appears for
   SMK only, and for the other three the field is **not sent at all**.
 */
 
-const OWNED_FIELDS = ['npsn', 'schoolName', 'schoolType', 'city', 'applicantPhone', 'durationYears', 'ktp'];
+const OWNED_FIELDS = ['npsn', 'schoolName', 'schoolType', 'city', 'latitude', 'longitude', 'timeZone', 'applicantPhone', 'durationYears', 'ktp'];
 
 const TEXT_FIELDS = [
   { name: 'npsn', labelKey: 'reg.field.npsn', hintKey: 'reg.field.npsn.hint', inputMode: 'numeric', validate: validateNpsn },
@@ -69,6 +78,13 @@ export const SchoolRegistrationForm = () => {
       if (fail) next[field.name] = t(fail.key, fail.vars);
     }
 
+    for (const kind of ['latitude', 'longitude']) {
+      const fail = validateCoordinate(kind, values[kind]);
+      if (fail) next[kind] = t(fail.key, fail.vars);
+    }
+    const zoneFail = validateTimeZone(values.timeZone);
+    if (zoneFail) next.timeZone = t(zoneFail.key);
+
     const durationFail = validateDurationYears(values.schoolType, values.durationYears);
     if (durationFail) next.durationYears = t(durationFail.key, durationFail.vars);
 
@@ -91,6 +107,9 @@ export const SchoolRegistrationForm = () => {
     body.append('schoolName', values.schoolName.trim());
     body.append('schoolType', values.schoolType);
     body.append('city', values.city.trim());
+    body.append('latitude', String(parseCoordinate(values.latitude)));
+    body.append('longitude', String(parseCoordinate(values.longitude)));
+    body.append('timeZone', values.timeZone);
     body.append('applicantPhone', values.applicantPhone.trim());
     /* Omitted entirely for SD, SMP and SMA — see the note at the top. */
     if (needsDuration) body.append('durationYears', String(values.durationYears));
@@ -192,6 +211,28 @@ export const SchoolRegistrationForm = () => {
           ))}
         </select>
       </div>
+
+      <fieldset className="space-y-4 rounded-2xl border border-slate-200 p-4">
+        <legend className="px-1 text-sm font-semibold text-slate-700">{t('place.legend')}</legend>
+        <LocationFields
+          idPrefix="reg"
+          values={values}
+          errors={errors}
+          onChange={(name, value) => {
+            setValues((prev) => ({ ...prev, [name]: value }));
+            if (touched[name] || errors[name]) setError(name, validateCoordinate(name, value));
+          }}
+        />
+        <TimeZoneField
+          id="regTimeZone"
+          value={values.timeZone}
+          error={errors.timeZone || undefined}
+          onChange={(value) => {
+            setValues((prev) => ({ ...prev, timeZone: value }));
+            setError('timeZone', validateTimeZone(value));
+          }}
+        />
+      </fieldset>
 
       {needsDuration && (
         <div className="space-y-1.5">

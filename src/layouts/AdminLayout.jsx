@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 
 import BrandMark from '../components/ui/BrandMark';
@@ -19,8 +19,14 @@ import { useT } from '../i18n/LanguageContext';
   to no school at all. Reusing MainLayout would offer them "My Courses" and a
   gradebook, every one of which ProtectedRoute would then refuse.
 
-  So: a thin bar with who they are, the language switch, and a way out.
+  So: a thin bar with who they are, the language switch, and a way out — and,
+  since the national holiday calendar (backend 9dee2e2), the admin's two pages.
 */
+
+const ADMIN_PAGES = [
+  { to: '/admin/school-registrations', key: 'admin.nav.registrations' },
+  { to: '/admin/holidays', key: 'admin.nav.holidays' },
+];
 export const AdminLayout = () => {
   const { user, logout } = useAuth();
   const { t } = useT();
@@ -39,7 +45,7 @@ export const AdminLayout = () => {
       )}
 
       <header className="bg-white border-b border-slate-100 shrink-0">
-        <div className="max-w-6xl mx-auto px-6 py-3.5 flex items-center justify-between gap-4">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3.5 flex items-center justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-2.5 min-w-0">
             <BrandMark />
             <span className="text-base font-extrabold tracking-tight text-slate-900 select-none">
@@ -47,7 +53,7 @@ export const AdminLayout = () => {
             </span>
           </div>
 
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
             <span
               className="hidden sm:block text-[11px] font-semibold text-slate-500 truncate max-w-[16rem]"
               title={user?.email}
@@ -58,16 +64,31 @@ export const AdminLayout = () => {
             <button
               type="button"
               onClick={() => setIsSignOutOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50/60 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50/60 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             >
               <LogOut className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span className="hidden sm:inline">{t('common.signOut')}</span>
             </button>
           </div>
         </div>
+        <nav className="max-w-6xl mx-auto px-4 sm:px-6 flex gap-6 overflow-x-auto select-none" aria-label={t('admin.nav.label')}>
+          {ADMIN_PAGES.map((page) => (
+            <NavLink
+              key={page.to}
+              to={page.to}
+              className={({ isActive }) =>
+                `pb-3 pt-1 text-sm font-extrabold border-b-2 whitespace-nowrap shrink-0 transition-colors focus:outline-none focus-visible:text-brand ${
+                  isActive ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`
+              }
+            >
+              {t(page.key)}
+            </NavLink>
+          ))}
+        </nav>
       </header>
 
-      <main className="flex-1 px-6 py-8">
+      <main className="flex-1 px-4 sm:px-6 py-8">
         <div className="max-w-6xl mx-auto text-left">
           <Outlet context={{ showToast }} />
         </div>

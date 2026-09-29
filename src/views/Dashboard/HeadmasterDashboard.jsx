@@ -42,11 +42,17 @@ import {
   Announcements: the backend has no module for them yet, so `GET /announcements`
   404s and the tab says so with NotBuiltYet and no Add button — rather than "no
   announcements published", and a form whose every submit would fail.
+
+  `desk="vice"` is the Vice Principal's home, /vice/dashboard (owner,
+  2026-09-29): every read above is open to them (backend `89a5666`), so only
+  the words change, the announcements tab is left out, and the checklist offers
+  no button for the two steps that are the Principal's hands.
 */
 
 const soft = (promise) => promise.catch(() => null);
 
-export const HeadmasterDashboard = () => {
+export const HeadmasterDashboard = ({ desk = 'principal' }) => {
+  const isVice = desk === 'vice';
   const { showToast } = useOutletContext();
   const navigate = useNavigate();
   const { t, lang } = useT();
@@ -187,20 +193,20 @@ export const HeadmasterDashboard = () => {
       {/* 1. Header welcome */}
       <div className="space-y-1 select-none">
         <span className="px-2.5 py-1 bg-purple-100 text-brand text-xs font-extrabold rounded-lg uppercase">
-          {t('dash.principal.badge')}
+          {t(isVice ? 'dash.vice.badge' : 'dash.principal.badge')}
         </span>
         <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight mt-2">
-          {t('dash.principal.title')}
+          {t(isVice ? 'dash.vice.title' : 'dash.principal.title')}
         </h1>
         <p className="text-sm text-slate-500 font-medium">
-          {t('dash.principal.subtitle')}
+          {t(isVice ? 'dash.vice.subtitle' : 'dash.principal.subtitle')}
         </p>
       </div>
 
       {/* Real data, unlike the stat cards below: what the school still needs
           before it can teach anybody, in order (owner, 2026-09-26). Above the
           tabs so it is seen whichever tab is open. */}
-      <SetupChecklist data={checklistData} />
+      <SetupChecklist data={checklistData} desk={desk} />
 
       {/* The School Code sat here, then sat here smaller, and now does not sit
           here at all. It is reference data used in a burst and then left alone,
@@ -225,7 +231,7 @@ export const HeadmasterDashboard = () => {
           { id: 'dashboard', label: t('dash.principal.tab.dashboard'), icon: School },
           { id: 'courses', label: t('dash.principal.tab.courses'), icon: BookOpen },
           { id: 'announcements', label: t('dash.principal.tab.announcements'), icon: Megaphone }
-        ].map((tab) => {
+        ].filter((tab) => !(isVice && tab.id === 'announcements')).map((tab) => {
           const TabIcon = tab.icon;
           const isActive = activeTab === tab.id;
           return (

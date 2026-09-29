@@ -5,6 +5,7 @@ import Navbar from '../views/Dashboard/components/Navbar';
 import Toast from '../components/ui/Toast';
 import SessionRejectionNotice from '../components/SessionRejectionNotice';
 import MembershipGoneWatcher from '../components/MembershipGoneWatcher';
+import ViceSessionWatcher from '../components/ViceSessionWatcher';
 import { useTheme } from '../theme/useTheme';
 
 /*
@@ -92,6 +93,8 @@ export const MainLayout = () => {
       <SessionRejectionNotice />
       {/* Removed, left, or school switched off: go to the page that says so. */}
       <MembershipGoneWatcher />
+      {/* A Vice Principal revoked, or appointed after this token was issued. */}
+      <ViceSessionWatcher showToast={showToast} />
 
       {/* Toast Alert Notifier container */}
       {toast && (

@@ -6,6 +6,7 @@ import { membershipReviewService } from '../services/membershipReviewService';
 import { leaveRequestsService } from '../services/leaveRequestsService';
 import { academicsService } from '../services/academicsService';
 import { ROLES, requestInPov } from '../constants/roles';
+import { isOwnRequest } from '../views/Subjects/subjects';
 
 /*
   How many things wait for this person's decision, for the numbers beside the
@@ -44,7 +45,18 @@ export const notifyPendingChanged = () => window.dispatchEvent(new Event(EVENT))
 
 const soft = (promise) => promise.catch(() => null);
 
-async function countsFor(role) {
+/* The desks with anything waiting on them. */
+const COUNTED = [ROLES.PRINCIPAL, ROLES.VICE_PRINCIPAL, ROLES.TEACHER];
+
+async function countsFor(role, selfId) {
+  /* A Vice Principal decides teaching requests — never their own (ticket 19) —
+     and nothing else the Principal counts. */
+  if (role === ROLES.VICE_PRINCIPAL) {
+    const teaching = await soft(academicsService.classSubjects('PENDING'));
+    return {
+      teachingRequests: teaching ? teaching.filter((row) => !isOwnRequest(row, selfId)).length : null,
+    };
+  }
   if (role === ROLES.PRINCIPAL) {
     const [join, leave, teaching] = await Promise.all([
       soft(membershipReviewService.list('PENDING')),
@@ -73,24 +85,25 @@ async function countsFor(role) {
 export function usePendingCounts(role) {
   const { pathname } = useLocation();
   const { membership } = useAuth();
-  const key = `${membership?.id ?? ''}:${role}`;
+  const membershipId = membership?.id ?? null;
+  const key = `${membershipId ?? ''}:${role}`;
   /* The numbers live in the cache; this only asks for a render once a read lands. */
   const [, setVersion] = useState(0);
   const keyRef = useRef(key);
 
   const refresh = useCallback(
     (force) => {
-      if (role !== ROLES.PRINCIPAL && role !== ROLES.TEACHER) return;
+      if (!COUNTED.includes(role)) return;
       const held = cache.get(key);
       if (!force && held && Date.now() - held.at < MIN_GAP_MS) return;
       const at = Date.now();
       cache.set(key, { at, counts: held?.counts ?? {} });
-      countsFor(role).then((next) => {
+      countsFor(role, membershipId).then((next) => {
         cache.set(key, { at, counts: next });
         if (keyRef.current === key) setVersion((n) => n + 1);
       });
     },
-    [role, key]
+    [role, key, membershipId]
   );
 
   /* A new member or role is a new set of numbers: none carried over. */
@@ -108,5 +121,5 @@ export function usePendingCounts(role) {
     return () => window.removeEventListener(EVENT, onChanged);
   }, [refresh]);
 
-  return role === ROLES.PRINCIPAL || role === ROLES.TEACHER ? (cache.get(key)?.counts ?? {}) : {};
+  return COUNTED.includes(role) ? (cache.get(key)?.counts ?? {}) : {};
 }

@@ -205,7 +205,7 @@ export const HomeroomDashboard = () => {
                           </span>
                           <span
                             className={`px-2 py-0.5 text-[10px] font-extrabold rounded-md ${
-                              open ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                              open ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
                             }`}
                           >
                             {entry.academicYear?.label} · {t(`classes.year.status.${open ? 'ACTIVE' : 'CLOSED'}`)}

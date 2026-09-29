@@ -32,7 +32,12 @@ const ACTION = {
   STUDENTS: '/profile',
 };
 
-export const SetupChecklist = ({ data }) => {
+/* A Vice Principal cannot release a teacher's join request, and the School Code
+   is handed out by the Principal: those two steps are shown, without a button. */
+const VICE_ACTION = { ...ACTION, TEACHERS: null, STUDENTS: null };
+
+export const SetupChecklist = ({ data, desk = 'principal' }) => {
+  const actions = desk === 'vice' ? VICE_ACTION : ACTION;
   const { t } = useT();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(null); // null = decided by completeness
@@ -124,10 +129,10 @@ export const SetupChecklist = ({ data }) => {
                     )}
                   </div>
                 </div>
-                {step.state === 'todo' && (
+                {step.state === 'todo' && actions[step.id] && (
                   <button
                     type="button"
-                    onClick={() => navigate(ACTION[step.id])}
+                    onClick={() => navigate(actions[step.id])}
                     className={`self-start sm:self-auto shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 ${
                       isNext
                         ? 'bg-brand hover:bg-brand-deep text-white'

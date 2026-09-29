@@ -510,6 +510,93 @@ export function semesterFits(year, ordinal, start, end) {
   return out;
 }
 
+/*
+  The school's point and time zone — school.schema.js, backend 431513b and
+  0ad658f. Both are required at registration and for the Principal's
+  correction (`locationBody`, `timeZoneBody`).
+
+  A coordinate is checked against Indonesia's extent, as the server does:
+  latitude -11 to 6, longitude 95 to 141. A point in the sea off Africa is a
+  typo (fields swapped, a minus dropped), not a school. A decimal comma is
+  accepted here and sent as a point, because that is how Indonesian keyboards
+  and spreadsheets write it and `z.coerce.number` would not read it.
+*/
+export const COORDINATE_RANGE = {
+  latitude: { min: -11, max: 6 },
+  longitude: { min: 95, max: 141 },
+};
+export const TIME_ZONES = ['WIB', 'WITA', 'WIT'];
+
+/** "-7,9666" or " -7.9666 " → -7.9666; anything else → NaN. */
+export const parseCoordinate = (value) => {
+  const text = String(value ?? '').trim().replace(',', '.');
+  return /^[-+]?\d+(\.\d+)?$/.test(text) ? Number(text) : NaN;
+};
+
+export function validateCoordinate(kind, value) {
+  if (String(value ?? '').trim() === '') return { key: `validation.${kind}.required` };
+  const number = parseCoordinate(value);
+  if (Number.isNaN(number)) return { key: `validation.${kind}.format` };
+  const { min, max } = COORDINATE_RANGE[kind];
+  if (number < min || number > max) return { key: 'validation.coordinate.outside' };
+  return null;
+}
+
+/**
+ * "-7.9666, 112.6326" as Google Maps copies it → { latitude, longitude }, or
+ * null when the text is not two numbers. Lets one paste fill both boxes.
+ */
+export function splitCoordinatePair(text) {
+  const match = String(text ?? '').trim().match(/^([-+]?\d+(?:\.\d+)?)\s*[,;\s]\s*([-+]?\d+(?:\.\d+)?)$/);
+  return match ? { latitude: match[1], longitude: match[2] } : null;
+}
+
+export function validateTimeZone(value) {
+  return TIME_ZONES.includes(value) ? null : { key: 'validation.timeZone.required' };
+}
+
+/*
+  A school's own holiday — holidays.schema.js `schoolHolidayBody`, backend 9dee2e2.
+  A name of 3–150, and a day or a run of days: the end on or after the start,
+  and fewer than 90 days apart (`(end - start) / DAY < 90`), because a term
+  break is the gap between semesters, not a holiday.
+*/
+export const MAX_SCHOOL_HOLIDAY_DAYS = 90;
+
+export function validateHolidayName(value) {
+  const trimmed = String(value ?? '').trim();
+  if (trimmed.length < 3) return { key: 'validation.holiday.name' };
+  if (trimmed.length > 150) return { key: 'validation.holiday.nameLong' };
+  return null;
+}
+
+/** Answers `{ start, end }`, each a failure or null. */
+export function validateHolidayRange(start, end) {
+  const out = { start: null, end: null };
+  if (!start) out.start = { key: 'validation.holiday.startRequired' };
+  if (!end) out.end = { key: 'validation.holiday.endRequired' };
+  if (out.start || out.end) return out;
+  const day = (value) => new Date(`${value}T00:00:00Z`).getTime();
+  const span = (day(end) - day(start)) / 86400000;
+  if (span < 0) out.end = { key: 'validation.holiday.endBeforeStart' };
+  else if (span >= MAX_SCHOOL_HOLIDAY_DAYS) out.end = { key: 'validation.holiday.tooLong', vars: { n: MAX_SCHOOL_HOLIDAY_DAYS } };
+  return out;
+}
+
+/**
+ * A year's new dates against the semesters already in it — the rule
+ * `updateAcademicYear` checks (academics.service.js, backend `f669286`): every
+ * semester must still start on or after the year's start and end on or before
+ * its end. Answers the first semester left outside, or null.
+ */
+export function yearHoldsSemesters(year, start, end) {
+  const day = (value) => new Date(String(value).slice(0, 10) + 'T00:00:00Z').getTime();
+  const s = day(start);
+  const e = day(end);
+  const outside = (year?.semesters ?? []).find((semester) => day(semester.startDate) < s || day(semester.endDate) > e);
+  return outside ? { key: 'validation.academicYear.holdsSemester', vars: { n: outside.ordinal } } : null;
+}
+
 /** An Indonesian school year runs about eleven months; outside 9–13 is worth a second look. */
 export const isUsualYearLength = (months) => months >= 9 && months <= 13;
 

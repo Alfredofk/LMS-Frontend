@@ -10,8 +10,11 @@ import ProfileForm from './ProfileForm';
 import PasswordForm from './PasswordForm';
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
-import { homeFor } from '../../constants/roles';
+import { homeFor, ROLES } from '../../constants/roles';
 import LeaveCard from './LeaveCard';
+import SchoolPlaceCard from './SchoolPlaceCard';
+import HandoverCard from './HandoverCard';
+import DeleteAccountCard from './DeleteAccountCard';
 
 /*
   Settings — "Pengaturan". It was "Account & Security" until the account group
@@ -166,7 +169,18 @@ export const AccountPage = () => {
             {body}
           </div>
 
+          {/* The school's point and time zone — the Principal's to set (SchoolPlaceCard). */}
+          {activeRole === ROLES.PRINCIPAL && (
+            <SchoolPlaceCard onToast={(message, type) => setToast({ message, type })} />
+          )}
+
+          {/* Handing the school to a new Principal — the only way a Principal leaves. */}
+          {activeRole === ROLES.PRINCIPAL && <HandoverCard />}
+
           <LeaveCard onToast={(message, type) => setToast({ message, type })} />
+
+          {/* Last, and apart: deleting the account itself (DeleteAccountCard). */}
+          <DeleteAccountCard />
 
         </div>
       </>
@@ -209,6 +223,9 @@ export const AccountPage = () => {
         </div>
 
         {body}
+
+        {/* Somebody with no role may delete their account too — the route asks no membership. */}
+        <DeleteAccountCard />
       </AuthLayout>
     </>
   );

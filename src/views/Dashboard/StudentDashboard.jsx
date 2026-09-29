@@ -4,6 +4,7 @@ import { BookOpen, ListTodo, Star, FileText } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
 import StatCard from './components/StatCard';
+import NextHolidayCard from '../../components/holidays/NextHolidayCard';
 import {
   TodayActivities,
   ActiveAssessment,
@@ -82,6 +83,9 @@ export const StudentDashboard = () => {
           {today}
         </p>
       </div>
+
+      {/* Real data, and so unmarked: the school's next day off (owner, 2026-09-29). */}
+      <NextHolidayCard showLink />
 
       {/* No onClick: an inert card, not a button that leads nowhere. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">

@@ -38,6 +38,8 @@ import {
   requestInPov,
   releasableInPov,
   releasableLinksInPov,
+  decidedRolesInPov,
+  isPrincipalDesk,
 } from './roles.js';
 
 /* The shape `/users/me` answers with, trimmed to what these functions read. */
@@ -76,6 +78,12 @@ describe('activeRolesOf — the roles somebody may route into', () => {
   it('routes GUARDIAN too, now that /guardian exists', () => {
     expect(activeRolesOf({ roles: ['TEACHER', 'GUARDIAN'] })).toEqual(['TEACHER', 'GUARDIAN']);
     expect(activeRolesOf(me('ACTIVE', [['GUARDIAN', 'ACTIVE']]))).toEqual(['GUARDIAN']);
+  });
+
+  it('routes a Vice Principal, and drops one that was revoked (ENDED)', () => {
+    expect(activeRolesOf({ roles: ['TEACHER', 'VICE_PRINCIPAL'] })).toEqual(['TEACHER', 'VICE_PRINCIPAL']);
+    expect(activeRolesOf(me('ACTIVE', [['TEACHER', 'ACTIVE'], ['VICE_PRINCIPAL', 'ACTIVE']]))).toEqual(['TEACHER', 'VICE_PRINCIPAL']);
+    expect(activeRolesOf(me('ACTIVE', [['TEACHER', 'ACTIVE'], ['VICE_PRINCIPAL', 'ENDED']]))).toEqual(['TEACHER']);
   });
 
   it('copes with a membership that has no roles array at all', () => {
@@ -147,6 +155,10 @@ describe('leaveModeOf — how a member may leave (membership.service.js, ticket 
     expect(leaveModeOf(me('ACTIVE', [['TEACHER', 'ACTIVE'], ['GUARDIAN', 'ACTIVE']]))).toBe('REQUEST');
   });
 
+  it('makes a Vice Principal ask like the teacher they are', () => {
+    expect(leaveModeOf(me('ACTIVE', [['TEACHER', 'ACTIVE'], ['VICE_PRINCIPAL', 'ACTIVE']]))).toBe('REQUEST');
+  });
+
   it('lets a guardian leave at once, and reads only ACTIVE roles', () => {
     expect(leaveModeOf(me('ACTIVE', [['GUARDIAN', 'ACTIVE']]))).toBe('DIRECT');
     expect(leaveModeOf(me('ACTIVE', [['GUARDIAN', 'ACTIVE'], ['TEACHER', 'PENDING']]))).toBe('DIRECT');
@@ -159,8 +171,13 @@ describe('leaveModeOf — how a member may leave (membership.service.js, ticket 
 });
 
 describe('defaultRoleOf — who somebody walks in as (owner, 2026-09-24)', () => {
-  it('orders Principal, Teacher, Student, Guardian', () => {
-    expect(ROLE_PRIORITY).toEqual(['PRINCIPAL', 'TEACHER', 'STUDENT', 'GUARDIAN']);
+  it('orders Principal, Vice Principal, Teacher, Student, Guardian', () => {
+    expect(ROLE_PRIORITY).toEqual(['PRINCIPAL', 'VICE_PRINCIPAL', 'TEACHER', 'STUDENT', 'GUARDIAN']);
+  });
+
+  it('sends a Vice Principal, who always also teaches, in as Vice Principal (owner, 2026-09-29)', () => {
+    expect(defaultRoleOf(['TEACHER', 'VICE_PRINCIPAL'])).toBe('VICE_PRINCIPAL');
+    expect(defaultRoleOf(['TEACHER', 'VICE_PRINCIPAL', 'GUARDIAN'])).toBe('VICE_PRINCIPAL');
   });
 
   it('sends a Principal who teaches in as Principal, and a teacher who is a guardian in as Teacher', () => {
@@ -244,6 +261,11 @@ describe('adding a role to a membership already held — /me/roles', () => {
 
   it('offers again a role the person withdrew — CANCELLED is reopened the same way', () => {
     expect(rolesToAdd(me('ACTIVE', [['GUARDIAN', 'ACTIVE'], ['TEACHER', 'CANCELLED']]))).toEqual(['TEACHER']);
+  });
+
+  it('never offers VICE_PRINCIPAL — it is appointed, not asked for', () => {
+    expect(rolesToAdd(me('ACTIVE', [['TEACHER', 'ACTIVE'], ['VICE_PRINCIPAL', 'ACTIVE']]))).toEqual(['GUARDIAN']);
+    expect(rolesToAdd(me('ACTIVE', [['GUARDIAN', 'ACTIVE']]))).not.toContain('VICE_PRINCIPAL');
   });
 
   it('offers a student nothing, a newcomer nothing, and a switched-off school nothing', () => {
@@ -343,6 +365,35 @@ describe("a guardian's further child — decided as a link, not a role", () => {
   });
 });
 
+describe('decidedRolesInPov — the roles one decision names, backend f669286', () => {
+  const role = (name, canRelease = true) => ({ role: name, status: 'PENDING', canRelease });
+
+  it("names only the desk's own: a Principal who is also homeroom teacher decides TEACHER as Principal", () => {
+    const request = { roles: [role('TEACHER'), role('GUARDIAN')] };
+    expect(decidedRolesInPov(request, 'PRINCIPAL')).toEqual(['TEACHER']);
+    expect(decidedRolesInPov(request, 'TEACHER')).toEqual(['GUARDIAN']);
+  });
+
+  it('names GUARDIAN for a further child whose link alone waits here', () => {
+    const request = {
+      status: 'ACTIVE',
+      roles: [{ role: 'GUARDIAN', status: 'ACTIVE', canRelease: false }],
+      children: [{ id: 'l1', status: 'PENDING', canRelease: true }],
+    };
+    expect(decidedRolesInPov(request, 'TEACHER')).toEqual(['GUARDIAN']);
+  });
+
+  it('names GUARDIAN once when the role and its link both wait', () => {
+    const request = { roles: [role('GUARDIAN')], children: [{ id: 'l1', status: 'PENDING', canRelease: true }] };
+    expect(decidedRolesInPov(request, 'TEACHER')).toEqual(['GUARDIAN']);
+  });
+
+  it('names nothing this reader may not release', () => {
+    expect(decidedRolesInPov({ roles: [role('STUDENT', false)] }, 'TEACHER')).toEqual([]);
+    expect(decidedRolesInPov({ roles: [role('STUDENT')] }, 'PRINCIPAL')).toEqual([]);
+  });
+});
+
 describe('join requests split by point of view', () => {
   /* The review queue's shape (requestView): each role carries canRelease. */
   const request = (...roles) => ({ roles: roles.map(([role, canRelease = true]) => ({ role, status: 'PENDING', canRelease })) });
@@ -379,6 +430,15 @@ describe('join requests split by point of view', () => {
   });
 });
 
+describe('isPrincipalDesk — who works at the academic screens', () => {
+  it('is the Principal and a Vice Principal, nobody else', () => {
+    expect(isPrincipalDesk('PRINCIPAL')).toBe(true);
+    expect(isPrincipalDesk('VICE_PRINCIPAL')).toBe(true);
+    expect(isPrincipalDesk('TEACHER')).toBe(false);
+    expect(isPrincipalDesk(undefined)).toBe(false);
+  });
+});
+
 describe('homeFor', () => {
   it.each([
     [ROLES.STUDENT, '/dashboard'],
@@ -392,6 +452,10 @@ describe('homeFor', () => {
     expect(homeFor(ROLES.GUARDIAN)).toBe('/guardian');
   });
 
+  it('sends a Vice Principal to /vice/dashboard', () => {
+    expect(homeFor(ROLES.VICE_PRINCIPAL)).toBe('/vice/dashboard');
+  });
+
   it('sends anybody without a home to /select-role, not to a broken route', () => {
     expect(homeFor(undefined)).toBe('/select-role');
     expect(homeFor('HEADMASTER')).toBe('/select-role'); // the old word, never an identifier
@@ -401,20 +465,19 @@ describe('homeFor', () => {
 describe('the tables agree with one another', () => {
   const all = Object.values(ROLES);
 
-  it('names the four roles exactly as the backend enum does', () => {
-    expect([...all].sort()).toEqual(['GUARDIAN', 'PRINCIPAL', 'STUDENT', 'TEACHER']);
+  it('names the five roles exactly as the backend enum does', () => {
+    expect([...all].sort()).toEqual(['GUARDIAN', 'PRINCIPAL', 'STUDENT', 'TEACHER', 'VICE_PRINCIPAL']);
     for (const [key, value] of Object.entries(ROLES)) expect(key).toBe(value);
   });
 
-  it('gives every role a label key and a tagline key', () => {
-    for (const role of all) {
-      expect(ROLE_LABEL_KEY[role]).toBe(`role.${role}.label`);
-      expect(ROLE_TAGLINE_KEY[role]).toBe(`role.${role}.tagline`);
-    }
+  it('gives every role a label key, and every card on the picker a tagline key', () => {
+    for (const role of all) expect(ROLE_LABEL_KEY[role]).toBe(`role.${role}.label`);
+    for (const role of SELECTABLE_ROLES) expect(ROLE_TAGLINE_KEY[role]).toBe(`role.${role}.tagline`);
   });
 
   it('gives every card on the picker somewhere to go when the role is not held', () => {
-    expect([...SELECTABLE_ROLES].sort()).toEqual([...all].sort());
+    /* Every role but VICE_PRINCIPAL, which nobody asks for. */
+    expect([...SELECTABLE_ROLES].sort()).toEqual(all.filter((role) => role !== 'VICE_PRINCIPAL').sort());
     for (const role of SELECTABLE_ROLES) expect(GET_STARTED_PATH[role]).toMatch(/^\/get-started\//);
   });
 

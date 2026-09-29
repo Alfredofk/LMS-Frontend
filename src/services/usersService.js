@@ -84,6 +84,30 @@ export const usersService = {
     saveTokens(auth);
     return auth;
   },
+
+  /**
+   * Delete one's own account — backend `7d4b196` (ticket 11, ADR-0007).
+   *
+   * Proven again: the password, or — for an account made through Google, which
+   * has none — a fresh Google ID token. Exactly one; which one the account needs
+   * only the server knows, and it says so ("This account has no password").
+   *
+   * What goes: the sign-in identity. The email is released, Google unlinked, the
+   * password and every session ended. What stays: the name on the records of any
+   * school the person belonged to. A waiting join request is cancelled, an active
+   * membership ends, a school registration under review is closed and its KTP
+   * deleted. Refused (CONFLICT) at a running school for a Principal (hand the
+   * school over first) and for a teacher or student (send a leave request first).
+   *
+   * The retry on 401 stays on, for the reason change-password gives above.
+   *
+   * @param {{ password?: string, googleIdToken?: string }} body
+   * @returns {Promise<{ deleted: true, membership: { school: { name: string }, status: 'CANCELLED'|'LEFT' }|null,
+   *   schoolRegistrationClosed: boolean, message: string }>}
+   */
+  deleteMe(body) {
+    return api.del('/users/me', { body });
+  },
 };
 
 export default usersService;

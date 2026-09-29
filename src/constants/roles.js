@@ -3,7 +3,7 @@
  *
  * These names are the Prisma enum SchoolRole verbatim, uppercase and singular.
  * Nothing in this app may invent its own: a role arrives from the API as one of
- * these four strings and is compared as-is, never lowercased, never translated
+ * these five strings and is compared as-is, never lowercased, never translated
  * into a word the server would not recognise.
  *
  * There is no `headmaster` here. The word is PRINCIPAL. The UI calls that role
@@ -15,7 +15,19 @@ export const ROLES = {
   TEACHER: 'TEACHER',
   PRINCIPAL: 'PRINCIPAL',
   GUARDIAN: 'GUARDIAN',
+  /* Backend `89a5666` (ticket 19): a teacher the Principal appoints to run the
+     academic day-to-day. Never asked for, so no card on the picker and no
+     /get-started path — it is only ever granted, from the Members page. */
+  VICE_PRINCIPAL: 'VICE_PRINCIPAL',
 };
+
+/**
+ * Whether this role works at the Principal's desk — the academic screens
+ * (/headmaster/classes, /subjects, /members, the holiday calendar). A Vice
+ * Principal shares them; what stays the Principal's alone (removing somebody,
+ * leave requests, appointing a Vice Principal) is checked against PRINCIPAL.
+ */
+export const isPrincipalDesk = (role) => role === ROLES.PRINCIPAL || role === ROLES.VICE_PRINCIPAL;
 
 /*
   The four the role picker shows, in that order.
@@ -42,6 +54,7 @@ export const ROLE_LABEL_KEY = {
   [ROLES.TEACHER]: 'role.TEACHER.label',
   [ROLES.PRINCIPAL]: 'role.PRINCIPAL.label',
   [ROLES.GUARDIAN]: 'role.GUARDIAN.label',
+  [ROLES.VICE_PRINCIPAL]: 'role.VICE_PRINCIPAL.label',
 };
 
 /** The one-line pitch under each label on the role picker. */
@@ -66,6 +79,8 @@ export const ROLE_HOME = {
   /* "Anak Saya": the guardian's children and their links — all the backend
      sends a guardian today (/users/me children[]). */
   [ROLES.GUARDIAN]: '/guardian',
+  /* The Principal's dashboard, worded for the Vice Principal (owner, 2026-09-29). */
+  [ROLES.VICE_PRINCIPAL]: '/vice/dashboard',
 };
 
 /**
@@ -191,9 +206,11 @@ export function leaveModeOf(membership) {
   is also a guardian enters as Teacher. Switching is one tap away in the avatar
   menu, so picking for them costs nothing, while asking at every sign-in cost a
   screen. STUDENT never shares a membership with anything, so its place only
-  matters for completeness.
+  matters for completeness. A Vice Principal always also teaches, and enters as
+  Vice Principal — the same reasoning as a Principal who teaches (owner,
+  2026-09-29).
 */
-export const ROLE_PRIORITY = [ROLES.PRINCIPAL, ROLES.TEACHER, ROLES.STUDENT, ROLES.GUARDIAN];
+export const ROLE_PRIORITY = [ROLES.PRINCIPAL, ROLES.VICE_PRINCIPAL, ROLES.TEACHER, ROLES.STUDENT, ROLES.GUARDIAN];
 
 /** The first of `roles` in ROLE_PRIORITY, or null for none. */
 export const defaultRoleOf = (roles) => ROLE_PRIORITY.find((role) => (roles ?? []).includes(role)) ?? null;
@@ -355,6 +372,23 @@ export function releasableLinksInPov(request, activeRole) {
   const wanted = REVIEW_ROLES_BY_POV[activeRole] ?? [];
   if (!wanted.includes(ROLES.GUARDIAN)) return [];
   return (request?.children ?? []).filter((link) => link.canRelease && link.status === 'PENDING');
+}
+
+/**
+ * What one decision from this desk covers, as the `roles` a decision sends —
+ * backend `f669286` (owner, 2026-09-26). The desk's releasable roles, plus
+ * GUARDIAN when only a further child's link waits here: the server lets GUARDIAN
+ * name a link on its own. Unique, in the order they appear.
+ *
+ * Sent, the decision covers only these. Before, a Principal who is also the
+ * child's homeroom teacher released the GUARDIAN on the teacher's desk along
+ * with the TEACHER, and the dialog could only warn about it. Empty when this
+ * desk decides nothing — a decision is then not offered at all.
+ */
+export function decidedRolesInPov(request, activeRole) {
+  const roles = releasableInPov(request, activeRole).map((entry) => entry.role);
+  if (releasableLinksInPov(request, activeRole).length > 0) roles.push(ROLES.GUARDIAN);
+  return [...new Set(roles)];
 }
 
 /**

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { CalendarRange, Check, ChevronRight, Plus, School, Search, ShieldOff, Lock } from 'lucide-react';
+import { CalendarRange, Check, ChevronRight, Pencil, Plus, School, Search, ShieldOff, Lock, Trash2 } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
@@ -14,6 +14,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
 import { academicsErrorMessage } from '../../i18n/apiError';
 import { gradesFor } from '../../constants/schoolTypes';
+import { ROLES } from '../../constants/roles';
 import { formatDay } from './format';
 import {
   YEAR_TABS,
@@ -50,6 +51,16 @@ import {
   those controls are not rendered for it, rather than offered and refused with a
   409. Everything in it stays readable.
 
+  ## Correcting and deleting (backend `f669286`, owner 2026-09-26)
+
+  An ACTIVE year's label and dates, an OPEN semester's dates and deadline, and a
+  class's name and grade can be corrected — the same forms as creating, given
+  `initial`. Deleting is for something made by mistake, so it is offered only
+  where the page can see it is empty: a year with no semester and no class, a
+  class with nobody in it. A semester is offered too, because whether anybody
+  has asked to teach in it is not in the year's answer; the server refuses one
+  that has, and that refusal is said. A closed year offers none of it.
+
   ## Why this page asks /users/me for itself
 
   The grade picker needs `school.schoolType` and `durationYears`, and a Principal
@@ -66,18 +77,18 @@ const SEMESTER_ORDINALS = [1, 2];
 
 const YEAR_BADGE = {
   ACTIVE: 'bg-emerald-50 text-emerald-700',
-  CLOSED: 'bg-slate-100 text-slate-500',
+  CLOSED: 'bg-slate-100 text-slate-600',
 };
 
 const SEMESTER_BADGE = {
   OPEN: 'bg-emerald-50 text-emerald-700',
   FINALIZING: 'bg-amber-50 text-amber-700',
-  CLOSED: 'bg-slate-100 text-slate-500',
+  CLOSED: 'bg-slate-100 text-slate-600',
 };
 
 export const ClassesPage = () => {
   const { showToast } = useOutletContext();
-  const { membership, refreshMe } = useAuth();
+  const { membership, refreshMe, activeRole } = useAuth();
   const { t, lang } = useT();
 
   const asked = useRef(false);
@@ -104,6 +115,9 @@ export const ClassesPage = () => {
   const [openForm, setOpenForm] = useState(null);
   const [closing, setClosing] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  /* Which delete is being confirmed: { kind: 'year' | 'semester', item }. */
+  const [deleting, setDeleting] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   /* Which years are on screen (YEAR_TABS), and the class filters. null until the
      years arrive, so the first tab can depend on what they are. */
   const [yearTab, setYearTab] = useState(null);
@@ -225,6 +239,49 @@ export const ClassesPage = () => {
     setClasses((prev) => (prev ?? []).map((entry) => (entry.id === updated?.id ? updated : entry)));
   };
 
+  const handleYearSaved = (updated) => {
+    putYear(updated);
+    setOpenForm(null);
+    showToast(t('classes.year.edit.done', { label: updated?.label ?? '' }), 'success');
+  };
+
+  const handleSemesterSaved = (updated, ordinal) => {
+    putYear(updated);
+    setOpenForm(null);
+    showToast(t('classes.semester.edit.done', { n: ordinal }), 'success');
+  };
+
+  const handleClassDeleted = (gone) => {
+    setClasses((prev) => (prev ?? []).filter((entry) => entry.id !== gone?.id));
+    setSelectedClassId(null);
+    showToast(t('classes.class.delete.done', { name: gone?.name ?? '' }), 'success');
+  };
+
+  const handleDelete = async () => {
+    if (!deleting) return;
+    setIsDeleting(true);
+    try {
+      if (deleting.kind === 'year') {
+        await academicsService.deleteAcademicYear(deleting.item.id);
+        const remaining = (years ?? []).filter((entry) => entry.id !== deleting.item.id);
+        setYears(remaining);
+        /* The next year on this tab takes its place, or none. */
+        setYearId(yearsInTab(remaining, yearTab)[0]?.id ?? null);
+        setOpenForm(null);
+        showToast(t('classes.year.delete.done', { label: deleting.item.label }), 'success');
+      } else {
+        putYear(await academicsService.deleteSemester(deleting.item.id));
+        setOpenForm(null);
+        showToast(t('classes.semester.delete.done', { n: deleting.item.ordinal }), 'success');
+      }
+    } catch (err) {
+      showToast(academicsErrorMessage(err, t), 'error');
+    } finally {
+      setIsDeleting(false);
+      setDeleting(null);
+    }
+  };
+
   const handleClose = async () => {
     setIsClosing(true);
     try {
@@ -287,7 +344,10 @@ export const ClassesPage = () => {
           classId={selectedClassId}
           onBack={() => setSelectedClassId(null)}
           onChanged={handleClassChanged}
+          onDeleted={handleClassDeleted}
+          grades={grades}
           showToast={showToast}
+          canRemove={activeRole === ROLES.PRINCIPAL}
         />
       </div>
     );
@@ -367,7 +427,7 @@ export const ClassesPage = () => {
                     {t(`classes.year.tab.${tab}`)}
                     <span
                       className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold tabular-nums ${
-                        isActive ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-500'
+                        isActive ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-600'
                       }`}
                     >
                       {count}
@@ -443,17 +503,49 @@ export const ClassesPage = () => {
                   <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
                     {t('classes.year.semestersIn', { label: year.label })}
                   </h3>
-                  {yearOpen && (
-                    <button
-                      type="button"
-                      onClick={() => setClosing(true)}
-                      className="inline-flex items-center gap-1.5 self-start text-[11px] font-bold text-slate-500 hover:text-rose-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
-                    >
-                      <Lock className="w-3.5 h-3.5" aria-hidden="true" />
-                      {t('classes.year.close')}
-                    </button>
+                  {yearOpen && openForm !== 'year-edit' && (
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 self-start">
+                      <button
+                        type="button"
+                        onClick={() => setOpenForm('year-edit')}
+                        className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-brand transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+                      >
+                        <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                        {t('classes.year.edit.open')}
+                      </button>
+                      {/* Only an empty year can go — no semester, no class. */}
+                      {(year.semesters ?? []).length === 0 && yearClasses !== null && yearClasses.length === 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setDeleting({ kind: 'year', item: year })}
+                          className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-rose-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                          {t('classes.year.delete.open')}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setClosing(true)}
+                        className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-rose-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+                      >
+                        <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+                        {t('classes.year.close')}
+                      </button>
+                    </div>
                   )}
                 </div>
+
+                {openForm === 'year-edit' && (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 max-w-xl">
+                    <AcademicYearForm
+                      key={year.id}
+                      initial={year}
+                      onSaved={handleYearSaved}
+                      onCancel={() => setOpenForm(null)}
+                    />
+                  </div>
+                )}
 
                 {!yearOpen && (
                   <p className="text-xs font-semibold text-slate-500">{t('classes.year.closedNote')}</p>
@@ -482,7 +574,16 @@ export const ClassesPage = () => {
                           })()}
                         </div>
 
-                        {semester ? (
+                        {semester && openForm === `semester-edit-${ordinal}` ? (
+                          <SemesterForm
+                            key={semester.id}
+                            year={year}
+                            ordinal={ordinal}
+                            initial={semester}
+                            onSaved={(updated) => handleSemesterSaved(updated, ordinal)}
+                            onCancel={() => setOpenForm(null)}
+                          />
+                        ) : semester ? (
                           <>
                             <p className="text-xs font-semibold text-slate-500">
                               {formatDay(semester.startDate, lang)} – {formatDay(semester.endDate, lang)}
@@ -493,6 +594,27 @@ export const ClassesPage = () => {
                                   date: formatDay(semester.classSubjectRegistrationDeadline, lang),
                                 })}
                               </p>
+                            )}
+                            {/* An OPEN semester of an ACTIVE year only — the server's own rule. */}
+                            {yearOpen && semester.status === 'OPEN' && (
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenForm(`semester-edit-${ordinal}`)}
+                                  className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-brand transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+                                >
+                                  <Pencil className="w-3 h-3" aria-hidden="true" />
+                                  {t('classes.semester.edit.open')}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleting({ kind: 'semester', item: semester })}
+                                  className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-rose-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+                                >
+                                  <Trash2 className="w-3 h-3" aria-hidden="true" />
+                                  {t('classes.semester.delete.open')}
+                                </button>
+                              </div>
                             )}
                           </>
                         ) : openForm === formKey ? (
@@ -658,6 +780,23 @@ export const ClassesPage = () => {
           )}
         </>
       )}
+
+      <ConfirmDialog
+        open={deleting !== null}
+        tone="danger"
+        title={
+          deleting?.kind === 'year'
+            ? t('classes.year.delete.title', { label: deleting.item.label })
+            : t('classes.semester.delete.title', { n: deleting?.item?.ordinal ?? '', label: year?.label ?? '' })
+        }
+        body={t(deleting?.kind === 'year' ? 'classes.year.delete.body' : 'classes.semester.delete.body')}
+        confirmLabel={t(deleting?.kind === 'year' ? 'classes.year.delete.open' : 'classes.semester.delete.open')}
+        cancelLabel={t('common.cancel')}
+        busy={isDeleting}
+        busyLabel={t('common.loading')}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleting(null)}
+      />
 
       <ConfirmDialog
         open={closing}

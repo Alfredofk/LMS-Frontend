@@ -5,7 +5,9 @@ import { Check, ChevronDown, LogOut, Settings, User } from 'lucide-react';
 import ConfirmDialog from './ui/ConfirmDialog';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../i18n/LanguageContext';
-import { homeFor } from '../constants/roles';
+import { ROLES, homeFor } from '../constants/roles';
+import { accessTokenClaims } from '../services/apiClient';
+import { authService } from '../services/authService';
 
 /*
   Everything about "me", behind the avatar in the navbar.
@@ -32,6 +34,18 @@ import { homeFor } from '../constants/roles';
   reader than a plain list of buttons reached with Tab.
 */
 
+/*
+  **Opening the menu re-reads /users/me**, at most once per REREAD_GAP_MS. A
+  role granted since sign-in — a Vice Principal appointed — was otherwise only
+  offered after a visit to My Profile or /select-role, or the next sign-in
+  (walked 2026-09-29). The menu shows what is cached at once and the answer
+  replaces it when it lands; a role taken away meanwhile moves the person
+  through AuthContext's `droppedRole`. The gap spares the backend's per-IP rate
+  limit, the same reasoning as the sidebar's counts (usePendingCounts).
+*/
+const REREAD_GAP_MS = 20_000;
+let lastReread = 0;
+
 const initialsOf = (fullName) =>
   fullName
     ? fullName
@@ -44,7 +58,7 @@ const initialsOf = (fullName) =>
     : '—';
 
 export const AccountMenu = () => {
-  const { user, roles, activeRole, selectRole, logout } = useAuth();
+  const { user, roles, activeRole, selectRole, logout, refreshMe } = useAuth();
   const navigate = useNavigate();
   const { t } = useT();
 
@@ -73,6 +87,16 @@ export const AccountMenu = () => {
     };
   }, [open]);
 
+  const toggle = () => {
+    const opening = !open;
+    setOpen(opening);
+    if (!opening || Date.now() - lastReread < REREAD_GAP_MS) return;
+    lastReread = Date.now();
+    refreshMe().catch(() => {
+      /* The cached roles stay; the next opening after the gap asks again. */
+    });
+  };
+
   const go = (path) => {
     setOpen(false);
     navigate(path);
@@ -86,9 +110,14 @@ export const AccountMenu = () => {
     redirected before the navigation arrived. Inside one startTransition the
     new role and the new address render together.
   */
-  const switchTo = (role) => {
+  const switchTo = async (role) => {
     setOpen(false);
     if (role === activeRole) return;
+    /* A Vice Principal appointed since this token was issued: requireRole reads
+       the token, so trade it before any screen asks (backend 89a5666). */
+    if (role === ROLES.VICE_PRINCIPAL && !(accessTokenClaims()?.roles ?? []).includes(role)) {
+      await authService.refresh().catch(() => {});
+    }
     startTransition(() => {
       if (selectRole(role)) navigate(homeFor(role));
     });
@@ -103,7 +132,7 @@ export const AccountMenu = () => {
       <button
         ref={buttonRef}
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={toggle}
         aria-expanded={open}
         aria-controls="account-menu"
         aria-label={label}

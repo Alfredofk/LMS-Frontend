@@ -13,6 +13,7 @@ import AccountPage from './views/Account/AccountPage';
 import AccountChrome from './views/Account/AccountChrome';
 import AdminLayout from './layouts/AdminLayout';
 import AdminRegistrationsPage from './views/Admin/AdminRegistrationsPage';
+import AdminHolidaysPage from './views/Admin/AdminHolidaysPage';
 import VerifyEmailPage from './views/Verify/VerifyEmailPage';
 import ForgotPasswordPage from './views/Password/ForgotPasswordPage';
 import ResetPasswordPage from './views/Password/ResetPasswordPage';
@@ -120,6 +121,7 @@ function App() {
             }
           >
             <Route path="/admin/school-registrations" element={<AdminRegistrationsPage />} />
+            <Route path="/admin/holidays" element={<AdminHolidaysPage />} />
           </Route>
 
           <Route
@@ -161,6 +163,31 @@ function App() {
             }
           >
             <Route path="/headmaster/dashboard" element={<HeadmasterDashboard />} />
+          </Route>
+
+          {/* The Vice Principal's home: the Principal's dashboard, in their words. */}
+          <Route
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.VICE_PRINCIPAL]}>
+                <MainLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/vice/dashboard" element={<HeadmasterDashboard desk="vice" />} />
+          </Route>
+
+          {/*
+            The academic screens, shared with a Vice Principal (backend `89a5666`,
+            ticket 19). The paths keep /headmaster — a URL, not vocabulary — and
+            each page hides what stays the Principal's alone.
+          */}
+          <Route
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.PRINCIPAL, ROLES.VICE_PRINCIPAL]}>
+                <MainLayout />
+              </ProtectedRoute>
+            }
+          >
             <Route path="/headmaster/classes" element={<ClassesPage />} />
             <Route path="/headmaster/members" element={<MembersPage />} />
             <Route path="/headmaster/subjects" element={<SubjectsPage />} />
@@ -200,7 +227,7 @@ function App() {
               offers it to all of them. */}
           <Route
             element={
-              <ProtectedRoute allowedRoles={[ROLES.STUDENT, ROLES.TEACHER, ROLES.PRINCIPAL, ROLES.GUARDIAN]}>
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT, ROLES.TEACHER, ROLES.PRINCIPAL, ROLES.GUARDIAN, ROLES.VICE_PRINCIPAL]}>
                 <MainLayout />
               </ProtectedRoute>
             }
@@ -210,7 +237,7 @@ function App() {
 
           <Route
             element={
-              <ProtectedRoute allowedRoles={[ROLES.STUDENT, ROLES.TEACHER, ROLES.PRINCIPAL]}>
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT, ROLES.TEACHER, ROLES.PRINCIPAL, ROLES.VICE_PRINCIPAL]}>
                 <MainLayout />
               </ProtectedRoute>
             }

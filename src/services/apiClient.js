@@ -320,6 +320,7 @@ export async function request(path, options = {}) {
   if (!response.ok || !payload?.success) {
     const err = toApiError(response, payload);
     if (isMembershipGone(err)) membershipGoneListeners.forEach((listener) => listener(err));
+    else if (err.status === 403) forbiddenListeners.forEach((listener) => listener(err));
     throw err;
   }
 
@@ -353,6 +354,19 @@ export const isMembershipGone = (err) =>
 export function onMembershipGone(listener) {
   membershipGoneListeners.add(listener);
   return () => membershipGoneListeners.delete(listener);
+}
+
+/*
+  Every other 403, told to whoever listens — today only ViceSessionWatcher,
+  which cares while somebody works as a Vice Principal: a refusal then means
+  the appointment was revoked, or has not reached the token yet.
+*/
+const forbiddenListeners = new Set();
+
+/** Subscribe; returns the unsubscribe. */
+export function onForbidden(listener) {
+  forbiddenListeners.add(listener);
+  return () => forbiddenListeners.delete(listener);
 }
 
 /**

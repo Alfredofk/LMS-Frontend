@@ -101,6 +101,16 @@ export const AuthProvider = ({ children }) => {
   const [activeRole, setActiveRoleState] = useState(null);
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  /*
+    `{ from, to }` when the server's answer took away the role being worked as —
+    a Vice Principal revoked (backend 89a5666) — and another was entered in its
+    place. ProtectedRoute reads it to send the person to that role's home rather
+    than /unauthorized, and ViceSessionWatcher to say why. Any screen may be the
+    one whose refreshMe() finds out (ClassesPage calls it on mount), so it is
+    recorded here, where every answer lands. Cleared once said, on a chosen role,
+    and on sign-out.
+  */
+  const [droppedRole, setDroppedRole] = useState(null);
 
   useEffect(() => {
     setUser(readJson(USER_KEY));
@@ -156,6 +166,7 @@ export const AuthProvider = ({ children }) => {
        2026-09-24). It used to be null for anybody holding two, which sent them
        to /select-role at every sign-in to answer the same question. */
     const nextRole = previousRole && available.includes(previousRole) ? previousRole : defaultRoleOf(available);
+    if (previousRole && nextRole && previousRole !== nextRole) setDroppedRole({ from: previousRole, to: nextRole });
 
     setUser(nextUser);
     setMembership(nextMembership);
@@ -254,6 +265,7 @@ export const AuthProvider = ({ children }) => {
   const selectRole = useCallback(
     (role) => {
       if (!roles.includes(role)) return false;
+      setDroppedRole(null);
       setActiveRoleState(role);
       writeRaw(ACTIVE_ROLE_KEY, role);
       return true;
@@ -277,6 +289,7 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       setMembership(null);
       setActiveRoleState(null);
+      setDroppedRole(null);
       // Clear both storages: signing out must not depend on guessing which one
       // this session happened to use.
       forget(USER_KEY);
@@ -303,9 +316,11 @@ export const AuthProvider = ({ children }) => {
       updateProfile,
       checkPlatformAdmin,
       selectRole,
+      droppedRole,
+      clearDroppedRole: () => setDroppedRole(null),
       register: authService.register,
     }),
-    [user, membership, roles, activeRole, loading, isPlatformAdmin, signIn, signInWithGoogle, logout, refreshMe, updateProfile, checkPlatformAdmin, selectRole]
+    [user, membership, roles, activeRole, loading, isPlatformAdmin, signIn, signInWithGoogle, logout, refreshMe, updateProfile, checkPlatformAdmin, selectRole, droppedRole]
   );
 
   return (

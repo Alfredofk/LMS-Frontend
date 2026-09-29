@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRightLeft, Clock, UserMinus, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, Clock, Pencil, Trash2, UserMinus, Users } from 'lucide-react';
 
 import Button from '../../../components/ui/Button';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import SelectField from '../../../components/ui/SelectField';
 import RemoveMemberDialog from '../../../components/RemoveMemberDialog';
 import MoveStudentDialog from '../../Homeroom/MoveStudentDialog';
+import { ClassEditForm } from './ClassForm';
 import { academicsService } from '../../../services/academicsService';
 import { useT } from '../../../i18n/LanguageContext';
 import { academicsErrorMessage } from '../../../i18n/apiError';
@@ -46,6 +47,14 @@ import { formatDay } from '../format';
   instead of a second "Move" the server would refuse. `pendingMoves` is that
   map (moves.js `pendingMoveByStudent`), and `onMoveRequested` tells the page
   to re-read its moves — and its classes, when the move happened at once.
+
+  **The Principal can correct or delete the class** (backend `f669286`), in an
+  ACTIVE year and never on the `readOnly` page: name and grade through
+  `ClassEditForm`, the grade only while it has never held a student. Delete is
+  offered only while nobody sits in it; a class that has ever held a student,
+  a teaching assignment or a class move is refused by the server, and that
+  refusal is said (`classes.error.classNotEmpty`). `onDeleted` hands the page
+  the class that went.
 */
 export const ClassDetail = ({
   classId,
@@ -53,9 +62,14 @@ export const ClassDetail = ({
   onChanged,
   showToast,
   readOnly = false,
+  /* Removing a student from the school is the Principal's alone — not a Vice
+     Principal's, who otherwise runs this page (ticket 19). */
+  canRemove = !readOnly,
   canMove = false,
   pendingMoves = null,
   onMoveRequested,
+  grades = [],
+  onDeleted,
 }) => {
   const { t, lang } = useT();
 
@@ -69,6 +83,10 @@ export const ClassDetail = ({
   const [saveError, setSaveError] = useState(null);
   const [removing, setRemoving] = useState(null);
   const [moving, setMoving] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -115,6 +133,21 @@ export const ClassDetail = ({
     }
   };
 
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await academicsService.deleteClass(classId);
+      setDeleting(false);
+      onDeleted?.(target);
+    } catch (err) {
+      setDeleting(false);
+      setDeleteError(academicsErrorMessage(err, t));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const back = (
     <button
       type="button"
@@ -157,15 +190,54 @@ export const ClassDetail = ({
       {back}
 
       <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">{target.name}</h2>
-          <span className="px-2 py-0.5 bg-brand-tint text-brand text-[10px] font-extrabold rounded-md">
-            {t('classes.grade', { n: target.gradeLevel })}
-          </span>
-          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-extrabold rounded-md">
-            {target.academicYear?.label}
-          </span>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <h2 className="text-xl font-extrabold text-slate-900 tracking-tight break-words">{target.name}</h2>
+            <span className="px-2 py-0.5 bg-brand-tint text-brand text-[10px] font-extrabold rounded-md">
+              {t('classes.grade', { n: target.gradeLevel })}
+            </span>
+            <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-extrabold rounded-md">
+              {target.academicYear?.label}
+            </span>
+          </div>
+          {open && !readOnly && !isEditing && (
+            <div className="flex flex-wrap gap-2 shrink-0">
+              <Button size="sm" variant="outline" onClick={() => { setIsEditing(true); setDeleteError(null); }}>
+                <Pencil className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
+                {t('classes.class.edit.open')}
+              </Button>
+              {students.length === 0 && (
+                <Button size="sm" variant="outline" onClick={() => { setDeleting(true); setDeleteError(null); }}>
+                  <Trash2 className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
+                  {t('classes.class.delete.open')}
+                </Button>
+              )}
+            </div>
+          )}
         </div>
+
+        {deleteError && (
+          <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+            {deleteError}
+          </div>
+        )}
+
+        {isEditing && (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+            <ClassEditForm
+              target={target}
+              grades={grades}
+              onCancel={() => setIsEditing(false)}
+              onSaved={(updated) => {
+                /* The answer is the class without its roster; keep the roster we hold. */
+                setTarget((prev) => ({ ...prev, ...updated, students: prev?.students ?? [] }));
+                setIsEditing(false);
+                onChanged(updated);
+                showToast(t('classes.class.edit.done', { name: updated?.name ?? '' }), 'success');
+              }}
+            />
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-slate-100">
           <div className="min-w-0">
@@ -266,7 +338,7 @@ export const ClassDetail = ({
                     </button>
                   )
                 )}
-                {!readOnly && (
+                {canRemove && (
                 <button
                   type="button"
                   onClick={() => setRemoving({ membershipId: student.membershipId, fullName: student.fullName })}
@@ -320,6 +392,19 @@ export const ClassDetail = ({
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={deleting}
+        tone="danger"
+        title={t('classes.class.delete.title', { name: target.name })}
+        body={t('classes.class.delete.body')}
+        confirmLabel={t('classes.class.delete.open')}
+        cancelLabel={t('common.cancel')}
+        busy={isDeleting}
+        busyLabel={t('common.loading')}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleting(false)}
+      />
 
       <ConfirmDialog
         open={confirming}

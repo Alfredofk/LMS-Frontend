@@ -9,14 +9,17 @@ import {
   User, 
   Award 
 } from 'lucide-react';
+import { useOutletContext } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import HolidayCalendar from './HolidayCalendar';
 import { useT } from '../../i18n/LanguageContext';
-import { ROLES } from '../../constants/roles';
+import { ROLES, isPrincipalDesk } from '../../constants/roles';
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
 import { api, isNotBuiltYet } from '../../services/apiClient';
 
 export const SchedulePage = () => {
   const { activeRole } = useAuth();
+  const outlet = useOutletContext();
   const { t, lang } = useT();
   const locale = lang === 'id' ? 'id-ID' : 'en-GB';
   const role = activeRole || ROLES.STUDENT;
@@ -163,13 +166,21 @@ export const SchedulePage = () => {
   const selectedClasses = weeklySchedules.filter(s => s.dayOfWeek === selectedDayOfWeek);
   const selectedDeadlines = deadlines.filter(d => d.deadline.substring(0, 10) === selectedDateStr);
 
+  /* The holiday calendar is real (backend 9dee2e2) whatever the lessons are; the
+     Principal keeps it, and a Vice Principal with them (ticket 19). */
+  const holidays = <HolidayCalendar canManage={isPrincipalDesk(role)} showToast={outlet?.showToast} />;
+
   if (notBuilt) {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
           {t('shell.schedule')}
         </h1>
-        <NotBuiltYet />
+        {holidays}
+        <section className="space-y-3">
+          <h2 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{t('holiday.lessons')}</h2>
+          <NotBuiltYet />
+        </section>
       </div>
     );
   }
@@ -182,6 +193,7 @@ export const SchedulePage = () => {
       <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
         {t('shell.schedule')}
       </h1>
+      {holidays}
 
       <div className="flex-1 overflow-y-auto bg-slate-50 p-6 sm:p-8 font-sans flex flex-col xl:flex-row gap-6">
       

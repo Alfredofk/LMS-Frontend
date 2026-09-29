@@ -52,6 +52,13 @@ import {
   childPayload,
   yearDatesMatchLabel,
   semesterFits,
+  yearHoldsSemesters,
+  validateHolidayName,
+  validateHolidayRange,
+  validateCoordinate,
+  parseCoordinate,
+  splitCoordinatePair,
+  validateTimeZone,
   validateLeaveReason,
   validateLetterFile,
   monthsBetween,
@@ -693,6 +700,108 @@ describe('semesterFits — createSemester, academics.service.js:200-207', () => 
   it('refuses overlapping the other semester, but not touching it', () => {
     expect(semesterFits(year, 2, '2026-12-01', '2027-06-20').end).toEqual({ key: 'validation.semester.overlap', vars: { n: 1 } });
     expect(semesterFits(year, 2, '2026-12-19', '2027-06-20').end).toBeNull();
+  });
+});
+
+describe('a school holiday — holidays.schema.js schoolHolidayBody, backend 9dee2e2', () => {
+  it('wants a name of 3 to 150 characters, counted after trim', () => {
+    expect(keyOf(validateHolidayName('  ab  '))).toBe('validation.holiday.name');
+    expect(validateHolidayName('HUT')).toBeNull();
+    expect(validateHolidayName('x'.repeat(150))).toBeNull();
+    expect(keyOf(validateHolidayName('x'.repeat(151)))).toBe('validation.holiday.nameLong');
+  });
+
+  it('takes one day, the end on the start', () => {
+    expect(validateHolidayRange('2026-10-01', '2026-10-01')).toEqual({ start: null, end: null });
+  });
+
+  it('refuses an end before the start', () => {
+    expect(validateHolidayRange('2026-10-02', '2026-10-01').end).toEqual({ key: 'validation.holiday.endBeforeStart' });
+  });
+
+  it('takes 89 days apart and refuses 90, as (end - start) / DAY < 90 does', () => {
+    expect(validateHolidayRange('2026-01-01', '2026-03-31').end).toBeNull(); // 89 days apart
+    expect(validateHolidayRange('2026-01-01', '2026-04-01').end).toEqual({ key: 'validation.holiday.tooLong', vars: { n: 90 } });
+  });
+
+  it('asks for both dates', () => {
+    expect(validateHolidayRange('', '2026-10-01').start).toEqual({ key: 'validation.holiday.startRequired' });
+    expect(validateHolidayRange('2026-10-01', '').end).toEqual({ key: 'validation.holiday.endRequired' });
+  });
+});
+
+describe('a school point — school.schema.js coordinate(), backend 431513b', () => {
+  it('uses the server bounds: latitude -11 to 6, longitude 95 to 141', () => {
+    expect(validateCoordinate('latitude', '-11')).toBeNull();
+    expect(validateCoordinate('latitude', '6')).toBeNull();
+    expect(keyOf(validateCoordinate('latitude', '-11.0001'))).toBe('validation.coordinate.outside');
+    expect(keyOf(validateCoordinate('latitude', '6.0001'))).toBe('validation.coordinate.outside');
+    expect(validateCoordinate('longitude', '95')).toBeNull();
+    expect(validateCoordinate('longitude', '141')).toBeNull();
+    expect(keyOf(validateCoordinate('longitude', '94.9'))).toBe('validation.coordinate.outside');
+    expect(keyOf(validateCoordinate('longitude', '141.1'))).toBe('validation.coordinate.outside');
+  });
+
+  it('refuses the swapped pair a dropped field or a mix-up produces', () => {
+    // Malang, written the wrong way round.
+    expect(keyOf(validateCoordinate('latitude', '112.6326'))).toBe('validation.coordinate.outside');
+    expect(keyOf(validateCoordinate('longitude', '-7.9666'))).toBe('validation.coordinate.outside');
+  });
+
+  it('treats blank as missing, never as zero — the server preprocesses it to undefined', () => {
+    expect(keyOf(validateCoordinate('latitude', ''))).toBe('validation.latitude.required');
+    expect(keyOf(validateCoordinate('longitude', '   '))).toBe('validation.longitude.required');
+  });
+
+  it('reads a decimal comma, and refuses what is not a number', () => {
+    expect(parseCoordinate('-7,9666')).toBe(-7.9666);
+    expect(validateCoordinate('latitude', '-7,9666')).toBeNull();
+    expect(keyOf(validateCoordinate('latitude', 'tujuh'))).toBe('validation.latitude.format');
+    expect(keyOf(validateCoordinate('latitude', '-7.9.6'))).toBe('validation.latitude.format');
+  });
+
+  it('splits a pair pasted from Google Maps, and nothing else', () => {
+    expect(splitCoordinatePair('-7.9666, 112.6326')).toEqual({ latitude: '-7.9666', longitude: '112.6326' });
+    expect(splitCoordinatePair('-7.9666 112.6326')).toEqual({ latitude: '-7.9666', longitude: '112.6326' });
+    expect(splitCoordinatePair('-7.9666')).toBeNull();
+    expect(splitCoordinatePair('Malang')).toBeNull();
+  });
+});
+
+describe('a school time zone — school.schema.js timeZone, backend 0ad658f', () => {
+  it('takes exactly WIB, WITA or WIT', () => {
+    expect(validateTimeZone('WIB')).toBeNull();
+    expect(validateTimeZone('WITA')).toBeNull();
+    expect(validateTimeZone('WIT')).toBeNull();
+    expect(keyOf(validateTimeZone(''))).toBe('validation.timeZone.required');
+    expect(keyOf(validateTimeZone('wib'))).toBe('validation.timeZone.required');
+    expect(keyOf(validateTimeZone('Asia/Jakarta'))).toBe('validation.timeZone.required');
+  });
+});
+
+describe('yearHoldsSemesters — updateAcademicYear, backend f669286', () => {
+  const year = {
+    label: '2028/2029',
+    startDate: '2028-08-18T00:00:00.000Z',
+    endDate: '2028-09-18T00:00:00.000Z',
+    semesters: [{ ordinal: 1, startDate: '2028-08-18T00:00:00.000Z', endDate: '2028-09-03T00:00:00.000Z' }],
+  };
+
+  it('accepts a longer year that still holds the semester — the correction the owner needs', () => {
+    expect(yearHoldsSemesters(year, '2028-07-13', '2029-06-20')).toBeNull();
+  });
+
+  it('accepts dates that meet the semester exactly, as the server does (< and >, not <=)', () => {
+    expect(yearHoldsSemesters(year, '2028-08-18', '2028-09-03')).toBeNull();
+  });
+
+  it('names the semester a later start or an earlier end would leave outside', () => {
+    expect(yearHoldsSemesters(year, '2028-08-19', '2029-06-20')).toEqual({ key: 'validation.academicYear.holdsSemester', vars: { n: 1 } });
+    expect(yearHoldsSemesters(year, '2028-07-13', '2028-09-02')).toEqual({ key: 'validation.academicYear.holdsSemester', vars: { n: 1 } });
+  });
+
+  it('holds nothing to check in a year without semesters', () => {
+    expect(yearHoldsSemesters({ ...year, semesters: [] }, '2028-09-01', '2028-09-02')).toBeNull();
   });
 });
 

@@ -133,6 +133,21 @@ export const adminService = {
    *   CONFLICT if that school is not deactivated
    */
   reactivate: (id, reason) => api.post(`${BASE}/${id}/reactivate`, reason ? { reason } : {}),
+
+  /**
+   * Appoint the school's Principal when the one before cannot hand it over —
+   * backend `1416e24`. The admin sees no member list, so the successor is named
+   * by the email of an **active teacher** at that school; the reason (3–500) is
+   * audited. Whoever held PRINCIPAL loses it: one holding another role stays,
+   * one holding nothing else leaves with this reason.
+   *
+   * @returns {Promise<{ school: object, principal: { membershipId: string, fullName: string },
+   *   previous: Array<{ membershipId: string, status: 'ACTIVE'|'LEFT' }>, message: string }>}
+   * @throws {ApiError} NOT_FOUND when no active teacher there uses that email,
+   *   CONFLICT when the registration never became a school or the person is
+   *   already the Principal, BAD_REQUEST when they are not a teacher
+   */
+  appointPrincipal: (id, email, reason) => api.post(`${BASE}/${id}/principal`, { email, reason }),
 };
 
 export default adminService;

@@ -69,6 +69,8 @@ export const LoginPage = () => {
     screen the moment it appears.
   */
   const verified = location.state?.verified === true;
+  /* DeleteAccountCard lands here after deleting the account: every session is gone. */
+  const deleted = location.state?.deleted === true;
 
   /*
     This page used to carry its own copy of the auth shell, mirrored: purple on
@@ -140,8 +142,8 @@ export const LoginPage = () => {
       <LoginForm
         formState={formState}
         notice={
-          verified && !isSignUp && !isCheckEmail
-            ? t('auth.verifiedNotice')
+          !isSignUp && !isCheckEmail && (verified || deleted)
+            ? t(deleted ? 'auth.deletedNotice' : 'auth.verifiedNotice')
             : null
         }
       />

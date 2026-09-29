@@ -74,6 +74,29 @@ export const schoolService = {
     const answer = await api.post('/school/code/rotate');
     return answer?.school ?? null;
   },
+
+  /**
+   * The school's point, for students' self check-in — backend `431513b`.
+   * PRINCIPAL only; both coordinates always, inside Indonesia's extent.
+   * Answers `{ school, message }`; this unwraps it.
+   *
+   * @param {{ latitude: number, longitude: number }} body
+   */
+  async updateLocation(body) {
+    const answer = await api.patch('/school/location', body);
+    return answer?.school ?? null;
+  },
+
+  /**
+   * The zone the school's timetable is written in — backend `0ad658f`. WIB, WITA
+   * or WIT. PRINCIPAL only, and refused once the school has sessions.
+   *
+   * @param {'WIB'|'WITA'|'WIT'} timeZone
+   */
+  async updateTimeZone(timeZone) {
+    const answer = await api.patch('/school/time-zone', { timeZone });
+    return answer?.school ?? null;
+  },
 };
 
 export default schoolService;

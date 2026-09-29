@@ -50,6 +50,7 @@ const TITLES = {
   '/teacher/create-assignment': { key: 'shell.title.createAssignment', back: true },
 
   '/headmaster/dashboard': { key: 'shell.title.principalDashboard' },
+  '/vice/dashboard': { key: 'shell.title.viceDashboard' },
   '/headmaster/classes': { key: 'shell.classes' },
   '/headmaster/members': { key: 'shell.members' },
   '/headmaster/subjects': { key: 'shell.subjects' },
