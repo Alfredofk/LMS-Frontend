@@ -51,8 +51,10 @@ export function apiErrorMessage(err, t, overrides) {
   `details.attempts`.
 
   Branching on prose is what `apiClient` tells callers never to do, and the rule
-  is right: prose is the part that gets reworded. It is broken here on purpose,
-  because the alternative is worse. The generic `error.conflict` says "an account
+  holds for everything else: prose is the part that gets reworded. For a 409 it is
+  the backend's own design — every refusal keeps the one code CONFLICT and is told
+  apart by its sentence (David, 2026-09-30) — and the alternative is worse anyway.
+  The generic `error.conflict` says "an account
   with this email already exists" — the registration meaning, wrong for all four
   — and falling through to `err.message` would put a lone English sentence in the
   middle of an Indonesian form.
@@ -62,8 +64,8 @@ export function apiErrorMessage(err, t, overrides) {
   `reg.conflict.other`. So if those words change, this degrades to a vaguer
   sentence rather than breaking.
 
-  The real fix belongs upstream: four conflicts deserve four codes. Delete this
-  the day they get them.
+  This is permanent, like every *_BY_MESSAGE table below: the backend will not
+  split CONFLICT into separate codes, so there is nothing to wait for.
 */
 const CONFLICT_BY_MESSAGE = [
   ['already have a school registration', 'reg.conflict.pending'],
