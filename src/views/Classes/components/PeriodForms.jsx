@@ -12,6 +12,7 @@ import {
   yearDatesMatchLabel,
   semesterFits,
   yearHoldsSemesters,
+  yearOverlaps,
   deadlineFits,
   monthsBetween,
   isUsualYearLength,
@@ -87,9 +88,13 @@ const Actions = ({ onCancel, isWorking, submitLabel }) => {
  * out — its length too, with a warning outside 9–13 months. Both stay: a CLOSED
  * year still cannot be changed, and the label stays unique per school forever.
  *
+ * Two years never share a day, closed ones included (backend `a09f399`), so the
+ * dates are also held against every other year the page has (`years`,
+ * `yearOverlaps`) — the refusal names the year in the way.
+ *
  * Editing sends only what changed; the server refuses an empty change.
  */
-export const AcademicYearForm = ({ onCreated, onCancel, initial = null, onSaved }) => {
+export const AcademicYearForm = ({ onCreated, onCancel, initial = null, onSaved, years = [] }) => {
   const { t, lang } = useT();
   const editing = Boolean(initial);
   const { values, errors, setErrors, change } = useDateRange(initial);
@@ -119,6 +124,10 @@ export const AcademicYearForm = ({ onCreated, onCancel, initial = null, onSaved 
         const startTooLate = yearHoldsSemesters(initial, values.startDate, '9999-12-31');
         next[startTooLate ? 'startDate' : 'endDate'] = t(held.key, held.vars);
       }
+    }
+    if (!next.startDate && !next.endDate && !range.start && !range.end) {
+      const overlap = yearOverlaps(years, values.startDate, values.endDate, initial?.id ?? null);
+      if (overlap) next.endDate = t(overlap.key, overlap.vars);
     }
     if (editing && Object.keys(next).length === 0 && Object.keys(changes()).length === 0) {
       next.global = t('classes.edit.nothing');

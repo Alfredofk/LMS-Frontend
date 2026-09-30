@@ -22,8 +22,9 @@ const BY_CODE = {
   BAD_REQUEST: 'error.badRequest',
   NOT_FOUND: 'error.notFound',
   INVALID_RESPONSE: 'error.unreachable',
-  /* generalLimiter counts every request per IP, before sign-in is even checked
-     (server.js), so a busy school behind one address meets it first. */
+  /* generalLimiter counts per user since backend a09f399 — 1000 per 15 minutes,
+     read from the access token — and per network only for anonymous requests
+     (300), so a school on one Wi-Fi no longer shares one budget. */
   TOO_MANY_REQUESTS: 'error.tooManyRequests',
   UNKNOWN_ERROR: 'error.unknown',
 };
@@ -324,9 +325,25 @@ export function cancelErrorMessage(err, t) {
   });
 }
 
+/*
+  Backend a09f399 and 7cdc46d. The two year refusals name a year, so they are read
+  with the name kept; the semester's two are fixed sentences
+  (sessions.service.js assertSemesterDatesMayChange).
+*/
+const YEAR_OVERLAP = /The dates overlap academic year (\S+)/;
+const YEAR_LABEL_DATES = /Academic year (\S+) must start in (\d{4}) and end in (\d{4})/;
+const SEMESTER_DATES_BY_MESSAGE = [
+  ['A meeting in this Semester has already happened, so its start date is fixed', 'classes.error.semesterStartFixed'],
+  ['The Semester cannot end before today', 'classes.error.semesterEndPast'],
+];
+
 export function academicsErrorMessage(err, t) {
   const message = err?.message ?? '';
-  const hit = ACADEMICS_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  const overlap = YEAR_OVERLAP.exec(message);
+  if (overlap) return t('validation.academicYear.overlap', { label: overlap[1] });
+  const labelDates = YEAR_LABEL_DATES.exec(message);
+  if (labelDates) return t('classes.error.yearLabelDates', { label: labelDates[1], first: labelDates[2], second: labelDates[3] });
+  const hit = [...SEMESTER_DATES_BY_MESSAGE, ...ACADEMICS_BY_MESSAGE].find(([needle]) => message.includes(needle));
   if (hit) return t(hit[1]);
   return apiErrorMessage(err, t, {
     CONFLICT: 'classes.error.conflict',
@@ -379,6 +396,12 @@ const SUBJECTS_BY_MESSAGE = [
   ['must be an active teacher', 'subjects.error.notTeacher'],
   /* Backend 89a5666: a Vice Principal deciding their own request. */
   ['cannot decide their own teaching assignment', 'subjects.error.ownDecision'],
+  /* Backend 85bc687: ending or replacing an assignment (loadLiveAssignment,
+     endAssignment, replaceClassSubject). */
+  ['No active teaching assignment under that id', 'subjects.change.error.gone'],
+  ['This teaching assignment has already ended', 'subjects.change.error.gone'],
+  ['That teacher already teaches it', 'subjects.change.error.sameTeacher'],
+  ['A reason is required', 'validation.leaveReason.short'],
   ['Teacher not found', 'subjects.error.notTeacher'],
   ['Teaching assignment not found', 'subjects.error.gone'],
   ['No request of yours is waiting', 'subjects.error.gone'],
@@ -394,10 +417,35 @@ export function subjectsErrorMessage(err, t) {
   return academicsErrorMessage(err, t);
 }
 
+/*
+  The weekly timetable (backend 7cdc46d, sessions.service.js setSchedule and
+  assertCanRead). A clash is not here: its sentence carries days, times and
+  names, and ScheduleDialog takes it apart with `parseClash`. What is left falls
+  through to the subjects map, which knows a closed year and a semester not open.
+*/
+const TIMETABLE_BY_MESSAGE = [
+  ["Set the school's time zone", 'timetable.error.noZone'],
+  ['Only an active teaching assignment has a timetable', 'timetable.error.notActive'],
+  ['Only the Principal or a Vice Principal can set the timetable', 'timetable.error.forbidden'],
+  ['Class subject not found', 'timetable.error.gone'],
+];
+
+export function timetableErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  const hit = TIMETABLE_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  if (hit) return t(hit[1]);
+  return subjectsErrorMessage(err, t);
+}
+
 /* A teaching request decided or withdrawn elsewhere: the row on screen is stale. */
 export const isStaleTeaching = (err) =>
   String(err?.message ?? '').includes('has already been decided') ||
   String(err?.message ?? '').includes('Teaching assignment not found');
+
+/* An assignment ended or replaced elsewhere (backend 85bc687): the board row is stale. */
+export const isStaleAssignment = (err) =>
+  String(err?.message ?? '').includes('No active teaching assignment under that id') ||
+  String(err?.message ?? '').includes('This teaching assignment has already ended');
 
 /* Whether a move was decided or withdrawn elsewhere: the row on screen is stale. */
 export const isStaleMove = (err) =>

@@ -28,7 +28,8 @@ import id from './id.js';
 import en from './en.js';
 import { LANGUAGES } from './languages.js';
 import { ROLES, ROLE_LABEL_KEY, ROLE_TAGLINE_KEY } from '../constants/roles.js';
-import { decisionErrorMessage, isAlreadyDecided } from './apiError.js';
+import { decisionErrorMessage, isAlreadyDecided, academicsErrorMessage } from './apiError.js';
+import { SESSION_STATE_KEYS, sessionState } from '../views/Subjects/timetable.js';
 
 const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -225,10 +226,19 @@ describe('every expansion of a dynamic key exists', () => {
 
   it('subjects: a name for every tab', () => {
     const tabs = quotedIn('views/Subjects/subjects.js', /export const SUBJECT_TABS = \[([^\]]*)\]/);
-    expect(tabs).toEqual(['BOARD', 'PENDING', 'CATALOG']);
+    expect(tabs).toEqual(['BOARD', 'SCHEDULE', 'PENDING', 'CATALOG']);
     expectEvery(tabs.map((s) => `subjects.tab.${s}`));
     /* The board's year picker names a year's status in sentence case. */
     expectEvery(['ACTIVE', 'CLOSED'].map((s) => `subjects.board.yearStatus.${s}`));
+  });
+
+  it('timetable: a word for every state a meeting can show', () => {
+    /* sessionState builds the cancelled key from the reason; SESSION_STATE_KEYS is
+       the set, and each reason in schema.prisma's SessionCancelReason must land in it. */
+    expectEvery(SESSION_STATE_KEYS);
+    for (const cancelReason of ['HOLIDAY', 'SCHEDULE_CHANGED', 'NOT_HELD', 'ASSIGNMENT_ENDED', null]) {
+      expect(SESSION_STATE_KEYS).toContain(sessionState({ status: 'CANCELLED', cancelReason }));
+    }
   });
 
   it('the language switch: a name for every language offered', () => {
@@ -274,5 +284,34 @@ describe('deciding a join request: CONFLICT is not one thing (membership.service
       expect(id[key]).toBeTruthy();
       expect(en[key]).toBeTruthy();
     }
+  });
+});
+
+describe('academic years and semesters: the refusals added by backend a09f399 and 7cdc46d', () => {
+  /* The server's own sentences, copied from academics.service.js and sessions.service.js. */
+  const t = (key, vars) => (vars ? `${key} ${JSON.stringify(vars)}` : key);
+  const refused = (code, message) => ({ status: code === 'CONFLICT' ? 409 : 400, code, message });
+
+  it('names the year in the way (assertNoYearOverlap)', () => {
+    expect(academicsErrorMessage(refused('CONFLICT', 'The dates overlap academic year 2027/2028'), t)).toBe(
+      'validation.academicYear.overlap {"label":"2027/2028"}'
+    );
+  });
+
+  it('reads the label and both years back (assertYearMatchesLabel)', () => {
+    expect(academicsErrorMessage(refused('BAD_REQUEST', 'Academic year 2028/2029 must start in 2028 and end in 2029'), t)).toBe(
+      'classes.error.yearLabelDates {"label":"2028/2029","first":"2028","second":"2029"}'
+    );
+  });
+
+  it("says why a semester's dates are held (assertSemesterDatesMayChange)", () => {
+    expect(
+      academicsErrorMessage(refused('CONFLICT', 'A meeting in this Semester has already happened, so its start date is fixed'), t)
+    ).toBe('classes.error.semesterStartFixed');
+    expect(academicsErrorMessage(refused('CONFLICT', 'The Semester cannot end before today'), t)).toBe('classes.error.semesterEndPast');
+  });
+
+  it('still says a closed year is closed — the new patterns do not swallow it', () => {
+    expect(academicsErrorMessage(refused('CONFLICT', 'Academic year 2027/2028 is closed'), t)).toBe('classes.error.yearClosed');
   });
 });

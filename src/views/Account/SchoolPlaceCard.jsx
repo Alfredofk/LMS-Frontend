@@ -132,6 +132,12 @@ const SchoolPlaceCard = ({ onToast }) => {
             error={errors.timeZone || undefined}
             onChange={(value) => change('timeZone', value)}
           />
+          {/* Once a zone is saved, changing it moves the timetable (backend 7cdc46d,
+              onTimeZoneChanged): meetings from tomorrow keep their clock time in the
+              new zone, and today's and past ones stay. Said before the press. */}
+          {saved.timeZone && (
+            <p className="-mt-2 text-[11px] font-semibold text-slate-500 leading-relaxed">{t('place.timeZone.changeNote')}</p>
+          )}
 
           {errors.global && (
             <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">

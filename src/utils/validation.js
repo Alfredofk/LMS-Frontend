@@ -464,12 +464,11 @@ export function validateAcademicYearLabel(value) {
  * Whether a year's dates fall in the calendar years its label names — a
  * 2028/2029 year starts in 2028 and ends in 2029.
  *
- * **The app's own rule, not the backend's**: `academicYearBody` only checks the
- * label's shape and that the end comes after the start, so "2028/2029, 18 Aug –
- * 18 Sep 2028" was accepted — and cannot be corrected afterwards: there is no
- * route to edit a year, its label is unique per school, and every semester must
- * fit inside its dates. Checked only once the label and both dates are valid;
- * answers `{ start, end }`, each a failure or null.
+ * First the app's own rule — "2028/2029, 18 Aug – 18 Sep 2028" was once accepted
+ * — and since backend `a09f399` the server's too (`assertYearMatchesLabel`, a
+ * 400), so this is parity now: the refusal comes before the press. Checked only
+ * once the label and both dates are valid; answers `{ start, end }`, each a
+ * failure or null.
  */
 export function yearDatesMatchLabel(label, start, end) {
   const first = Number(String(label ?? '').trim().slice(0, 4));
@@ -595,6 +594,23 @@ export function yearHoldsSemesters(year, start, end) {
   const e = day(end);
   const outside = (year?.semesters ?? []).find((semester) => day(semester.startDate) < s || day(semester.endDate) > e);
   return outside ? { key: 'validation.academicYear.holdsSemester', vars: { n: outside.ordinal } } : null;
+}
+
+/**
+ * A year's dates against the school's other years — `assertNoYearOverlap`
+ * (academics.service.js, backend `a09f399`): two years never share a day,
+ * closed ones included, whatever their labels. The same strict test the server
+ * runs (`start < other.end && end > other.start`), so years that only touch pass.
+ * `exceptId` leaves out the year being edited. Answers the first year hit, or null.
+ */
+export function yearOverlaps(years, start, end, exceptId = null) {
+  const day = (value) => new Date(String(value).slice(0, 10) + 'T00:00:00Z').getTime();
+  const s = day(start);
+  const e = day(end);
+  const other = (years ?? []).find(
+    (year) => year.id !== exceptId && s < day(year.endDate) && e > day(year.startDate)
+  );
+  return other ? { key: 'validation.academicYear.overlap', vars: { label: other.label } } : null;
 }
 
 /** An Indonesian school year runs about eleven months; outside 9–13 is worth a second look. */

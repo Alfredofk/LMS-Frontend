@@ -1,6 +1,16 @@
 import { describe, it, expect } from 'vitest';
 
-import { defaultSlot, freeSubjects, boardWritable, deadlinePassed, bulkOutcome, isOwnRequest } from './subjects.js';
+import {
+  defaultSlot,
+  freeSubjects,
+  boardWritable,
+  deadlinePassed,
+  bulkOutcome,
+  isOwnRequest,
+  canChangeAssignment,
+  replacementTeachers,
+  changeErrors,
+} from './subjects.js';
 import { validateSubjectCode, validateSubjectName, normaliseSubjectCode, deadlineFits } from '../../utils/validation.js';
 
 const sem = (id, ordinal, start, end, status = 'OPEN', deadline = null) => ({
@@ -121,5 +131,71 @@ describe('isOwnRequest — a Vice Principal never decides their own teaching (ba
   it('marks nothing for the Principal, who passes no id', () => {
     expect(isOwnRequest(request, null)).toBe(false);
     expect(isOwnRequest({ id: 'r2', teacher: { membershipId: null } }, null)).toBe(false);
+  });
+});
+
+/* A board row as subjectBoard answers it (academics.service.js, classSubjectId / status / teacher). */
+const boardRow = (status, membershipId) => ({
+  classSubjectId: 'cs-1',
+  status,
+  subject: { id: 'sub-1', code: 'MTK', name: 'Matematika' },
+  teacher: { membershipId, fullName: 'Guru' },
+});
+
+describe('canChangeAssignment — ending or replacing (backend 85bc687, loadLiveAssignment)', () => {
+  it('offers an ACTIVE row, never a PENDING one — that belongs to the queue', () => {
+    expect(canChangeAssignment(boardRow('ACTIVE', 'm-t'), null)).toBe(true);
+    expect(canChangeAssignment(boardRow('PENDING', 'm-t'), null)).toBe(false);
+  });
+
+  it("keeps a Vice Principal off their own row (assertNotDecidingForSelf), not off others'", () => {
+    expect(canChangeAssignment(boardRow('ACTIVE', 'm-vice'), 'm-vice')).toBe(false);
+    expect(canChangeAssignment(boardRow('ACTIVE', 'm-t'), 'm-vice')).toBe(true);
+  });
+
+  it('lets the Principal, who passes no id, change any ACTIVE row', () => {
+    expect(canChangeAssignment(boardRow('ACTIVE', 'm-principal'), null)).toBe(true);
+  });
+});
+
+describe('replacementTeachers — never the current teacher ("That teacher already teaches it")', () => {
+  const teachers = [
+    { membershipId: 'm-a', fullName: 'A' },
+    { membershipId: 'm-b', fullName: 'B' },
+  ];
+
+  it('leaves out the current teacher and keeps the order', () => {
+    expect(replacementTeachers(teachers, boardRow('ACTIVE', 'm-a')).map((t) => t.membershipId)).toEqual(['m-b']);
+  });
+
+  it('answers an empty list while none are loaded or none are left', () => {
+    expect(replacementTeachers(null, boardRow('ACTIVE', 'm-a'))).toEqual([]);
+    expect(replacementTeachers([teachers[0]], boardRow('ACTIVE', 'm-a'))).toEqual([]);
+  });
+});
+
+describe('changeErrors — endBody / replaceBody and assertRejectionReason(END)', () => {
+  const reason = 'Pindah tugas';
+
+  it('asks for a choice before anything else is judged', () => {
+    expect(changeErrors({ mode: null, reason }).mode).toBe('subjects.change.modeRequired');
+  });
+
+  it('a replacement needs the new teacher', () => {
+    expect(changeErrors({ mode: 'REPLACE', teacherId: '', reason })).toEqual({ teacher: 'subjects.assign.teacherRequired' });
+    expect(changeErrors({ mode: 'REPLACE', teacherId: 'm-b', reason })).toEqual({});
+  });
+
+  it('ending has no default for subjectStops — false is an answer, null is not', () => {
+    expect(changeErrors({ mode: 'END', subjectStops: null, reason })).toEqual({ subjectStops: 'subjects.change.stopsRequired' });
+    expect(changeErrors({ mode: 'END', subjectStops: false, reason })).toEqual({});
+    expect(changeErrors({ mode: 'END', subjectStops: true, reason })).toEqual({});
+  });
+
+  it('the reason is 3 to 500 characters once trimmed, either way', () => {
+    expect(changeErrors({ mode: 'END', subjectStops: true, reason: '  ab  ' }).reason).toBe('validation.leaveReason.short');
+    expect(changeErrors({ mode: 'END', subjectStops: true, reason: 'abc' })).toEqual({});
+    expect(changeErrors({ mode: 'REPLACE', teacherId: 'm-b', reason: 'x'.repeat(500) })).toEqual({});
+    expect(changeErrors({ mode: 'REPLACE', teacherId: 'm-b', reason: 'x'.repeat(501) }).reason).toBe('validation.leaveReason.long');
   });
 });

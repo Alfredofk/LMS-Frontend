@@ -3,8 +3,8 @@
   decides, apart from its markup so it can be tested.
 */
 
-/* The page's three tabs. */
-export const SUBJECT_TABS = ['BOARD', 'PENDING', 'CATALOG'];
+/* The page's four tabs — the timetable since backend 7cdc46d. */
+export const SUBJECT_TABS = ['BOARD', 'SCHEDULE', 'PENDING', 'CATALOG'];
 
 const day = (value) => String(value ?? '').slice(0, 10);
 
@@ -85,4 +85,42 @@ export function bulkOutcome(requests, results) {
     else out.failed.push({ request, error: result?.error ?? null });
   }
   return out;
+}
+
+/*
+  Ending or replacing an ACTIVE assignment while its teacher stays (backend
+  85bc687, teaching-and-learning 10): `POST /academics/class-subjects/:id/end`
+  and `/replace`. The board offers it only where it is writable (the same year
+  and semester rule, `loadLiveAssignment`).
+*/
+
+/**
+ * Whether a board row can be ended or handed on: ACTIVE — a PENDING one is the
+ * queue's — and, for a Vice Principal (`selfId`), not their own
+ * (`assertNotDecidingForSelf`). A Principal passes null.
+ */
+export const canChangeAssignment = (row, selfId) =>
+  row?.status === 'ACTIVE' && !(Boolean(selfId) && row?.teacher?.membershipId === selfId);
+
+/** The teachers a row can be handed to: anyone but its current teacher ("That teacher already teaches it"). */
+export const replacementTeachers = (teachers, row) =>
+  (teachers ?? []).filter((entry) => entry.membershipId !== row?.teacher?.membershipId);
+
+/**
+ * What is missing before the change can be sent, as dictionary keys by field;
+ * empty when nothing is. `mode` is 'REPLACE' or 'END'; `subjectStops` stays null
+ * until chosen — the backend has no default for it, on purpose (owner,
+ * 2026-09-29), and neither does this. The reason is the rejection rule, 3–500.
+ *
+ * @returns {{ mode?: string, teacher?: string, subjectStops?: string, reason?: string }}
+ */
+export function changeErrors({ mode, teacherId, subjectStops, reason }) {
+  const errors = {};
+  if (mode !== 'REPLACE' && mode !== 'END') errors.mode = 'subjects.change.modeRequired';
+  if (mode === 'REPLACE' && !teacherId) errors.teacher = 'subjects.assign.teacherRequired';
+  if (mode === 'END' && typeof subjectStops !== 'boolean') errors.subjectStops = 'subjects.change.stopsRequired';
+  const trimmed = String(reason ?? '').trim();
+  if (trimmed.length < 3) errors.reason = 'validation.leaveReason.short';
+  else if (trimmed.length > 500) errors.reason = 'validation.leaveReason.long';
+  return errors;
 }

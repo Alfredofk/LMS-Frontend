@@ -7,6 +7,7 @@ import NotBuiltYet from '../../components/ui/NotBuiltYet';
 import { academicsService } from '../../services/academicsService';
 import { membersService } from '../../services/membersService';
 import SetupChecklist from './components/SetupChecklist';
+import AwaitingConfirmationCard from './components/AwaitingConfirmationCard';
 import { currentYear } from './setup';
 import { ROLES } from '../../constants/roles';
 import {
@@ -36,6 +37,9 @@ import {
     classes     GET /academics/classes          — classes and students placed, this year
     members     GET /members?status=ACTIVE      — teachers and students by role
     assignments GET /academics/class-subjects?status=ACTIVE — who teaches what
+
+  Below the cards, AwaitingConfirmationCard reads GET /sessions/needs-completion
+  on its own: meetings only their teacher can answer, grouped by teacher.
 
   The subjects tab is a summary of the real Subjects page, with a way there;
   its two extra numbers (waiting, catalog) are read when it is first opened.
@@ -257,6 +261,7 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
 
         {/* Tab 1: Dashboard overview — every number counted, for the current year. */}
         {activeTab === 'dashboard' && (
+          <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 select-none">
             {[
               { label: t('dash.principal.stat.teachers'), value: shown(teachers), to: '/headmaster/members', Icon: Users, tint: 'bg-purple-50 text-brand' },
@@ -290,6 +295,9 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
               );
             })}
           </div>
+          {/* Meetings waiting for their teacher's answer (backend 7cdc46d): hidden when none. */}
+          <AwaitingConfirmationCard />
+          </>
         )}
 
         {/* Tab 2: Subjects — a summary of the real page (ticket 08), not a second copy of it. */}

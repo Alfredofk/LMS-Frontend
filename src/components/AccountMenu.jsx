@@ -40,8 +40,9 @@ import { authService } from '../services/authService';
   offered after a visit to My Profile or /select-role, or the next sign-in
   (walked 2026-09-29). The menu shows what is cached at once and the answer
   replaces it when it lands; a role taken away meanwhile moves the person
-  through AuthContext's `droppedRole`. The gap spares the backend's per-IP rate
-  limit, the same reasoning as the sidebar's counts (usePendingCounts).
+  through AuthContext's `droppedRole`. The gap spares the backend's rate limit
+  (per user since backend a09f399), the same reasoning as the sidebar's counts
+  (usePendingCounts).
 */
 const REREAD_GAP_MS = 20_000;
 let lastReread = 0;

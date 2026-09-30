@@ -5,6 +5,7 @@ import NotBuiltYet from '../../components/ui/NotBuiltYet';
 import SubjectBoard from './SubjectBoard';
 import TeachingQueue from './TeachingQueue';
 import SubjectCatalog from './SubjectCatalog';
+import TimetableTab from './TimetableTab';
 import { academicsService } from '../../services/academicsService';
 import { isNotBuiltYet } from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
@@ -16,10 +17,12 @@ import { notifyPendingChanged } from '../../hooks/usePendingCounts';
 
 /*
   Subjects — the Principal's page (owner, 2026-09-26), backend `89d1fc1`,
-  ticket 08. Three tabs:
+  ticket 08. Four tabs:
 
   - **Board**: one semester, every class, who teaches what; the Principal can
     assign a teacher directly (SubjectBoard).
+  - **Timetable**: one class's week, and each subject's weekly slots and
+    meetings, set here (TimetableTab, backend 7cdc46d).
   - **Waiting**: teachers asking to teach a subject in a class, to approve
     (one or many) or reject with a reason (TeachingQueue).
   - **Catalog**: the national subjects and the school's local ones, where a
@@ -156,8 +159,16 @@ export const SubjectsPage = () => {
                 teachers={selfId && teachers ? teachers.filter((entry) => entry.membershipId !== selfId) : teachers}
                 loadTeachers={loadTeachers}
                 showToast={showToast}
+                selfId={selfId}
               />
             ))}
+
+      {tab === 'SCHEDULE' &&
+        (errors.years
+          ? failed(errors.years)
+          : years === null
+            ? loading
+            : <TimetableTab years={years} showToast={showToast} activeRole={activeRole} />)}
 
       {tab === 'PENDING' && (
         <TeachingQueue

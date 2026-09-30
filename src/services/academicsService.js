@@ -288,6 +288,27 @@ export const academicsService = {
     const answer = await api.post('/academics/class-subjects/override', body);
     return answer?.classSubject ?? null;
   },
+
+  /**
+   * Ends an ACTIVE assignment while its teacher stays (backend 85bc687). The
+   * reason (3–500) is shown to the teacher. `subjectStops` true cancels the
+   * Sessions ahead; false leaves them waiting for the next teacher.
+   */
+  async endClassSubject(id, { reason, subjectStops }) {
+    const answer = await api.post(`/academics/class-subjects/${id}/end`, { reason, subjectStops });
+    return answer?.classSubject ?? null;
+  },
+
+  /**
+   * Hands an ACTIVE assignment to another teacher in one step: the old row ends,
+   * the new one is ACTIVE at once and inherits the timetable.
+   *
+   * @returns {Promise<{ ended, classSubject }>}
+   */
+  async replaceClassSubject(id, { reason, teacherMembershipId }) {
+    const answer = await api.post(`/academics/class-subjects/${id}/replace`, { reason, teacherMembershipId });
+    return { ended: answer?.ended ?? null, classSubject: answer?.classSubject ?? null };
+  },
 };
 
 export default academicsService;

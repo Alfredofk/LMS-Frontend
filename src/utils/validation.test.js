@@ -53,6 +53,7 @@ import {
   yearDatesMatchLabel,
   semesterFits,
   yearHoldsSemesters,
+  yearOverlaps,
   validateHolidayName,
   validateHolidayRange,
   validateCoordinate,
@@ -824,5 +825,33 @@ describe('a leave request — leaveRequestBody and the letter upload (membership
     expect(validateLetterFile(file('image/png', 5 * 1024 * 1024))).toBeNull();
     expect(validateLetterFile(file('image/png', 5 * 1024 * 1024 + 1))?.key).toBe('validation.letter.tooLarge');
     expect(validateLetterFile(file('application/msword'))).toEqual({ key: 'validation.letter.type' });
+  });
+});
+
+describe('yearOverlaps — assertNoYearOverlap, backend a09f399', () => {
+  /* As GET /academics/academic-years answers: closed years are in the list too. */
+  const years = [
+    { id: 'y27', label: '2027/2028', status: 'CLOSED', startDate: '2027-07-12T00:00:00.000Z', endDate: '2028-06-17T00:00:00.000Z' },
+    { id: 'y28', label: '2028/2029', status: 'ACTIVE', startDate: '2028-07-17T00:00:00.000Z', endDate: '2029-06-16T00:00:00.000Z' },
+  ];
+
+  it('names the year a new one would share a day with — closed ones count', () => {
+    expect(yearOverlaps(years, '2028-06-01', '2029-05-31')).toEqual({ key: 'validation.academicYear.overlap', vars: { label: '2027/2028' } });
+    expect(yearOverlaps(years, '2029-06-01', '2030-05-31')).toEqual({ key: 'validation.academicYear.overlap', vars: { label: '2028/2029' } });
+  });
+
+  it('lets a year that only touches another through, as the server does (< and >)', () => {
+    expect(yearOverlaps(years, '2029-06-16', '2030-06-15')).toBeNull();
+    expect(yearOverlaps(years, '2026-07-13', '2027-07-12')).toBeNull();
+  });
+
+  it('leaves the year being edited out of its own check', () => {
+    expect(yearOverlaps(years, '2028-07-10', '2029-06-20', 'y28')).toBeNull();
+    expect(yearOverlaps(years, '2028-06-01', '2029-06-20', 'y28')).toEqual({ key: 'validation.academicYear.overlap', vars: { label: '2027/2028' } });
+  });
+
+  it('has nothing to check against without years', () => {
+    expect(yearOverlaps([], '2028-07-10', '2029-06-20')).toBeNull();
+    expect(yearOverlaps(undefined, '2028-07-10', '2029-06-20')).toBeNull();
   });
 });

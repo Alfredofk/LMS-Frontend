@@ -1,14 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarClock, Plus, School } from 'lucide-react';
+import { CalendarClock, Pencil, Plus, School } from 'lucide-react';
 
 import SelectField from '../../components/ui/SelectField';
 import AssignTeacherDialog from './AssignTeacherDialog';
+import ChangeAssignmentDialog from './ChangeAssignmentDialog';
 import { academicsService } from '../../services/academicsService';
 import { useT } from '../../i18n/LanguageContext';
 import { subjectsErrorMessage } from '../../i18n/apiError';
 import { formatDay } from '../Classes/format';
-import { defaultSlot, defaultSemesterOf, freeSubjects, boardWritable, deadlinePassed } from './subjects';
+import { defaultSlot, defaultSemesterOf, freeSubjects, boardWritable, deadlinePassed, canChangeAssignment } from './subjects';
 
 /*
   Who teaches what, class by class, in one semester —
@@ -27,8 +28,12 @@ import { defaultSlot, defaultSemesterOf, freeSubjects, boardWritable, deadlinePa
   offered for a closed year or a semester that is not OPEN — the backend refuses
   both. The deadline is shown, because it decides whether teachers can still
   ask for themselves.
+
+  **"Change"** on an ACTIVE row ends it or hands it to another teacher while
+  its teacher stays (backend 85bc687; ChangeAssignmentDialog). Offered where
+  "assign" is, and never to a Vice Principal on their own row (`selfId`).
 */
-export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast }) => {
+export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast, selfId = null }) => {
   const { t, lang } = useT();
   const navigate = useNavigate();
   const today = new Date().toISOString().slice(0, 10);
@@ -39,6 +44,8 @@ export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast
      means it is still loading — derived, so nothing is cleared in an effect. */
   const [answer, setAnswer] = useState({ semesterId: null, board: null, error: null });
   const [assigning, setAssigning] = useState(null);
+  /* { row, boardClass } — the ACTIVE assignment being ended or replaced. */
+  const [changing, setChanging] = useState(null);
 
   const year = usable.find((entry) => entry.id === slot?.yearId) ?? null;
   const semesterId = slot?.semesterId ?? null;
@@ -89,6 +96,11 @@ export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast
   const openAssign = (boardClass) => {
     loadTeachers();
     setAssigning(boardClass);
+  };
+
+  const openChange = (row, boardClass) => {
+    loadTeachers();
+    setChanging({ row, boardClass });
   };
 
   return (
@@ -220,6 +232,17 @@ export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast
                           {t('subjects.status.PENDING')}
                         </span>
                       )}
+                      {writable && canChangeAssignment(row, selfId) && (
+                        <button
+                          type="button"
+                          onClick={() => openChange(row, entry)}
+                          aria-label={t('subjects.board.changeLabel', { subject: row.subject.name, className: entry.name })}
+                          className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-extrabold text-slate-600 hover:text-brand hover:bg-brand-tint transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                        >
+                          <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                          {t('subjects.board.change')}
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -247,6 +270,27 @@ export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast
               }),
               'success'
             );
+            load();
+          }}
+        />
+      )}
+
+      {changing && semester && (
+        <ChangeAssignmentDialog
+          key={changing.row.classSubjectId}
+          row={changing.row}
+          boardClass={changing.boardClass}
+          semester={semester}
+          teachers={teachers}
+          onClose={() => setChanging(null)}
+          onChanged={(message) => {
+            setChanging(null);
+            showToast(message, 'success');
+            load();
+          }}
+          onStale={(message) => {
+            setChanging(null);
+            showToast(message, 'error');
             load();
           }}
         />

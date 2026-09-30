@@ -382,7 +382,7 @@ export const ClassesPage = () => {
             </div>
           </div>
           <div className="max-w-xl">
-            <AcademicYearForm onCreated={handleYearCreated} />
+            <AcademicYearForm years={years ?? []} onCreated={handleYearCreated} />
           </div>
         </section>
       ) : (
@@ -404,7 +404,7 @@ export const ClassesPage = () => {
 
             {openForm === 'year' && (
               <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 max-w-xl">
-                <AcademicYearForm onCreated={handleYearCreated} onCancel={() => setOpenForm(null)} />
+                <AcademicYearForm years={years ?? []} onCreated={handleYearCreated} onCancel={() => setOpenForm(null)} />
               </div>
             )}
 
@@ -541,6 +541,7 @@ export const ClassesPage = () => {
                     <AcademicYearForm
                       key={year.id}
                       initial={year}
+                      years={years ?? []}
                       onSaved={handleYearSaved}
                       onCancel={() => setOpenForm(null)}
                     />
