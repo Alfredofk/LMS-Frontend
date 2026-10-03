@@ -184,6 +184,47 @@ describe('every expansion of a dynamic key exists', () => {
     expectEvery(['ACTIVE', 'CLOSED'].map((s) => `classes.year.tabEmpty.${s}`));
   });
 
+  it('attendance: a label and a letter for every status the backend sends', () => {
+    /* attendance.js STATUSES is the AttendanceStatus enum (schema.prisma, deb95e8). */
+    const statuses = quotedIn('views/Attendance/attendance.js', /export const STATUSES = \[([^\]]*)\]/);
+    expect(statuses).toEqual(['PRESENT', 'SICK', 'EXCUSED', 'ABSENT']);
+    expectEvery(statuses.map((s) => `att.status.${s}`));
+    expectEvery(statuses.map((s) => `att.short.${s}`));
+  });
+
+  it('check-in: every step, every position failure and every refusal', () => {
+    /* The steps the button names while it runs, and why a position was not read —
+       both read out of the files that set them. */
+    const steps = [...new Set([...read('views/Attendance/TodaySessionsCard.jsx').matchAll(/step: '(\w+)'/g)].map((m) => m[1]))];
+    expect(steps).toEqual(['locating', 'sending']);
+    expectEvery(steps.map((s) => `checkin.step.${s}`));
+
+    const source = read('views/Attendance/checkIn.js');
+    const reasons = [
+      ...[...source.matchAll(/new PositionError\('(\w+)'\)/g)].map((m) => m[1]),
+      ...quotedIn('views/Attendance/checkIn.js', /const REASON_BY_CODE = \{([^}]*)\}/),
+    ];
+    expect(new Set(reasons)).toEqual(new Set(['insecure', 'unsupported', 'denied', 'unavailable', 'timeout']));
+    expectEvery(reasons.map((r) => `checkin.position.${r}`));
+
+    /* The focused row's label: `checkin.focus.${view.kind}`, reached for the two
+       kinds that show a meeting; the other two fold to a sentence of their own. */
+    const kinds = [...source.matchAll(/kind: '(\w+)'/g)].map((m) => m[1]);
+    expect(new Set(kinds)).toEqual(new Set(['cancelled', 'now', 'next', 'done']));
+    expectEvery(['now', 'next'].map((k) => `checkin.focus.${k}`));
+
+    const refusals = [...read('i18n/apiError.js').matchAll(/'(checkin\.[\w.]+)'/g)].map((m) => m[1]);
+    expect(refusals.length).toBeGreaterThan(0);
+    expectEvery(refusals);
+  });
+
+  it('attendance: every line the dashboard card can say', () => {
+    /* attendanceStat returns keys, not sentences; read them out of it. */
+    const keys = [...read('views/Attendance/attendance.js').matchAll(/key: '([\w.]+)'/g)].map((m) => m[1]);
+    expect(keys.length).toBeGreaterThan(0);
+    expectEvery(keys);
+  });
+
   it('guardian: a label for every relationship offered, and for typing another', () => {
     const presets = quotedIn('components/ChildFields.jsx', /const RELATIONSHIP_PRESETS = \[([^\]]*)\]/);
     expect(presets).toEqual(['Ayah', 'Ibu', 'Wali']);

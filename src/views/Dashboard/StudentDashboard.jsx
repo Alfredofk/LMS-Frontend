@@ -1,12 +1,15 @@
-import React from 'react';
-import { BookOpen, ListTodo, Star, FileText } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { BookOpen, CalendarCheck, ListTodo, Star, FileText } from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
 import StatCard from './components/StatCard';
 import NextHolidayCard from '../../components/holidays/NextHolidayCard';
+import { attendanceService } from '../../services/attendanceService';
+import { attendanceStat } from '../Attendance/attendance';
+import TodaySessionsCard from '../Attendance/TodaySessionsCard';
 import {
-  TodayActivities,
   ActiveAssessment,
   CourseProgress,
   SchoolAnnouncement,
@@ -30,8 +33,13 @@ import {
   When an endpoint lands, feed its widget the payload and drop `notBuilt` from
   it — the widgets are presentational and take their data as props.
 
-  Two things on screen are real: the person's name and their school, both from
-  `/users/me` through AuthContext.
+  Real on screen: the person's name and their school (`/users/me` through
+  AuthContext), the next day off, today's meetings with the check-in button
+  (`TodaySessionsCard`, `GET /sessions/mine`, backend 87f2670 — owner,
+  2026-10-03; it took the place of "today's activities" and sits first since), and — first of the stat cards — their attendance
+  rate (`GET /attendance/me`, backend deb95e8; owner, 2026-10-02), counted over
+  confirmed meetings as on /attendance, where the card leads. No record yet, or a
+  failed read, reads "—" with a line saying which — never a 0 nobody counted.
 
   Only one state is worth rendering. A member still waiting on approval never
   arrives here — `activeRolesOf` returns no roles for a membership that is not
@@ -61,6 +69,32 @@ const STATS = [
 export const StudentDashboard = () => {
   const { user, membership } = useAuth();
   const { t, lang } = useT();
+  const navigate = useNavigate();
+
+  /* undefined → reading; an array → read; null with `failed` → the read failed. */
+  const [rows, setRows] = useState(undefined);
+  const [failed, setFailed] = useState(false);
+  /* Bumped by a check-in, so the rate card counts the new record. */
+  const [recorded, setRecorded] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    attendanceService
+      .mine()
+      .then((list) => {
+        if (cancelled) return;
+        setRows(list);
+        setFailed(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRows(null);
+        setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [recorded]);
+  const attendance = attendanceStat(rows, failed);
 
   const name = user?.fullName || t('dash.greeting.fallback');
   const schoolName = membership?.school?.name ?? membership?.schoolName ?? '';
@@ -84,11 +118,29 @@ export const StudentDashboard = () => {
         </p>
       </div>
 
+      {/* First under the greeting (owner, 2026-10-03): check-in is the one thing here
+          bound to the clock, and on a phone it sat below six cards, four of them
+          "not available yet". It shows one meeting — on now, else next — and a day
+          with none, or already over, folds to one line. */}
+      <TodaySessionsCard focus onCheckedIn={() => setRecorded((n) => n + 1)} />
+
       {/* Real data, and so unmarked: the school's next day off (owner, 2026-09-29). */}
       <NextHolidayCard showLink />
 
-      {/* No onClick: an inert card, not a button that leads nowhere. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      {/* The attendance card leads to /attendance; the other four have no onClick:
+          an inert card, not a button that leads nowhere. Five cards leave a hole in
+          two or three columns, so the one with real data spans: the full row in two
+          columns, two of three in three — no hole at any width (owner, 2026-10-03). */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
+        <StatCard
+          title={t('dash.stat.attendance')}
+          value={attendance.value}
+          subtext={attendance.lines.map((line) => t(line.key, line.vars)).join(' · ')}
+          icon={CalendarCheck}
+          iconBg="bg-brand-tint text-brand"
+          onClick={() => navigate('/attendance')}
+          className="sm:col-span-2 xl:col-span-1"
+        />
         {STATS.map((stat) => (
           <StatCard
             key={stat.key}
@@ -101,11 +153,15 @@ export const StudentDashboard = () => {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <TodayActivities notBuilt />
+      {/* Three cards since today's meetings moved to the top (owner, 2026-10-03): one
+          row of three on a wide screen; two and a full-width third in between, so no
+          row ends in a hole. The wrapper is a grid so the card still fills its height. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         <ActiveAssessment notBuilt />
         <CourseProgress notBuilt />
-        <SchoolAnnouncement notBuilt />
+        <div className="grid lg:col-span-2 xl:col-span-1">
+          <SchoolAnnouncement notBuilt />
+        </div>
       </div>
     </div>
   );

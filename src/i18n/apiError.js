@@ -439,6 +439,35 @@ export function timetableErrorMessage(err, t) {
   return subjectsErrorMessage(err, t);
 }
 
+/*
+  A student's check-in — attendance.service.js `checkIn` (backend deb95e8,
+  87f2670). Six CONFLICTs told apart on their sentences, as above. NOT_FOUND is a
+  meeting of a Class the student is no longer in (moved since the card read).
+  Every one of them means the card on screen is behind: it reads again.
+*/
+const CHECK_IN_BY_MESSAGE = [
+  ['already checked in', 'checkin.error.already'],
+  ['already confirmed this attendance', 'checkin.error.confirmed'],
+  ['was cancelled', 'checkin.error.cancelled'],
+  ['opens when the session starts', 'checkin.error.notYet'],
+  ['check-in is closed', 'checkin.error.closed'],
+  ['no location set', 'checkin.error.noLocation'],
+];
+
+export function checkInErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  const hit = CHECK_IN_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  if (hit) return t(hit[1]);
+  return apiErrorMessage(err, t, {
+    CONFLICT: 'checkin.error.other',
+    NOT_FOUND: 'checkin.error.notFound',
+    BAD_REQUEST: 'checkin.error.position',
+  });
+}
+
+/* A refusal that says the card is behind the server: read today again. */
+export const isStaleCheckIn = (err) => err?.code === 'CONFLICT' || err?.code === 'NOT_FOUND';
+
 /* A teaching request decided or withdrawn elsewhere: the row on screen is stale. */
 export const isStaleTeaching = (err) =>
   String(err?.message ?? '').includes('has already been decided') ||

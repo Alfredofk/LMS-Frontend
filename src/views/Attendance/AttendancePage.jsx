@@ -1,493 +1,317 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-  Calendar as CalendarIcon,
-  ChevronLeft,
-  ChevronRight,
-  Flame,
-  UserCheck,
-  AlertCircle,
-  Search,
-  BookOpen,
-} from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AlertCircle, CalendarCheck, Clock, MapPinOff, RefreshCw, UserCheck } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
-import NotBuiltYet from '../../components/ui/NotBuiltYet';
-import { api, isNotBuiltYet } from '../../services/apiClient';
+import { useAuth } from '../../context/AuthContext';
+import { attendanceService } from '../../services/attendanceService';
+import { formatDay } from '../Classes/format';
+import { dayName, timeRange } from '../Subjects/timetable';
+import { STATUSES, localOf, summarize, bySubject, historyOf } from './attendance';
+import TodaySessionsCard from './TodaySessionsCard';
 
 /*
-  A student's own attendance record.
+  A student's own attendance (owner, 2026-10-02), from `GET /attendance/me`
+  (backend deb95e8) — see attendance.js for the row and the arithmetic.
 
-  `/api/attendance/student/summary` does not exist — there is no Attendance
-  model anywhere in the schema, and no Session for one to hang off — so the
-  request below 404s and the page shows NotBuiltYet. Rendering the calendar
-  instead would show the default summary below — 100% present — which is a
-  claim about the student that nobody has made. The request is left in place
-  because the shape it expects is the one to argue with when the endpoint is
-  designed, not because it works.
+  Three parts: the numbers over everything, the same per subject in each class,
+  and every meeting newest first with a filter. Since backend 87f2670 the rows
+  span every class the student sat in here, so a subject is counted per class
+  (`groupKey`, owner 2026-10-03) and each meeting names its class. The calendar this page used to draw
+  is gone: one day can hold several meetings, and it was drawn over a summary
+  nobody sent. So is the streak, which no data supports.
 
-  Month and weekday names are generated from `Intl` rather than stored as
-  nineteen dictionary entries. A calendar that spells its own months is a
-  calendar that has to be re-translated every time a language is added, and the
-  browser already knows them.
+  - Counted over confirmed meetings only. A check-in the teacher has not
+    confirmed shows as waiting and is left out of every number but late/outside.
+  - The school's own day and clock, from `/users/me`'s `timeZone`: the sign-in
+    membership is thin, so the page reads `/users/me` once on mount, as
+    SchoolPlaceCard does.
+  - The teacher's note is not shown: `/:id/history` is staff only.
+  - Today's meetings and the check-in button sit on top (`TodaySessionsCard`,
+    the same card as on the dashboard; backend 87f2670, owner 2026-10-03). A
+    check-in reads the history again, so the new record is counted at once.
 */
 
-/* The statuses the (future) API would send. Unknown values render as-is rather
-   than as a raw key, so an unfamiliar status is readable instead of broken. */
-const STATUS_KEYS = {
-  Hadir: 'att.status.Hadir',
-  Izin: 'att.status.Izin',
-  Sakit: 'att.status.Sakit',
-  Alpa: 'att.status.Alpa',
-};
-
-const STATUS_CELL = {
-  Hadir: 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100/60',
-  Izin: 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100/60',
-  Sakit: 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100/60',
-  Alpa: 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100/60',
-};
-
 const STATUS_PILL = {
-  Hadir: 'bg-emerald-50 text-emerald-700',
-  Alpa: 'bg-rose-50 text-rose-700',
+  PRESENT: 'bg-emerald-50 text-emerald-700',
+  SICK: 'bg-amber-50 text-amber-700',
+  EXCUSED: 'bg-amber-50 text-amber-700',
+  ABSENT: 'bg-rose-50 text-rose-700',
 };
+
+const pill = 'px-2 py-0.5 rounded-md text-[10px] font-extrabold whitespace-nowrap';
+const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm';
 
 export const AttendancePage = () => {
   const { t, lang } = useT();
-  const locale = lang === 'id' ? 'id-ID' : 'en-GB';
+  const { membership, refreshMe } = useAuth();
+  const zone = membership?.school?.timeZone ?? null;
 
-  const [history, setHistory] = useState([]);
-  const [summary, setSummary] = useState({
-    total: 0,
-    hadir: 0,
-    izin: 0,
-    sakit: 0,
-    alpa: 0,
-    percentage: 100,
-    dailyStreak: 0,
-  });
-  const [loading, setLoading] = useState(true);
-  const [notBuilt, setNotBuilt] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  /* null while reading and after a failed read; `failed` tells the two apart. */
+  const [rows, setRows] = useState(null);
+  const [failed, setFailed] = useState(false);
+  const [groupFilter, setGroupFilter] = useState('');
+  const [attempt, setAttempt] = useState(0);
 
-  const today = new Date();
-  const [currentMonth, setCurrentMonth] = useState(today.getMonth());
-  const [currentYear, setCurrentYear] = useState(today.getFullYear());
-
-  const monthNames = useMemo(
-    () =>
-      Array.from({ length: 12 }, (_, m) =>
-        new Date(2000, m, 1).toLocaleDateString(locale, { month: 'long' })
-      ),
-    [locale]
-  );
-
-  /* 2 January 2000 was a Sunday, so this starts the week where the grid does. */
-  const weekdayNames = useMemo(
-    () =>
-      Array.from({ length: 7 }, (_, d) =>
-        new Date(2000, 0, 2 + d).toLocaleDateString(locale, { weekday: 'short' })
-      ),
-    [locale]
-  );
+  const asked = useRef(false);
+  useEffect(() => {
+    if (asked.current) return;
+    asked.current = true;
+    refreshMe().catch(() => {});
+  }, [refreshMe]);
 
   useEffect(() => {
     let cancelled = false;
-
-    const load = async () => {
-      setLoading(true);
-      try {
-        const data = await api.get('/attendance/student/summary');
-        if (!cancelled) {
-          setHistory(data?.history || []);
-          if (data?.summary) setSummary(data.summary);
-        }
-      } catch (err) {
+    attendanceService
+      .mine()
+      .then((list) => {
         if (cancelled) return;
-        if (isNotBuiltYet(err)) setNotBuilt(true);
-        else console.error('Fetch Attendance Summary Error:', err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    load();
+        setRows(list);
+        setFailed(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRows(null);
+        setFailed(true);
+      });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [attempt]);
 
-  const getDaysInMonth = (month, year) => new Date(year, month + 1, 0).getDate();
-  const getFirstDayOfMonth = (month, year) => new Date(year, month, 1).getDay();
+  const total = useMemo(() => summarize(rows), [rows]);
+  const subjects = useMemo(() => bySubject(rows), [rows]);
+  const history = useMemo(() => historyOf(rows, groupFilter), [rows, groupFilter]);
 
-  const daysInCurrentMonth = getDaysInMonth(currentMonth, currentYear);
-  const firstDayIndex = getFirstDayOfMonth(currentMonth, currentYear);
-
-  const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-  const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-  const daysInPrevMonth = getDaysInMonth(prevMonth, prevYear);
-
-  const calendarCells = [];
-
-  for (let i = firstDayIndex - 1; i >= 0; i--) {
-    calendarCells.push({ day: daysInPrevMonth - i, month: prevMonth, year: prevYear, isCurrentMonth: false });
-  }
-  for (let i = 1; i <= daysInCurrentMonth; i++) {
-    calendarCells.push({ day: i, month: currentMonth, year: currentYear, isCurrentMonth: true });
-  }
-  const remainingCells = 42 - calendarCells.length;
-  const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
-  const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
-  for (let i = 1; i <= remainingCells; i++) {
-    calendarCells.push({ day: i, month: nextMonth, year: nextYear, isCurrentMonth: false });
-  }
-
-  const getAttendanceForDay = (cell) => {
-    const cellDateStr = `${cell.year}-${String(cell.month + 1).padStart(2, '0')}-${String(cell.day).padStart(2, '0')}`;
-    return (history || []).find((h) => h && h.date === cellDateStr);
-  };
-
-  const statusLabel = (status) => (STATUS_KEYS[status] ? t(STATUS_KEYS[status]) : status);
-
-  const handlePrevMonth = () => {
-    if (currentMonth === 0) {
-      setCurrentMonth(11);
-      setCurrentYear((prev) => prev - 1);
-    } else {
-      setCurrentMonth((prev) => prev - 1);
-    }
-  };
-
-  const handleNextMonth = () => {
-    if (currentMonth === 11) {
-      setCurrentMonth(0);
-      setCurrentYear((prev) => prev + 1);
-    } else {
-      setCurrentMonth((prev) => prev + 1);
-    }
-  };
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '';
-    const date = new Date(dateStr);
-    if (Number.isNaN(date.getTime())) return dateStr;
-    return date.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' });
-  };
-
-  const filteredHistory = (history || []).filter((h) => {
-    const needle = searchQuery.toLowerCase();
-    return (
-      (h.subjectName || '').toLowerCase().includes(needle) ||
-      statusLabel(h.status || '').toLowerCase().includes(needle)
-    );
-  });
+  const statusLabel = (status) => t(`att.status.${status}`);
 
   const heading = (
     <div>
-      <h1 className="text-xl sm:text-2xl font-extrabold text-slate-800 leading-tight">
-        {t('att.title')}
-      </h1>
-      <p className="text-xs text-slate-500 font-bold mt-1">{t('att.subtitle')}</p>
+      <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{t('att.title')}</h1>
+      <p className="text-sm text-slate-500 font-semibold mt-1">{t('att.subtitle')}</p>
     </div>
   );
 
-  if (notBuilt) {
-    return (
-      <div className="flex-1 overflow-y-auto bg-slate-50 p-6 sm:p-8 font-sans flex flex-col gap-6">
-        <div className="select-none">{heading}</div>
-        <NotBuiltYet />
-      </div>
-    );
-  }
+  const today = <TodaySessionsCard onCheckedIn={() => setAttempt((n) => n + 1)} />;
 
-  try {
-    return (
-      <div className="flex-1 overflow-y-auto bg-slate-50 p-6 sm:p-8 font-sans flex flex-col gap-6">
+  const shell = (body) => (
+    <div className="flex-1 overflow-y-auto bg-canvas p-4 sm:p-8 font-sans flex flex-col gap-5">
+      {heading}
+      {today}
+      {body}
+    </div>
+  );
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 select-none">
-          {heading}
-
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" aria-hidden="true" />
-            <input
-              type="text"
-              placeholder={t('att.search')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white border border-slate-200 rounded-xl py-2.5 pl-9 pr-4 text-xs font-semibold text-slate-800 focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all shadow-sm"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-5 select-none">
-
-          <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex items-center gap-5 md:col-span-2">
-            <div className="relative w-20 h-20 shrink-0">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                <path
-                  className="text-slate-100"
-                  strokeWidth="3.5"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <path
-                  className="text-brand"
-                  strokeDasharray={`${summary.percentage}, 100`}
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center text-sm font-extrabold text-slate-800">
-                {summary.percentage}%
-              </div>
-            </div>
-            <div>
-              <h4 className="text-xs font-extrabold text-slate-700">{t('att.ratio')}</h4>
-              <p className="text-[10px] text-slate-500 font-bold mt-1 max-w-[220px] leading-relaxed">
-                {t('att.ratio.detail')}
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex items-center gap-5">
-            <div className="w-12 h-12 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center shrink-0 shadow-sm">
-              <Flame className="w-6 h-6 fill-current" aria-hidden="true" />
-            </div>
-            <div>
-              <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider block">
-                {t('att.streak')}
-              </span>
-              <span className="text-xl font-extrabold text-slate-800 mt-0.5 block">
-                {t('att.days', { n: summary.dailyStreak })}
-              </span>
-              <span className="text-[9px] text-slate-500 font-bold block mt-0.5">
-                {t('att.streak.detail')}
-              </span>
-            </div>
-          </div>
-
-          <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm flex items-center gap-5">
-            <div className="w-12 h-12 bg-violet-50 text-brand rounded-2xl flex items-center justify-center shrink-0 shadow-sm">
-              <UserCheck className="w-6 h-6" aria-hidden="true" />
-            </div>
-            <div>
-              <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider block">
-                {t('att.totalLogs')}
-              </span>
-              <span className="text-xl font-extrabold text-slate-800 mt-0.5 block">
-                {t('att.days', { n: summary.total })}
-              </span>
-              <span className="text-[9px] text-slate-500 font-bold block mt-0.5">
-                {t('att.breakdown', {
-                  h: summary.hadir,
-                  i: summary.izin,
-                  s: summary.sakit,
-                  a: summary.alpa,
-                })}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col xl:flex-row gap-6">
-
-          <div className="flex-1 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col select-none">
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <div className="flex flex-wrap items-center gap-3">
-                <select
-                  value={currentMonth}
-                  onChange={(e) => setCurrentMonth(parseInt(e.target.value, 10))}
-                  className="bg-white border border-slate-200 rounded-2xl px-4 py-2 text-sm font-extrabold text-slate-800 focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand cursor-pointer shadow-sm"
-                >
-                  {monthNames.map((name, index) => (
-                    <option key={name} value={index}>{name}</option>
-                  ))}
-                </select>
-
-                <select
-                  value={currentYear}
-                  onChange={(e) => setCurrentYear(parseInt(e.target.value, 10))}
-                  className="bg-white border border-slate-200 rounded-2xl px-4 py-2 text-sm font-extrabold text-slate-800 focus:outline-none focus:ring-1 focus:ring-brand focus:border-brand cursor-pointer shadow-sm"
-                >
-                  {Array.from({ length: 11 }, (_, idx) => today.getFullYear() - 5 + idx).map((year) => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const now = new Date();
-                    setCurrentMonth(now.getMonth());
-                    setCurrentYear(now.getFullYear());
-                  }}
-                  className="px-3.5 py-2 text-xs font-extrabold text-brand hover:text-white bg-brand-tint hover:bg-brand rounded-xl transition-all cursor-pointer active:scale-95 shadow-sm"
-                >
-                  {t('att.today')}
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePrevMonth}
-                  aria-label={t('att.prevMonth')}
-                  className="p-2 hover:bg-slate-50 text-slate-600 hover:text-brand border border-slate-100 rounded-xl transition-all cursor-pointer"
-                >
-                  <ChevronLeft className="w-5 h-5" aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleNextMonth}
-                  aria-label={t('att.nextMonth')}
-                  className="p-2 hover:bg-slate-50 text-slate-600 hover:text-brand border border-slate-100 rounded-xl transition-all cursor-pointer"
-                >
-                  <ChevronRight className="w-5 h-5" aria-hidden="true" />
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-7 gap-1 text-center border-b border-slate-100 pb-3 text-xs font-extrabold text-slate-500 uppercase">
-              {weekdayNames.map((name) => (
-                <div key={name}>{name}</div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-7 gap-1.5 mt-3 flex-1">
-              {loading ? (
-                <div className="col-span-7 py-24 text-center text-slate-500 font-semibold text-xs animate-pulse">
-                  {t('att.loading')}
-                </div>
-              ) : (
-                calendarCells.map((cell) => {
-                  const record = getAttendanceForDay(cell);
-                  const cellBgClass =
-                    STATUS_CELL[record?.status] ??
-                    'bg-white border-slate-100 hover:border-slate-300 text-slate-800';
-
-                  return (
-                    <div
-                      key={`${cell.year}-${cell.month}-${cell.day}`}
-                      className={`
-                        min-h-[60px] sm:min-h-[75px] border rounded-2xl p-2 flex flex-col justify-between transition-all duration-200 relative group
-                        ${!cell.isCurrentMonth ? 'border-slate-100 bg-slate-50/40 text-slate-300' : 'border-slate-100'}
-                        ${cell.isCurrentMonth ? cellBgClass : ''}
-                      `}
-                    >
-                      <span className="text-xs font-bold leading-none">{cell.day}</span>
-
-                      {record && (
-                        <span
-                          className="text-[8px] font-extrabold uppercase tracking-wider block mt-auto truncate"
-                          title={statusLabel(record.status)}
-                        >
-                          {statusLabel(record.status)}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            <div className="flex flex-wrap gap-4 mt-5 text-[10px] text-slate-500 font-bold select-none border-t border-slate-100 pt-4">
-              <div className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 rounded-md border border-emerald-200 bg-emerald-50" />
-                <span>{t('att.legend.present')}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 rounded-md border border-amber-200 bg-amber-50" />
-                <span>{t('att.legend.excused')}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 rounded-md border border-rose-200 bg-rose-50" />
-                <span>{t('att.legend.absent')}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="w-full xl:w-96 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col select-none max-h-[500px]">
-            <h2 className="text-base font-extrabold text-slate-800 tracking-tight mb-4">
-              {t('att.log.title')}
-            </h2>
-
-            {loading ? (
-              <div className="space-y-4 animate-pulse">
-                <div className="h-10 bg-slate-100 rounded-xl" />
-                <div className="h-10 bg-slate-100 rounded-xl" />
-              </div>
-            ) : filteredHistory.length === 0 ? (
-              <div className="flex-1 py-16 flex flex-col items-center justify-center text-center">
-                <div className="w-14 h-14 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center mb-4">
-                  <CalendarIcon className="w-6 h-6" aria-hidden="true" />
-                </div>
-                <h3 className="text-xs font-extrabold text-slate-700">{t('att.log.empty')}</h3>
-                <p className="text-[10px] text-slate-500 font-bold mt-1">
-                  {searchQuery ? t('att.log.emptySearch') : t('att.log.emptyNone')}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3 overflow-y-auto flex-1 pr-1">
-                {filteredHistory.map((item) => (
-                  <div
-                    key={item.id}
-                    className="border border-slate-100 rounded-2xl p-4 shadow-sm space-y-2 hover:shadow-md transition-all"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-brand font-extrabold">{formatDate(item.date)}</span>
-                      <span
-                        className={`px-2 py-0.5 rounded-md text-[8px] font-extrabold uppercase tracking-wider ${
-                          STATUS_PILL[item.status] ?? 'bg-amber-50 text-amber-700'
-                        }`}
-                      >
-                        {statusLabel(item.status)}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 text-xs font-extrabold text-slate-800">
-                      <BookOpen className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
-                      <span className="truncate">{item.subjectName}</span>
-                    </div>
-
-                    {item.notes && (
-                      <p className="text-[9px] text-slate-500 font-semibold leading-tight">
-                        {t('att.note', { note: item.notes })}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-      </div>
-    );
-  } catch (err) {
-    return (
-      <div className="p-8 bg-red-50 border border-red-200 rounded-3xl text-red-700 font-sans max-w-2xl mx-auto my-12 shadow-sm">
-        <h2 className="font-extrabold text-base flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 text-red-500" aria-hidden="true" />
+  if (failed) {
+    return shell(
+      <div className={`${card} flex flex-col items-start gap-3`} role="alert">
+        <p className="flex items-center gap-2 text-sm font-extrabold text-rose-700">
+          <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
           {t('att.error.title')}
-        </h2>
-        <p className="text-xs font-bold text-slate-500 mt-1">{t('att.error.body')}</p>
-        <pre className="mt-4 text-[10px] font-mono bg-white p-4 rounded-2xl border border-red-100 overflow-auto max-h-60 leading-relaxed text-red-600">
-          {err.stack || err.message || String(err)}
-        </pre>
+        </p>
+        <p className="text-xs font-semibold text-slate-500">{t('att.error.body')}</p>
         <button
           type="button"
-          onClick={() => window.location.reload()}
-          className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all cursor-pointer"
+          onClick={() => setAttempt((n) => n + 1)}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-extrabold text-brand bg-brand-tint hover:bg-brand hover:text-white rounded-xl transition-all cursor-pointer"
         >
-          {t('att.error.refresh')}
+          <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+          {t('att.error.retry')}
         </button>
       </div>
     );
   }
+
+  if (rows === null) {
+    return shell(<p className="text-xs font-semibold text-slate-500 animate-pulse">{t('att.loading')}</p>);
+  }
+
+  if (rows.length === 0) {
+    return shell(
+      <div className={`${card} py-12 flex flex-col items-center text-center`}>
+        <span className="w-12 h-12 bg-brand-tint text-brand rounded-2xl flex items-center justify-center mb-3">
+          <CalendarCheck className="w-6 h-6" aria-hidden="true" />
+        </span>
+        <h2 className="text-sm font-extrabold text-slate-800">{t('att.empty.title')}</h2>
+        <p className="text-xs font-semibold text-slate-500 mt-1 max-w-sm leading-relaxed">{t('att.empty.body')}</p>
+      </div>
+    );
+  }
+
+  const ratio = total.rate ?? 0;
+
+  return shell(
+    <>
+      {/* The numbers over everything */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <section className={`${card} flex items-center gap-4`} aria-label={t('att.ratio')}>
+          <div className="relative w-20 h-20 shrink-0">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
+              <path className="text-slate-100" strokeWidth="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              {total.rate !== null && (
+                <path className="text-brand" strokeDasharray={`${ratio}, 100`} strokeWidth="3.5" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              )}
+            </svg>
+            <span className="absolute inset-0 flex items-center justify-center text-sm font-extrabold text-slate-800 tabular-nums">
+              {total.rate === null ? '—' : `${total.rate}%`}
+            </span>
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-xs font-extrabold text-slate-700">{t('att.ratio')}</h2>
+            <p className="text-[11px] text-slate-500 font-semibold mt-1 leading-relaxed">
+              {t('att.ratio.detail', { n: total.confirmed })}
+            </p>
+            {total.pending > 0 && (
+              <p className="text-[11px] text-amber-700 font-semibold mt-0.5">{t('att.pendingCount', { n: total.pending })}</p>
+            )}
+          </div>
+        </section>
+
+        <section className={`${card} flex items-center gap-4`} aria-label={t('att.breakdown.title')}>
+          <span className="w-12 h-12 bg-brand-tint text-brand rounded-2xl flex items-center justify-center shrink-0">
+            <UserCheck className="w-6 h-6" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-xs font-extrabold text-slate-700">{t('att.breakdown.title')}</h2>
+            <dl className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
+              {STATUSES.map((status) => (
+                <div key={status} className="flex items-baseline gap-1">
+                  <dt className="text-[11px] font-semibold text-slate-500">{statusLabel(status)}</dt>
+                  <dd className="text-sm font-extrabold text-slate-800 tabular-nums">{total[status]}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </section>
+
+        <section className={`${card} flex items-center gap-4`} aria-label={t('att.flags.title')}>
+          <span className="w-12 h-12 bg-amber-50 text-amber-700 rounded-2xl flex items-center justify-center shrink-0">
+            <Clock className="w-6 h-6" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-xs font-extrabold text-slate-700">{t('att.flags.title')}</h2>
+            <p className="text-sm font-extrabold text-slate-800 mt-1 tabular-nums">{t('att.flags.late', { n: total.late })}</p>
+            <p className="text-[11px] font-semibold text-slate-500 tabular-nums">{t('att.flags.outside', { n: total.outside })}</p>
+          </div>
+        </section>
+      </div>
+
+      {/* The same per subject */}
+      <section className={card} aria-labelledby="att-subjects">
+        <h2 id="att-subjects" className="text-base font-extrabold text-slate-800 tracking-tight mb-3">
+          {t('att.subjects.title')}
+        </h2>
+        <ul className="divide-y divide-slate-100">
+          {subjects.map((group) => (
+            <li key={group.key} className="py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-extrabold text-slate-800 break-words">{group.subject.name}</span>
+                <span className="block text-[11px] font-semibold text-slate-500">
+                  {group.className && `${group.className} · `}
+                  {t('att.subjects.confirmed', { n: group.confirmed })}
+                  {group.pending > 0 && ` · ${t('att.pendingCount', { n: group.pending })}`}
+                </span>
+              </span>
+              <span className="flex flex-wrap items-center gap-1.5">
+                {STATUSES.map((status) => (
+                  <span key={status} className={`${pill} ${STATUS_PILL[status]} tabular-nums`}>
+                    {t(`att.short.${status}`)} {group[status]}
+                  </span>
+                ))}
+                <span className="ml-1 text-sm font-extrabold text-slate-800 tabular-nums w-12 text-right">
+                  {group.rate === null ? '—' : `${group.rate}%`}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* Every meeting, newest first */}
+      <section className={card} aria-labelledby="att-history">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+          <h2 id="att-history" className="text-base font-extrabold text-slate-800 tracking-tight">
+            {t('att.log.title')}
+          </h2>
+          {subjects.length > 1 && (
+            <label className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+              <span className="sr-only">{t('att.filter.label')}</span>
+              <select
+                value={groupFilter}
+                onChange={(e) => setGroupFilter(e.target.value)}
+                className="w-full sm:w-56 rounded-xl border border-slate-200 bg-white py-2 px-3 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand cursor-pointer"
+              >
+                <option value="">{t('att.filter.all')}</option>
+                {subjects.map((group) => (
+                  <option key={group.key} value={group.key}>
+                    {group.className ? `${group.subject.name} · ${group.className}` : group.subject.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
+
+        <ul className="space-y-2">
+          {history.map((row) => {
+            const start = localOf(row.session.startsAt, zone);
+            const end = localOf(row.session.endsAt, zone);
+            const checkedIn = row.checkedInAt ? localOf(row.checkedInAt, zone) : null;
+            const cancelled = row.session.status !== 'SCHEDULED';
+            return (
+              <li key={row.id} className="rounded-xl border border-slate-100 px-4 py-3 flex items-start justify-between gap-3">
+                <span className="min-w-0">
+                  <span className="block text-xs font-extrabold text-slate-800 break-words">
+                    {row.session.subject.name} · {t('timetable.session.number', { n: row.session.number })}
+                  </span>
+                  {row.session.class && (
+                    <span className="block text-[11px] font-semibold text-slate-500 break-words">{row.session.class}</span>
+                  )}
+                  {start && (
+                    <span className="block text-[11px] font-semibold text-slate-500 tabular-nums">
+                      {t('timetable.session.when', {
+                        day: dayName(start.dayOfWeek, lang, 'short'),
+                        date: formatDay(start.date, lang),
+                        time: timeRange(start.time, end?.time ?? start.time),
+                      })}
+                    </span>
+                  )}
+                  {checkedIn && (
+                    <span className="block text-[11px] font-semibold text-slate-500 tabular-nums">
+                      {t('att.checkedInAt', { time: checkedIn.time })}
+                    </span>
+                  )}
+                  {(row.late || row.outsideSchool) && (
+                    <span className="flex flex-wrap gap-1.5 mt-1">
+                      {row.late && (
+                        <span className={`${pill} bg-amber-50 text-amber-700 inline-flex items-center gap-1`}>
+                          <Clock className="w-3 h-3" aria-hidden="true" />
+                          {t('att.flag.late')}
+                        </span>
+                      )}
+                      {row.outsideSchool && (
+                        <span className={`${pill} bg-slate-100 text-slate-600 inline-flex items-center gap-1`}>
+                          <MapPinOff className="w-3 h-3" aria-hidden="true" />
+                          {t('att.flag.outside')}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </span>
+                <span className="flex flex-col items-end gap-1 shrink-0">
+                  <span className={`${pill} ${STATUS_PILL[row.status] ?? 'bg-slate-100 text-slate-600'}`}>{statusLabel(row.status)}</span>
+                  {cancelled ? (
+                    <span className="text-[10px] font-semibold text-slate-500">{t('att.cancelled')}</span>
+                  ) : (
+                    !row.session.confirmed && <span className="text-[10px] font-semibold text-amber-700 text-right">{t('att.pending')}</span>
+                  )}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    </>
+  );
 };
 
 export default AttendancePage;

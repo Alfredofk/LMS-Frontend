@@ -179,6 +179,15 @@ export function sessionState(session, now = new Date()) {
   return new Date(session.endsAt) < now ? 'timetable.session.past' : 'timetable.session.scheduled';
 }
 
+/**
+ * Whether a meeting's attendance is worth opening (owner, 2026-10-02): it has
+ * begun — check-in opens at its start — and was not cancelled, since a cancelled
+ * one can never be confirmed (attendance.service.js `checkIn`, `confirm`).
+ */
+export function rosterOpenable(session, now = new Date()) {
+  return session.status === 'SCHEDULED' && new Date(session.startsAt) <= now;
+}
+
 /* Every key sessionState can answer — the i18n test expands them. */
 export const SESSION_STATE_KEYS = [
   'timetable.session.cancelled.HOLIDAY',

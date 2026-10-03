@@ -6,7 +6,8 @@ import { useT } from '../../../i18n/LanguageContext';
 import { SampleTag } from './SampleDataNotice';
 
 /*
-  The four cards on the student dashboard.
+  Three cards on the student dashboard, still waiting for their endpoints. A fourth, today's
+  activities, became TodaySessionsCard on real data (owner, 2026-10-03).
 
   All four are presentational: they take their data as a prop and fetch nothing.
   That is not a temporary arrangement waiting for endpoints — it is what lets the
@@ -114,56 +115,7 @@ const WidgetCard = ({ titleKey, seeAllTo, isSample, notBuilt, footer, children }
 };
 
 /* ---------------------------------------------------------------------- */
-/* 1. Today's activities                                                  */
-/* ---------------------------------------------------------------------- */
-
-/**
- * @param {Array<{id, startTime, endTime, subjectName, teacherName, room?}>} activities
- *   `startTime` / `endTime` are "HH:MM".
- */
-export const TodayActivities = ({ activities = [], isLoading, isSample, notBuilt }) => {
-  const { t } = useT();
-
-  if (isLoading) return <WidgetSkeleton />;
-
-  return (
-    <WidgetCard titleKey="dash.today.title" seeAllTo="/schedule" isSample={isSample} notBuilt={notBuilt}>
-      {activities.length === 0 ? (
-        <EmptyState icon={Calendar} messageKey="dash.today.empty" />
-      ) : (
-        <div className="space-y-4">
-          {activities.map((act) => (
-            <div key={act.id} className="flex items-center gap-4">
-              <div className="w-16 shrink-0 text-left">
-                <div className="text-xs font-bold text-slate-800 leading-tight">
-                  {act.startTime}
-                </div>
-                <div className="text-[11px] font-medium text-slate-500 leading-tight mt-0.5">
-                  {act.endTime}
-                </div>
-              </div>
-
-              <div className="w-px h-7 bg-slate-100 shrink-0" />
-
-              <div className="min-w-0 flex-1">
-                <div className="text-xs font-bold text-slate-900 truncate">
-                  {act.subjectName}
-                </div>
-                <div className="text-[11px] font-medium text-slate-500 truncate mt-0.5">
-                  {act.room ? `${act.room} · ` : ''}
-                  {act.teacherName || t('dash.progress.teacherFallback')}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </WidgetCard>
-  );
-};
-
-/* ---------------------------------------------------------------------- */
-/* 2. Active assessment                                                   */
+/* 1. Active assessment                                                   */
 /* ---------------------------------------------------------------------- */
 
 /**
@@ -298,7 +250,7 @@ export const ActiveAssessment = ({ assessments = [], isLoading, isSample, notBui
 };
 
 /* ---------------------------------------------------------------------- */
-/* 3. Subjects and progress                                               */
+/* 2. Subjects and progress                                               */
 /* ---------------------------------------------------------------------- */
 
 /**
@@ -357,7 +309,7 @@ export const CourseProgress = ({ courseProgress = [], isLoading, isSample, notBu
 };
 
 /* ---------------------------------------------------------------------- */
-/* 4. School announcements                                                */
+/* 3. School announcements                                                */
 /* ---------------------------------------------------------------------- */
 
 /**

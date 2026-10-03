@@ -20,10 +20,11 @@ import { ROLES, ROLE_LABEL_KEY, heldRolesOf } from '../../../constants/roles';
   The name was fixable from the client at once. The NISN became fixable with
   backend `60ea459`, which put the member's own identifiers on `/users/me`:
   `membership.student { nisn, birthDate }` and `membership.teacher { nip, nuptk }`.
-  The class still has no source — `ClassMembership`, which is what places a
-  student in a class, is not in the response — so that row stays **empty**, and
-  says so. An invented value that reads as fact is worse than a blank: somebody
-  would have quoted it.
+  The class followed with backend `87f2670`: `membership.student.class` is the
+  open placement `{ id, name, gradeLevel, academicYear }`, or null between
+  placements, which reads "not placed yet" — never an invented class. An
+  invented value that reads as fact is worse than a blank: somebody would have
+  quoted it.
 
   ## Two kinds of empty, and they are told apart
 
@@ -176,8 +177,17 @@ export const ProfileHeader = () => {
           {isLearner ? (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-[11px] font-semibold text-slate-500">
               <span>
-                {/* Still no source for this one — see the note above. */}
-                {t('profile.class')}: <Empty />
+                {t('profile.class')}:{' '}
+                {student === undefined ? (
+                  <Empty />
+                ) : student?.class ? (
+                  <span className="text-slate-700 font-bold">
+                    {student.class.name}
+                    {student.class.academicYear ? ` · ${student.class.academicYear}` : ''}
+                  </span>
+                ) : (
+                  <span className="text-slate-500 font-medium italic">{t('profile.class.none')}</span>
+                )}
               </span>
               <span>
                 {t('profile.nisn')}: <Identifier value={student === undefined ? undefined : (student?.nisn ?? null)} />

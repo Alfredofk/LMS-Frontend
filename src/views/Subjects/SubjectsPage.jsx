@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useLocation, useOutletContext } from 'react-router-dom';
 
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
 import SubjectBoard from './SubjectBoard';
@@ -44,7 +44,9 @@ export const SubjectsPage = () => {
      as the teacher to assign. The Principal is left as before. */
   const selfId = activeRole === ROLES.VICE_PRINCIPAL ? membership?.id ?? null : null;
 
-  const [tab, setTab] = useState('BOARD');
+  /* /schedule's "open the timetable" arrives with `state.tab` (owner, 2026-10-03). */
+  const location = useLocation();
+  const [tab, setTab] = useState(() => (SUBJECT_TABS.includes(location.state?.tab) ? location.state.tab : 'BOARD'));
   const [years, setYears] = useState(null);
   const [catalog, setCatalog] = useState(null);
   const [queue, setQueue] = useState(null);

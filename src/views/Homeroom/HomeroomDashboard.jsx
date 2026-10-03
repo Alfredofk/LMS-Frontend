@@ -5,6 +5,7 @@ import { ChevronRight, Inbox, School, Users, NotebookPen } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import ClassDetail from '../Classes/components/ClassDetail';
 import ClassMovesSection from './ClassMovesSection';
+import HomeroomAttendance from './HomeroomAttendance.jsx';
 import { pendingMoveByStudent } from './moves';
 import { academicsService } from '../../services/academicsService';
 import { useAuth } from '../../context/AuthContext';
@@ -36,8 +37,10 @@ import { notifyPendingChanged } from '../../hooks/usePendingCounts';
   release its students' join requests — which happens on /join-requests, so the
   page points there.
 
-  Reports, grades and attendance are not here: no model for any of them exists
-  in the backend. The old page carried a whole report modal built on a guessed
+  **Attendance is read here** (backend deb95e8; owner, 2026-10-02): below the
+  opened class, HomeroomAttendance — its subjects, their meetings, each meeting's
+  roster. Read only; confirming is the subject teacher's. Reports and grades are
+  not here: no model for either exists in the backend. The old page carried a whole report modal built on a guessed
   contract; it went with the guess. The notice says it is coming rather than
   leaving a gap nobody explains.
 */
@@ -114,6 +117,8 @@ export const HomeroomDashboard = () => {
     </div>
   );
 
+  const selectedYearId = (classes ?? []).find((entry) => entry.id === selectedId)?.academicYear?.id ?? null;
+
   if (selectedId) {
     return (
       <div className="space-y-6">
@@ -134,6 +139,7 @@ export const HomeroomDashboard = () => {
           }
           showToast={showToast}
         />
+        {selectedYearId && <HomeroomAttendance key={selectedId} classId={selectedId} academicYearId={selectedYearId} />}
       </div>
     );
   }

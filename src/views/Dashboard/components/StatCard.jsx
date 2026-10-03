@@ -9,6 +9,9 @@ import React from 'react';
  * fixes both and removes the wrapper.
  *
  * `onClick` is optional: without it this renders as a plain, inert card.
+ * `className` is for the card's place in a grid (a column span) only — never its
+ * look, which this component owns (see CLAUDE.md, "A component's own class beats
+ * its caller's").
  */
 export const StatCard = ({
   title,
@@ -17,6 +20,7 @@ export const StatCard = ({
   icon: Icon,
   iconBg = 'bg-brand-tint text-brand',
   onClick,
+  className = '',
 }) => {
   const Tag = onClick ? 'button' : 'div';
 
@@ -24,7 +28,7 @@ export const StatCard = ({
     <Tag
       type={onClick ? 'button' : undefined}
       onClick={onClick}
-      className={`w-full text-left bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col justify-between select-none transition-all duration-200 ${
+      className={`${className} w-full text-left bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col justify-between select-none transition-all duration-200 ${
         onClick
           ? 'cursor-pointer hover:shadow-md hover:border-purple-100/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand'
           : ''

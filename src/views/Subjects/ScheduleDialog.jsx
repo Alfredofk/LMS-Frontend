@@ -14,11 +14,11 @@ import {
   dayName,
   parseClash,
   payloadOf,
-  sessionState,
   slotErrors,
   slotsValid,
-  timeRange,
 } from './timetable';
+import SessionList from './SessionList';
+import SessionRoster from './SessionRoster';
 
 /*
   One subject in one class: its weekly timetable, what it has made, and — for the
@@ -26,7 +26,9 @@ import {
   (backend 7cdc46d; owner, 2026-09-30).
 
   **View** shows the slots, the counts `scheduleView` gives, and every Session
-  (`GET …/sessions`, read only — answering one is the teacher's). **Edit** replaces
+  (`GET …/sessions`, read only — answering one is the teacher's). A meeting that
+  has begun and was not cancelled opens its attendance in place (`SessionRoster`,
+  backend deb95e8; owner, 2026-10-02), with a way back. **Edit** replaces
   the whole week (`PUT …/schedule`). The form holds the server's own rules
   (`slotErrors`) and the half of its clash check this page can see — the other
   subjects of the class (`classClash`). A clash with the same teacher elsewhere
@@ -39,13 +41,6 @@ import {
 */
 const blankRow = () => ({ dayOfWeek: '', start: '', end: '' });
 
-const STATE_BADGE = {
-  'timetable.session.scheduled': 'bg-brand-tint text-brand',
-  'timetable.session.past': 'bg-slate-100 text-slate-600',
-  'timetable.session.completed': 'bg-emerald-100 text-emerald-800',
-  'timetable.session.needsCompletion': 'bg-amber-100 text-amber-800',
-};
-const CANCELLED_BADGE = 'bg-rose-100 text-rose-800';
 
 export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, writable, onClose, onSaved }) => {
   const { t, lang } = useT();
@@ -55,6 +50,8 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
   const [errors, setErrors] = useState({ rows: [] });
   const [busy, setBusy] = useState(false);
   const [sessions, setSessions] = useState({ list: null, error: null });
+  /* The meeting whose attendance is open in place of the view, or null. */
+  const [rosterSession, setRosterSession] = useState(null);
   const openerRef = useRef(null);
   const panelRef = useRef(null);
 
@@ -226,32 +223,7 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
         ) : sessions.list.length === 0 ? (
           <p className="text-xs font-semibold text-slate-500">{t('timetable.noSessions')}</p>
         ) : (
-          <ol className="max-h-64 overflow-y-auto divide-y divide-slate-100 border border-slate-100 rounded-xl">
-            {sessions.list.map((session) => {
-              const state = sessionState(session);
-              return (
-                <li key={session.id} className="px-3 py-2 flex items-center justify-between gap-2">
-                  <span className="min-w-0">
-                    <span className="block text-xs font-bold text-slate-800">{t('timetable.session.number', { n: session.number })}</span>
-                    <span className="block text-[11px] font-semibold text-slate-500 tabular-nums">
-                      {t('timetable.session.when', {
-                        day: dayName(session.local.dayOfWeek, lang, 'short'),
-                        date: formatDay(session.local.date, lang),
-                        time: timeRange(session.local.start, session.local.end),
-                      })}
-                    </span>
-                  </span>
-                  <span
-                    className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-extrabold text-right ${
-                      STATE_BADGE[state] ?? CANCELLED_BADGE
-                    }`}
-                  >
-                    {t(state)}
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
+          <SessionList sessions={sessions.list} onOpen={setRosterSession} />
         )}
       </div>
     </>
@@ -379,7 +351,7 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
           </p>
         </div>
 
-        {editing ? form : view}
+        {editing ? form : rosterSession ? <SessionRoster session={rosterSession} zone={schedule.timeZone} onBack={() => setRosterSession(null)} /> : view}
 
         {errors.global && (
           <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
@@ -410,7 +382,7 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
               <button type="button" onClick={onClose} className={secondary}>
                 {t('timetable.close')}
               </button>
-              {canEdit && (
+              {canEdit && !rosterSession && (
                 <button type="button" onClick={startEditing} className={primary}>
                   {t(schedule.slots.length ? 'timetable.edit' : 'timetable.set')}
                 </button>

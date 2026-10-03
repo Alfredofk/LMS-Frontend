@@ -39,6 +39,26 @@ export const sessionsService = {
   },
 
   /**
+   * A student's own meetings — backend `87f2670`/`2a281e7`, STUDENT only. With
+   * nothing given: today in the school's zone; `{ date }` one day; `{ from, to }`
+   * a range of at most 42 days, both ends included ('YYYY-MM-DD').
+   *
+   * Answers the whole `{ from, to, timeZone, class: { id, name } | null, sessions }`
+   * (sessions.service.js `listMine`). Each session is the one above plus
+   * `classSubjectId`, `class` (name), `subject: { code, name }`, the student's own
+   * `attendance: { id, status, checkedInAt, outsideSchool, late } | null`, and
+   * `canCheckIn` — by the server's clock at the moment it answered.
+   */
+  async mine({ date, from, to } = {}) {
+    const params = new URLSearchParams();
+    if (date) params.set('date', date);
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    const query = params.toString();
+    return api.get(`/sessions/mine${query ? `?${query}` : ''}`);
+  },
+
+  /**
    * Meetings created already past that still wait for their teacher's answer —
    * the reader's own for a teacher, the whole school's for the Principal or a
    * Vice Principal. Each is a session plus

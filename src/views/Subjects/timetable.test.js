@@ -12,6 +12,7 @@ import {
   parseClash,
   changeStage,
   sessionState,
+  rosterOpenable,
   dayName,
   timeRange,
 } from './timetable.js';
@@ -182,5 +183,24 @@ describe('timeRange — a meeting time that never wraps', () => {
   it('joins both sides of the dash with a word joiner, so a narrow screen cannot break it', () => {
     expect(timeRange('07:00', '08:30')).toBe('07:00\u2060–\u206008:30');
     expect(timeRange('07:00', '08:30').replace(/\u2060/g, '')).toBe('07:00–08:30');
+  });
+});
+
+describe('rosterOpenable — a meeting whose attendance can exist', () => {
+  const now = new Date('2026-09-14T01:00:00Z');
+  const at = (startsAt, status = 'SCHEDULED') => ({ status, startsAt });
+
+  it('opens a meeting that has begun, ended or not', () => {
+    expect(rosterOpenable(at('2026-09-14T00:00:00Z'), now)).toBe(true);
+    expect(rosterOpenable(at('2026-09-14T01:00:00Z'), now)).toBe(true);
+    expect(rosterOpenable(at('2026-09-07T00:00:00Z'), now)).toBe(true);
+  });
+
+  it('not one still ahead', () => {
+    expect(rosterOpenable(at('2026-09-14T01:00:01Z'), now)).toBe(false);
+  });
+
+  it('not a cancelled one, even past', () => {
+    expect(rosterOpenable(at('2026-09-07T00:00:00Z', 'CANCELLED'), now)).toBe(false);
   });
 });
