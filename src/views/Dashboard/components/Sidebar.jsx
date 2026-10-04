@@ -91,16 +91,21 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
   const handleLinkClick = (labelKey, routePath) => {
     if (routePath) {
       navigate(routePath);
+      onClose?.();
     } else {
       if (showToast) {
         showToast(t('shell.underConstruction', { feature: t(labelKey) }), 'info');
       }
+      onClose?.();
     }
   };
 
   const isActive = (routePath) => {
     if (routePath === '/classroom') {
       return location.pathname.startsWith('/classroom');
+    }
+    if (routePath === '/teacher/courses') {
+      return location.pathname.startsWith('/teacher/courses');
     }
     return location.pathname === routePath;
   };
@@ -168,7 +173,6 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
         isOpen ? 'translate-x-0 visible' : '-translate-x-full invisible'
       }`}
     >
-
       {/* Scrolls. The account group below does not — see the footer. */}
       <div className="flex flex-col flex-1 overflow-y-auto min-h-0">
         

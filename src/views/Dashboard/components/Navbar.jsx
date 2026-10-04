@@ -284,6 +284,25 @@ export const Navbar = ({ showToast, onOpenNav }) => {
 
   // Get dynamic title based on active location pathname
   const getNavbarTitle = () => {
+    if (location.pathname.startsWith('/teacher/courses/')) {
+      return (
+        <div className="flex min-w-0 items-center gap-2 text-xs font-semibold text-slate-500">
+          <button
+            type="button"
+            onClick={() => navigate('/teacher/courses')}
+            aria-label={t('teacherCourses.back')}
+            title={t('teacherCourses.back')}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <span>{t('shell.myCourses')}</span>
+          <span className="text-slate-300">/</span>
+          <span className="truncate font-extrabold text-slate-800">{t('shell.title.courseDetail')}</span>
+        </div>
+      );
+    }
+
     if (location.pathname.startsWith('/classroom/')) {
       const courseId = location.pathname.split('/').pop();
       const course = classroomData.find(c => c.id === courseId) || classroomData[0];

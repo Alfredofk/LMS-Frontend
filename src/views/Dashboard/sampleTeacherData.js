@@ -1,5 +1,3 @@
-import { timeAgo } from '../../utils/datetime';
-
 /*
   Sample data for the Teacher Dashboard.
 
@@ -42,49 +40,225 @@ import { timeAgo } from '../../utils/datetime';
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
 
-/** ISO string `ms` milliseconds before `now`. */
-const ago = (now, ms) => new Date(now.getTime() - ms).toISOString();
+// Fungsi pembantu untuk membuat waktu relatif terhadap waktu saat ini
+const ago = (ms) => new Date(Date.now() - ms).toISOString();
 
-/**
- * @param {Date} now
- * @param {(key: string, vars?: object) => string} t  for the relative times
- */
-export function buildSampleTeacherData(now = new Date(), t) {
-  const submissions = [
-    { studentName: 'Siti Rahma', assignmentTitle: 'Laporan Praktikum Asam Basa', grade: 'XII-2', at: ago(now, 25 * MINUTE) },
-    { studentName: 'Budi Santoso', assignmentTitle: 'Analisis Gerak Parabola', grade: 'XI-1', at: ago(now, 2 * HOUR) },
-    { studentName: 'Ratna Sari', assignmentTitle: 'Esai Teks Persuasi', grade: 'XII-2', at: ago(now, 5 * HOUR) },
-    { studentName: 'Fajar Utama', assignmentTitle: 'Latihan Integral Tentu', grade: 'XI-1', at: ago(now, 26 * HOUR) },
+export function buildSampleTeacherData() {
+  const students = [
+    { id: 'student-01', fullName: 'Siti Rahma', classId: 'class-xii-2', className: 'XII-2', gradeLevel: 12 },
+    { id: 'student-02', fullName: 'Ratna Sari', classId: 'class-xii-2', className: 'XII-2', gradeLevel: 12 },
+    { id: 'student-03', fullName: 'Diah Putri', classId: 'class-xii-2', className: 'XII-2', gradeLevel: 12 },
+    { id: 'student-04', fullName: 'Arif Nugraha', classId: 'class-xii-2', className: 'XII-2', gradeLevel: 12 },
+    { id: 'student-05', fullName: 'Budi Santoso', classId: 'class-xi-1', className: 'XI-1', gradeLevel: 11 },
+    { id: 'student-06', fullName: 'Fajar Utama', classId: 'class-xi-1', className: 'XI-1', gradeLevel: 11 },
+    { id: 'student-07', fullName: 'Nanda Prakoso', classId: 'class-xi-1', className: 'XI-1', gradeLevel: 11 },
+    { id: 'student-08', fullName: 'Putri Ayu', classId: 'class-xi-1', className: 'XI-1', gradeLevel: 11 },
   ];
 
-  return {
-    stats: {
-      totalClasses: 5,
-      totalStudents: 152,
-      pendingGrading: 12,
-    },
+  const grade12StudentIds = students.filter((student) => student.classId === 'class-xii-2').map((student) => student.id);
+  const grade11StudentIds = students.filter((student) => student.classId === 'class-xi-1').map((student) => student.id);
 
-    classes: [
-      { id: 'cs-mtk-xii-2', name: 'Matematika', grade: 'XII-2', studentsCount: 32, schedule: 'Senin · 07:00 – 08:30' },
-      { id: 'cs-fis-xi-1', name: 'Fisika', grade: 'XI-1', studentsCount: 30, schedule: 'Senin · 09:00 – 10:30' },
-      { id: 'cs-kim-xii-2', name: 'Kimia', grade: 'XII-2', studentsCount: 32, schedule: 'Selasa · 07:00 – 08:30' },
-      { id: 'cs-bin-xi-1', name: 'Bahasa Indonesia', grade: 'XI-1', studentsCount: 30, schedule: 'Rabu · 10:45 – 12:15' },
-      { id: 'cs-sej-x-3', name: 'Sejarah', grade: 'X-3', studentsCount: 28, schedule: 'Kamis · 13:00 – 14:30' },
+  return {
+    classSubjects: [
+      {
+        id: 'cs-mtk-xii-2',
+        academicYearLabel: '2026/2027',
+        semesterOrdinal: 1,
+        classId: 'class-xii-2',
+        subjectName: 'Matematika',
+        className: 'XII-2',
+        gradeLevel: 12,
+        studentIds: grade12StudentIds,
+        schedule: { dayOfWeek: 1, startTime: '07:00', endTime: '08:30', room: 'R. 12' }
+      },
+      {
+        id: 'cs-fis-xi-1',
+        academicYearLabel: '2026/2027',
+        semesterOrdinal: 1,
+        classId: 'class-xi-1',
+        subjectName: 'Fisika',
+        className: 'XI-1',
+        gradeLevel: 11,
+        studentIds: grade11StudentIds,
+        schedule: { dayOfWeek: 1, startTime: '09:00', endTime: '10:30', room: 'Lab Fisika' }
+      },
+      {
+        id: 'cs-kim-xii-2',
+        academicYearLabel: '2026/2027',
+        semesterOrdinal: 1,
+        classId: 'class-xii-2',
+        subjectName: 'Kimia',
+        className: 'XII-2',
+        gradeLevel: 12,
+        studentIds: grade12StudentIds,
+        schedule: { dayOfWeek: 2, startTime: '07:00', endTime: '08:30', room: 'Lab Kimia' }
+      },
+      {
+        id: 'cs-bin-xi-1',
+        academicYearLabel: '2026/2027',
+        semesterOrdinal: 1,
+        classId: 'class-xi-1',
+        subjectName: 'Bahasa Indonesia',
+        className: 'XI-1',
+        gradeLevel: 11,
+        studentIds: grade11StudentIds,
+        schedule: { dayOfWeek: 3, startTime: '10:45', endTime: '12:15', room: 'R. 08' }
+      },
+      {
+        id: 'cs-mtk-xi-1',
+        academicYearLabel: '2026/2027',
+        semesterOrdinal: 1,
+        classId: 'class-xi-1',
+        subjectName: 'Matematika',
+        className: 'XI-1',
+        gradeLevel: 11,
+        studentIds: grade11StudentIds,
+        schedule: { dayOfWeek: 4, startTime: '13:00', endTime: '14:30', room: 'R. 05' }
+      },
     ],
 
-    /*
-      `time` is a rendered phrase, not a timestamp, because that is what the view
-      prints and what the contract records for this endpoint. Worth revisiting
-      with the backend: a server that formats "2 jam lalu" cannot serve a reader
-      who switched the app to English, and this screen has that switch.
-    */
-    recentSubmissions: submissions.map((s, index) => ({
-      id: `sub-${index + 1}`,
-      studentName: s.studentName,
-      assignmentTitle: s.assignmentTitle,
-      grade: s.grade,
-      time: timeAgo(t, s.at),
-    })),
+    submissions: [
+      {
+        id: 'sub-1',
+        studentId: 'student-01',
+        studentName: 'Siti Rahma',
+        assessmentTitle: 'Latihan Limit Fungsi Aljabar',
+        className: 'XII-2',
+        subjectName: 'Matematika',
+        classId: 'class-xii-2',
+        submittedAt: ago(25 * MINUTE),
+        status: 'ON_TIME',
+        notes: 'Berikut saya lampirkan hasil pengerjaan latihan nomor 1 sampai 10 beserta cara langkah-langkahnya.',
+        attachment: {
+          name: 'latihan_limit_siti_rahma.pdf',
+          size: '2.4 MB',
+          type: 'application/pdf'
+        },
+        score: 88,
+        feedback: 'Pengerjaan langkah-langkah sudah sangat runtut dan sistematis. Pertahankan!'
+      },
+      {
+        id: 'sub-2',
+        studentId: 'student-02',
+        studentName: 'Ratna Sari',
+        assessmentTitle: 'Latihan Limit Fungsi Aljabar',
+        className: 'XII-2',
+        subjectName: 'Matematika',
+        classId: 'class-xii-2',
+        submittedAt: ago(2 * HOUR),
+        status: 'ON_TIME',
+        notes: 'Tugas sudah selesai dikerjakan sesuai petunjuk di kelas.',
+        attachment: {
+          name: 'tugas_matematika_ratna.pdf',
+          size: '1.8 MB',
+          type: 'application/pdf'
+        },
+        score: null,
+        feedback: ''
+      },
+      {
+        id: 'sub-3',
+        studentId: 'student-04',
+        studentName: 'Arif Nugraha',
+        assessmentTitle: 'Latihan Limit Fungsi Aljabar',
+        className: 'XII-2',
+        subjectName: 'Matematika',
+        classId: 'class-xii-2',
+        submittedAt: ago(14 * HOUR),
+        status: 'LATE',
+        notes: 'Mohon maaf atas keterlambatan pengumpulan karena kendala jaringan di rumah.',
+        attachment: {
+          name: 'jawaban_limit_arif.pdf',
+          size: '3.1 MB',
+          type: 'application/pdf'
+        },
+        score: 75,
+        feedback: 'Hasil pengerjaan cukup baik. Perhatikan batas waktu di penugasan berikutnya.'
+      },
+      {
+        id: 'sub-4',
+        studentId: 'student-05',
+        studentName: 'Budi Santoso',
+        assessmentTitle: 'Analisis Gerak Parabola',
+        className: 'XI-1',
+        subjectName: 'Fisika',
+        classId: 'class-xi-1',
+        submittedAt: ago(2 * HOUR),
+        status: 'ON_TIME',
+        notes: 'Grafik analisis vektor kecepatan telah disertakan pada halaman lampiran ke-2.',
+        attachment: {
+          name: 'laporan_fisika_budi.pdf',
+          size: '2.1 MB',
+          type: 'application/pdf'
+        },
+        score: 92,
+        feedback: 'Analisis data gerak parabola sangat detail dan akurat.'
+      },
+      {
+        id: 'sub-5',
+        studentId: 'student-06',
+        studentName: 'Fajar Utama',
+        assessmentTitle: 'Latihan Integral Tentu',
+        className: 'XI-1',
+        subjectName: 'Matematika',
+        classId: 'class-xi-1',
+        submittedAt: ago(26 * HOUR),
+        status: 'ON_TIME',
+        notes: 'Hasil integral substitusi dan parsial sudah lengkap.',
+        attachment: {
+          name: 'integral_fajar_xi1.pdf',
+          size: '1.5 MB',
+          type: 'application/pdf'
+        },
+        score: null,
+        feedback: ''
+      },
+      {
+        id: 'sub-6',
+        studentId: 'student-03',
+        studentName: 'Diah Putri',
+        assessmentTitle: 'Laporan Praktikum Asam Basa',
+        className: 'XII-2',
+        subjectName: 'Kimia',
+        classId: 'class-xii-2',
+        submittedAt: ago(5 * HOUR),
+        status: 'ON_TIME',
+        notes: 'Tabel pH indikator lakmus dan fenolftalein telah diisi lengkap.',
+        attachment: {
+          name: 'praktikum_kimia_diah.pdf',
+          size: '2.7 MB',
+          type: 'application/pdf'
+        },
+        score: 85,
+        feedback: 'Laporan rapi dan tabel pengamatan lengkap.'
+      },
+      {
+        id: 'sub-7',
+        studentId: 'student-07',
+        studentName: 'Nanda Prakoso',
+        assessmentTitle: 'Analisis Struktur Teks Eksposisi',
+        className: 'XI-1',
+        subjectName: 'Bahasa Indonesia',
+        classId: 'class-xi-1',
+        submittedAt: ago(3 * HOUR),
+        status: 'ON_TIME',
+        notes: 'Analisis tesis, argumentasi, dan penegasan ulang sudah diketik rapi.',
+        attachment: {
+          name: 'eksposisi_nanda.pdf',
+          size: '1.2 MB',
+          type: 'application/pdf'
+        },
+        score: 80,
+        feedback: 'Argumen sudah runtut, tingkatkan variasi konjungsi antarparagraf.'
+      }
+    ],
+    students,
+    stats: {
+      classCount: new Set(students.map((student) => student.classId)).size,
+      studentCount: students.length,
+      pendingSubmissionCount: 4,
+      classSubjectCount: 5,
+    },
   };
 }
 

@@ -26,7 +26,7 @@ import ProfilePage from './views/Profile/ProfilePage';
 import ClassroomPage from './views/Classroom/ClassroomPage';
 import AssignmentDetailPage from './views/Assignment/AssignmentDetailPage';
 import UnauthorizedPage from './views/Unauthorized/UnauthorizedPage';
-import CourseDetail from './views/Course/CourseDetail';
+import TeacherClassSubjectDetail from './views/Course/TeacherClassSubjectDetail';
 import TeacherCourses from './views/Course/TeacherCourses';
 import HomeroomDashboard from './views/Homeroom/HomeroomDashboard';
 import GuardianPage from './views/Guardian/GuardianPage';
@@ -149,7 +149,7 @@ function App() {
           >
             <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
             <Route path="/teacher/courses" element={<TeacherCourses />} />
-            <Route path="/teacher/courses/:courseId" element={<CourseDetail />} />
+            <Route path="/teacher/courses/:classSubjectId" element={<TeacherClassSubjectDetail />} />
             <Route path="/teacher/gradebook" element={<TeacherGradebook />} />
             <Route path="/teacher/create-assignment" element={<CreateAssignmentForm />} />
             <Route path="/teacher/homeroom" element={<HomeroomDashboard />} />
