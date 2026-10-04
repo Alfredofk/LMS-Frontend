@@ -1,45 +1,42 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, CalendarCheck, ListTodo, Star, FileText } from 'lucide-react';
+import { BookOpen, CalendarCheck, CalendarDays, ListTodo, School, Star, FileText } from 'lucide-react';
+import InfoChips from '../../components/ui/InfoChips';
 
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
 import StatCard from './components/StatCard';
-import NextHolidayCard from '../../components/holidays/NextHolidayCard';
 import { attendanceService } from '../../services/attendanceService';
 import { attendanceStat } from '../Attendance/attendance';
 import TodaySessionsCard from '../Attendance/TodaySessionsCard';
-import {
-  ActiveAssessment,
-  CourseProgress,
-  SchoolAnnouncement,
-} from './components/Widgets';
+import { readMyClasses } from '../Classroom/readMyClasses';
+import { currentSubjects } from '../Classroom/myClasses';
+import { readMyProgress } from '../Classroom/readMyProgress';
+import { progressTotals } from '../Classroom/myProgress';
+import { ActiveAssessment, CourseProgress } from './components/Widgets';
+import PinnedAnnouncements from './components/PinnedAnnouncements';
+import ProgressBoard from './components/ProgressBoard';
 
 /*
   A student's home screen: the full layout, with nothing invented in it.
 
-  Every card is here — four stat cards, today's activities, active assignments,
-  subject progress, announcements — so the screen shows what it is for. None of
-  them has a source yet: there is no model for a lesson, an assignment, a grade,
-  a material or an announcement in the schema, and no route a student can read
-  their own class from. So the stat cards read "—" and every widget renders its
-  `notBuilt` state, the same "not available yet" the pages behind them show.
+  Real on screen (owner, 2026-10-02 to 10-04):
+  - the person's name and their school (`/users/me` through AuthContext);
+  - today's meetings with the check-in button (`TodaySessionsCard`,
+    `GET /sessions/mine`, backend 87f2670), first;
+  - the progress board: materials opened and completed this semester and the
+    last activity (`GET /tracking/me/progress`, backend 0dd8b44);
+  - the attendance stat card (`GET /attendance/me`, backend deb95e8), counted over
+    confirmed meetings as on /attendance, where it leads;
+  - the subjects stat card and "Mata Pelajaran & Kemajuan" (readMyClasses).
 
-  It used to fill those cards with sample data under a banner. That stopped
-  making sense once the pages one click away began saying "not available yet":
-  the dashboard claimed three active assignments the Assessment page said did
-  not exist.
-
-  When an endpoint lands, feed its widget the payload and drop `notBuilt` from
-  it — the widgets are presentational and take their data as props.
-
-  Real on screen: the person's name and their school (`/users/me` through
-  AuthContext), the next day off, today's meetings with the check-in button
-  (`TodaySessionsCard`, `GET /sessions/mine`, backend 87f2670 — owner,
-  2026-10-03; it took the place of "today's activities" and sits first since), and — first of the stat cards — their attendance
-  rate (`GET /attendance/me`, backend deb95e8; owner, 2026-10-02), counted over
-  confirmed meetings as on /attendance, where the card leads. No record yet, or a
-  failed read, reads "—" with a line saying which — never a 0 nobody counted.
+  Everything else - pinned announcements, active assignments, the assignments,
+  average and new-materials stat cards - has no backend route yet, so it renders
+  `notBuilt` / "-", the same "not available yet" the pages behind it show. It used
+  to be sample data under a banner, until the dashboard claimed three active
+  assignments the Assessment page said did not exist. When a route lands, feed the
+  widget its payload and drop `notBuilt`. No record yet, or a failed read, reads
+  "-" with a line saying which - never a 0 nobody counted.
 
   Only one state is worth rendering. A member still waiting on approval never
   arrives here — `activeRolesOf` returns no roles for a membership that is not
@@ -60,7 +57,6 @@ const greetingKeyFor = (hour) => {
 };
 
 const STATS = [
-  { key: 'dash.stat.subjects', icon: BookOpen, iconBg: 'bg-brand-tint text-brand' },
   { key: 'dash.stat.todo', icon: ListTodo, iconBg: 'bg-amber-50 text-amber-500' },
   { key: 'dash.stat.avgScore', icon: Star, iconBg: 'bg-emerald-50 text-emerald-600' },
   { key: 'dash.stat.newMaterials', icon: FileText, iconBg: 'bg-rose-50 text-rose-500' },
@@ -96,6 +92,41 @@ export const StudentDashboard = () => {
   }, [recorded]);
   const attendance = attendanceStat(rows, failed);
 
+  /* The student's subjects this semester (owner, 2026-10-04): the stat card and
+     the progress widget, from what "Kelas Saya" reads. null while reading. */
+  const [subjects, setSubjects] = useState(null);
+  const [subjectsFailed, setSubjectsFailed] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    readMyClasses(membership?.id)
+      .then(({ classSubjects, sessionsById }) => !cancelled && setSubjects(currentSubjects(classSubjects, sessionsById)))
+      .catch(() => !cancelled && setSubjectsFailed(true));
+    return () => {
+      cancelled = true;
+    };
+  }, [membership?.id]);
+  const semester = subjects?.[0]?.entry.semester;
+
+  /* The student's own materials progress (backend 0dd8b44, owner 2026-10-04), added
+     up over this semester's subjects once they are known. undefined while reading,
+     null when it failed. */
+  const [progress, setProgress] = useState(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    readMyProgress(membership?.id)
+      .then((answer) => !cancelled && setProgress(answer))
+      .catch(() => !cancelled && setProgress(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [membership?.id]);
+  const totals =
+    progress === undefined || (subjects === null && !subjectsFailed)
+      ? undefined
+      : progress === null
+        ? null
+        : progressTotals(progress, subjects ? subjects.map(({ entry }) => entry.id) : null);
+
   const name = user?.fullName || t('dash.greeting.fallback');
   const schoolName = membership?.school?.name ?? membership?.schoolName ?? '';
 
@@ -112,22 +143,28 @@ export const StudentDashboard = () => {
         <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
           {t(greetingKeyFor(new Date().getHours()), { name })}
         </h1>
-        <p className="text-xs sm:text-sm text-slate-500 font-bold mt-1">
-          {schoolName ? `${schoolName} · ` : ''}
-          {today}
-        </p>
+        <InfoChips
+          className="mt-2"
+          items={[schoolName && { icon: School, label: schoolName }, { icon: CalendarDays, label: today }]}
+        />
       </div>
 
-      {/* First under the greeting (owner, 2026-10-03): check-in is the one thing here
-          bound to the clock, and on a phone it sat below six cards, four of them
-          "not available yet". It shows one meeting — on now, else next — and a day
-          with none, or already over, folds to one line. */}
-      <TodaySessionsCard focus onCheckedIn={() => setRecorded((n) => n + 1)} />
+      {/* Pinned announcements first, then today's schedule beside the progress
+          board, half and half (owner, 2026-10-03). The next-holiday card and the
+          school-announcements widget at the foot of the page went the same day. */}
+      <PinnedAnnouncements notBuilt />
 
-      {/* Real data, and so unmarked: the school's next day off (owner, 2026-09-29). */}
-      <NextHolidayCard showLink />
+      {/* Both cards share the row's height (owner, 2026-10-04): a day with nothing on
+          keeps the full card, its empty state centred. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Check-in is the one thing here bound to the clock. It shows one meeting
+            (on now, else next), and a day with none, or already over, folds to one line. */}
+        <TodaySessionsCard focus onCheckedIn={() => setRecorded((n) => n + 1)} />
+        <ProgressBoard totals={totals} zone={membership?.school?.timeZone ?? null} />
+      </div>
 
-      {/* The attendance card leads to /attendance; the other four have no onClick:
+      {/* The attendance card leads to /attendance and the subjects card to /classroom
+          (2026-10-04); the other three have no onClick:
           an inert card, not a button that leads nowhere. Five cards leave a hole in
           two or three columns, so the one with real data spans: the full row in two
           columns, two of three in three — no hole at any width (owner, 2026-10-03). */}
@@ -135,17 +172,33 @@ export const StudentDashboard = () => {
         <StatCard
           title={t('dash.stat.attendance')}
           value={attendance.value}
-          subtext={attendance.lines.map((line) => t(line.key, line.vars)).join(' · ')}
+          subtext={attendance.lines.map((line) => t(line.key, line.vars)).join(', ')}
           icon={CalendarCheck}
           iconBg="bg-brand-tint text-brand"
           onClick={() => navigate('/attendance')}
           className="sm:col-span-2 xl:col-span-1"
         />
+        <StatCard
+          title={t('dash.stat.subjects')}
+          value={subjectsFailed ? '-' : subjects === null ? '…' : String(subjects.length)}
+          subtext={
+            subjectsFailed
+              ? t('dash.att.failed')
+              : semester
+                ? t('dash.subjects.semester', { n: semester.ordinal, year: semester.academicYear })
+                : subjects === null
+                  ? ''
+                  : t('dash.progress.empty')
+          }
+          icon={BookOpen}
+          iconBg="bg-brand-tint text-brand"
+          onClick={() => navigate('/classroom')}
+        />
         {STATS.map((stat) => (
           <StatCard
             key={stat.key}
             title={t(stat.key)}
-            value="—"
+            value="-"
             subtext={t('common.notBuilt.title')}
             icon={stat.icon}
             iconBg={stat.iconBg}
@@ -153,15 +206,10 @@ export const StudentDashboard = () => {
         ))}
       </div>
 
-      {/* Three cards since today's meetings moved to the top (owner, 2026-10-03): one
-          row of three on a wide screen; two and a full-width third in between, so no
-          row ends in a hole. The wrapper is a grid so the card still fills its height. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+      {/* Two cards since the announcements moved to the top (owner, 2026-10-03). */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ActiveAssessment notBuilt />
-        <CourseProgress notBuilt />
-        <div className="grid lg:col-span-2 xl:col-span-1">
-          <SchoolAnnouncement notBuilt />
-        </div>
+        <CourseProgress subjects={subjects} failed={subjectsFailed} />
       </div>
     </div>
   );

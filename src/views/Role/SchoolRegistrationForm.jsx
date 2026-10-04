@@ -4,6 +4,7 @@ import { Paperclip } from 'lucide-react';
 
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import Select from '../../components/ui/Select';
 import { schoolService } from '../../services/schoolService';
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage, registrationErrorMessage } from '../../i18n/apiError';
@@ -51,9 +52,6 @@ const TEXT_FIELDS = [
   { name: 'city', labelKey: 'reg.field.city', validate: validateCity },
   { name: 'applicantPhone', labelKey: 'reg.field.phone', hintKey: 'reg.field.phone.hint', inputMode: 'tel', validate: validateApplicantPhone },
 ];
-
-const selectClass =
-  'block w-full rounded-xl border border-slate-200 hover:border-slate-300 bg-white py-2.5 md:py-3 px-4 text-sm md:text-base text-slate-900 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand cursor-pointer';
 
 export const SchoolRegistrationForm = () => {
   const navigate = useNavigate();
@@ -193,7 +191,7 @@ export const SchoolRegistrationForm = () => {
         <label htmlFor="schoolType" className="text-sm font-semibold text-slate-700 block">
           {t('reg.field.schoolType')}
         </label>
-        <select
+        <Select
           id="schoolType"
           name="schoolType"
           value={values.schoolType}
@@ -204,12 +202,11 @@ export const SchoolRegistrationForm = () => {
             setValues((prev) => ({ ...prev, schoolType, durationYears: '' }));
             setErrors((prev) => ({ ...prev, durationYears: null }));
           }}
-          className={selectClass}
         >
           {SCHOOL_TYPE_NAMES.map((name) => (
             <option key={name} value={name}>{name}</option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <fieldset className="space-y-4 rounded-2xl border border-slate-200 p-4">
@@ -239,7 +236,7 @@ export const SchoolRegistrationForm = () => {
           <label htmlFor="durationYears" className="text-sm font-semibold text-slate-700 block">
             {t('reg.field.duration')}
           </label>
-          <select
+          <Select
             id="durationYears"
             name="durationYears"
             value={values.durationYears ?? ''}
@@ -248,13 +245,13 @@ export const SchoolRegistrationForm = () => {
               setValues((prev) => ({ ...prev, durationYears: next }));
               setError('durationYears', validateDurationYears(values.schoolType, next));
             }}
-            className={selectClass}
+            invalid={!!errors.durationYears}
           >
-            <option value="">—</option>
+            <option value="">{t('reg.field.duration.placeholder')}</option>
             {SCHOOL_TYPES[values.schoolType].allowedDurationYears.map((years) => (
               <option key={years} value={years}>{t('reg.field.duration.years', { n: years })}</option>
             ))}
-          </select>
+          </Select>
           {errors.durationYears ? (
             <span className="text-xs text-red-500 font-medium" role="alert">{errors.durationYears}</span>
           ) : (

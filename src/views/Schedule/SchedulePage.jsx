@@ -14,12 +14,14 @@ import StudentLessonCalendar from './StudentLessonCalendar';
 
   - Holidays are real for everybody (backend 9dee2e2); the Principal and a Vice
     Principal keep them (ticket 19).
-  - A student's lessons are real since backend 2a281e7 — StudentLessonCalendar.
+  - A student gets one month of lessons and holidays together instead of both
+    calendars (StudentLessonCalendar; owner 2026-10-03, after BINUSMAYA).
   - The Principal and a Vice Principal set and read every class's week on the
     Subjects page's Timetable tab, so this page points there rather than
     drawing a second copy.
-  - A teacher's lessons are the teammate's to build (`?mine=true`); until then
-    they read "not available yet".
+  - A teacher gets the student's page with their own meetings (`?mine=true` and
+    each assignment's sessions, teacherLessons.js; owner 2026-10-03). Only the
+    Principal's desk adds holidays.
 
   This page used to ask `/api/schedule/:role`, which never existed, and carry a
   month grid and agenda drawn for its guessed shape. Both went (owner,
@@ -33,10 +35,19 @@ export const SchedulePage = () => {
   const role = activeRole || ROLES.STUDENT;
   const leads = isPrincipalDesk(role);
 
+  /* A teacher gets the student's page with their own meetings, and neither adds
+     holidays (owner, 2026-10-03). */
+  if (role === ROLES.STUDENT || role === ROLES.TEACHER) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('shell.schedule')}</h1>
+        <StudentLessonCalendar teacher={role === ROLES.TEACHER} />
+      </div>
+    );
+  }
+
   let lessons;
-  if (role === ROLES.STUDENT) {
-    lessons = <StudentLessonCalendar />;
-  } else if (leads) {
+  if (leads) {
     lessons = (
       <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4">
         <span className="w-12 h-12 bg-brand-tint text-brand rounded-2xl flex items-center justify-center shrink-0">
@@ -59,7 +70,7 @@ export const SchedulePage = () => {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('shell.schedule')}</h1>
+      <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t(leads ? 'shell.calendar' : 'shell.schedule')}</h1>
       <HolidayCalendar canManage={leads} showToast={outlet?.showToast} />
       <section className="space-y-3">
         <h2 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{t('holiday.lessons')}</h2>

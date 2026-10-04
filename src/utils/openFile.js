@@ -30,3 +30,22 @@ export async function openFileInNewTab(fetchBlob) {
     throw err;
   }
 }
+
+/**
+ * Save a guarded file under its own name (a DOCX or PPTX a browser cannot show):
+ * fetched with the token, then handed to the browser through a temporary link.
+ *
+ * @param {() => Promise<Blob>} fetchBlob
+ * @param {string} fileName
+ */
+export async function downloadFile(fetchBlob, fileName) {
+  const blob = await fetchBlob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName || 'file';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}

@@ -1,321 +1,177 @@
-import React, { useMemo, useState } from 'react';
-import { Link, useNavigate, useParams, useOutletContext } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  CalendarDays, 
-  ClipboardCheck, 
-  GraduationCap, 
-  MapPin, 
-  Users,
-  ChevronRight,
-  Clock
-} from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useOutletContext, useParams, useSearchParams } from 'react-router-dom';
+import { AlertCircle, BookOpen, RefreshCw } from 'lucide-react';
 
-import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
-import { buildSampleTeacherData } from '../Dashboard/sampleTeacherData';
-import { SampleDataBanner } from '../Dashboard/components/SampleDataNotice';
-import SubmissionDetailModal from './components/SubmissionDetailModal';
+import { useAuth } from '../../context/AuthContext';
+import MeetingStrip from '../../components/meetings/MeetingStrip';
+import SubjectHeader from '../../components/meetings/SubjectHeader';
+import SubjectProgress from '../Subjects/SubjectProgress';
+import { defaultMeetingId, progressOf, shownSessions } from '../Classroom/myClasses';
+import { readMyTeaching, forgetMyTeaching } from './readMyTeaching';
+import { sessionPhase, unconfirmedCount } from './teaching';
+import TeacherMeeting from './TeacherMeeting';
 
-const weekdayFor = (dayOfWeek, locale) =>
-  new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(
-    new Date(2026, 0, dayOfWeek + 4),
-  );
+/*
+  One subject a teacher teaches (owner, 2026-10-04; it replaced the teammate's
+  sample-data page): the same shape as a student's subject page - the subject and
+  its facts, then two tabs.
 
-const timeAgo = (timestamp, t) => {
-  const minutes = Math.max(0, Math.floor((Date.now() - new Date(timestamp).getTime()) / 60000));
-  if (minutes < 1) return t('shell.time.justNow');
-  if (minutes < 60) return t('shell.time.minutes', { n: minutes });
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return t('shell.time.hours', { n: hours });
-  return t('shell.time.days', { n: Math.floor(hours / 24) });
-};
+  - "Pertemuan": the meetings as a row of tabs (MeetingStrip), a dot on each one
+    begun and not yet confirmed; the chosen one (`?pertemuan=<id>`, else the one on
+    now or next - defaultMeetingId) renders TeacherMeeting: its attendance to
+    confirm or correct, and its materials to add, publish, order and delete.
+  - "Progres" (`?tab=progres`): the class's learning progress, per student and per
+    material (SubjectProgress, the panel the Principal opens from the timetable).
+
+  The subject and its meetings come from readMyTeaching; a meeting changed here
+  (confirmed, said not held) updates in place and drops that cache.
+*/
+
+const SECTIONS = ['pertemuan', 'progres'];
+const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm';
 
 export const TeacherClassSubjectDetail = () => {
   const { classSubjectId } = useParams();
-  const navigate = useNavigate();
-  const { membership } = useAuth();
+  const { t } = useT();
   const { showToast } = useOutletContext() ?? {};
-  const { t, lang } = useT();
-  const data = useMemo(() => buildSampleTeacherData(), []);
-  const classSubject = data.classSubjects.find((item) => item.id === classSubjectId);
-  const locale = lang === 'id' ? 'id-ID' : 'en-GB';
-  const schoolName = membership?.school?.name ?? membership?.schoolName ?? '';
+  const { membership } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [data, setData] = useState(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  /* Meetings changed on this page, by id, over what was read. */
+  const [changedById, setChangedById] = useState({});
 
-  // Filter submissions for this classSubject
-  const initialSubmissions = useMemo(() => {
-    if (!classSubject) return [];
-    return data.submissions.filter((submission) =>
-      submission.classId === classSubject.classId
-      && submission.subjectName === classSubject.subjectName,
-    );
-  }, [classSubject, data.submissions]);
+  useEffect(() => {
+    let cancelled = false;
+    readMyTeaching(membership?.id, { fresh: attempt > 0 })
+      .then((answer) => {
+        if (cancelled) return;
+        setData(answer);
+        setFailed(false);
+      })
+      .catch(() => !cancelled && setFailed(true));
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt, membership?.id]);
 
-  const [submissions, setSubmissions] = useState(initialSubmissions);
-  const [selectedSubmissionId, setSelectedSubmissionId] = useState(null);
+  const entry = data?.rows.find((row) => row.id === classSubjectId) ?? null;
+  const live = Boolean(entry && entry.status === 'ACTIVE' && !entry.endedAt);
+  const raw = data?.sessionsById?.[classSubjectId];
+  const sessions = useMemo(
+    () =>
+      Array.isArray(raw)
+        ? shownSessions(raw.map((session) => changedById[session.id] ?? session)).sort((a, b) => a.number - b.number)
+        : null,
+    [raw, changedById]
+  );
 
-  // Active submission for modal
-  const activeIndex = submissions.findIndex((s) => s.id === selectedSubmissionId);
-  const activeSubmission = activeIndex !== -1 ? submissions[activeIndex] : null;
+  const section = SECTIONS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'pertemuan';
+  const asked = searchParams.get('pertemuan');
+  const selectedId = sessions ? (sessions.some((session) => session.id === asked) ? asked : defaultMeetingId(sessions)) : null;
+  const selected = sessions?.find((session) => session.id === selectedId) ?? null;
+  const progress = progressOf(sessions);
+  const percent = progress?.total ? Math.round((progress.held / progress.total) * 100) : 0;
+  const owed = sessions ? unconfirmedCount(sessions) : 0;
 
-  if (!classSubject) {
+  const pick = (id) => setSearchParams({ pertemuan: id });
+  const goSection = (next) => setSearchParams(next === 'pertemuan' ? (selectedId ? { pertemuan: selectedId } : {}) : { tab: next });
+
+  const onChanged = (session) => {
+    if (!session) return;
+    forgetMyTeaching();
+    setChangedById((prev) => ({ ...prev, [session.id]: { ...(prev[session.id] ?? sessions.find((s) => s.id === session.id)), ...session } }));
+  };
+
+  if (failed && !data) {
     return (
-      <div className="space-y-5 text-left">
+      <div className={`${card} flex flex-col items-center text-center gap-3 py-10`} role="alert">
+        <AlertCircle className="w-8 h-8 text-rose-500" aria-hidden="true" />
+        <p className="text-sm font-bold text-slate-700">{t('teach.failed')}</p>
         <button
           type="button"
-          onClick={() => navigate('/teacher/courses')}
-          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-brand hover:bg-brand-tint focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          onClick={() => setAttempt((n) => n + 1)}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
         >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          {t('teacherCourses.back')}
+          <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+          {t('att.error.retry')}
         </button>
-        <section className="rounded-2xl border border-slate-200 bg-white px-5 py-12 text-center">
-          <h1 className="text-xl font-extrabold text-slate-900">{t('teacherCourses.detailNotFound')}</h1>
-          <p className="mt-2 text-sm text-slate-500">{t('teacherCourses.detailNotFoundBody')}</p>
-        </section>
       </div>
     );
   }
 
-  const students = data.students.filter((student) => classSubject.studentIds.includes(student.id));
-  const relatedAssignments = data.classSubjects.filter((item) =>
-    item.classId === classSubject.classId
-    && item.semesterOrdinal === classSubject.semesterOrdinal,
-  );
-
-  // Handle Score Save
-  const handleSaveScore = (submissionId, score, feedback) => {
-    const target = submissions.find((s) => s.id === submissionId);
-    setSubmissions((prev) =>
-      prev.map((sub) =>
-        sub.id === submissionId
-          ? {
-              ...sub,
-              score,
-              feedback,
-            }
-          : sub,
-      ),
+  if (!data) {
+    return (
+      <div className="space-y-4" aria-busy="true" aria-label={t('common.loading')}>
+        <div className="h-36 rounded-2xl bg-white border border-slate-100 animate-pulse" />
+        <div className="h-64 rounded-2xl bg-white border border-slate-100 animate-pulse" />
+      </div>
     );
+  }
 
-    if (showToast && target) {
-      showToast(
-        t('teacherCourses.submission.savedSuccess', { name: target.studentName }),
-        'success',
-      );
-    }
-  };
-
-  // Handle mock file download
-  const handleDownloadAttachment = (attachment) => {
-    const filename = attachment?.name || 'tugas_siswa.pdf';
-    const blob = new Blob([`Berkas tugas: ${filename}`], { type: 'application/pdf' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    if (showToast) showToast(`${t('teacherCourses.submission.download')}: ${filename}`, 'success');
-  };
+  if (!live) {
+    return (
+      <div className={`${card} flex flex-col items-center text-center gap-3 py-10`}>
+        <BookOpen className="w-8 h-8 text-slate-400" aria-hidden="true" />
+        <p className="text-sm font-semibold text-slate-600 max-w-sm">{t(entry ? 'teach.notLive' : 'teach.notFound')}</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 text-left">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => navigate('/teacher/courses')}
-          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-brand hover:bg-brand-tint focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          {t('teacherCourses.back')}
-        </button>
-        <Link
-          to={`/teacher/gradebook?classSubjectId=${classSubject.id}`}
-          className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-brand-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-        >
-          <ClipboardCheck className="h-4 w-4" aria-hidden="true" />
-          {t('teacherGradebook.openFromAssignment')}
-        </Link>
+    <div className="space-y-6">
+      <SubjectHeader
+        code={entry.subject.code}
+        name={entry.subject.name}
+        facts={[
+          { label: t('person.class'), value: entry.class.name },
+          { label: t('classroom.semesters'), value: entry.semester.ordinal },
+          { label: t('person.year'), value: entry.semester.academicYear },
+          {
+            label: t('teach.fact.unconfirmed'),
+            value: <span className={owed > 0 ? 'text-amber-700' : 'text-slate-800'}>{sessions ? owed : '-'}</span>,
+          },
+        ]}
+        progress={progress?.total > 0 ? { label: t('classroom.progress', { held: progress.held, total: progress.total }), percent } : null}
+      />
+
+      <div role="tablist" aria-label={t('meeting.sections')} className="flex gap-6 border-b border-slate-200">
+        {SECTIONS.map((key) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={section === key}
+            onClick={() => goSection(key)}
+            className={`px-1 pb-3 -mb-px text-sm font-extrabold border-b-2 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-t ${
+              section === key ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            {t(`teach.section.${key}`)}
+          </button>
+        ))}
       </div>
 
-      <header>
-        <p className="text-sm font-bold text-brand">
-          {t('teacherCourses.class', { name: classSubject.className, grade: classSubject.gradeLevel })}
-        </p>
-        <h1 className="mt-1 text-3xl font-extrabold leading-tight tracking-tight text-slate-900">
-          {classSubject.subjectName}
-        </h1>
-        <p className="mt-2 text-sm font-medium text-slate-500">
-          {schoolName ? `${schoolName} · ` : ''}
-          {t('teacherCourses.context', {
-            year: classSubject.academicYearLabel,
-            semester: classSubject.semesterOrdinal,
-          })}
-        </p>
-      </header>
-
-      <SampleDataBanner />
-
-      <section aria-label={t('teacherCourses.detailSummary')} className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-            <Users className="h-4 w-4 text-brand" aria-hidden="true" />
-            {t('teacherCourses.studentMetric')}
-          </div>
-          <p className="mt-3 text-2xl font-extrabold text-slate-900">{students.length}</p>
+      {section === 'progres' ? (
+        <div className={`${card} sm:p-6`}>
+          <SubjectProgress classSubjectId={entry.id} zone={membership?.school?.timeZone ?? null} />
         </div>
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-            <CalendarDays className="h-4 w-4 text-brand" aria-hidden="true" />
-            {t('teacherCourses.classSchedule')}
-          </div>
-          <p className="mt-3 text-sm font-bold text-slate-800">
-            {weekdayFor(classSubject.schedule.dayOfWeek, locale)}
-          </p>
-          <p className="mt-1 text-sm text-slate-500">
-            {classSubject.schedule.startTime}–{classSubject.schedule.endTime}
-          </p>
+      ) : sessions === null ? (
+        <p className={`${card} text-sm font-semibold text-amber-700`}>{t('classroom.meetingsFailed')}</p>
+      ) : sessions.length === 0 ? (
+        <p className={`${card} text-sm font-semibold text-slate-600`}>{t('teach.noTimetable')}</p>
+      ) : (
+        <div className="space-y-5">
+          <MeetingStrip
+            sessions={sessions}
+            selectedId={selectedId}
+            onPick={pick}
+            dotOf={(session) => (['running', 'awaiting'].includes(sessionPhase(session)) ? 'bg-amber-400' : null)}
+          />
+          {selected && <TeacherMeeting key={selected.id} meeting={selected} onChanged={onChanged} showToast={showToast} />}
         </div>
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-            <MapPin className="h-4 w-4 text-brand" aria-hidden="true" />
-            {t('teacherCourses.location')}
-          </div>
-          <p className="mt-3 text-sm font-bold text-slate-800">{classSubject.schedule.room}</p>
-          <p className="mt-1 text-sm text-slate-500">
-            {t('teacherCourses.classAssignmentCount', { n: relatedAssignments.length })}
-          </p>
-        </div>
-      </section>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Roster Section */}
-        <section aria-labelledby="class-subject-roster-heading" className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <h2 id="class-subject-roster-heading" className="text-sm font-extrabold text-slate-700">
-              {t('teacherCourses.rosterTitle')}
-            </h2>
-            <span className="text-xs font-medium text-slate-500">
-              {t('teacherCourses.studentsInClass', { n: students.length })}
-            </span>
-          </div>
-          <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-            <ul className="divide-y divide-slate-100">
-              {students.map((student) => (
-                <li key={student.id} className="flex items-center gap-3 px-4 py-3 sm:px-5">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-tint text-xs font-extrabold text-brand" aria-hidden="true">
-                    {student.fullName.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-800">
-                    {student.fullName}
-                  </span>
-                  <span className="flex shrink-0 items-center gap-1 text-xs text-slate-500">
-                    <GraduationCap className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
-                    {classSubject.className}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-
-        {/* Recent Submissions Section (Interactive) */}
-        <section aria-labelledby="class-subject-submissions-heading" className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <h2 id="class-subject-submissions-heading" className="text-sm font-extrabold text-slate-700">
-              {t('teacherCourses.recentSubmissions')}
-            </h2>
-            <span className="text-xs font-medium text-slate-500">
-              {t('teacherCourses.submissionCount', { n: submissions.length })}
-            </span>
-          </div>
-          <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-            {submissions.length ? (
-              <ul className="divide-y divide-slate-100">
-                {submissions.map((submission) => {
-                  const isGraded = submission.score !== null && submission.score !== undefined;
-                  const isLate = submission.status === 'LATE';
-
-                  return (
-                    <li key={submission.id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedSubmissionId(submission.id)}
-                        className="group flex w-full items-center justify-between gap-3 p-4 sm:p-5 text-left hover:bg-purple-50/40 transition-all cursor-pointer focus:outline-none focus:bg-purple-50/50"
-                      >
-                        <div className="min-w-0 flex-1 space-y-1.5">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-extrabold text-slate-900 group-hover:text-brand transition-colors">
-                              {submission.studentName}
-                            </span>
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${
-                                isLate
-                                  ? 'bg-amber-50 text-amber-700 border border-amber-200/60'
-                                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
-                              }`}
-                            >
-                              {isLate
-                                ? t('teacherCourses.submission.status.late')
-                                : t('teacherCourses.submission.status.onTime')}
-                            </span>
-                            {isGraded && (
-                              <span className="inline-flex items-center gap-1 rounded-md bg-purple-100 text-brand px-2 py-0.5 text-[10px] font-extrabold">
-                                {submission.score} / 100
-                              </span>
-                            )}
-                          </div>
-
-                          <p className="text-xs font-semibold text-slate-600 truncate">
-                            {submission.assessmentTitle}
-                          </p>
-
-                          <p className="text-[11px] font-medium text-slate-500 flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5 text-slate-400" />
-                            {timeAgo(submission.submittedAt, t)}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-1 text-slate-400 group-hover:text-brand group-hover:translate-x-0.5 transition-all shrink-0">
-                          <span className="text-xs font-bold hidden sm:inline">
-                            {isGraded ? t('teacherCourses.submission.status.graded') : t('teacherCourses.viewDetail')}
-                          </span>
-                          <ChevronRight className="w-4 h-4" />
-                        </div>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <p className="px-5 py-10 text-center text-sm text-slate-500">
-                {t('teacherCourses.noSubmissions')}
-              </p>
-            )}
-          </div>
-        </section>
-      </div>
-
-      {/* Student Submission Detail & Grading Modal Dialog */}
-      {activeSubmission && (
-        <SubmissionDetailModal
-          key={activeSubmission.id}
-          submission={activeSubmission}
-          classSubject={classSubject}
-          onClose={() => setSelectedSubmissionId(null)}
-          onSaveScore={handleSaveScore}
-          onPrev={() => setSelectedSubmissionId(submissions[activeIndex - 1].id)}
-          onNext={() => setSelectedSubmissionId(submissions[activeIndex + 1].id)}
-          isFirst={activeIndex <= 0}
-          isLast={activeIndex >= submissions.length - 1}
-          currentIndex={activeIndex}
-          totalCount={submissions.length}
-          onDownload={handleDownloadAttachment}
-          locale={locale}
-        />
       )}
     </div>
   );

@@ -4,7 +4,10 @@ import { Building2, Check } from 'lucide-react';
 
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import Select from '../../components/ui/Select';
 import ChildFields from '../../components/ChildFields';
+import PhoneField from '../../components/PhoneField';
+import { usePhonePrefill } from '../../hooks/useAccountPhone';
 import { membershipService } from '../../services/membershipService';
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage } from '../../i18n/apiError';
@@ -16,8 +19,8 @@ import {
   validateBirthDate,
   validateGradeLevel,
   teacherIdErrors,
-  childErrors,
-  childPayload,
+  guardianErrors,
+  guardianRequestPayload,
   nestedFieldErrors,
 } from '../../utils/validation';
 
@@ -81,7 +84,7 @@ const ROLES_BY_INTENT = {
 const FIELDS_BY_ROLE = {
   STUDENT: ['nisn', 'birthDate', 'gradeLevel'],
   TEACHER: ['nip', 'nuptk'],
-  GUARDIAN: ['childNisn', 'childFullName', 'relationship'],
+  GUARDIAN: ['childNisn', 'childFullName', 'relationship', 'phone'],
 };
 
 export const JoinSchoolForm = ({ intent }) => {
@@ -94,6 +97,7 @@ export const JoinSchoolForm = ({ intent }) => {
   const [errors, setErrors] = useState({});
   const [isWorking, setIsWorking] = useState(false);
   const [alsoGuardian, setAlsoGuardian] = useState(false);
+  usePhonePrefill(setValues);
 
   /*
     Only the teacher path can grow a second role. STUDENT is exclusive by the
@@ -183,7 +187,7 @@ export const JoinSchoolForm = ({ intent }) => {
     }
 
     if (asks('GUARDIAN')) {
-      for (const [name, fail] of Object.entries(childErrors(values))) put(name, fail);
+      for (const [name, fail] of Object.entries(guardianErrors(values))) put(name, fail);
     }
 
     setErrors(next);
@@ -218,7 +222,7 @@ export const JoinSchoolForm = ({ intent }) => {
     }
 
     if (asks('GUARDIAN')) {
-      body.guardian = childPayload(values);
+      body.guardian = guardianRequestPayload(values);
     }
 
     return body;
@@ -292,11 +296,10 @@ export const JoinSchoolForm = ({ intent }) => {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-extrabold text-slate-900 leading-tight">{school.name}</p>
-          {/* `School.city` is nullable, so the separator is conditional: without
-              this a school that never filled its town in reads "SMA · ". */}
-          <p className="text-[11px] font-semibold text-slate-500 mt-0.5">
-            {school.schoolType}
-            {school.city ? ` · ${school.city}` : ''}
+          {/* `School.city` is nullable, so its pill is too. */}
+          <p className="mt-1.5 flex flex-wrap gap-1.5 text-[10px] font-extrabold">
+            <span className="px-1.5 py-0.5 rounded-md bg-white text-brand">{school.schoolType}</span>
+            {school.city && <span className="px-1.5 py-0.5 rounded-md bg-white text-slate-600">{school.city}</span>}
           </p>
           <button
             type="button"
@@ -348,12 +351,12 @@ export const JoinSchoolForm = ({ intent }) => {
             >
               {t('getStarted.join.field.gradeLevel')}
             </label>
-            <select
+            <Select
               id="gradeLevel"
               name="gradeLevel"
               value={values.gradeLevel ?? ''}
               onChange={change('gradeLevel')}
-              className="block w-full rounded-xl border border-slate-200 hover:border-slate-300 bg-white py-2.5 md:py-3 px-4 text-base text-slate-900 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand cursor-pointer"
+              invalid={!!errors.gradeLevel}
             >
               <option value="">{t('getStarted.join.field.gradePlaceholder')}</option>
               {/* durationYears arrives with the lookup since backend 60ea459; a
@@ -363,7 +366,7 @@ export const JoinSchoolForm = ({ intent }) => {
                   {t('getStarted.join.field.gradeOption', { n: grade })}
                 </option>
               ))}
-            </select>
+            </Select>
             {errors.gradeLevel && (
               <p className="text-xs text-red-500 font-medium">{errors.gradeLevel}</p>
             )}
@@ -438,6 +441,7 @@ export const JoinSchoolForm = ({ intent }) => {
       {asks('GUARDIAN') && (
         <>
           <ChildFields values={values} errors={errors} onChange={change} />
+          <PhoneField value={values.phone} error={errors.phone} onChange={change('phone')} />
 
           {/*
             Said plainly rather than discovered later. A guardian request is

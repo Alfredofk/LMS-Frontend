@@ -5,6 +5,8 @@ import ConfirmDialog from './ui/ConfirmDialog';
 import { schoolService } from '../services/schoolService';
 import { useT } from '../i18n/LanguageContext';
 import { apiErrorMessage } from '../i18n/apiError';
+import { useAuth } from '../context/AuthContext';
+import { ROLES, activeRolesOf } from '../constants/roles';
 
 const COPIED_MS = 2000;
 
@@ -66,13 +68,15 @@ const copyText = async (text) => {
   had nothing to give the teachers and students who need one to join, and the
   whole join flow had no way to start.
 
-  **It decides for itself whether it has anything to say.** The only route that
-  carries either of them is `GET /school-registrations/mine`, which is keyed on
-  `applicantUserId`, so it answers an empty list for anybody who did not found a
-  school. This component renders `null` in that case, and on any failure, so no
-  caller has to ask whether the reader founded anything. A card reading "could not
-  load your code" on a page that is not about codes is noise, not an error worth
-  reporting.
+  **It decides for itself whether it has anything to say.** The code comes from
+  `/users/me` (`membership.school.schoolCode`, backend 1bd81ab), which carries it
+  to those who hand it out - the Principal, a Vice Principal, the homeroom teacher
+  of a class in an active year - and null to everybody else; this renders `null`
+  then, so no caller has to ask. Each of the three is told who to give it to
+  (owner, 2026-10-04). Replacing it stays the Principal's. The NPSN still comes
+  from `GET /school-registrations/mine`, so only a Principal who founded the
+  school sees it. Before 1bd81ab that route was the only source of the code too,
+  and a second Principal could not read it at all.
 
   **One place shows it: My Profile.** It began on three screens, lost the
   join-requests queue, then the dashboard. A School Code is handed out in a burst
@@ -114,47 +118,47 @@ const ROTATE_ERRORS = {
 export const SchoolCodeCard = () => {
   const { t } = useT();
 
-  /* One object, filled by one request. Two pieces of state would invite two
-     effects, and there is only one answer to wait for. */
-  const [school, setSchool] = useState(null);
+  const { membership, refreshMe } = useAuth();
+  const held = activeRolesOf(membership);
+  const principal = held.includes(ROLES.PRINCIPAL);
+  const vice = held.includes(ROLES.VICE_PRINCIPAL);
   const [copied, setCopied] = useState(false);
-
   const [confirming, setConfirming] = useState(false);
   const [rotating, setRotating] = useState(false);
   const [rotated, setRotated] = useState(false);
   const [rotateError, setRotateError] = useState(null);
+  /* The code a rotation just answered, ahead of the next /users/me. */
+  const [rotatedCode, setRotatedCode] = useState(null);
+  const [npsn, setNpsn] = useState(null);
 
+  const code = rotatedCode ?? membership?.school?.schoolCode ?? null;
+  const unknown = Boolean(membership?.school) && membership.school.schoolCode === undefined;
+
+  /* A membership cached from sign-in may not carry the code yet: read /users/me once. */
   useEffect(() => {
-    let cancelled = false;
+    if (unknown) refreshMe().catch(() => {});
+  }, [unknown, refreshMe]);
 
-    const load = async () => {
-      try {
-        const answer = await schoolService.listMyRegistrations();
+  /* The NPSN lives on the founder's registration only. */
+  useEffect(() => {
+    if (!principal) return undefined;
+    let cancelled = false;
+    schoolService
+      .listMyRegistrations()
+      .then((answer) => {
         /*
           Not `registrations[0]`, which is what SelectRolePage takes: the list is
           newest first, and a rejected retry can sit in front of the approved one
-          that actually became a school. The code lives on the approved row.
+          that actually became a school.
         */
-        const founded = (answer.registrations ?? []).find(
-          (row) => row.status === 'APPROVED' && row.school?.schoolCode
-        );
-        if (!cancelled) {
-          setSchool(
-            founded
-              ? { code: founded.school.schoolCode, npsn: founded.npsn ?? null }
-              : null
-          );
-        }
-      } catch {
-        if (!cancelled) setSchool(null);
-      }
-    };
-
-    load();
+        const founded = (answer.registrations ?? []).find((row) => row.status === 'APPROVED' && row.school);
+        if (!cancelled) setNpsn(founded?.npsn ?? null);
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [principal]);
 
   /* The label goes back on its own; nothing here is waiting on the answer. */
   useEffect(() => {
@@ -163,11 +167,11 @@ export const SchoolCodeCard = () => {
     return () => clearTimeout(timer);
   }, [copied]);
 
-  if (!school) return null;
+  if (!code) return null;
 
   /* The code alone. The NPSN is not what anybody is being asked for. */
   const handleCopy = async () => {
-    if (await copyText(school.code)) setCopied(true);
+    if (await copyText(code)) setCopied(true);
   };
 
   const handleRotate = async () => {
@@ -176,7 +180,8 @@ export const SchoolCodeCard = () => {
     try {
       const fresh = await schoolService.rotateCode();
       if (fresh?.schoolCode) {
-        setSchool((prev) => ({ ...prev, code: fresh.schoolCode }));
+        setRotatedCode(fresh.schoolCode);
+        refreshMe().catch(() => {});
         /* "Copied" described the old code. */
         setCopied(false);
         setRotated(true);
@@ -203,20 +208,23 @@ export const SchoolCodeCard = () => {
           http — somebody can still select the code by hand, which is why this is
           text rather than an image or a canvas.
         */}
-        <p className="mt-1.5 text-2xl sm:text-3xl font-extrabold font-mono tracking-[0.2em] text-slate-900 select-all break-all">
-          {school.code}
-        </p>
-
-        {/* Absent means something else went wrong — NPSN is required at
-            registration — and a blank row is not how to report that. */}
-        {school.npsn && (
-          <p className="mt-1 text-[11px] font-semibold text-slate-500">
-            {t('schoolCode.npsn')}{' '}
-            <span className="font-mono font-extrabold text-slate-600 select-all">
-              {school.npsn}
-            </span>
+        {/* Above the code and read like the profile's NIP (owner, 2026-10-03).
+            Absent means something else went wrong (NPSN is required at
+            registration), and a blank row is not how to report that. */}
+        {npsn && (
+          <p className="mt-1.5 text-[11px] font-semibold text-slate-500">
+            {t('schoolCode.npsn')}:{' '}
+            <span className="text-slate-700 font-bold tabular-nums select-all">{npsn}</span>
           </p>
         )}
+
+        <p className="mt-1.5 text-2xl sm:text-3xl font-extrabold font-mono tracking-[0.2em] text-slate-900 select-all break-all">
+          {code}
+        </p>
+        <p className="mt-1 text-[11px] font-semibold text-slate-500 leading-relaxed">
+          {t(principal ? 'schoolCode.hint.principal' : vice ? 'schoolCode.hint.vice' : 'schoolCode.hint.homeroom')}
+        </p>
+
 
         {rotated && (
           <p className="mt-2 text-xs font-semibold text-emerald-700" role="status">
@@ -250,22 +258,24 @@ export const SchoolCodeCard = () => {
           )}
         </button>
 
-        <button
-          type="button"
-          onClick={() => setConfirming(true)}
-          disabled={rotating}
-          className="inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-bold text-slate-500 hover:text-brand transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50 disabled:cursor-default"
-        >
-          <RefreshCw className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-          {t('schoolCode.rotate')}
-        </button>
+        {principal && (
+          <button
+            type="button"
+            onClick={() => setConfirming(true)}
+            disabled={rotating}
+            className="inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-bold text-slate-500 hover:text-brand transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50 disabled:cursor-default"
+          >
+            <RefreshCw className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            {t('schoolCode.rotate')}
+          </button>
+        )}
       </div>
 
       <ConfirmDialog
         open={confirming}
         tone="brand"
         title={t('schoolCode.rotate.title')}
-        body={t('schoolCode.rotate.body', { code: school.code })}
+        body={t('schoolCode.rotate.body', { code })}
         confirmLabel={t('schoolCode.rotate.confirm')}
         cancelLabel={t('common.cancel')}
         busy={rotating}

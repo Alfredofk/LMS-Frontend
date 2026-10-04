@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronRight } from 'lucide-react';
+import { BookOpen, ChevronRight } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
 import { formatDay } from '../Classes/format';
@@ -21,7 +21,9 @@ const STATE_BADGE = {
 };
 const CANCELLED_BADGE = 'bg-rose-100 text-rose-800';
 
-export const SessionList = ({ sessions, onOpen }) => {
+/* `onOpenContent` (optional): a button beside each row for the meeting's materials
+   (backend bf6e9b5, owner 2026-10-03). Beside, not inside: the row may be a button. */
+export const SessionList = ({ sessions, onOpen, onOpenContent }) => {
   const { t, lang } = useT();
   return (
     <ol className="max-h-64 overflow-y-auto divide-y divide-slate-100 border border-slate-100 rounded-xl">
@@ -30,10 +32,10 @@ export const SessionList = ({ sessions, onOpen }) => {
         const openable = rosterOpenable(session);
         const Row = openable ? 'button' : 'div';
         return (
-          <li key={session.id}>
+          <li key={session.id} className="flex items-stretch">
             <Row
               {...(openable ? { type: 'button', onClick: () => onOpen(session) } : {})}
-              className={`w-full px-3 py-2 flex items-center justify-between gap-2 text-left ${
+              className={`flex-1 min-w-0 px-3 py-2 flex items-center justify-between gap-2 text-left ${
                 openable ? 'hover:bg-slate-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand' : ''
               }`}
             >
@@ -59,6 +61,17 @@ export const SessionList = ({ sessions, onOpen }) => {
                 )}
               </span>
             </Row>
+            {onOpenContent && (
+              <button
+                type="button"
+                onClick={() => onOpenContent(session)}
+                aria-label={t('content.openMeeting', { n: session.number })}
+                title={t('content.open')}
+                className="shrink-0 px-3 border-l border-slate-100 text-brand hover:bg-brand-tint flex items-center cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand"
+              >
+                <BookOpen className="w-4 h-4" aria-hidden="true" />
+              </button>
+            )}
           </li>
         );
       })}

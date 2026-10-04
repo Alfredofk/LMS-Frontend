@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { localOf, summarize, bySubject, groupKey, historyOf, rosterCounts, attendanceStat } from './attendance.js';
+import { localOf, summarize, bySubject, groupKey, historyOf, rosterCounts, attendanceStat, semesterRate } from './attendance.js';
 
 /* A row as attendance.service.js `mine` answers it: attendanceView plus its sessionView. */
 let next = 0;
@@ -169,22 +169,34 @@ describe('attendanceStat — the dashboard card', () => {
     ]);
   });
 
-  it('says "—" while only check-ins wait, never 0%', () => {
+  it('says "-" while only check-ins wait, never 0%', () => {
     expect(attendanceStat([row('PRESENT', { confirmed: false })])).toEqual({
-      value: '—',
+      value: '-',
       lines: [{ key: 'att.pendingCount', vars: { n: 1 } }],
     });
   });
 
   it('says there is nothing yet for no rows', () => {
-    expect(attendanceStat([])).toEqual({ value: '—', lines: [{ key: 'dash.att.none' }] });
+    expect(attendanceStat([])).toEqual({ value: '-', lines: [{ key: 'dash.att.none' }] });
   });
 
   it('says the read failed, with no number', () => {
-    expect(attendanceStat(null, true)).toEqual({ value: '—', lines: [{ key: 'dash.att.failed' }] });
+    expect(attendanceStat(null, true)).toEqual({ value: '-', lines: [{ key: 'dash.att.failed' }] });
   });
 
   it('shows nothing yet while reading', () => {
     expect(attendanceStat(null)).toEqual({ value: '…', lines: [] });
+  });
+});
+
+describe('semesterRate - a member summary semester (attendanceSummary)', () => {
+  it('is present over counted, rounded', () => {
+    expect(semesterRate({ counted: 3, present: 2 })).toBe(67);
+    expect(semesterRate({ counted: 4, present: 4 })).toBe(100);
+  });
+
+  it('is null with nothing counted', () => {
+    expect(semesterRate({ counted: 0, present: 0 })).toBeNull();
+    expect(semesterRate(undefined)).toBeNull();
   });
 });

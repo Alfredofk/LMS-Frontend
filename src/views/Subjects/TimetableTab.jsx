@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarClock, Clock, School } from 'lucide-react';
+import { AlertTriangle, CalendarClock, CalendarRange, Clock, School } from 'lucide-react';
 
 import SelectField from '../../components/ui/SelectField';
+import InfoChips from '../../components/ui/InfoChips';
+import { formatDay } from '../Classes/format';
 import ScheduleDialog from './ScheduleDialog';
 import { academicsService } from '../../services/academicsService';
 import { sessionsService } from '../../services/sessionsService';
@@ -10,7 +12,8 @@ import { useT } from '../../i18n/LanguageContext';
 import { subjectsErrorMessage, timetableErrorMessage } from '../../i18n/apiError';
 import { ROLES } from '../../constants/roles';
 import { defaultSlot, defaultSemesterOf, boardWritable } from './subjects';
-import { dayName, weekOf } from './timetable';
+import SubjectLabel from '../../components/ui/SubjectLabel';
+import { dayName, semesterLength, weekOf } from './timetable';
 
 /*
   The timetable, class by class (backend 7cdc46d; owner, 2026-09-30).
@@ -90,6 +93,9 @@ export const TimetableTab = ({ years, showToast, activeRole }) => {
   if (!slot) return noSemester;
 
   const semester = board?.semester;
+  /* The semester's own dates, from the year: meetings are planned up to its last day. */
+  const semesterEntry = (year?.semesters ?? []).find((entry) => entry.id === semesterId) ?? null;
+  const length = semesterEntry ? semesterLength(semesterEntry.startDate, semesterEntry.endDate) : null;
   const writable = semester && boardWritable(year?.status, semester.status);
 
   const loaded = active.map((row) => ({ row, state: schedules[row.classSubjectId] }));
@@ -109,7 +115,7 @@ export const TimetableTab = ({ years, showToast, activeRole }) => {
     >
       {extra}
       <span className="block text-xs font-extrabold text-slate-800 break-words">
-        <span className="tabular-nums text-slate-500">{row.subject.code}</span> · {row.subject.name}
+        <SubjectLabel code={row.subject.code} name={row.subject.name} />
       </span>
       <span className="block text-[11px] font-semibold text-slate-500 break-words">{row.teacher.fullName}</span>
     </button>
@@ -182,6 +188,38 @@ export const TimetableTab = ({ years, showToast, activeRole }) => {
 
       {!semesterId && noSemester}
 
+      {/* How long the semester runs, so the number of meetings explains itself:
+          a weekly subject meets about once per week of it (owner, 2026-10-03). */}
+      {semesterEntry && length && (
+        <div className="rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            {t('classes.semester.name', { n: semesterEntry.ordinal })}
+          </span>
+          <InfoChips
+            items={[
+              {
+                icon: CalendarRange,
+                label: t('holiday.range', { start: formatDay(semesterEntry.startDate, lang), end: formatDay(semesterEntry.endDate, lang) }),
+              },
+              { icon: Clock, label: t('timetable.semester.length', { days: length.days, weeks: length.weeks }), tone: length.short ? 'amber' : 'slate' },
+            ]}
+          />
+        </div>
+      )}
+      {semesterEntry && length?.short && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800 leading-relaxed flex flex-col sm:flex-row sm:items-center gap-3">
+          <AlertTriangle className="w-4 h-4 shrink-0 hidden sm:block" aria-hidden="true" />
+          <span className="flex-1">{t('timetable.semester.short', { days: length.days, weeks: length.weeks })}</span>
+          <button
+            type="button"
+            onClick={() => navigate('/headmaster/classes')}
+            className="self-start sm:self-auto shrink-0 px-3 py-1.5 rounded-lg bg-white border border-amber-200 text-amber-800 font-extrabold hover:bg-amber-100 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+          >
+            {t('timetable.semester.fix')}
+          </button>
+        </div>
+      )}
+
       {semester && !writable && (
         <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold text-slate-500">
           {t('subjects.board.readOnly')}
@@ -234,7 +272,7 @@ export const TimetableTab = ({ years, showToast, activeRole }) => {
                         {subjectButton(
                           row,
                           <span className="block text-[11px] font-extrabold text-brand tabular-nums">
-                            {item.start}–{item.end}
+                            {item.start}-{item.end}
                           </span>
                         )}
                       </li>
@@ -256,7 +294,7 @@ export const TimetableTab = ({ years, showToast, activeRole }) => {
                     ) : state.error ? (
                       <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-700" role="alert">
                         <span className="block font-extrabold">
-                          {row.subject.code} · {row.subject.name}
+                          <SubjectLabel code={row.subject.code} name={row.subject.name} />
                         </span>
                         {state.error}
                       </div>
@@ -275,7 +313,7 @@ export const TimetableTab = ({ years, showToast, activeRole }) => {
                   >
                     <span className="block text-[11px] font-extrabold text-slate-500">{t('timetable.pending')}</span>
                     <span className="block text-xs font-bold text-slate-600 break-words">
-                      <span className="tabular-nums">{row.subject.code}</span> · {row.subject.name}
+                      <SubjectLabel code={row.subject.code} name={row.subject.name} />
                     </span>
                     <span className="block text-[11px] font-semibold text-slate-500 break-words">{row.teacher.fullName}</span>
                   </li>

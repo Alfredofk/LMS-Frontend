@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import PageLoading from '../components/ui/PageLoading';
 import Sidebar from '../views/Dashboard/components/Sidebar';
 import Navbar from '../views/Dashboard/components/Navbar';
 import Toast from '../components/ui/Toast';
@@ -49,6 +50,19 @@ export const MainLayout = () => {
     is what the lint rule objects to. Derived state needs neither.
   */
   const [nav, setNav] = useState({ open: false, path: '' });
+
+  /*
+    A new page starts at its top (2026-10-04). <main> is what scrolls, not the
+    window, and it stays mounted across routes - so without this a page opened
+    from far down another one (a meeting's materials from a long list of
+    meetings) opened scrolled down by the same amount. Before paint, so there is
+    no jump; a page that scrolls itself once its data arrives (ClassroomSubject)
+    does so afterwards.
+  */
+  const mainRef = useRef(null);
+  useLayoutEffect(() => {
+    if (mainRef.current) mainRef.current.scrollTop = 0;
+  }, [pathname]);
   const isNavOpen = nav.open && nav.path === pathname;
 
   const openNav = () => setNav({ open: true, path: pathname });
@@ -124,11 +138,15 @@ export const MainLayout = () => {
         {/* Navbar */}
         <Navbar showToast={showToast} onOpenNav={openNav} />
 
-        {/* Scrollable Content Body */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-canvas">
+        {/* Scrollable Content Body. The scrollbar's room is kept even when nothing
+            scrolls, so a page that grows past the screen or shrinks back (a tab
+            switch) does not shift sideways by the scrollbar's width (owner, 2026-10-04). */}
+        <main ref={mainRef} className="flex-1 overflow-y-auto [scrollbar-gutter:stable] p-4 sm:p-6 lg:p-8 bg-canvas">
           <div className="max-w-7xl mx-auto text-left">
             {/* Child routes rendered here */}
-            <Outlet context={{ showToast }} />
+            <Suspense fallback={<PageLoading />}>
+              <Outlet context={{ showToast }} />
+            </Suspense>
           </div>
         </main>
       </div>

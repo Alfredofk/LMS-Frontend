@@ -49,7 +49,40 @@ export function defaultSlot(years, today) {
  */
 export function freeSubjects(catalog, boardClass) {
   const taken = new Set((boardClass?.subjects ?? []).map((entry) => entry.subject.id));
-  return (catalog ?? []).filter((subject) => !taken.has(subject.id));
+  return subjectsInUse(catalog).filter((subject) => !taken.has(subject.id));
+}
+
+/*
+  The subjects the school uses (backend a852609, registration-and-membership 20).
+  The Principal and Vice Principals are answered every national subject, the ones
+  the school deselected too (`selected: false`), so they can select them again; a
+  deselected one takes no new assignment (assertSubjectSelected), so nothing that
+  starts one may offer it. A row with no `selected` is in use.
+*/
+export const subjectsInUse = (catalog) => (catalog ?? []).filter((subject) => subject.selected !== false);
+
+/*
+  The national subjects ticked on the Catalog tab against what the server holds
+  (`PUT /academics/subjects/selection`, backend a852609). The body names every
+  national subject in use - one left out is deselected - so `selectedIds` is the
+  whole ticked set, never a diff. `deselecting` keeps the ones still running or
+  waiting (activeClassSubjects / pendingRequests, the leaders' counts), which the
+  page warns about first: they carry on, but nothing new starts on them.
+
+  @param catalog  GET /academics/subjects as a leader reads it
+  @param ticked   Set of national subject ids ticked on screen
+*/
+export function selectionChanges(catalog, ticked) {
+  const national = (catalog ?? []).filter((subject) => subject.national);
+  const selecting = national.filter((subject) => subject.selected === false && ticked.has(subject.id));
+  const deselecting = national.filter((subject) => subject.selected !== false && !ticked.has(subject.id));
+  return {
+    selectedIds: national.filter((subject) => ticked.has(subject.id)).map((subject) => subject.id),
+    selecting,
+    deselecting,
+    stillRunning: deselecting.filter((subject) => (subject.activeClassSubjects ?? 0) + (subject.pendingRequests ?? 0) > 0),
+    dirty: selecting.length + deselecting.length > 0,
+  };
 }
 
 /**

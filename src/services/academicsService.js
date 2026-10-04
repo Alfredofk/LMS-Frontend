@@ -224,8 +224,10 @@ export const academicsService = {
   /*
     Subjects and who teaches them — ticket 08, backend `89d1fc1`.
 
-    A subject: { id, code, name, national } — the national catalog (seeded by a
-    migration) plus the school's local ones. A teaching assignment
+    A subject: { id, code, name, national, selected } — the national catalog
+    (seeded by a migration) plus the school's local ones; a leader also gets
+    `activeClassSubjects` and `pendingRequests` per subject, and the national
+    ones the school deselected (backend a852609). A teaching assignment
     (`classSubjectView`):
 
       { id, status: PENDING|ACTIVE|REJECTED|CANCELLED, requestedAt, decidedAt,
@@ -238,6 +240,16 @@ export const academicsService = {
   /** National first, then the school's own, each by code. */
   async subjects() {
     const answer = await api.get('/academics/subjects');
+    return answer?.subjects ?? [];
+  },
+
+  /**
+   * The national subjects the school uses, named in full (backend a852609;
+   * Principal or Vice Principal): one left out is deselected. Answers the whole
+   * list again, as `subjects()` does.
+   */
+  async selectSubjects(selectedIds) {
+    const answer = await api.put('/academics/subjects/selection', { selectedIds });
     return answer?.subjects ?? [];
   },
 
@@ -262,6 +274,43 @@ export const academicsService = {
   async classSubjects(status) {
     const answer = await api.get('/academics/class-subjects', { query: status ? { status } : undefined });
     return answer?.classSubjects ?? [];
+  },
+
+  /**
+   * The reader's own teaching assignments, every status (`?mine=true`, backend
+   * a09f399). Without it a Principal or Vice Principal who teaches is answered
+   * with the school's queue instead.
+   */
+  async myClassSubjects() {
+    const answer = await api.get('/academics/class-subjects', { query: { mine: 'true' } });
+    return answer?.classSubjects ?? [];
+  },
+
+  /**
+   * A student's own subjects (backend 1bd81ab, STUDENT only): the ACTIVE ones of
+   * the class they sit in now, every semester of its year, with the teacher.
+   * `[{ id, class: { id, name }, subject: { id, code, name }, semester: { id,
+   * ordinal, academicYear }, teacher: { fullName } }]`; empty with no placement.
+   */
+  async ownClassSubjects() {
+    const answer = await api.get('/academics/me/class-subjects');
+    return answer?.classSubjects ?? [];
+  },
+
+  /**
+   * A teacher asks to teach a subject in a class for a semester (backend 89d1fc1).
+   * PENDING for the Principal, or ACTIVE at once when the reader is the class's
+   * homeroom teacher (the server decides). `{ classId, subjectId, semesterId }`.
+   */
+  async requestClassSubject(body) {
+    const answer = await api.post('/academics/class-subjects', body);
+    return answer?.classSubject ?? null;
+  },
+
+  /** The teacher takes back their own request while it still waits. */
+  async cancelClassSubject(id) {
+    const answer = await api.post(`/academics/class-subjects/${encodeURIComponent(id)}/cancel`);
+    return answer?.classSubject ?? null;
   },
 
   async approveClassSubject(id) {

@@ -178,7 +178,7 @@ export const ClassForm = ({ year, grades, onCreated, onCancel }) => {
         </div>
       )}
 
-      <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+      <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
         {onCancel && (
           <Button type="button" variant="outline" onClick={onCancel} isDisabled={isWorking}>
             {t('common.cancel')}
@@ -284,7 +284,7 @@ export const ClassEditForm = ({ target, grades, onSaved, onCancel }) => {
         </div>
       )}
 
-      <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+      <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
         <Button type="button" variant="outline" onClick={onCancel} isDisabled={isWorking}>
           {t('common.cancel')}
         </Button>

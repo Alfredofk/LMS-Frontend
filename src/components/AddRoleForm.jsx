@@ -3,13 +3,15 @@ import React, { useState } from 'react';
 import Input from './ui/Input';
 import Button from './ui/Button';
 import ChildFields from './ChildFields';
+import PhoneField from './PhoneField';
+import { usePhonePrefill } from '../hooks/useAccountPhone';
 import { useAuth } from '../context/AuthContext';
 import { authService } from '../services/authService';
 import { membershipService } from '../services/membershipService';
 import { useT } from '../i18n/LanguageContext';
 import { apiErrorMessage, guardianErrorMessage } from '../i18n/apiError';
 import { ROLES, addsInstantly } from '../constants/roles';
-import { teacherIdErrors, childErrors, childPayload, nestedFieldErrors } from '../utils/validation';
+import { teacherIdErrors, guardianErrors, guardianRequestPayload, nestedFieldErrors } from '../utils/validation';
 
 /*
   Adding TEACHER or GUARDIAN to the membership somebody already holds.
@@ -52,12 +54,12 @@ import { teacherIdErrors, childErrors, childPayload, nestedFieldErrors } from '.
 
 const OWNED_FIELDS = {
   [ROLES.TEACHER]: ['nip', 'nuptk'],
-  [ROLES.GUARDIAN]: ['childNisn', 'childFullName', 'relationship'],
+  [ROLES.GUARDIAN]: ['childNisn', 'childFullName', 'relationship', 'phone'],
 };
 
 const EMPTY = {
   [ROLES.TEACHER]: { nip: '', nuptk: '' },
-  [ROLES.GUARDIAN]: { childNisn: '', childFullName: '', relationship: '' },
+  [ROLES.GUARDIAN]: { childNisn: '', childFullName: '', relationship: '', phone: '' },
 };
 
 /*
@@ -85,6 +87,7 @@ export const AddRoleForm = ({ role = ROLES.TEACHER, onDone, onCancel }) => {
   const [values, setValues] = useState(EMPTY[role]);
   const [errors, setErrors] = useState({});
   const [isWorking, setIsWorking] = useState(false);
+  usePhonePrefill(setValues);
 
   const instant = addsInstantly(membership, role);
   const afterKey = guardian
@@ -101,7 +104,7 @@ export const AddRoleForm = ({ role = ROLES.TEACHER, onDone, onCancel }) => {
 
   /* Each failing box gets its sentence; nothing is sent until none fails. */
   const check = () => {
-    const fails = guardian ? childErrors(values) : teacherIdErrors(values.nip, values.nuptk);
+    const fails = guardian ? guardianErrors(values) : teacherIdErrors(values.nip, values.nuptk);
     const next = {};
     for (const [name, fail] of Object.entries(fails)) {
       if (fail) next[name] = t(fail.key, fail.vars);
@@ -111,7 +114,7 @@ export const AddRoleForm = ({ role = ROLES.TEACHER, onDone, onCancel }) => {
   };
 
   const body = () => {
-    if (guardian) return { roles: [ROLES.GUARDIAN], guardian: childPayload(values) };
+    if (guardian) return { roles: [ROLES.GUARDIAN], guardian: guardianRequestPayload(values) };
     /* Blank boxes are left out, not sent empty: the payload is strict, and an
        empty string is not a NIP. */
     const teacher = {};
@@ -169,6 +172,7 @@ export const AddRoleForm = ({ role = ROLES.TEACHER, onDone, onCancel }) => {
             {t('addRole.guardian.hint')}
           </p>
           <ChildFields values={values} errors={errors} onChange={change} idPrefix="addRole" />
+          <PhoneField value={values.phone} error={errors.phone} onChange={change('phone')} idPrefix="addRole" />
         </>
       ) : (
         <>
@@ -216,7 +220,7 @@ export const AddRoleForm = ({ role = ROLES.TEACHER, onDone, onCancel }) => {
       {/* What happens next, said before the press rather than after it. */}
       <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{t(afterKey)}</p>
 
-      <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+      <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
         {onCancel && (
           <Button type="button" variant="outline" onClick={onCancel} isDisabled={isWorking}>
             {t('common.cancel')}

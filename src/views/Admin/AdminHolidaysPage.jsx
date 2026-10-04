@@ -347,7 +347,7 @@ export const AdminHolidaysPage = () => {
                 {formErrors.global}
               </div>
             )}
-            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
               <Button
                 type="button"
                 size="sm"
@@ -499,8 +499,12 @@ export const AdminHolidaysPage = () => {
                           <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${(KIND_STYLE[entry.kind] ?? KIND_STYLE.NATIONAL).soft}`}>
                             {t(`holiday.kind.${entry.kind}`)}
                           </span>
-                          {entry.status !== 'WITHDRAWN' && <span>{when(entry)}</span>}
-                          <span>· {entry.source === 'manual' || !entry.source ? t('adminHoliday.source.manual') : t('adminHoliday.source.fetched', { source: entry.source })}</span>
+                          {entry.status !== 'WITHDRAWN' && (
+                            <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600">{when(entry)}</span>
+                          )}
+                          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600">
+                            {entry.source === 'manual' || !entry.source ? t('adminHoliday.source.manual') : t('adminHoliday.source.fetched', { source: entry.source })}
+                          </span>
                         </p>
                       </div>
                     </div>

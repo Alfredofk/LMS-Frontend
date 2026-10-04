@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { Suspense, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LogOut } from 'lucide-react';
+import PageLoading from '../components/ui/PageLoading';
+import { LogOut, School } from 'lucide-react';
 
 import BrandMark from '../components/ui/BrandMark';
 import LanguageSwitch from '../components/ui/LanguageSwitch';
@@ -8,6 +9,7 @@ import ConfirmDialog from '../components/ui/ConfirmDialog';
 import Toast from '../components/ui/Toast';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../i18n/LanguageContext';
+import { homeFor } from '../constants/roles';
 
 /*
   The shell for the platform admin, who stands above every school.
@@ -28,7 +30,7 @@ const ADMIN_PAGES = [
   { to: '/admin/holidays', key: 'admin.nav.holidays' },
 ];
 export const AdminLayout = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, roles, activeRole } = useAuth();
   const { t } = useT();
   const navigate = useNavigate();
 
@@ -61,6 +63,20 @@ export const AdminLayout = () => {
               {user?.email ? t('admin.signedInAs', { email: user.email }) : ''}
             </span>
             <LanguageSwitch />
+            {/* An admin who also works at a school came here from the avatar
+                menu; this takes them back to the role they were working as. */}
+            {roles.length > 0 && (
+              <button
+                type="button"
+                onClick={() => navigate(homeFor(activeRole ?? roles[0]))}
+                aria-label={t('admin.backToSchool')}
+                title={t('admin.backToSchool')}
+                className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs font-bold text-brand hover:bg-brand-tint rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              >
+                <School className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span className="hidden sm:inline">{t('admin.backToSchool')}</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setIsSignOutOpen(true)}
@@ -90,7 +106,9 @@ export const AdminLayout = () => {
 
       <main className="flex-1 px-4 sm:px-6 py-8">
         <div className="max-w-6xl mx-auto text-left">
-          <Outlet context={{ showToast }} />
+          <Suspense fallback={<PageLoading />}>
+            <Outlet context={{ showToast }} />
+          </Suspense>
         </div>
       </main>
 

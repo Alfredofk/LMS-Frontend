@@ -389,6 +389,8 @@ export function movesErrorMessage(err, t) {
 */
 const SUBJECTS_BY_MESSAGE = [
   ['already has a subject with that code', 'subjects.error.codeTaken'],
+  ['does not use this subject', 'subjects.error.notSelected'],
+  ['changed by someone else at the same moment', 'subjects.error.selectionRace'],
   ['already has a teacher, or a request waiting', 'subjects.error.slotTaken'],
   ['has already been decided', 'subjects.error.decided'],
   ['is not open', 'subjects.error.semesterClosed'],
@@ -437,6 +439,60 @@ export function timetableErrorMessage(err, t) {
   const hit = TIMETABLE_BY_MESSAGE.find(([needle]) => message.includes(needle));
   if (hit) return t(hit[1]);
   return subjectsErrorMessage(err, t);
+}
+
+/*
+  The teacher answering for a meeting (owner, 2026-10-04): confirming its
+  attendance and correcting a record (attendance.service.js confirm, correct), and
+  saying it was not held (sessions.service.js markNotHeld). Told apart on their
+  sentences, as above; anything else falls back to the shared map.
+*/
+const TEACH_ATTENDANCE_BY_MESSAGE = [
+  ['has already been confirmed', 'teach.att.error.confirmed'],
+  ['already confirmed this attendance', 'teach.att.error.confirmed'],
+  ['has not begun yet', 'teach.att.error.notBegun'],
+  ['was cancelled', 'teach.att.error.cancelled'],
+  ['Confirm the attendance first', 'teach.att.error.confirmFirst'],
+  ['A note is required for a correction', 'teach.att.error.noteRequired'],
+  ['changed meanwhile', 'teach.att.error.changed'],
+  ['is not waiting for completion', 'teach.att.error.notWaiting'],
+  ['was answered already', 'teach.att.error.answered'],
+  ['Only the teacher of this class subject', 'teach.att.error.notYours'],
+  ['must be in this class at this session', 'teach.att.error.roster'],
+];
+
+export function teachAttendanceErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  if (/^It is [A-Z]+ already/.test(message)) return t('teach.att.error.same');
+  const hit = TEACH_ATTENDANCE_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  if (hit) return t(hit[1]);
+  return apiErrorMessage(err, t);
+}
+
+/*
+  A teacher's materials (content.service.js, content.schema.js, shared/upload.js).
+  The upload refusals name the allowed types and size in their own words, so they
+  are matched on a fragment.
+*/
+const CONTENT_BY_MESSAGE = [
+  ['The text is empty', 'teach.content.error.empty'],
+  ['not a single video', 'teach.content.error.youtube'],
+  ['Use an https:// link', 'teach.content.error.https'],
+  ['published already', 'teach.content.error.published'],
+  ['add the content to another Session', 'teach.content.error.cancelled'],
+  ['Name every content', 'teach.content.error.order'],
+  ['Only the teacher of this class subject manages', 'teach.content.error.notYours'],
+  ['file must be at most', 'teach.content.error.fileSize'],
+  ['file must be one of', 'teach.content.error.fileType'],
+  ['file is required', 'teach.content.error.noFile'],
+  ['Content not found', 'teach.content.error.gone'],
+];
+
+export function contentErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  const hit = CONTENT_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  if (hit) return t(hit[1]);
+  return apiErrorMessage(err, t);
 }
 
 /*

@@ -205,7 +205,7 @@ export const GetStartedPage = () => {
           {adding
             ? t(content.subheading[0], { school: schoolName })
             : t(content.subheading[0], fill(content.subheading[1]))}
-          {user?.fullName ? ` · ${user.fullName}` : ''}
+          {user?.fullName ? ` (${user.fullName})` : ''}
         </p>
       </div>
 

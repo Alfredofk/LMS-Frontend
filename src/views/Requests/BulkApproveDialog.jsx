@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+
+import { modalActions, modalCancelClass, modalConfirmClass } from '../../components/ui/modalStyles';
 import { CheckCircle2, AlertTriangle } from 'lucide-react';
 
 import SelectField from '../../components/ui/SelectField';
@@ -41,7 +43,7 @@ export const BulkApproveDialog = ({ requests, onClose, onDone }) => {
   const dialogRef = useRef(null);
   const openerRef = useRef(null);
 
-  const nameOf = (id) => requests.find((request) => request.id === id)?.applicant?.fullName ?? '—';
+  const nameOf = (id) => requests.find((request) => request.id === id)?.applicant?.fullName ?? '-';
 
   useEffect(() => {
     openerRef.current = document.activeElement;
@@ -164,7 +166,7 @@ export const BulkApproveDialog = ({ requests, onClose, onDone }) => {
               <button
                 type="button"
                 onClick={onDone}
-                className="px-5 py-2 rounded-xl text-xs font-extrabold text-white bg-brand hover:bg-brand-deep shadow-sm cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                className={modalConfirmClass('brand')}
               >
                 {t('requests.bulk.done.close')}
               </button>
@@ -193,13 +195,13 @@ export const BulkApproveDialog = ({ requests, onClose, onDone }) => {
                 ) : (
                   groups.students.map(({ grade, ids }) => {
                     const { open, closedOnly } = classesFor(classes, membership?.id, grade);
-                    const label = t('requests.bulk.classFor', { n: ids.length, grade: grade ?? '—' });
+                    const label = t('requests.bulk.classFor', { n: ids.length, grade: grade ?? '-' });
                     return open.length === 0 ? (
                       <p
                         key={grade}
                         className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-2.5 leading-relaxed"
                       >
-                        {label} — {t(closedOnly ? 'requests.class.onlyClosed' : 'requests.class.none', { n: grade ?? '—' })}{' '}
+                        {label}: {t(closedOnly ? 'requests.class.onlyClosed' : 'requests.class.none', { n: grade ?? '-' })}{' '}
                         {t('requests.bulk.untick')}
                       </p>
                     ) : (
@@ -216,7 +218,7 @@ export const BulkApproveDialog = ({ requests, onClose, onDone }) => {
                         </option>
                         {open.map((entry) => (
                           <option key={entry.id} value={entry.id}>
-                            {entry.name} · {entry.academicYear?.label}
+                            {entry.name} ({entry.academicYear?.label})
                           </option>
                         ))}
                       </SelectField>
@@ -234,30 +236,28 @@ export const BulkApproveDialog = ({ requests, onClose, onDone }) => {
               <ul className="mt-2 space-y-1 pl-1">
                 {requests.map((request) => (
                   <li key={request.id} className="break-words">
-                    {request.applicant?.fullName ?? '—'}
+                    {request.applicant?.fullName ?? '-'}
                     <span className="text-slate-500">
-                      {' · '}
+                      {': '}
                       {/* A further child reads as such, the way its queue row does. */}
                       {request.status !== 'PENDING' && (request.children ?? []).some((link) => link.status === 'PENDING')
                         ? t('requests.link.row', {
                             names: request.children.filter((link) => link.status === 'PENDING').map((link) => link.student?.fullName).join(', '),
                           })
                         : (request.roles ?? []).map((entry) => t(ROLE_LABEL_KEY[entry.role] ?? 'requests.role.unknown')).join(', ')}
-                      {request.student?.gradeLevel != null ? ` · ${t('requests.field.grade', { n: request.student.gradeLevel })}` : ''}
+                      {request.student?.gradeLevel != null ? `, ${t('requests.field.grade', { n: request.student.gradeLevel })}` : ''}
                     </span>
                   </li>
                 ))}
               </ul>
             </details>
 
-            <div className="flex justify-end gap-2 pt-1">
+            <div className={modalActions}>
               <button
                 type="button"
                 onClick={onClose}
                 disabled={phase === 'running'}
-                className={`px-4 py-2 rounded-xl text-xs font-extrabold text-slate-600 border border-slate-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
-                  phase === 'running' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer'
-                }`}
+                className={modalCancelClass(phase === 'running')}
               >
                 {t('common.cancel')}
               </button>
@@ -265,9 +265,7 @@ export const BulkApproveDialog = ({ requests, onClose, onDone }) => {
                 type="button"
                 onClick={run}
                 disabled={!ready || phase === 'running'}
-                className={`px-5 py-2 rounded-xl text-xs font-extrabold text-white shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 bg-brand focus-visible:ring-brand ${
-                  !ready || phase === 'running' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-brand-deep cursor-pointer'
-                }`}
+                className={modalConfirmClass('brand', !ready || phase === 'running')}
               >
                 {phase === 'running' ? t('common.loading') : t('requests.bulk.confirm', { n: requests.length })}
               </button>

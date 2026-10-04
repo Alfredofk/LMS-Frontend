@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { LanguageProvider } from './i18n/LanguageContext';
@@ -7,39 +7,49 @@ import ProtectedRoute, { RequireAuth } from './components/ProtectedRoute';
 import MainLayout from './layouts/MainLayout';
 import LandingPage from './views/Landing/LandingPage';
 import LoginPage from './views/Login/LoginPage';
-import SelectRolePage from './views/Role/SelectRolePage';
-import GetStartedPage from './views/Role/GetStartedPage';
-import AccountPage from './views/Account/AccountPage';
 import AccountChrome from './views/Account/AccountChrome';
 import AdminLayout from './layouts/AdminLayout';
-import AdminRegistrationsPage from './views/Admin/AdminRegistrationsPage';
-import AdminHolidaysPage from './views/Admin/AdminHolidaysPage';
-import VerifyEmailPage from './views/Verify/VerifyEmailPage';
-import ForgotPasswordPage from './views/Password/ForgotPasswordPage';
-import ResetPasswordPage from './views/Password/ResetPasswordPage';
 import { ROLES } from './constants/roles';
-import StudentDashboard from './views/Dashboard/StudentDashboard';
-import TeacherDashboard from './views/Dashboard/TeacherDashboard';
-import TeacherGradebook from './views/Gradebook/TeacherGradebook';
-import CreateAssignmentForm from './views/Assignment/CreateAssignmentForm';
-import ProfilePage from './views/Profile/ProfilePage';
-import ClassroomPage from './views/Classroom/ClassroomPage';
-import AssignmentDetailPage from './views/Assignment/AssignmentDetailPage';
-import UnauthorizedPage from './views/Unauthorized/UnauthorizedPage';
-import TeacherClassSubjectDetail from './views/Course/TeacherClassSubjectDetail';
-import TeacherCourses from './views/Course/TeacherCourses';
-import HomeroomDashboard from './views/Homeroom/HomeroomDashboard';
-import GuardianPage from './views/Guardian/GuardianPage';
-import HeadmasterDashboard from './views/Dashboard/HeadmasterDashboard';
-import StudentScores from './views/Scores/StudentScores';
-import AnnouncementPage from './views/Announcement/AnnouncementPage';
-import SchedulePage from './views/Schedule/SchedulePage';
-import AssessmentPage from './views/Assessment/AssessmentPage';
-import AttendancePage from './views/Attendance/AttendancePage';
-import JoinRequestsPage from './views/Requests/JoinRequestsPage';
-import ClassesPage from './views/Classes/ClassesPage';
-import MembersPage from './views/Members/MembersPage';
-import SubjectsPage from './views/Subjects/SubjectsPage';
+import PageLoading from './components/ui/PageLoading';
+
+/*
+  Every page is its own chunk, fetched the first time it is opened (owner,
+  2026-10-04): a student's first load no longer carries the Principal's, the
+  admin's or the teacher's screens. The landing and sign-in pages stay in the
+  first chunk - they are where people arrive. Layouts show PageLoading in their
+  content area while a page arrives; the Suspense around <Routes> covers the
+  pages with no layout.
+*/
+const SelectRolePage = lazy(() => import('./views/Role/SelectRolePage'));
+const GetStartedPage = lazy(() => import('./views/Role/GetStartedPage'));
+const AccountPage = lazy(() => import('./views/Account/AccountPage'));
+const AdminRegistrationsPage = lazy(() => import('./views/Admin/AdminRegistrationsPage'));
+const AdminHolidaysPage = lazy(() => import('./views/Admin/AdminHolidaysPage'));
+const VerifyEmailPage = lazy(() => import('./views/Verify/VerifyEmailPage'));
+const ForgotPasswordPage = lazy(() => import('./views/Password/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./views/Password/ResetPasswordPage'));
+const StudentDashboard = lazy(() => import('./views/Dashboard/StudentDashboard'));
+const TeacherDashboard = lazy(() => import('./views/Dashboard/TeacherDashboard'));
+const TeacherGradebook = lazy(() => import('./views/Gradebook/TeacherGradebook'));
+const CreateAssignmentForm = lazy(() => import('./views/Assignment/CreateAssignmentForm'));
+const ProfilePage = lazy(() => import('./views/Profile/ProfilePage'));
+const ClassroomPage = lazy(() => import('./views/Classroom/ClassroomPage'));
+const AssignmentDetailPage = lazy(() => import('./views/Assignment/AssignmentDetailPage'));
+const UnauthorizedPage = lazy(() => import('./views/Unauthorized/UnauthorizedPage'));
+const TeacherClassSubjectDetail = lazy(() => import('./views/Course/TeacherClassSubjectDetail'));
+const TeacherCourses = lazy(() => import('./views/Course/TeacherCourses'));
+const HomeroomDashboard = lazy(() => import('./views/Homeroom/HomeroomDashboard'));
+const GuardianPage = lazy(() => import('./views/Guardian/GuardianPage'));
+const HeadmasterDashboard = lazy(() => import('./views/Dashboard/HeadmasterDashboard'));
+const StudentScores = lazy(() => import('./views/Scores/StudentScores'));
+const AnnouncementPage = lazy(() => import('./views/Announcement/AnnouncementPage'));
+const SchedulePage = lazy(() => import('./views/Schedule/SchedulePage'));
+const AssessmentPage = lazy(() => import('./views/Assessment/AssessmentPage'));
+const AttendancePage = lazy(() => import('./views/Attendance/AttendancePage'));
+const JoinRequestsPage = lazy(() => import('./views/Requests/JoinRequestsPage'));
+const ClassesPage = lazy(() => import('./views/Classes/ClassesPage'));
+const MembersPage = lazy(() => import('./views/Members/MembersPage'));
+const SubjectsPage = lazy(() => import('./views/Subjects/SubjectsPage'));
 
 function App() {
   return (
@@ -52,6 +62,7 @@ function App() {
       <ThemeProvider>
       <AuthProvider>
         <BrowserRouter>
+        <Suspense fallback={<PageLoading fullScreen />}>
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
@@ -133,7 +144,8 @@ function App() {
           >
             <Route path="/dashboard" element={<StudentDashboard />} />
             <Route path="/classroom" element={<ClassroomPage />} />
-            <Route path="/classroom/:courseId" element={<ClassroomPage />} />
+            <Route path="/classroom/:classSubjectId" element={<ClassroomPage />} />
+            <Route path="/classroom/:classSubjectId/:sessionId" element={<ClassroomPage />} />
             <Route path="/assignment/:assignmentId" element={<AssignmentDetailPage />} />
             <Route path="/scores" element={<StudentScores />} />
             <Route path="/assessment" element={<AssessmentPage />} />
@@ -248,6 +260,7 @@ function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
         </BrowserRouter>
       </AuthProvider>
       </ThemeProvider>

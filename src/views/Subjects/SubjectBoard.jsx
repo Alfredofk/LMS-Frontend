@@ -9,6 +9,7 @@ import { academicsService } from '../../services/academicsService';
 import { useT } from '../../i18n/LanguageContext';
 import { subjectsErrorMessage } from '../../i18n/apiError';
 import { formatDay } from '../Classes/format';
+import SubjectLabel from '../../components/ui/SubjectLabel';
 import { defaultSlot, defaultSemesterOf, freeSubjects, boardWritable, deadlinePassed, canChangeAssignment } from './subjects';
 
 /*
@@ -223,7 +224,7 @@ export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast
                     <li key={row.classSubjectId} className="py-2 flex items-center justify-between gap-3">
                       <span className="min-w-0">
                         <span className="block text-xs font-bold text-slate-800 break-words">
-                          <span className="tabular-nums text-slate-500">{row.subject.code}</span> · {row.subject.name}
+                          <SubjectLabel code={row.subject.code} name={row.subject.name} />
                         </span>
                         <span className="block text-[11px] font-semibold text-slate-500 break-words">{row.teacher.fullName}</span>
                       </span>

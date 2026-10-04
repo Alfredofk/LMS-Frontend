@@ -45,7 +45,7 @@ export const DateChip = ({ start, end, lang, past = false }) => {
   const s = new Date(`${start}T00:00:00Z`);
   const e = new Date(`${(end ?? start)}T00:00:00Z`);
   const sameMonth = s.getUTCMonth() === e.getUTCMonth();
-  const days = start === (end ?? start) ? s.getUTCDate() : sameMonth ? `${s.getUTCDate()}–${e.getUTCDate()}` : s.getUTCDate();
+  const days = start === (end ?? start) ? s.getUTCDate() : sameMonth ? `${s.getUTCDate()}-${e.getUTCDate()}` : s.getUTCDate();
   const month = s.toLocaleDateString(localeOf(lang), { month: 'short', timeZone: 'UTC' });
   return (
     <div
@@ -175,7 +175,7 @@ export const YearCalendar = ({ year, index, today, selected, onPick, lang }) => 
                 }
                 const first = items[0];
                 const style = KIND_STYLE[first.kind] ?? KIND_STYLE.NATIONAL;
-                const label = items.map((item) => item.name).join(' · ');
+                const label = items.map((item) => item.name).join(', ');
                 return (
                   <button
                     key={day}

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { ShieldOff, Inbox, ChevronRight, Search, SearchX, PowerOff } from 'lucide-react';
+import { ShieldOff, Inbox, ChevronRight, Clock, IdCard, MapPin, Search, SearchX, PowerOff, UserRound } from 'lucide-react';
+import InfoChips from '../../components/ui/InfoChips';
 
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
 import RegistrationReview from './RegistrationReview';
@@ -417,20 +418,26 @@ export const AdminRegistrationsPage = () => {
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] font-semibold text-slate-500 mt-0.5 truncate">
-                          {row.schoolType} · NPSN {row.npsn}
-                          {row.city ? ` · ${row.city}` : ''}
-                        </p>
-                        <p className="text-[11px] font-semibold text-slate-500 mt-0.5 truncate">
-                          {row.applicant?.fullName} ·{' '}
-                          {t('admin.list.submitted', {
-                            date: new Date(row.createdAt).toLocaleDateString(locale, {
-                              day: 'numeric',
-                              month: 'short',
-                              year: 'numeric',
-                            }),
-                          })}
-                        </p>
+                        <InfoChips
+                          size="xs"
+                          className="mt-1.5"
+                          items={[
+                            { label: row.schoolType, tone: 'brand' },
+                            { icon: IdCard, label: `NPSN ${row.npsn}` },
+                            row.city && { icon: MapPin, label: row.city },
+                            row.applicant?.fullName && { icon: UserRound, label: row.applicant.fullName },
+                            {
+                              icon: Clock,
+                              label: t('admin.list.submitted', {
+                                date: new Date(row.createdAt).toLocaleDateString(locale, {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                                }),
+                              }),
+                            },
+                          ]}
+                        />
                       </div>
                       <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" aria-hidden="true" />
                     </button>

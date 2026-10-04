@@ -41,7 +41,7 @@ const Row = ({ label, children }) => (
       {label}
     </span>
     <span className="text-xs font-semibold text-slate-800 text-right break-words min-w-0">
-      {children ?? '—'}
+      {children ?? '-'}
     </span>
   </div>
 );

@@ -195,6 +195,7 @@ export const SubjectsPage = () => {
                 subjects={catalog}
                 showToast={showToast}
                 onCreated={() => academicsService.subjects().then(setCatalog).catch(fail('catalog'))}
+                onSaved={setCatalog}
               />
             ))}
     </div>

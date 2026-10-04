@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { byDay, dayMarks, monthOf, monthRange, openingDay, shiftMonth } from './lessonCalendar';
+import { agendaOf, agendaStart, byDay, dayMarks, monthOf, monthRange, shiftMonth } from './lessonCalendar';
 
 /* A session as sessions.service.js `listMine` answers it — the fields this file reads. */
 const session = (id, date, start, over = {}) => ({
@@ -55,19 +55,33 @@ describe('dayMarks', () => {
   });
 });
 
-describe('openingDay — what a month opens on', () => {
-  const days = byDay([session('a', '2026-11-09', '07:00'), session('b', '2026-11-03', '07:00')]);
+describe('agendaStart — where the month\'s list begins', () => {
+  it('a picked day in the month, else today in it, else the first', () => {
+    expect(agendaStart({ year: 2026, month: 9 }, '2026-10-03', '2026-10-20')).toBe('2026-10-20');
+    expect(agendaStart({ year: 2026, month: 9 }, '2026-10-03', '2026-11-02')).toBe('2026-10-03');
+    expect(agendaStart({ year: 2026, month: 9 }, '2026-10-03')).toBe('2026-10-03');
+    expect(agendaStart({ year: 2026, month: 10 }, '2026-10-03')).toBe('2026-11-01');
+    expect(agendaStart({ year: 2026, month: 8 }, '2026-10-03')).toBe('2026-09-01');
+  });
+});
 
-  it('today, when today is in it', () => {
-    expect(openingDay({ year: 2026, month: 9 }, '2026-10-03', days)).toBe('2026-10-03');
+describe('agendaOf — lessons and holidays together, by day', () => {
+  const days = byDay([session('a', '2026-10-05', '07:00'), session('b', '2026-10-02', '07:00'), session('c', '2026-11-02', '07:00')]);
+  const holidays = new Map([
+    ['2026-10-05', [{ id: 'h1', kind: 'SCHOOL', name: 'Libur' }]],
+    ['2026-10-20', [{ id: 'h2', kind: 'NATIONAL', name: 'Maulid' }]],
+    ['2026-09-30', [{ id: 'h3', kind: 'NATIONAL', name: 'Lain' }]],
+  ]);
+
+  it('from the start to the month\'s end, days with something only, both kinds on one day', () => {
+    expect(agendaOf({ year: 2026, month: 9 }, '2026-10-03', days, holidays)).toEqual([
+      { date: '2026-10-05', holidays: [{ id: 'h1', kind: 'SCHOOL', name: 'Libur' }], sessions: days.get('2026-10-05') },
+      { date: '2026-10-20', holidays: [{ id: 'h2', kind: 'NATIONAL', name: 'Maulid' }], sessions: [] },
+    ]);
   });
 
-  it('else its first day with a meeting', () => {
-    expect(openingDay({ year: 2026, month: 10 }, '2026-10-03', days)).toBe('2026-11-03');
-  });
-
-  it('else its first day', () => {
-    expect(openingDay({ year: 2026, month: 11 }, '2026-10-03', days)).toBe('2026-12-01');
-    expect(openingDay({ year: 2026, month: 11 }, '2026-10-03', null)).toBe('2026-12-01');
+  it('nothing to show is an empty list', () => {
+    expect(agendaOf({ year: 2026, month: 9 }, '2026-10-21', days, holidays)).toEqual([]);
+    expect(agendaOf({ year: 2026, month: 9 }, '2026-10-01', null, null)).toEqual([]);
   });
 });

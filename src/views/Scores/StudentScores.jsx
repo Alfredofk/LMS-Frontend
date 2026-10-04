@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useT } from '../../i18n/LanguageContext';
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
+import Select from '../../components/ui/Select';
 import { isNotBuiltYet } from '../../services/apiClient';
 import { gradebookService } from '../../services/gradebookService';
 import { getAccessToken } from '../../services/apiClient';
@@ -148,8 +149,8 @@ export const StudentScores = () => {
 
   // Helper: Determine Letter Grade & Score Text
   const getGradeDetails = (averageGrade) => {
-    if (averageGrade === '—' || averageGrade === null || averageGrade === undefined || isNaN(averageGrade)) {
-      return { letter: '—', numeric: 0, text: '—', isAvailable: false };
+    if (averageGrade === '-' || averageGrade === null || averageGrade === undefined || isNaN(averageGrade)) {
+      return { letter: '-', numeric: 0, text: '-', isAvailable: false };
     }
     const num = Math.round(Number(averageGrade));
     let letter = 'E';
@@ -168,10 +169,10 @@ export const StudentScores = () => {
   // Helper: Check if course is Completed vs Ongoing
   const isCourseCompleted = (course) => {
     if (!course.assignments || course.assignments.length === 0) {
-      return course.averageGrade !== '—' && course.averageGrade !== null;
+      return course.averageGrade !== '-' && course.averageGrade !== null;
     }
     const allCompleted = course.assignments.every(a => a.status === 'completed' || a.grade !== null);
-    return allCompleted && course.averageGrade !== '—';
+    return allCompleted && course.averageGrade !== '-';
   };
 
   // Filter Courses based on Tab & Search Query
@@ -625,12 +626,12 @@ export const StudentScores = () => {
                   <span className="text-slate-500 font-medium">{t('sc.class')}</span>
                   {/* No endpoint reports a student's class placement yet —
                       `ClassMembership` is in the schema but nothing serves it. */}
-                  <span className="font-medium text-slate-300">—</span>
+                  <span className="font-medium text-slate-300">-</span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
                   <span className="text-slate-500 font-medium">{t('sc.semester')}</span>
-                  <span className="font-medium text-slate-300">—</span>
+                  <span className="font-medium text-slate-300">-</span>
                 </div>
               </div>
 
@@ -664,7 +665,7 @@ export const StudentScores = () => {
                               {assignment.grade}
                             </span>
                           ) : (
-                            <span className="text-xs font-bold text-slate-500">—</span>
+                            <span className="text-xs font-bold text-slate-500">-</span>
                           )}
                         </div>
                       </div>
@@ -728,14 +729,14 @@ export const StudentScores = () => {
               
               {/* Select Assignment */}
               <div className="space-y-1.5">
-                <label className="text-slate-700 font-bold block">
+                <label htmlFor="protest-assignment" className="text-slate-700 font-bold block">
                   {t('sc.protest.pick')}
                 </label>
-                <select
+                <Select
+                  id="protest-assignment"
+                  size="row"
                   value={selectedAssignmentForProtest}
                   onChange={(e) => setSelectedAssignmentForProtest(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
-                  required
                 >
                   {selectedCourse?.assignments?.map((a) => (
                     <option key={a.id} value={a.id}>
@@ -745,7 +746,7 @@ export const StudentScores = () => {
                         : t('sc.protest.ungraded')}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
 
               {/* Requested Score */}

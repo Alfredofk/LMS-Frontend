@@ -184,12 +184,11 @@ describe('every expansion of a dynamic key exists', () => {
     expectEvery(['ACTIVE', 'CLOSED'].map((s) => `classes.year.tabEmpty.${s}`));
   });
 
-  it('attendance: a label and a letter for every status the backend sends', () => {
+  it('attendance: a label for every status the backend sends', () => {
     /* attendance.js STATUSES is the AttendanceStatus enum (schema.prisma, deb95e8). */
     const statuses = quotedIn('views/Attendance/attendance.js', /export const STATUSES = \[([^\]]*)\]/);
     expect(statuses).toEqual(['PRESENT', 'SICK', 'EXCUSED', 'ABSENT']);
     expectEvery(statuses.map((s) => `att.status.${s}`));
-    expectEvery(statuses.map((s) => `att.short.${s}`));
   });
 
   it('check-in: every step, every position failure and every refusal', () => {

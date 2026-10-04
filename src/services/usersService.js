@@ -38,11 +38,13 @@ export const usersService = {
   },
 
   /**
-   * Rename oneself. `fullName` is the only field a person may change here —
-   * email is an identity the backend does not let anybody edit in place.
+   * Change one's own name, phone number, or both. Only the keys given are sent:
+   * the backend takes either alone (`updateMeBody`, backend a9ed505). `phone: null`
+   * clears the number. Email is an identity the backend does not let anybody edit
+   * in place.
    */
-  updateMe({ fullName }) {
-    return api.patch('/users/me', { fullName });
+  updateMe(changes) {
+    return api.patch('/users/me', changes);
   },
 
   /**

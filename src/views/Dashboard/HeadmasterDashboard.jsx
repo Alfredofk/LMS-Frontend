@@ -4,11 +4,14 @@ import { useT } from '../../i18n/LanguageContext';
 import { api, isNotBuiltYet } from '../../services/apiClient';
 import { apiErrorMessage } from '../../i18n/apiError';
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import { modalCancelClass, modalConfirmClass } from '../../components/ui/modalStyles';
 import { academicsService } from '../../services/academicsService';
 import { membersService } from '../../services/membersService';
 import SetupChecklist from './components/SetupChecklist';
 import AwaitingConfirmationCard from './components/AwaitingConfirmationCard';
 import { currentYear } from './setup';
+import { subjectsInUse } from '../Subjects/subjects';
 import { ROLES } from '../../constants/roles';
 import {
   Users,
@@ -131,7 +134,7 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
   };
 
   /* A number, or a dash when its read failed — never a zero it did not count. */
-  const shown = (list) => (list ? list.length : '—');
+  const shown = (list) => (list ? list.length : '-');
 
   /*
     Announcements: still unanswered by the backend. Through `api`, not a raw
@@ -179,15 +182,26 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
     }
   };
 
-  const handleDeleteAnnouncement = async (id, title) => {
-    if (!window.confirm(t('principal.ann.confirmDelete', { name: title }))) return;
+  /* The announcement waiting on the delete question; asked in the app's own
+     dialog, not window.confirm (owner, 2026-10-03: one modal style). */
+  const [deleting, setDeleting] = useState(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  const handleDeleteAnnouncement = (id, title) => setDeleting({ id, title });
+
+  const confirmDeleteAnnouncement = async () => {
+    if (!deleting) return;
+    setDeleteBusy(true);
     try {
-      const data = await api.del(`/announcements/${encodeURIComponent(id)}`);
+      const data = await api.del(`/announcements/${encodeURIComponent(deleting.id)}`);
 
       if (data?.message) showToast(data.message, 'success');
       fetchTabData();
     } catch (err) {
       showToast(annErrorMessage(err, 'principal.ann.deleteFailed'), 'error');
+    } finally {
+      setDeleteBusy(false);
+      setDeleting(null);
     }
   };
 
@@ -264,8 +278,8 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
           <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 select-none">
             {[
-              { label: t('dash.principal.stat.teachers'), value: shown(teachers), to: '/headmaster/members', Icon: Users, tint: 'bg-purple-50 text-brand' },
-              { label: t('dash.principal.stat.students'), value: shown(students), to: '/headmaster/members', Icon: GraduationCap, tint: 'bg-emerald-50 text-emerald-600' },
+              { label: t('dash.principal.stat.teachers'), value: shown(teachers), to: '/headmaster/members', tab: 'TEACHER', Icon: Users, tint: 'bg-purple-50 text-brand' },
+              { label: t('dash.principal.stat.students'), value: shown(students), to: '/headmaster/members', tab: 'STUDENT', Icon: GraduationCap, tint: 'bg-emerald-50 text-emerald-600' },
               {
                 label: year ? t('dash.principal.stat.classesIn', { label: year.label }) : t('dash.principal.stat.classes'),
                 value: shown(classesNow),
@@ -273,13 +287,14 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
                 Icon: School,
                 tint: 'bg-blue-50 text-blue-600',
               },
-            ].map(({ label, value, to, Icon: icon, tint }) => {
+            ].map(({ label, value, to, tab, Icon: icon, tint }) => {
               const StatIcon = icon;
               return (
               <button
                 key={to + label}
                 type="button"
-                onClick={() => navigate(to)}
+                /* Straight to the matching tab of Members (owner, 2026-10-03). */
+                onClick={() => navigate(to, tab ? { state: { tab } } : undefined)}
                 className="text-left bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-slate-200 transition-all cursor-pointer flex items-center justify-between gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
               >
                 <span className="min-w-0">
@@ -323,10 +338,11 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
                   value: subjectsExtra
                     ? subjectsExtra.catalog
                       ? t('dash.principal.subjects.catalogValue', {
-                          n: subjectsExtra.catalog.length,
-                          local: subjectsExtra.catalog.filter((subject) => !subject.national).length,
+                          /* The ones in use: a leader is answered the deselected ones too (backend a852609). */
+                          n: subjectsInUse(subjectsExtra.catalog).length,
+                          local: subjectsInUse(subjectsExtra.catalog).filter((subject) => !subject.national).length,
                         })
-                      : '—'
+                      : '-'
                     : null,
                 },
               ].map(({ term, value }) => (
@@ -450,13 +466,24 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
               </div>
             </div>
 
-            <div className="p-6 border-t border-slate-100 flex justify-end gap-2 select-none">
-              <button type="button" onClick={() => setIsAnnouncementModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-lg cursor-pointer">{t('principal.common.cancel')}</button>
-              <button type="submit" className="px-5 py-2 bg-brand hover:bg-brand-deep text-white text-xs font-extrabold rounded-xl cursor-pointer">{t('principal.modal.ann.submit')}</button>
+            <div className="p-6 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 select-none">
+              <button type="button" onClick={() => setIsAnnouncementModalOpen(false)} className={modalCancelClass()}>{t('principal.common.cancel')}</button>
+              <button type="submit" className={modalConfirmClass('brand')}>{t('principal.modal.ann.submit')}</button>
             </div>
           </form>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleting}
+        title={t('principal.ann.delete.title')}
+        body={t('principal.ann.delete.body', { name: deleting?.title ?? '' })}
+        confirmLabel={t('principal.ann.delete.confirm')}
+        cancelLabel={t('principal.common.cancel')}
+        busy={deleteBusy}
+        onConfirm={confirmDeleteAnnouncement}
+        onCancel={() => setDeleting(null)}
+      />
 
     </div>
   );

@@ -41,6 +41,27 @@ export const membersService = {
   },
 
   /**
+   * One member, for the Principal and the Vice Principals — backend `c0a4f18`
+   * (ticket 22). ACTIVE or LEFT only; anything else is 404, and anybody else 403.
+   * The class carries no homeroom teacher and no placement date.
+   *
+   * @param {string} membershipId
+   * @returns {Promise<{ membershipId: string, status: 'ACTIVE'|'LEFT', fullName: string,
+   *   email: string|null, phone: string|null, roles: string[], nisn: string|null,
+   *   nip: string|null, nuptk: string|null, joinedAt: string|null, endedAt: string|null,
+   *   endReason: string|null,
+   *   student: null | { studentProfileId: string, birthDate: string|null,
+   *     class: { id, name, gradeLevel, academicYear }|null, lastClass: { id, name, gradeLevel, academicYear }|null,
+   *     guardians: Array<{ membershipId, fullName, email, phone, relationship }>,
+   *     attendance: null | { academicYear: string, semesters: Array<{ semesterId, ordinal, counted,
+   *       present, sick, excused, absent, late, outsideSchool }> } } }|null>}
+   */
+  async get(membershipId) {
+    const answer = await api.get(`/members/${membershipId}`);
+    return answer?.member ?? null;
+  },
+
+  /**
    * @param {string} membershipId
    * @param {string} reason 3–500 characters, trimmed by the server
    * @returns {Promise<{ id: string, status: 'LEFT', endReason: string }|null>}

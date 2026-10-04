@@ -1,5 +1,9 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { ArrowLeftRight } from 'lucide-react';
+
+import { modalActions, modalCancelClass, modalConfirmClass } from '../../components/ui/modalStyles';
+import ModalHeading from '../../components/ui/ModalHeading';
 
 import SelectField from '../../components/ui/SelectField';
 import { academicsService } from '../../services/academicsService';
@@ -142,14 +146,14 @@ export const ChangeAssignmentDialog = ({ row, boardClass, semester, teachers, on
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 sm:p-7 space-y-4 text-left max-h-[90dvh] overflow-y-auto"
       >
-        <div className="space-y-2">
-          <h2 id={ids.title} className="text-base font-extrabold text-slate-900 tracking-tight break-words">
-            {t('subjects.change.title', { subject: row.subject.name, className: boardClass.name })}
-          </h2>
-          <p id={ids.body} className="text-xs text-slate-500 font-medium leading-relaxed">
-            {t('subjects.change.body', { teacher: row.teacher.fullName, n: semester.ordinal, year: semester.academicYear })}
-          </p>
-        </div>
+        <ModalHeading
+          tone="brand"
+          icon={ArrowLeftRight}
+          titleId={ids.title}
+          title={t('subjects.change.title', { subject: row.subject.name, className: boardClass.name })}
+          bodyId={ids.body}
+          body={t('subjects.change.body', { teacher: row.teacher.fullName, n: semester.ordinal, year: semester.academicYear })}
+        />
 
         <fieldset ref={firstRef} className="space-y-2" aria-describedby={errors.mode ? `${ids.mode}-error` : undefined}>
           <legend id={ids.mode} className="text-sm font-semibold text-slate-700 mb-1.5">
@@ -285,14 +289,12 @@ export const ChangeAssignmentDialog = ({ row, boardClass, semester, teachers, on
           </div>
         )}
 
-        <div className="flex justify-end gap-2 pt-1">
+        <div className={modalActions}>
           <button
             type="button"
             onClick={onClose}
             disabled={busy}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold text-slate-600 border border-slate-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
-              busy ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer'
-            }`}
+            className={modalCancelClass(busy)}
           >
             {t('common.cancel')}
           </button>
@@ -301,9 +303,7 @@ export const ChangeAssignmentDialog = ({ row, boardClass, semester, teachers, on
               type="button"
               onClick={handleSubmit}
               disabled={busy}
-              className={`px-5 py-2 rounded-xl text-xs font-extrabold text-white shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
-                stops ? 'bg-rose-600 hover:bg-rose-700 focus-visible:ring-rose-500' : 'bg-brand hover:bg-brand-deep focus-visible:ring-brand'
-              } ${busy ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
+              className={modalConfirmClass(stops ? 'danger' : 'brand', busy)}
             >
               {busy ? t('common.loading') : t(confirmKey)}
             </button>

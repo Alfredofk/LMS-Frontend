@@ -1,13 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, CalendarCheck, Clock, MapPinOff, RefreshCw, UserCheck } from 'lucide-react';
+import { AlertCircle, CalendarCheck, Clock, MapPinOff, RefreshCw } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { attendanceService } from '../../services/attendanceService';
-import { formatDay } from '../Classes/format';
 import { dayName, timeRange } from '../Subjects/timetable';
-import { STATUSES, localOf, summarize, bySubject, historyOf } from './attendance';
+import { STATUSES, STATUS_DOT, localOf, summarize, bySubject, historyOf } from './attendance';
 import TodaySessionsCard from './TodaySessionsCard';
+import AttendanceSummaryCard from './AttendanceSummaryCard';
+import Select from '../../components/ui/Select';
+import InfoChips from '../../components/ui/InfoChips';
 
 /*
   A student's own attendance (owner, 2026-10-02), from `GET /attendance/me`
@@ -34,7 +36,7 @@ import TodaySessionsCard from './TodaySessionsCard';
 const STATUS_PILL = {
   PRESENT: 'bg-emerald-50 text-emerald-700',
   SICK: 'bg-amber-50 text-amber-700',
-  EXCUSED: 'bg-amber-50 text-amber-700',
+  EXCUSED: 'bg-sky-50 text-sky-700',
   ABSENT: 'bg-rose-50 text-rose-700',
 };
 
@@ -137,151 +139,129 @@ export const AttendancePage = () => {
     );
   }
 
-  const ratio = total.rate ?? 0;
+  /* Most students sit in one class all along: name it only when the rows hold more than one. */
+  const manyClasses = new Set(rows.map((row) => row.session.class)).size > 1;
 
   return shell(
     <>
-      {/* The numbers over everything */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <section className={`${card} flex items-center gap-4`} aria-label={t('att.ratio')}>
-          <div className="relative w-20 h-20 shrink-0">
-            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
-              <path className="text-slate-100" strokeWidth="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-              {total.rate !== null && (
-                <path className="text-brand" strokeDasharray={`${ratio}, 100`} strokeWidth="3.5" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-              )}
-            </svg>
-            <span className="absolute inset-0 flex items-center justify-center text-sm font-extrabold text-slate-800 tabular-nums">
-              {total.rate === null ? '—' : `${total.rate}%`}
-            </span>
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-xs font-extrabold text-slate-700">{t('att.ratio')}</h2>
-            <p className="text-[11px] text-slate-500 font-semibold mt-1 leading-relaxed">
-              {t('att.ratio.detail', { n: total.confirmed })}
-            </p>
-            {total.pending > 0 && (
-              <p className="text-[11px] text-amber-700 font-semibold mt-0.5">{t('att.pendingCount', { n: total.pending })}</p>
-            )}
-          </div>
-        </section>
+      <AttendanceSummaryCard total={total} />
 
-        <section className={`${card} flex items-center gap-4`} aria-label={t('att.breakdown.title')}>
-          <span className="w-12 h-12 bg-brand-tint text-brand rounded-2xl flex items-center justify-center shrink-0">
-            <UserCheck className="w-6 h-6" aria-hidden="true" />
-          </span>
-          <div className="min-w-0">
-            <h2 className="text-xs font-extrabold text-slate-700">{t('att.breakdown.title')}</h2>
-            <dl className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
-              {STATUSES.map((status) => (
-                <div key={status} className="flex items-baseline gap-1">
-                  <dt className="text-[11px] font-semibold text-slate-500">{statusLabel(status)}</dt>
-                  <dd className="text-sm font-extrabold text-slate-800 tabular-nums">{total[status]}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-        </section>
-
-        <section className={`${card} flex items-center gap-4`} aria-label={t('att.flags.title')}>
-          <span className="w-12 h-12 bg-amber-50 text-amber-700 rounded-2xl flex items-center justify-center shrink-0">
-            <Clock className="w-6 h-6" aria-hidden="true" />
-          </span>
-          <div className="min-w-0">
-            <h2 className="text-xs font-extrabold text-slate-700">{t('att.flags.title')}</h2>
-            <p className="text-sm font-extrabold text-slate-800 mt-1 tabular-nums">{t('att.flags.late', { n: total.late })}</p>
-            <p className="text-[11px] font-semibold text-slate-500 tabular-nums">{t('att.flags.outside', { n: total.outside })}</p>
-          </div>
-        </section>
-      </div>
-
-      {/* The same per subject */}
-      <section className={card} aria-labelledby="att-subjects">
-        <h2 id="att-subjects" className="text-base font-extrabold text-slate-800 tracking-tight mb-3">
+      {/* The same per subject: a bar split by status, with the counts in words under it. */}
+      <section className={`${card} sm:p-6`} aria-labelledby="att-subjects">
+        <h2 id="att-subjects" className="text-base font-extrabold text-slate-800 tracking-tight mb-1">
           {t('att.subjects.title')}
         </h2>
         <ul className="divide-y divide-slate-100">
           {subjects.map((group) => (
-            <li key={group.key} className="py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-extrabold text-slate-800 break-words">{group.subject.name}</span>
-                <span className="block text-[11px] font-semibold text-slate-500">
-                  {group.className && `${group.className} · `}
-                  {t('att.subjects.confirmed', { n: group.confirmed })}
-                  {group.pending > 0 && ` · ${t('att.pendingCount', { n: group.pending })}`}
+            <li key={group.key} className="py-4 last:pb-0">
+              <div className="flex items-end justify-between gap-3">
+                <span className="min-w-0">
+                  {group.subject.code && (
+                    <span className="block text-[10px] font-extrabold uppercase tracking-wider text-brand leading-none">
+                      {group.subject.code}
+                    </span>
+                  )}
+                  <span className="block mt-1 text-sm font-extrabold text-slate-800 break-words">
+                    {group.subject.name}
+                    {manyClasses && group.className && <ClassTag name={group.className} />}
+                  </span>
                 </span>
-              </span>
-              <span className="flex flex-wrap items-center gap-1.5">
+                <span className="shrink-0 text-lg font-extrabold text-slate-800 tabular-nums leading-none">
+                  {group.rate === null ? '-' : `${group.rate}%`}
+                </span>
+              </div>
+              <div className="mt-2.5 h-2 rounded-full bg-slate-100 overflow-hidden flex" aria-hidden="true">
+                {group.confirmed > 0 &&
+                  STATUSES.map((status) =>
+                    group[status] > 0 ? (
+                      <span
+                        key={status}
+                        className={`h-full ${STATUS_DOT[status]}`}
+                        style={{ width: `${(group[status] / group.confirmed) * 100}%` }}
+                      />
+                    ) : null
+                  )}
+              </div>
+              <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-slate-500 tabular-nums">
                 {STATUSES.map((status) => (
-                  <span key={status} className={`${pill} ${STATUS_PILL[status]} tabular-nums`}>
-                    {t(`att.short.${status}`)} {group[status]}
+                  <span key={status} className="inline-flex items-center gap-1">
+                    <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[status]}`} aria-hidden="true" />
+                    {statusLabel(status)} <span className="font-extrabold text-slate-700">{group[status]}</span>
                   </span>
                 ))}
-                <span className="ml-1 text-sm font-extrabold text-slate-800 tabular-nums w-12 text-right">
-                  {group.rate === null ? '—' : `${group.rate}%`}
-                </span>
-              </span>
+                {group.pending > 0 && (
+                  <span className="inline-flex items-center gap-1 text-amber-700">
+                    <Clock className="w-3 h-3" aria-hidden="true" />
+                    {t('att.pendingCount', { n: group.pending })}
+                  </span>
+                )}
+              </p>
             </li>
           ))}
         </ul>
       </section>
 
-      {/* Every meeting, newest first */}
-      <section className={card} aria-labelledby="att-history">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+      {/* Every meeting, newest first: a date tile, what it was, and its status. */}
+      <section className={`${card} sm:p-6`} aria-labelledby="att-history">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-1">
           <h2 id="att-history" className="text-base font-extrabold text-slate-800 tracking-tight">
             {t('att.log.title')}
           </h2>
           {subjects.length > 1 && (
-            <label className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-              <span className="sr-only">{t('att.filter.label')}</span>
-              <select
+            <div className="w-full sm:w-56">
+              <Select
+                size="sm"
+                aria-label={t('att.filter.label')}
                 value={groupFilter}
                 onChange={(e) => setGroupFilter(e.target.value)}
-                className="w-full sm:w-56 rounded-xl border border-slate-200 bg-white py-2 px-3 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand cursor-pointer"
               >
                 <option value="">{t('att.filter.all')}</option>
                 {subjects.map((group) => (
                   <option key={group.key} value={group.key}>
-                    {group.className ? `${group.subject.name} · ${group.className}` : group.subject.name}
+                    {manyClasses && group.className ? `${group.subject.name} (${group.className})` : group.subject.name}
                   </option>
                 ))}
-              </select>
-            </label>
+              </Select>
+            </div>
           )}
         </div>
 
-        <ul className="space-y-2">
+        <ul className="divide-y divide-slate-100">
           {history.map((row) => {
             const start = localOf(row.session.startsAt, zone);
             const end = localOf(row.session.endsAt, zone);
             const checkedIn = row.checkedInAt ? localOf(row.checkedInAt, zone) : null;
             const cancelled = row.session.status !== 'SCHEDULED';
+            const tile = start ? dateTile(start.date, lang) : null;
             return (
-              <li key={row.id} className="rounded-xl border border-slate-100 px-4 py-3 flex items-start justify-between gap-3">
-                <span className="min-w-0">
-                  <span className="block text-xs font-extrabold text-slate-800 break-words">
-                    {row.session.subject.name} · {t('timetable.session.number', { n: row.session.number })}
+              <li key={row.id} className="py-3.5 last:pb-0 flex items-start gap-3.5">
+                <span className="w-12 shrink-0 rounded-xl bg-slate-100 py-1.5 text-center leading-none">
+                  {tile && (
+                    <>
+                      <span className="block text-[10px] font-extrabold uppercase text-slate-600">{tile.month}</span>
+                      <span className="block mt-1 text-lg font-extrabold text-slate-800 tabular-nums">{tile.day}</span>
+                      {tile.year && <span className="block mt-0.5 text-[10px] font-bold text-slate-600 tabular-nums">{tile.year}</span>}
+                    </>
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-extrabold text-slate-800 break-words">
+                    {row.session.subject.name}
+                    {manyClasses && row.session.class && <ClassTag name={row.session.class} />}
                   </span>
-                  {row.session.class && (
-                    <span className="block text-[11px] font-semibold text-slate-500 break-words">{row.session.class}</span>
-                  )}
+                  <span className="block text-xs font-semibold text-slate-500 mt-0.5">
+                    {t('timetable.session.number', { n: row.session.number })}
+                  </span>
                   {start && (
-                    <span className="block text-[11px] font-semibold text-slate-500 tabular-nums">
-                      {t('timetable.session.when', {
-                        day: dayName(start.dayOfWeek, lang, 'short'),
-                        date: formatDay(start.date, lang),
-                        time: timeRange(start.time, end?.time ?? start.time),
-                      })}
-                    </span>
-                  )}
-                  {checkedIn && (
-                    <span className="block text-[11px] font-semibold text-slate-500 tabular-nums">
-                      {t('att.checkedInAt', { time: checkedIn.time })}
+                    <span className="flex flex-wrap gap-x-2 text-[11px] font-semibold text-slate-500 tabular-nums mt-0.5">
+                      <span>
+                        {dayName(start.dayOfWeek, lang, 'short')}, {timeRange(start.time, end?.time ?? start.time)}
+                      </span>
+                      {checkedIn && <span>{t('att.checkedInAt', { time: checkedIn.time })}</span>}
                     </span>
                   )}
                   {(row.late || row.outsideSchool) && (
-                    <span className="flex flex-wrap gap-1.5 mt-1">
+                    <span className="flex flex-wrap gap-1.5 mt-1.5">
                       {row.late && (
                         <span className={`${pill} bg-amber-50 text-amber-700 inline-flex items-center gap-1`}>
                           <Clock className="w-3 h-3" aria-hidden="true" />
@@ -302,7 +282,9 @@ export const AttendancePage = () => {
                   {cancelled ? (
                     <span className="text-[10px] font-semibold text-slate-500">{t('att.cancelled')}</span>
                   ) : (
-                    !row.session.confirmed && <span className="text-[10px] font-semibold text-amber-700 text-right">{t('att.pending')}</span>
+                    !row.session.confirmed && (
+                      <span className="text-[10px] font-semibold text-amber-700 text-right max-w-[7rem]">{t('att.pending')}</span>
+                    )
                   )}
                 </span>
               </li>
@@ -312,6 +294,20 @@ export const AttendancePage = () => {
       </section>
     </>
   );
+};
+
+const ClassTag = ({ name }) => (
+  <span className="ml-2 align-middle px-1.5 py-0.5 rounded-md bg-brand-tint text-brand text-[10px] font-extrabold">{name}</span>
+);
+
+/* A meeting's day as a small tile: month and day, and the year when it is not this one. */
+const dateTile = (iso, lang) => {
+  const at = new Date(`${iso}T00:00:00Z`);
+  return {
+    month: at.toLocaleDateString(lang === 'en' ? 'en-GB' : 'id-ID', { month: 'short', timeZone: 'UTC' }).replace('.', ''),
+    day: at.getUTCDate(),
+    year: at.getUTCFullYear() !== new Date().getFullYear() ? at.getUTCFullYear() : null,
+  };
 };
 
 export default AttendancePage;

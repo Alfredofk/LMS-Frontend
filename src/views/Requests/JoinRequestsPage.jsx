@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
-import { ShieldOff, Inbox, ChevronRight, Search, SearchX } from 'lucide-react';
+import { ShieldOff, Inbox, ChevronRight, Clock, GraduationCap, Search, SearchX, UserPlus } from 'lucide-react';
 
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
+import InfoChips from '../../components/ui/InfoChips';
+import { initialsOf } from '../../utils/names';
 import JoinRequestReview from './JoinRequestReview';
 import BulkApproveDialog from './BulkApproveDialog';
 import { isBulkable } from './bulk';
@@ -418,29 +420,47 @@ export const JoinRequestsPage = () => {
                         onClick={() => setSelectedId(row.id)}
                         className="flex-1 min-w-0 bg-white border border-slate-100 hover:border-brand/40 hover:shadow-md rounded-2xl p-4 shadow-sm flex items-center justify-between gap-4 text-left transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                       >
-                        <div className="min-w-0">
-                          <h3 className="text-sm font-extrabold text-slate-900 truncate">
-                            {row.applicant?.fullName ?? t('requests.applicant.unnamed')}
-                          </h3>
-                          <p className="text-[11px] font-semibold text-slate-500 mt-0.5 truncate">
-                            {furtherChild
-                              ? t('requests.link.row', {
-                                  names: row.children.filter((link) => link.status === 'PENDING').map((link) => link.student?.fullName).join(', '),
-                                })
-                              : roles.map((entry) => t(ROLE_LABEL_KEY[entry.role] ?? 'requests.role.unknown')).join(' · ')}
-                            {row.student?.gradeLevel != null
-                              ? ` · ${t('requests.field.grade', { n: row.student.gradeLevel })}`
-                              : ''}
-                          </p>
-                          <p className="text-[11px] font-semibold text-slate-500 mt-0.5 truncate">
-                            {t('requests.list.requested', {
-                              date: new Date(row.requestedAt).toLocaleDateString(locale, {
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric',
-                              }),
-                            })}
-                          </p>
+                        <div className="min-w-0 flex items-center gap-3">
+                          <span className="w-10 h-10 rounded-xl bg-brand-tint text-brand text-xs font-extrabold flex items-center justify-center shrink-0 select-none">
+                            {initialsOf(row.applicant?.fullName)}
+                          </span>
+                          <div className="min-w-0 space-y-1.5">
+                            <h3 className="text-sm font-extrabold text-slate-900 truncate">
+                              {row.applicant?.fullName ?? t('requests.applicant.unnamed')}
+                            </h3>
+                            {/* What is asked for and when, side by side in small pills
+                                rather than two grey lines (owner, 2026-10-03). */}
+                            <InfoChips
+                              size="xs"
+                              items={[
+                                ...(furtherChild
+                                  ? [
+                                      {
+                                        icon: UserPlus,
+                                        tone: 'brand',
+                                        label: t('requests.link.row', {
+                                          names: row.children.filter((link) => link.status === 'PENDING').map((link) => link.student?.fullName).join(', '),
+                                        }),
+                                      },
+                                    ]
+                                  : roles.map((entry) => ({ tone: 'brand', label: t(ROLE_LABEL_KEY[entry.role] ?? 'requests.role.unknown') }))),
+                                row.student?.gradeLevel != null && {
+                                  icon: GraduationCap,
+                                  label: t('requests.field.grade', { n: row.student.gradeLevel }),
+                                },
+                                {
+                                  icon: Clock,
+                                  label: t('requests.list.requested', {
+                                    date: new Date(row.requestedAt).toLocaleDateString(locale, {
+                                      day: 'numeric',
+                                      month: 'short',
+                                      year: 'numeric',
+                                    }),
+                                  }),
+                                },
+                              ]}
+                            />
+                          </div>
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">

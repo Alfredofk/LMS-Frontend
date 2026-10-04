@@ -8,8 +8,16 @@ import { api } from './apiClient';
   a record for, any Class at the school — see views/Attendance/attendance.js) and
   their check-in, to a Session found through `sessionsService.mine` (backend
   87f2670). For the Principal and Vice Principals a Session's roster and one
-  record's changes. Confirming or correcting is the teacher's — a teammate's
-  screens.
+  record's changes. For the teacher who answers for a Session, confirming it and
+  correcting a record afterwards (owner, 2026-10-04: the teacher's screens are
+  ours now):
+
+    confirm  POST /sessions/:id/confirm { statuses?: [{ studentProfileId, status, note? }] }
+             - everyone not named keeps the default: PRESENT if checked in, ABSENT if
+             not. Answers the roster again (plus `message`). Only once the Session
+             has begun, not cancelled, not confirmed yet.
+    correct  PATCH /:id { status, note } - after confirmation only, a note of 3+
+             characters required; answers `{ attendance }`.
 
     checkIn  { session: <roster's session>, attendance: { id, studentProfileId,
                status: 'PRESENT', checkedInAt, outsideSchool, late } }   — 201
@@ -39,6 +47,17 @@ export const attendanceService = {
   },
 
   /** A Session's roster: every student placed in the class at its start (controller `getRoster`). */
+  /** Confirms a Session; `statuses` names only the students set to other than their default. */
+  async confirm(sessionId, statuses = []) {
+    return api.post(`/attendance/sessions/${encodeURIComponent(sessionId)}/confirm`, statuses.length ? { statuses } : {});
+  },
+
+  /** Corrects one record after confirmation. */
+  async correct(attendanceId, { status, note }) {
+    const answer = await api.patch(`/attendance/${encodeURIComponent(attendanceId)}`, { status, note });
+    return answer?.attendance ?? null;
+  },
+
   async roster(sessionId) {
     return api.get(`/attendance/sessions/${sessionId}`);
   },

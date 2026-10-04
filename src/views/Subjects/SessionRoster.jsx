@@ -23,7 +23,7 @@ import { STATUSES, localOf, rosterCounts } from '../Attendance/attendance';
 const STATUS_PILL = {
   PRESENT: 'bg-emerald-50 text-emerald-700',
   SICK: 'bg-amber-50 text-amber-700',
-  EXCUSED: 'bg-amber-50 text-amber-700',
+  EXCUSED: 'bg-sky-50 text-sky-700',
   ABSENT: 'bg-rose-50 text-rose-700',
 };
 const pill = 'px-2 py-0.5 rounded-md text-[10px] font-extrabold whitespace-nowrap';
@@ -132,7 +132,7 @@ export const SessionRoster = ({ session, zone, onBack }) => {
                 <li key={student.studentProfileId} className="px-3 py-2 space-y-1">
                   <div className="flex items-start justify-between gap-2">
                     <span className="min-w-0">
-                      <span className="block text-xs font-bold text-slate-800 break-words">{student.fullName ?? '—'}</span>
+                      <span className="block text-xs font-bold text-slate-800 break-words">{student.fullName ?? '-'}</span>
                       {checkedIn && (
                         <span className="block text-[11px] font-semibold text-slate-500 tabular-nums">
                           {t('att.checkedInAt', { time: checkedIn.time })}
@@ -195,7 +195,7 @@ export const SessionRoster = ({ session, zone, onBack }) => {
                               </span>
                               {change.note && <span className="block font-semibold text-slate-600 break-words">“{change.note}”</span>}
                               <span className="block font-semibold text-slate-500 tabular-nums">
-                                {t('roster.history.by', { name: change.changedBy?.fullName ?? '—', when: when(change.at) })}
+                                {t('roster.history.by', { name: change.changedBy?.fullName ?? '-', when: when(change.at) })}
                               </span>
                             </li>
                           ))}

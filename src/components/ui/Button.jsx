@@ -46,7 +46,7 @@ export const Button = React.forwardRef(({
     the login card no longer matching. See the comment there before touching it.
   */
   const sizes = {
-    sm: 'px-3 py-1.5 text-sm rounded-lg',
+    sm: 'px-4 py-2 text-sm rounded-xl',
     md: 'px-5 py-2.5 text-base rounded-xl',
     lg: 'px-7 py-3 text-lg rounded-2xl',
     circle: 'p-3 rounded-full justify-center items-center',

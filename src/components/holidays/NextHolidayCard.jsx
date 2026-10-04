@@ -77,7 +77,7 @@ export const NextHolidayCard = ({ showLink = false }) => {
               <p className="mt-0.5 text-xs font-semibold text-white/90">
                 {/* The year only when it is not this one — next January, read in December. */}
                 {date(next.start, next.start.slice(0, 4) !== todayIso().slice(0, 4))}
-                {next.end !== next.start && ` – ${date(next.end, false)}`}
+                {next.end !== next.start && ` - ${date(next.end, false)}`}
               </p>
               <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-xs font-extrabold">
                 <CalendarDays className="w-3.5 h-3.5" aria-hidden="true" />

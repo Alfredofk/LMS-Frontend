@@ -113,7 +113,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
   // Get Initials dynamically
   const getInitials = () => {
     // 'AR' were Andi Rahmat's initials — the last of the sample person.
-    if (!user?.fullName) return '—';
+    if (!user?.fullName) return '-';
     return user.fullName
       .split(' ')
       .map(n => n[0])
@@ -223,7 +223,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
           onClick={onProfile ? undefined : () => handleLinkClick('shell.myProfile', '/profile')}
           /* The content alone would read as "Siti Rahma, siti@…, Siswa" and
              never say where it goes, so the label names the destination too. */
-          aria-label={onProfile ? undefined : `${user?.fullName ?? ''} — ${t('shell.myProfile')}`}
+          aria-label={onProfile ? undefined : `${user?.fullName ?? ''}, ${t('shell.myProfile')}`}
           /* No w-full: it is 100% of the parent and ignores this element's own
              margins, so w-full + mx-3 always overflows by 24px. `flex` is already
              block-level, so auto width fills the parent minus the margins. */
@@ -340,15 +340,17 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
                 </button>
               )}
 
-              {/* The school's holiday calendar lives on /schedule, and a Vice
-                  Principal runs it (ticket 19). */}
-              {role === ROLES.VICE_PRINCIPAL && (
+              {/* The school's holiday calendar lives on /schedule, and the
+                  Principal and a Vice Principal run it (ticket 19). Named
+                  "Calendar" for them (owner, 2026-10-03): it holds the school's
+                  days off, not a timetable. */}
+              {isPrincipalDesk(role) && (
                 <button
-                  onClick={() => handleLinkClick('shell.schedule', '/schedule')}
+                  onClick={() => handleLinkClick('shell.calendar', '/schedule')}
                   className={isActive('/schedule') ? activeBtnClass : inactiveBtnClass}
                 >
                   <Calendar className={`w-4 h-4 shrink-0 transition-colors ${isActive('/schedule') ? 'text-white' : 'text-brand'}`} />
-                  {t('shell.schedule')}
+                  {t('shell.calendar')}
                 </button>
               )}
 

@@ -3,7 +3,6 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { authService } from '../services/authService';
 import { usersService } from '../services/usersService';
 import { activeStore } from '../services/apiClient';
-import { adminService } from '../services/adminService';
 import { activeRolesOf, defaultRoleOf } from '../constants/roles';
 
 const AuthContext = createContext(null);
@@ -29,18 +28,16 @@ const ACTIVE_ROLE_KEY = 'lms_active_role';
 /*
   Whether this account is a platform admin, cached like the rest.
 
-  It has to be cached, and the reason is a gap in the API rather than a
-  preference: `/users/me` answers `publicUser` — id, email, fullName,
-  emailVerifiedAt, createdAt — and says nothing about platform admins. That
-  knowledge lives only in the PlatformAdmin table, which `requirePlatformAdmin`
-  reads on every request. So the only way to ask is to call an admin route and
-  see whether it refuses.
+  `/users/me` says so since backend 1bd81ab (`isPlatformAdmin`, read from the
+  PlatformAdmin table as `requirePlatformAdmin` reads it); the sign-in answers do
+  not. So every /users/me answer refreshes it (refreshMe, updateProfile), and a
+  sign-in with no role to enter reads /users/me once for it — which is what lets
+  /select-role decide before it paints. Before then the only way to ask was to
+  call an admin route and see whether it refused.
 
-  Asking once, at sign-in, is what lets /select-role decide before it paints.
-  Asking from inside that screen instead made the whole page appear and then
-  vanish — the flash this key exists to remove.
-
-  Delete it the day the backend puts `isPlatformAdmin` on /users/me.
+  Cached because an admin who also holds a school role learns of it only at the
+  next /users/me (the avatar menu reads it on opening), and a reload should not
+  forget it meanwhile.
 */
 const PLATFORM_ADMIN_KEY = 'lms_platform_admin';
 
@@ -121,30 +118,32 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   /*
-    Ask whether this account is a platform admin, and remember the answer.
+    Whether this account is a platform admin, as a /users/me answer says;
+    remembered. `undefined` (an answer that does not say, like sign-in's) leaves
+    what is known.
+  */
+  const rememberAdmin = useCallback((admin) => {
+    if (typeof admin !== 'boolean') return;
+    setIsPlatformAdmin(admin);
+    if (admin) writeRaw(PLATFORM_ADMIN_KEY, '1');
+    else forget(PLATFORM_ADMIN_KEY);
+  }, []);
 
-    Only asked when there is no role to enter with — a person with a school to
-    work in is never probed and pays nothing for this. A 403 is the ordinary
-    answer and means exactly what it says.
-
+  /*
+    Ask /users/me whether this account is a platform admin. Only at a sign-in
+    with no role to enter with — anybody else learns it at their next /users/me.
     Returns the answer so callers can route on it without waiting for the state
-    update to land.
+    update to land; false when the read fails.
   */
   const checkPlatformAdmin = useCallback(async () => {
     try {
-      /* `limit: 1` because only the status code is wanted. This used to ask for
-         a status and take the default page of fifty rows, every one of which
-         was thrown away. */
-      await adminService.list({ limit: 1 });
-      setIsPlatformAdmin(true);
-      writeRaw(PLATFORM_ADMIN_KEY, '1');
-      return true;
+      const me = await usersService.getMe();
+      rememberAdmin(Boolean(me?.isPlatformAdmin));
+      return Boolean(me?.isPlatformAdmin);
     } catch {
-      setIsPlatformAdmin(false);
-      forget(PLATFORM_ADMIN_KEY);
       return false;
     }
-  }, []);
+  }, [rememberAdmin]);
 
   /* The roles this person may actually enter with, right now. */
   const roles = useMemo(() => activeRolesOf(membership), [membership]);
@@ -234,11 +233,12 @@ export const AuthProvider = ({ children }) => {
    */
   const refreshMe = useCallback(async () => {
     const me = await usersService.getMe();
-    return applySession(me.user, me.membership, activeRole);
-  }, [applySession, activeRole]);
+    rememberAdmin(me.isPlatformAdmin);
+    return { ...applySession(me.user, me.membership, activeRole), isPlatformAdmin: Boolean(me.isPlatformAdmin) };
+  }, [applySession, activeRole, rememberAdmin]);
 
   /**
-   * Change one's own name.
+   * Change one's own name and/or phone number — only the keys given are sent.
    *
    * PATCH /users/me answers with the same { user, membership } pair that
    * /users/me returns, so the result is applied straight away rather than
@@ -251,11 +251,12 @@ export const AuthProvider = ({ children }) => {
    * @throws {ApiError} BAD_REQUEST when the name fails the server's own rule
    */
   const updateProfile = useCallback(
-    async ({ fullName }) => {
-      const me = await usersService.updateMe({ fullName });
+    async (changes) => {
+      const me = await usersService.updateMe(changes);
+      rememberAdmin(me.isPlatformAdmin);
       return applySession(me.user, me.membership, activeRole);
     },
-    [applySession, activeRole]
+    [applySession, activeRole, rememberAdmin]
   );
 
   /**

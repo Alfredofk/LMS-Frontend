@@ -322,13 +322,22 @@ export function validateCity(value) {
   Beyond "digits, an optional leading +, 8 to 15 of them" nothing is assumed —
   operator prefixes change, and a stricter rule here would refuse a real
   applicant the server would have taken.
+
+  One rule for every number the backend takes (auth.schema.js `phone`, since
+  a9ed505): a school's founder, a guardian joining, anybody on their own profile.
+  `optional` is the profile's case — a blank box there clears the number.
 */
-export function validateApplicantPhone(value) {
-  const cleaned = value.replace(/[\s-]/g, '').trim();
-  if (!cleaned) return { key: 'validation.phone.required' };
+/** A number as the server stores it: spaces and dashes dropped (auth.schema.js `phone`). */
+export const normalisePhone = (value) => String(value ?? '').replace(/[\s-]/g, '').trim();
+
+export function validatePhone(value, { optional = false } = {}) {
+  const cleaned = normalisePhone(value);
+  if (!cleaned) return optional ? null : { key: 'validation.phone.required' };
   if (!/^\+?\d{8,15}$/.test(cleaned)) return { key: 'validation.phone.format' };
   return null;
 }
+
+export const validateApplicantPhone = (value) => validatePhone(value);
 
 /*
   Only an SMK chooses, and it must. Every other type has one legal value that the
@@ -706,6 +715,26 @@ export const childPayload = (values) => ({
   childNisn: String(values?.childNisn ?? '').trim(),
   childFullName: String(values?.childFullName ?? '').trim(),
   relationship: String(values?.relationship ?? '').trim(),
+});
+
+/*
+  Asking for the GUARDIAN role — joining, or adding it — also brings a phone
+  number the school can reach them on (backend a9ed505, `guardianRequestPayload`).
+  A further child keeps `childPayload` alone: that body is strict, and a phone
+  sent there is refused. The server lets the phone be left out when the account
+  already has one; this app always sends it, filled from the account
+  (PhoneField), so the box is always required here.
+*/
+export function guardianErrors(values) {
+  const out = childErrors(values);
+  const phone = validatePhone(values?.phone ?? '');
+  if (phone) out.phone = phone;
+  return out;
+}
+
+export const guardianRequestPayload = (values) => ({
+  ...childPayload(values),
+  phone: String(values?.phone ?? '').trim(),
 });
 
 /**

@@ -1,5 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { LogOut } from 'lucide-react';
+
+import { modalActions, modalCancelClass, modalConfirmClass } from '../../components/ui/modalStyles';
+import ModalHeading from '../../components/ui/ModalHeading';
 
 import { membershipService } from '../../services/membershipService';
 import { useT } from '../../i18n/LanguageContext';
@@ -80,14 +84,14 @@ export const LeaveSchoolDialog = ({ schoolName, onClose, onLeft }) => {
         onSubmit={handleLeave}
         className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 sm:p-7 space-y-4 text-left"
       >
-        <div className="space-y-2">
-          <h2 id="leave-school-title" className="text-base font-extrabold text-slate-900 tracking-tight break-words">
-            {t('account.leave.dialog.title', { school: schoolName })}
-          </h2>
-          <p id="leave-school-body" className="text-xs text-slate-500 font-medium leading-relaxed">
-            {t('account.leave.dialog.body')}
-          </p>
-        </div>
+        <ModalHeading
+          tone="danger"
+          icon={LogOut}
+          titleId="leave-school-title"
+          title={t('account.leave.dialog.title', { school: schoolName })}
+          bodyId="leave-school-body"
+          body={t('account.leave.dialog.body')}
+        />
 
         <div className="space-y-1.5">
           <label htmlFor="leave-school-name" className="text-sm font-semibold text-slate-700 block break-words">
@@ -117,23 +121,19 @@ export const LeaveSchoolDialog = ({ schoolName, onClose, onLeft }) => {
           )}
         </div>
 
-        <div className="flex justify-end gap-2 pt-1">
+        <div className={modalActions}>
           <button
             type="button"
             onClick={onClose}
             disabled={busy}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold text-slate-600 border border-slate-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
-              busy ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer'
-            }`}
+            className={modalCancelClass(busy)}
           >
             {t('common.cancel')}
           </button>
           <button
             type="submit"
             disabled={!confirmed || busy}
-            className={`px-5 py-2 rounded-xl text-xs font-extrabold text-white shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 bg-rose-600 focus-visible:ring-rose-500 ${
-              !confirmed || busy ? 'opacity-50 cursor-not-allowed' : 'hover:bg-rose-700 cursor-pointer'
-            }`}
+            className={modalConfirmClass('danger', !confirmed || busy)}
           >
             {busy ? t('common.loading') : t('account.leave.confirm')}
           </button>

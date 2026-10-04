@@ -339,7 +339,7 @@ export const LeaveCard = ({ onToast }) => {
 
               <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{t('account.leave.request.after')}</p>
 
-              <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+              <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
                 <Button type="button" variant="outline" onClick={closeForm} isDisabled={isSending}>
                   {t('common.cancel')}
                 </Button>

@@ -145,7 +145,7 @@ const SchoolPlaceCard = ({ onToast }) => {
             </div>
           )}
 
-          <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+          <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
             {draft && (
               <Button
                 type="button"

@@ -32,7 +32,7 @@ export const dayName = (iso, lang, style = 'long') =>
  * each side of the dash, which a browser may otherwise wrap after — at 320px a
  * meeting's time split as "07:00–" over "08:30" (2026-09-30).
  */
-export const timeRange = (start, end) => `${start}\u2060–\u2060${end}`;
+export const timeRange = (start, end) => `${start}\u2060-\u2060${end}`;
 
 export const minuteOf = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 
@@ -200,3 +200,23 @@ export const SESSION_STATE_KEYS = [
   'timetable.session.past',
   'timetable.session.scheduled',
 ];
+
+/** Below this many days a semester gets a warning: a weekly subject would meet fewer than eight times. */
+export const SHORT_SEMESTER_DAYS = 56;
+
+/**
+ * How long a semester runs, both ends counted, from its calendar days (stored as
+ * midnight UTC, so read in UTC). The backend plans a weekly slot on every
+ * matching day up to the last one (sessions.service.js `plan`), so this is also
+ * about how many times a weekly subject meets: `weeks`, rounded to the nearest.
+ * A short one is the usual reason a subject shows two meetings (owner, 2026-10-03).
+ *
+ * @returns {{ days: number, weeks: number, short: boolean } | null}
+ */
+export const semesterLength = (startDate, endDate) => {
+  const start = Date.parse(String(startDate ?? '').slice(0, 10));
+  const end = Date.parse(String(endDate ?? '').slice(0, 10));
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return null;
+  const days = Math.round((end - start) / 86400000) + 1;
+  return { days, weeks: Math.max(1, Math.round(days / 7)), short: days < SHORT_SEMESTER_DAYS };
+};

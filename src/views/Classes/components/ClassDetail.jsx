@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRightLeft, Clock, Pencil, Trash2, UserMinus, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, CalendarCheck, ChevronRight, Clock, IdCard, Pencil, Search, Trash2, UserMinus, Users } from 'lucide-react';
 
 import Button from '../../../components/ui/Button';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import SelectField from '../../../components/ui/SelectField';
 import RemoveMemberDialog from '../../../components/RemoveMemberDialog';
+import PersonDetailDialog from '../../../components/PersonDetailDialog';
+import InfoChips from '../../../components/ui/InfoChips';
+import { foldText, initialsOf } from '../../../utils/names';
 import MoveStudentDialog from '../../Homeroom/MoveStudentDialog';
 import { ClassEditForm } from './ClassForm';
 import { academicsService } from '../../../services/academicsService';
@@ -87,6 +90,9 @@ export const ClassDetail = ({
   const [deleting, setDeleting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
+  /* The roster row opened in PersonDetailDialog, and the search over the roster (owner, 2026-10-03). */
+  const [viewing, setViewing] = useState(null);
+  const [rosterQuery, setRosterQuery] = useState('');
 
   const load = useCallback(async () => {
     setError(null);
@@ -181,6 +187,9 @@ export const ClassDetail = ({
 
   const open = target.academicYear?.status === 'ACTIVE';
   const students = target.students ?? [];
+  const shownStudents = rosterQuery.trim()
+    ? students.filter((student) => [student.fullName, student.nisn].some((value) => foldText(value).includes(foldText(rosterQuery))))
+    : students;
   const candidates = (teachers ?? []).filter(
     (teacher) => teacher.membershipId !== target.homeroomTeacher?.membershipId
   );
@@ -285,7 +294,7 @@ export const ClassDetail = ({
               </div>
             )}
 
-            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
               <Button size="sm" variant="outline" onClick={() => setIsChanging(false)}>
                 {t('common.cancel')}
               </Button>
@@ -305,20 +314,56 @@ export const ClassDetail = ({
           </h3>
         </div>
 
+        {students.length > 1 && (
+          <div className="relative mt-3">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" aria-hidden="true" />
+            <input
+              type="search"
+              value={rosterQuery}
+              onChange={(e) => setRosterQuery(e.target.value)}
+              placeholder={t('classes.detail.search')}
+              aria-label={t('classes.detail.search')}
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
+            />
+          </div>
+        )}
+
         {students.length === 0 ? (
           <p className="mt-3 text-xs font-semibold text-slate-500 leading-relaxed">
             {t('classes.detail.noStudents')}
           </p>
+        ) : shownStudents.length === 0 ? (
+          <p className="mt-4 py-6 text-center text-xs font-extrabold text-slate-500 border border-dashed border-slate-200 rounded-2xl">
+            {t('classes.detail.noMatch')}
+          </p>
         ) : (
           <ul className="mt-3 divide-y divide-slate-100">
-            {students.map((student) => (
-              <li key={student.studentProfileId} className="py-2.5 flex items-center justify-between gap-3">
-                <span className="min-w-0">
-                  <span className="block text-sm font-bold text-slate-800 break-words">{student.fullName}</span>
-                  <span className="block text-[11px] font-semibold text-slate-500 tabular-nums">
-                    {t('profile.nisn')} {student.nisn ?? '—'} · {t('classes.detail.since', { date: formatDay(student.placedAt, lang) })}
+            {shownStudents.map((student) => (
+              <li key={student.studentProfileId} className="py-2 flex items-center justify-between gap-2">
+                {/* The row opens what the school knows about the student. */}
+                <button
+                  type="button"
+                  onClick={() => setViewing(student)}
+                  aria-label={t('classes.detail.openStudent', { name: student.fullName })}
+                  className="group min-w-0 flex-1 flex items-center gap-3 text-left rounded-xl px-2 py-1.5 -mx-2 hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                >
+                  <span className="w-9 h-9 rounded-xl bg-brand-tint text-brand text-xs font-extrabold flex items-center justify-center shrink-0 select-none">
+                    {initialsOf(student.fullName)}
                   </span>
-                </span>
+                  <span className="min-w-0 flex-1 space-y-1">
+                    <span className="block text-sm font-bold text-slate-800 break-words group-hover:text-brand transition-colors">
+                      {student.fullName}
+                    </span>
+                    <InfoChips
+                      size="xs"
+                      items={[
+                        { icon: IdCard, label: `${t('profile.nisn')} ${student.nisn ?? '-'}` },
+                        { icon: CalendarCheck, label: t('classes.detail.since', { date: formatDay(student.placedAt, lang) }) },
+                      ]}
+                    />
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
+                </button>
                 {canMove && open && (
                   pendingMoves?.get(student.studentProfileId) ? (
                     <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold text-amber-800 bg-amber-50">
@@ -355,6 +400,25 @@ export const ClassDetail = ({
           </ul>
         )}
       </section>
+
+      {viewing && (
+      <PersonDetailDialog
+        key={viewing.membershipId}
+        person={viewing && { membershipId: viewing.membershipId, fullName: viewing.fullName, nisn: viewing.nisn, roles: ['STUDENT'] }}
+        placement={
+          viewing && target
+            ? {
+                className: target.name,
+                gradeLevel: target.gradeLevel,
+                academicYear: target.academicYear?.label ?? '',
+                homeroomName: target.homeroomTeacher?.fullName ?? null,
+                placedAt: viewing.placedAt,
+              }
+            : undefined
+        }
+        onClose={() => setViewing(null)}
+      />
+      )}
 
       {moving && (
         <MoveStudentDialog

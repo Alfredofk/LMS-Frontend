@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Trash2 } from 'lucide-react';
+
+import { modalActions, modalCancelClass, modalConfirmClass } from '../../components/ui/modalStyles';
+import { BarChart3, Plus, Trash2 } from 'lucide-react';
+
+import Select from '../../components/ui/Select';
 
 import { sessionsService } from '../../services/sessionsService';
 import { useT } from '../../i18n/LanguageContext';
@@ -19,6 +23,8 @@ import {
 } from './timetable';
 import SessionList from './SessionList';
 import SessionRoster from './SessionRoster';
+import SubjectProgress from './SubjectProgress';
+import SessionContentDrawer from '../../components/content/SessionContentDrawer';
 
 /*
   One subject in one class: its weekly timetable, what it has made, and — for the
@@ -52,6 +58,10 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
   const [sessions, setSessions] = useState({ list: null, error: null });
   /* The meeting whose attendance is open in place of the view, or null. */
   const [rosterSession, setRosterSession] = useState(null);
+  /* The subject's learning progress open in place of the view (backend 0dd8b44). */
+  const [progressOpen, setProgressOpen] = useState(false);
+  /* The meeting whose materials are open in the side panel (drafts shown: staff). */
+  const [contentOf, setContentOf] = useState(null);
   const openerRef = useRef(null);
   const panelRef = useRef(null);
 
@@ -212,6 +222,15 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
 
       {writable && note}
 
+      <button
+        type="button"
+        onClick={() => setProgressOpen(true)}
+        className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-extrabold text-brand bg-brand-tint hover:bg-brand hover:text-white rounded-xl transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      >
+        <BarChart3 className="w-3.5 h-3.5" aria-hidden="true" />
+        {t('progress.open')}
+      </button>
+
       <div className="space-y-1.5">
         <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">{t('timetable.sessions')}</h3>
         {sessions.error ? (
@@ -223,7 +242,25 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
         ) : sessions.list.length === 0 ? (
           <p className="text-xs font-semibold text-slate-500">{t('timetable.noSessions')}</p>
         ) : (
-          <SessionList sessions={sessions.list} onOpen={setRosterSession} />
+          <>
+            <SessionList sessions={sessions.list} onOpen={setRosterSession} onOpenContent={setContentOf} />
+            {contentOf && (
+              <SessionContentDrawer
+                key={contentOf.id}
+                sessionId={contentOf.id}
+                staff
+                heading={{
+                  subject: row.subject.name,
+                  lines: [
+                    formatDay(contentOf.local?.date, lang),
+                    t('timetable.session.number', { n: contentOf.number }),
+                    boardClass.name,
+                  ],
+                }}
+                onClose={() => setContentOf(null)}
+              />
+            )}
+          </>
         )}
       </div>
     </>
@@ -243,13 +280,14 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
                   then the two times side by side — because at 320px four columns
                   left a time box 57px wide, showing only its clock icon (2026-09-30). */}
               <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-1.5 items-center">
-                <select
+                <Select
+                  size="row"
+                  className="col-span-2 sm:col-span-1"
                   aria-label={t('timetable.form.day', { n: i + 1 })}
                   value={entry.dayOfWeek}
                   disabled={busy}
                   onChange={(e) => change(i, 'dayOfWeek', e.target.value)}
-                  aria-invalid={!!rowErrors.day}
-                  className={`${fieldClass} col-span-2 sm:col-span-1 ${rowErrors.day ? 'border-red-400' : 'border-slate-200'}`}
+                  invalid={!!rowErrors.day}
                 >
                   <option value="">{t('timetable.form.dayPlaceholder')}</option>
                   {ALL_DAYS.map((day) => (
@@ -257,7 +295,7 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
                       {dayName(day, lang)}
                     </option>
                   ))}
-                </select>
+                </Select>
                 <input
                   type="time"
                   aria-label={t('timetable.form.start', { n: i + 1 })}
@@ -319,12 +357,8 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
     </>
   );
 
-  const secondary = `px-4 py-2 rounded-xl text-xs font-extrabold text-slate-600 border border-slate-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
-    busy ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer'
-  }`;
-  const primary = `px-5 py-2 rounded-xl text-xs font-extrabold text-white shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 bg-brand hover:bg-brand-deep focus-visible:ring-brand ${
-    busy ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'
-  }`;
+  const secondary = modalCancelClass(busy);
+  const primary = modalConfirmClass('brand', busy);
 
   return createPortal(
     <div
@@ -351,7 +385,15 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
           </p>
         </div>
 
-        {editing ? form : rosterSession ? <SessionRoster session={rosterSession} zone={schedule.timeZone} onBack={() => setRosterSession(null)} /> : view}
+        {editing ? (
+          form
+        ) : rosterSession ? (
+          <SessionRoster session={rosterSession} zone={schedule.timeZone} onBack={() => setRosterSession(null)} />
+        ) : progressOpen ? (
+          <SubjectProgress classSubjectId={row.classSubjectId} zone={schedule.timeZone} onBack={() => setProgressOpen(false)} />
+        ) : (
+          view
+        )}
 
         {errors.global && (
           <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
@@ -359,7 +401,7 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
           </div>
         )}
 
-        <div className="flex flex-wrap justify-end gap-2 pt-1">
+        <div className={modalActions}>
           {editing ? (
             <>
               <button
@@ -382,7 +424,7 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
               <button type="button" onClick={onClose} className={secondary}>
                 {t('timetable.close')}
               </button>
-              {canEdit && !rosterSession && (
+              {canEdit && !rosterSession && !progressOpen && (
                 <button type="button" onClick={startEditing} className={primary}>
                   {t(schedule.slots.length ? 'timetable.edit' : 'timetable.set')}
                 </button>

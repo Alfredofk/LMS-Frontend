@@ -26,6 +26,20 @@
 
 export const STATUSES = ['PRESENT', 'SICK', 'EXCUSED', 'ABSENT'];
 
+/* A status's colours: a tile's tint and text, and a dot or bar segment (owner, 2026-10-04: Izin sky, Sakit amber). */
+export const STATUS_TILE = {
+  PRESENT: 'bg-emerald-50 text-emerald-700',
+  SICK: 'bg-amber-50 text-amber-700',
+  EXCUSED: 'bg-sky-50 text-sky-700',
+  ABSENT: 'bg-rose-50 text-rose-700',
+};
+export const STATUS_DOT = {
+  PRESENT: 'bg-emerald-500',
+  SICK: 'bg-amber-400',
+  EXCUSED: 'bg-sky-500',
+  ABSENT: 'bg-rose-500',
+};
+
 const OFFSET_HOURS = { WIB: 7, WITA: 8, WIT: 9 };
 const HOUR = 60 * 60 * 1000;
 
@@ -116,17 +130,25 @@ export function rosterCounts(students) {
 }
 
 /**
+ * One semester of a student's summary (`GET /members/:id`, attendanceSummary):
+ * the share present among the meetings counted - confirmed ones only, as
+ * `summarize` counts - or null with none counted yet.
+ */
+export const semesterRate = (semester) =>
+  semester?.counted > 0 ? Math.round((semester.present / semester.counted) * 100) : null;
+
+/**
  * The student dashboard's attendance card (owner, 2026-10-02), from rows or a
  * failed read: `{ value, lines: [{ key, vars }] }`. The rate over confirmed
  * meetings, or "—" with none confirmed yet; never a 0 nobody counted.
  */
 export function attendanceStat(rows, failed = false) {
-  if (failed) return { value: '—', lines: [{ key: 'dash.att.failed' }] };
+  if (failed) return { value: '-', lines: [{ key: 'dash.att.failed' }] };
   if (rows === null || rows === undefined) return { value: '…', lines: [] };
   const s = summarize(rows);
   const lines = [];
   if (s.confirmed > 0) lines.push({ key: 'dash.att.of', vars: { present: s.PRESENT, n: s.confirmed } });
   if (s.pending > 0) lines.push({ key: 'att.pendingCount', vars: { n: s.pending } });
   if (lines.length === 0) lines.push({ key: 'dash.att.none' });
-  return { value: s.rate === null ? '—' : `${s.rate}%`, lines };
+  return { value: s.rate === null ? '-' : `${s.rate}%`, lines };
 }

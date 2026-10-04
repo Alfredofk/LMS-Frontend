@@ -1,6 +1,6 @@
 import React, { startTransition, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, ChevronDown, LogOut, Settings, User } from 'lucide-react';
+import { Check, ChevronDown, LogOut, Settings, ShieldCheck, User } from 'lucide-react';
 
 import ConfirmDialog from './ui/ConfirmDialog';
 import { useAuth } from '../context/AuthContext';
@@ -56,10 +56,10 @@ const initialsOf = (fullName) =>
         .join('')
         .substring(0, 2)
         .toUpperCase()
-    : '—';
+    : '-';
 
 export const AccountMenu = () => {
-  const { user, roles, activeRole, selectRole, logout, refreshMe } = useAuth();
+  const { user, roles, activeRole, selectRole, logout, refreshMe, isPlatformAdmin } = useAuth();
   const navigate = useNavigate();
   const { t } = useT();
 
@@ -198,6 +198,15 @@ export const AccountMenu = () => {
               <Settings className="w-4 h-4 shrink-0 text-brand" aria-hidden="true" />
               {t('account.title')}
             </button>
+            {/* A platform admin who also works at a school (`isPlatformAdmin` from
+                /users/me, backend 1bd81ab; owner, 2026-10-04). One with no school
+                role is sent to these screens at sign-in and never sees this menu. */}
+            {isPlatformAdmin && (
+              <button type="button" onClick={() => go('/admin/school-registrations')} className={itemClass}>
+                <ShieldCheck className="w-4 h-4 shrink-0 text-brand" aria-hidden="true" />
+                {t('accountMenu.admin')}
+              </button>
+            )}
           </div>
 
           <div className="border-t border-slate-100 pt-2 mt-2">

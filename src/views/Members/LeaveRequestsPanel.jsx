@@ -1,6 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, DoorOpen, FileText, X } from 'lucide-react';
+
+import { modalActions, modalCancelClass, modalConfirmClass } from '../../components/ui/modalStyles';
+import ModalHeading from '../../components/ui/ModalHeading';
+import { Check, Clock, DoorOpen, FileText, IdCard, X, XCircle } from 'lucide-react';
+import InfoChips from '../../components/ui/InfoChips';
 
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { leaveRequestsService } from '../../services/leaveRequestsService';
@@ -91,14 +95,14 @@ const RejectLeaveDialog = ({ request, onClose, onRejected, onStale }) => {
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 sm:p-7 space-y-4 text-left"
       >
-        <div className="space-y-2">
-          <h2 id="reject-leave-title" className="text-base font-extrabold text-slate-900 tracking-tight break-words">
-            {t('members.leave.reject.title', { name: request.member.fullName })}
-          </h2>
-          <p id="reject-leave-body" className="text-xs text-slate-500 font-medium leading-relaxed">
-            {t('members.leave.reject.body')}
-          </p>
-        </div>
+        <ModalHeading
+          tone="danger"
+          icon={XCircle}
+          titleId="reject-leave-title"
+          title={t('members.leave.reject.title', { name: request.member.fullName })}
+          bodyId="reject-leave-body"
+          body={t('members.leave.reject.body')}
+        />
 
         <div className="space-y-1.5">
           <label htmlFor="reject-leave-reason" className="text-sm font-semibold text-slate-700 block">
@@ -130,14 +134,12 @@ const RejectLeaveDialog = ({ request, onClose, onRejected, onStale }) => {
           )}
         </div>
 
-        <div className="flex justify-end gap-2 pt-1">
+        <div className={modalActions}>
           <button
             type="button"
             onClick={onClose}
             disabled={busy}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold text-slate-600 border border-slate-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
-              busy ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer'
-            }`}
+            className={modalCancelClass(busy)}
           >
             {t('common.cancel')}
           </button>
@@ -145,9 +147,7 @@ const RejectLeaveDialog = ({ request, onClose, onRejected, onStale }) => {
             type="button"
             onClick={handleReject}
             disabled={busy}
-            className={`px-5 py-2 rounded-xl text-xs font-extrabold text-white shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 bg-rose-600 hover:bg-rose-700 focus-visible:ring-rose-500 ${
-              busy ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'
-            }`}
+            className={modalConfirmClass('danger', busy)}
           >
             {busy ? t('common.loading') : t('members.leave.reject.confirm')}
           </button>
@@ -167,7 +167,7 @@ export const LeaveRequestsPanel = ({ requests, error, onChanged, showToast }) =>
 
   const locale = lang === 'en' ? 'en-GB' : 'id-ID';
   const day = (value) =>
-    value ? new Date(value).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
+    value ? new Date(value).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
 
   const showLetter = (id) =>
     openFileInNewTab(() => leaveRequestsService.letter(id)).catch((err) =>
@@ -253,12 +253,13 @@ export const LeaveRequestsPanel = ({ requests, error, onChanged, showToast }) =>
                     </span>
                   ))}
                 </div>
-                {ids.length > 0 && (
-                  <p className="text-[11px] font-semibold text-slate-500 tabular-nums break-words">{ids.join(' · ')}</p>
-                )}
-                <p className="text-[11px] font-semibold text-slate-500">
-                  {t('members.leave.requestedOn', { date: day(request.requestedAt) })}
-                </p>
+                <InfoChips
+                  size="xs"
+                  items={[
+                    ...ids.map((label) => ({ icon: IdCard, label })),
+                    { icon: Clock, label: t('members.leave.requestedOn', { date: day(request.requestedAt) }) },
+                  ]}
+                />
                 {/* Their own words, marked as a quotation. */}
                 <p className="mt-1 pl-2 border-l-2 border-slate-200 text-[11px] text-slate-600 font-semibold break-words">
                   {request.reason}

@@ -200,7 +200,7 @@ async function readBody(response) {
   }
 }
 
-async function send(path, { method = 'GET', body, query, auth = true } = {}) {
+async function send(path, { method = 'GET', body, query, auth = true, keepalive = false } = {}) {
   /*
     A FormData body goes out untouched, and without a Content-Type.
 
@@ -224,9 +224,13 @@ async function send(path, { method = 'GET', body, query, auth = true } = {}) {
     if (token) headers.Authorization = `Bearer ${token}`;
   }
 
+  /* `keepalive` lets a request outlive the page that sent it - the learning
+     events a student's tab sends as it closes (services/trackingService.js).
+     sendBeacon cannot carry the Authorization header. */
   const response = await fetch(buildUrl(path, query), {
     method,
     headers,
+    ...(keepalive ? { keepalive: true } : {}),
     ...(body !== undefined ? { body: isForm ? body : JSON.stringify(body) } : {}),
   });
 

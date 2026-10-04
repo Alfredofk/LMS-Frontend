@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { CalendarRange, Check, ChevronRight, Pencil, Plus, School, Search, ShieldOff, Lock, Trash2 } from 'lucide-react';
+import { CalendarRange, Check, ChevronRight, Pencil, Plus, School, Search, ShieldOff, Lock, Trash2, Users } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import InfoChips from '../../components/ui/InfoChips';
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
 import { AcademicYearForm, SemesterForm } from './components/PeriodForms';
 import ClassForm from './components/ClassForm';
@@ -450,46 +451,114 @@ export const ClassesPage = () => {
                 {visibleYears.map((entry) => {
                   const active = entry.id === year?.id;
                   const summary = yearSummary(entry, classes);
+                  const editing = active && openForm === 'year-edit';
+                  /* Only an empty year can go: no semester, no class. */
+                  const deletable = classes !== null && summary.semesters === 0 && summary.classes === 0;
                   return (
-                    <button
+                    <div
                       key={entry.id}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => selectYear(entry.id)}
-                      className={`text-left rounded-2xl border p-4 space-y-1.5 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
-                        active
-                          ? 'border-brand ring-1 ring-brand bg-brand-tint/40'
-                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      className={`rounded-2xl border transition-colors ${editing ? 'sm:col-span-2 xl:col-span-3' : ''} ${
+                        active ? 'border-brand ring-1 ring-brand bg-brand-tint/40' : 'border-slate-200 bg-white hover:border-slate-300'
                       }`}
                     >
-                      <span className="flex items-center justify-between gap-2">
-                        <span className={`text-base font-extrabold tabular-nums ${active ? 'text-brand' : 'text-slate-800'}`}>
-                          {entry.label}
+                      <button
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => selectYear(entry.id)}
+                        className="w-full text-left p-4 pb-3 space-y-2 rounded-2xl cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                      >
+                        <span className="flex items-center justify-between gap-2">
+                          <span className={`text-base font-extrabold tabular-nums ${active ? 'text-brand' : 'text-slate-800'}`}>
+                            {entry.label}
+                          </span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${YEAR_BADGE[entry.status] ?? YEAR_BADGE.CLOSED}`}>
+                            {t(`classes.year.status.${entry.status}`)}
+                          </span>
                         </span>
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${YEAR_BADGE[entry.status] ?? YEAR_BADGE.CLOSED}`}>
-                          {t(`classes.year.status.${entry.status}`)}
+                        <span className="block text-xs font-semibold text-slate-500">
+                          {t('classes.year.range', {
+                            start: formatDay(entry.startDate, lang),
+                            end: formatDay(entry.endDate, lang),
+                          })}
                         </span>
-                      </span>
-                      <span className="block text-xs font-semibold text-slate-500">
-                        {t('classes.year.range', {
-                          start: formatDay(entry.startDate, lang),
-                          end: formatDay(entry.endDate, lang),
-                        })}
-                      </span>
-                      <span className="block text-[11px] font-bold text-slate-600">
-                        {classes === null
-                          ? t('common.loading')
-                          : t('classes.year.summary', summary)}
-                      </span>
-                      {/* Said in words as well as drawn: the colour alone is not
-                          enough to tell which year the rest of the page is about. */}
-                      {active && (
-                        <span className="flex items-center gap-1 text-[11px] font-extrabold text-brand">
-                          <Check className="w-3.5 h-3.5" aria-hidden="true" />
-                          {t('classes.year.selected')}
-                        </span>
+                        {classes === null ? (
+                          <span className="block text-[11px] font-bold text-slate-500">{t('common.loading')}</span>
+                        ) : (
+                          <InfoChips
+                            items={[
+                              { icon: CalendarRange, label: t('classes.year.stat.semesters', { n: summary.semesters }) },
+                              { icon: School, label: t('classes.year.stat.classes', { n: summary.classes }) },
+                              { icon: Users, label: t('classes.year.stat.students', { n: summary.students }) },
+                            ]}
+                          />
+                        )}
+                        {/* Said in words as well as drawn: the colour alone is not
+                            enough to tell which year the rest of the page is about. */}
+                        {active && (
+                          <span className="flex items-center gap-1 text-[11px] font-extrabold text-brand">
+                            <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                            {t('classes.year.selected')}
+                          </span>
+                        )}
+                      </button>
+
+                      {/* The year's own actions sit on its own card, the way a
+                          semester's do (owner, 2026-10-03: at the foot of the
+                          section they read as belonging to the semesters). */}
+                      {editing ? (
+                        <div className="px-4 pb-4">
+                          <div className="rounded-2xl border border-slate-200 bg-white p-4 max-w-xl">
+                            <AcademicYearForm
+                              key={entry.id}
+                              initial={entry}
+                              years={years ?? []}
+                              onSaved={handleYearSaved}
+                              onCancel={() => setOpenForm(null)}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        entry.status === 'ACTIVE' && (
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 pb-3 pt-2.5 border-t border-slate-200/70">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                selectYear(entry.id);
+                                setOpenForm('year-edit');
+                              }}
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-brand transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+                            >
+                              <Pencil className="w-3 h-3" aria-hidden="true" />
+                              {t('classes.year.edit.open')}
+                            </button>
+                            {deletable && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  selectYear(entry.id);
+                                  setDeleting({ kind: 'year', item: entry });
+                                }}
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-rose-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+                              >
+                                <Trash2 className="w-3 h-3" aria-hidden="true" />
+                                {t('classes.year.delete.open')}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                selectYear(entry.id);
+                                setClosing(true);
+                              }}
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-rose-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+                            >
+                              <Lock className="w-3 h-3" aria-hidden="true" />
+                              {t('classes.year.close')}
+                            </button>
+                          </div>
+                        )
                       )}
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -497,56 +566,12 @@ export const ClassesPage = () => {
 
             {year && (
               <div className="pt-4 border-t border-slate-100 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  {/* The dates are on the card above; this names the year the
-                      semesters below belong to, the way the class section does. */}
-                  <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                    {t('classes.year.semestersIn', { label: year.label })}
-                  </h3>
-                  {yearOpen && openForm !== 'year-edit' && (
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 self-start">
-                      <button
-                        type="button"
-                        onClick={() => setOpenForm('year-edit')}
-                        className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-brand transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
-                      >
-                        <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
-                        {t('classes.year.edit.open')}
-                      </button>
-                      {/* Only an empty year can go — no semester, no class. */}
-                      {(year.semesters ?? []).length === 0 && yearClasses !== null && yearClasses.length === 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setDeleting({ kind: 'year', item: year })}
-                          className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-rose-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-                          {t('classes.year.delete.open')}
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setClosing(true)}
-                        className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-rose-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
-                      >
-                        <Lock className="w-3.5 h-3.5" aria-hidden="true" />
-                        {t('classes.year.close')}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {openForm === 'year-edit' && (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 max-w-xl">
-                    <AcademicYearForm
-                      key={year.id}
-                      initial={year}
-                      years={years ?? []}
-                      onSaved={handleYearSaved}
-                      onCancel={() => setOpenForm(null)}
-                    />
-                  </div>
-                )}
+                {/* The dates are on the card above; this names the year the
+                    semesters below belong to. The year's own Edit, Delete and Close
+                    sit on its card (owner, 2026-10-03). */}
+                <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  {t('classes.year.semestersIn', { label: year.label })}
+                </h3>
 
                 {!yearOpen && (
                   <p className="text-xs font-semibold text-slate-500">{t('classes.year.closedNote')}</p>
@@ -587,7 +612,7 @@ export const ClassesPage = () => {
                         ) : semester ? (
                           <>
                             <p className="text-xs font-semibold text-slate-500">
-                              {formatDay(semester.startDate, lang)} – {formatDay(semester.endDate, lang)}
+                              {formatDay(semester.startDate, lang)} - {formatDay(semester.endDate, lang)}
                             </p>
                             {semester.classSubjectRegistrationDeadline && (
                               <p className="text-[11px] font-semibold text-slate-500">
@@ -762,13 +787,16 @@ export const ClassesPage = () => {
                             <span className="px-2 py-0.5 bg-brand-tint text-brand text-[10px] font-extrabold rounded-md">
                               {t('classes.grade', { n: entry.gradeLevel })}
                             </span>
+                            {/* Beside the grade, not in the line under it (owner, 2026-10-03). */}
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-extrabold rounded-md">
+                              <Users className="w-3 h-3" aria-hidden="true" />
+                              {t('classes.class.studentCount', { n: entry.studentCount ?? 0 })}
+                            </span>
                           </span>
-                          <span className="block text-[11px] font-semibold text-slate-500 mt-0.5 break-words">
+                          <span className="block text-[11px] font-semibold text-slate-500 mt-1 break-words">
                             {t('classes.class.homeroomLine', {
                               name: entry.homeroomTeacher?.fullName ?? t('classes.detail.noHomeroom'),
                             })}
-                            {' · '}
-                            {t('classes.class.studentCount', { n: entry.studentCount ?? 0 })}
                           </span>
                         </span>
                         <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
@@ -788,10 +816,19 @@ export const ClassesPage = () => {
         title={
           deleting?.kind === 'year'
             ? t('classes.year.delete.title', { label: deleting.item.label })
-            : t('classes.semester.delete.title', { n: deleting?.item?.ordinal ?? '', label: year?.label ?? '' })
+            : t('classes.semester.delete.title', { n: deleting?.item?.ordinal ?? '' })
         }
-        body={t(deleting?.kind === 'year' ? 'classes.year.delete.body' : 'classes.semester.delete.body')}
-        confirmLabel={t(deleting?.kind === 'year' ? 'classes.year.delete.open' : 'classes.semester.delete.open')}
+        body={
+          deleting?.kind === 'year'
+            ? t('classes.year.delete.body', { label: deleting.item.label })
+            : t('classes.semester.delete.body', {
+                n: deleting?.item?.ordinal ?? '',
+                label: year?.label ?? '',
+                start: deleting ? formatDay(deleting.item.startDate, lang) : '',
+                end: deleting ? formatDay(deleting.item.endDate, lang) : '',
+              })
+        }
+        confirmLabel={t(deleting?.kind === 'year' ? 'classes.year.delete.confirm' : 'classes.semester.delete.confirm')}
         cancelLabel={t('common.cancel')}
         busy={isDeleting}
         busyLabel={t('common.loading')}

@@ -61,7 +61,7 @@ const GlobalError = ({ message }) =>
 const Actions = ({ onCancel, isWorking, submitLabel }) => {
   const { t } = useT();
   return (
-    <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+    <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
       {onCancel && (
         <Button type="button" variant="outline" onClick={onCancel} isDisabled={isWorking}>
           {t('common.cancel')}

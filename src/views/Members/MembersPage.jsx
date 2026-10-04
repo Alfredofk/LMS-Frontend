@@ -1,9 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
-import { DoorOpen, Search, ShieldCheck, ShieldOff, ShieldX, UserMinus, Users } from 'lucide-react';
+import { useLocation, useOutletContext } from 'react-router-dom';
+import { CalendarCheck, ChevronRight, DoorOpen, IdCard, LogOut, Search, ShieldCheck, ShieldOff, ShieldX, UserMinus, Users } from 'lucide-react';
 
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
 import RemoveMemberDialog from '../../components/RemoveMemberDialog';
+import PersonDetailDialog from '../../components/PersonDetailDialog';
+import InfoChips from '../../components/ui/InfoChips';
+import { initialsOf } from '../../utils/names';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import LeaveRequestsPanel from './LeaveRequestsPanel';
 import { membersService } from '../../services/membersService';
@@ -77,7 +80,9 @@ export const MembersPage = () => {
 
   const [active, setActive] = useState(null);
   const [left, setLeft] = useState(null);
-  const [tab, setTab] = useState('ALL');
+  /* A dashboard card can open a tab directly (`state.tab`, owner 2026-10-03). */
+  const location = useLocation();
+  const [tab, setTab] = useState(() => (TABS.includes(location.state?.tab) ? location.state.tab : 'ALL'));
   const [query, setQuery] = useState('');
   const [error, setError] = useState(null);
   const [denied, setDenied] = useState(false);
@@ -87,6 +92,8 @@ export const MembersPage = () => {
   const [leaveError, setLeaveError] = useState(null);
   /* { member, action: 'appoint'|'revoke' } while the question is on screen. */
   const [viceChange, setViceChange] = useState(null);
+  /* The member opened in PersonDetailDialog (owner, 2026-10-03). */
+  const [viewing, setViewing] = useState(null);
   const [viceBusy, setViceBusy] = useState(false);
 
   const fetchBoth = () =>
@@ -152,7 +159,7 @@ export const MembersPage = () => {
 
   const locale = lang === 'en' ? 'en-GB' : 'id-ID';
   const day = (value) =>
-    value ? new Date(value).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+    value ? new Date(value).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
 
   const handleRemoved = (member) => {
     setRemoving(null);
@@ -312,17 +319,29 @@ export const MembersPage = () => {
             const appointable =
               isPrincipal && here && !isVice && member.roles.includes(ROLES.TEACHER) && !member.roles.includes(ROLES.PRINCIPAL);
             const revocable = isPrincipal && here && isVice;
-            const ids = [
-              member.nisn && `${t('profile.nisn')} ${member.nisn}`,
-              member.nip && `${t('profile.nip')} ${member.nip}`,
-              member.nuptk && `${t('profile.nuptk')} ${member.nuptk}`,
-            ].filter(Boolean);
+            const facts = [
+              member.nisn && { icon: IdCard, label: `${t('profile.nisn')} ${member.nisn}` },
+              member.nip && { icon: IdCard, label: `${t('profile.nip')} ${member.nip}` },
+              member.nuptk && { icon: IdCard, label: `${t('profile.nuptk')} ${member.nuptk}` },
+              tab === 'LEFT'
+                ? { icon: LogOut, label: t('members.leftOn', { date: day(member.endedAt) }) }
+                : { icon: CalendarCheck, label: t('members.joinedOn', { date: day(member.joinedAt) }) },
+            ];
 
             return (
               <li key={member.membershipId} className="px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="min-w-0 space-y-1">
+                <button
+                  type="button"
+                  onClick={() => setViewing(member)}
+                  aria-label={t('members.openMember', { name: member.fullName })}
+                  className="group min-w-0 flex-1 flex items-start gap-3 text-left rounded-xl p-1.5 -m-1.5 hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                >
+                <span className="w-10 h-10 rounded-xl bg-brand-tint text-brand text-xs font-extrabold flex items-center justify-center shrink-0 select-none">
+                  {initialsOf(member.fullName)}
+                </span>
+                <div className="min-w-0 flex-1 space-y-1.5">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-sm font-extrabold text-slate-800 break-words">{member.fullName}</span>
+                    <span className="text-sm font-extrabold text-slate-800 break-words group-hover:text-brand transition-colors">{member.fullName}</span>
                     {isSelf && (
                       <span className="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-slate-100 text-slate-600">
                         {t('members.you')}
@@ -334,26 +353,17 @@ export const MembersPage = () => {
                       </span>
                     ))}
                   </div>
-                  {ids.length > 0 && (
-                    <p className="text-[11px] font-semibold text-slate-500 tabular-nums break-words">{ids.join(' · ')}</p>
-                  )}
-                  {tab === 'LEFT' ? (
-                    <>
-                      <p className="text-[11px] font-semibold text-slate-500">
-                        {t('members.leftOn', { date: day(member.endedAt) })}
-                      </p>
-                      {/* The reason somebody else wrote, so marked as a quotation;
-                          none means they left on their own. */}
-                      <p className="mt-1 pl-2 border-l-2 border-slate-200 text-[11px] text-slate-600 font-semibold break-words">
-                        {member.endReason ?? t('members.leftThemselves')}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-[11px] font-semibold text-slate-500">
-                      {t('members.joinedOn', { date: day(member.joinedAt) })}
+                  <InfoChips size="xs" items={facts} />
+                  {tab === 'LEFT' && (
+                    /* The reason somebody else wrote, so marked as a quotation;
+                       none means they left on their own. */
+                    <p className="mt-1 pl-2 border-l-2 border-slate-200 text-[11px] text-slate-600 font-semibold break-words">
+                      {member.endReason ?? t('members.leftThemselves')}
                     </p>
                   )}
                 </div>
+                <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 self-center sm:hidden" aria-hidden="true" />
+                </button>
 
                 {(removable || appointable || revocable) && (
                 <div className="self-start sm:self-center shrink-0 flex flex-wrap gap-2">
@@ -408,6 +418,10 @@ export const MembersPage = () => {
         onConfirm={handleViceConfirm}
         onCancel={() => setViceChange(null)}
       />
+
+      {viewing && (
+        <PersonDetailDialog key={viewing.membershipId} person={viewing} onClose={() => setViewing(null)} />
+      )}
 
       {removing && (
         <RemoveMemberDialog

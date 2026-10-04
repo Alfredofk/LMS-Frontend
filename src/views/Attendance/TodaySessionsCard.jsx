@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertCircle, CalendarClock, Clock, Loader2, MapPin, MapPinOff, RefreshCw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { AlertCircle, BookOpen, CalendarClock, CalendarDays, CalendarX2, Clock, Loader2, MapPin, MapPinOff, RefreshCw } from 'lucide-react';
+
 
 import { useT } from '../../i18n/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -7,6 +9,8 @@ import { sessionsService } from '../../services/sessionsService';
 import { attendanceService } from '../../services/attendanceService';
 import { checkInErrorMessage, isStaleCheckIn } from '../../i18n/apiError';
 import { localOf } from './attendance';
+import { readMyClasses } from '../Classroom/readMyClasses';
+import { meetingWhen, nextMeetingAcross } from '../Classroom/myClasses';
 import { PositionError, focusOf, nextReadIn, readPosition, rowState, withCheckIn } from './checkIn';
 
 /*
@@ -33,7 +37,7 @@ const pill = 'px-2 py-0.5 rounded-md text-[10px] font-extrabold whitespace-nowra
 const STATUS_PILL = {
   PRESENT: 'bg-emerald-50 text-emerald-700',
   SICK: 'bg-amber-50 text-amber-700',
-  EXCUSED: 'bg-amber-50 text-amber-700',
+  EXCUSED: 'bg-sky-50 text-sky-700',
   ABSENT: 'bg-rose-50 text-rose-700',
 };
 
@@ -52,7 +56,21 @@ const headingDate = (iso, lang) =>
 
 export const TodaySessionsCard = ({ onCheckedIn, focus = false }) => {
   const { t, lang } = useT();
+  const navigate = useNavigate();
   const { membership } = useAuth();
+  /* The dashboard's empty day says when the next meeting is (owner, 2026-10-04),
+     from what "Kelas Saya" reads; null until read, false when there is none. */
+  const [nextAcross, setNextAcross] = useState(null);
+  useEffect(() => {
+    if (!focus) return undefined;
+    let cancelled = false;
+    readMyClasses(membership?.id)
+      .then(({ classSubjects, sessionsById }) => !cancelled && setNextAcross(nextMeetingAcross(classSubjects, sessionsById) ?? false))
+      .catch(() => !cancelled && setNextAcross(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [focus, membership?.id]);
   const hasLocation = membership?.school?.hasLocation;
 
   /* undefined while first reading; null after a failed first read. */
@@ -66,6 +84,7 @@ export const TodaySessionsCard = ({ onCheckedIn, focus = false }) => {
   const readAt = useRef(0);
   /* In focus mode: the whole day opened in place. */
   const [expanded, setExpanded] = useState(false);
+  /* The meeting whose materials are open in the side panel. */
 
   const readAgain = useCallback(() => setAttempt((n) => n + 1), []);
 
@@ -138,12 +157,7 @@ export const TodaySessionsCard = ({ onCheckedIn, focus = false }) => {
     <div className="flex items-start justify-between gap-3 pb-4">
       <div className="min-w-0">
         <h2 id="today-sessions" className="text-sm font-extrabold text-slate-800 tracking-tight">{t('checkin.title')}</h2>
-        {day && (
-          <p className="text-[11px] font-semibold text-slate-500 mt-0.5">
-            {headingDate(day.from, lang)}
-            {day.class?.name ? ` · ${day.class.name}` : ''}
-          </p>
-        )}
+        {day && <DayChips day={day} lang={lang} className="mt-1.5" />}
       </div>
       {day && failed && (
         <button
@@ -196,18 +210,17 @@ export const TodaySessionsCard = ({ onCheckedIn, focus = false }) => {
   /* Folded to one slim row (owner, 2026-10-03): it leads the dashboard, and a
      weekend, a holiday or a day already over should not push everything else down. */
   const slim = (message, action) => (
-    <section className="bg-white border border-slate-100 rounded-2xl px-5 py-3.5 shadow-sm text-left flex items-center gap-3" aria-labelledby="today-sessions">
+    /* Top-aligned from lg up, where the dashboard stretches it beside the progress board. */
+    <section className="bg-white border border-slate-100 rounded-2xl px-5 py-3.5 shadow-sm text-left flex items-center lg:items-start gap-3" aria-labelledby="today-sessions">
       <span className="w-9 h-9 bg-brand-tint text-brand rounded-xl flex items-center justify-center shrink-0">
         <CalendarClock className="w-4.5 h-4.5" aria-hidden="true" />
       </span>
       <div className="min-w-0 flex-1">
-        <div className="text-xs font-semibold text-slate-500">
-          <h2 id="today-sessions" className="inline text-xs font-extrabold text-slate-800">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <h2 id="today-sessions" className="text-xs font-extrabold text-slate-800">
             {t('checkin.title')}
           </h2>
-          {' · '}
-          {headingDate(day.from, lang)}
-          {day.class?.name ? ` · ${day.class.name}` : ''}
+          <DayChips day={day} lang={lang} />
         </div>
         <p className="text-xs font-semibold text-slate-600 mt-0.5 leading-relaxed">{message}</p>
         {action}
@@ -225,6 +238,23 @@ export const TodaySessionsCard = ({ onCheckedIn, focus = false }) => {
     </section>
   );
 
+  /* On the dashboard a day with nothing to check in to keeps the full card, as tall
+     as the progress board beside it, with an empty state in the middle (owner,
+     2026-10-04). /attendance keeps the slim row. */
+  const idle = (title, message, action) => (
+    <section className={`${card} h-full flex flex-col`} aria-labelledby="today-sessions">
+      {heading}
+      <div className="flex-1 flex flex-col items-center justify-center text-center py-6">
+        <span className="w-14 h-14 bg-brand-tint text-brand rounded-2xl flex items-center justify-center mb-3">
+          <CalendarX2 className="w-7 h-7" aria-hidden="true" />
+        </span>
+        <p className="text-sm font-extrabold text-slate-800">{title}</p>
+        {message && <p className="mt-1 max-w-xs text-xs font-semibold text-slate-500 leading-relaxed">{message}</p>}
+        {action && <div className="mt-2 flex flex-col items-center gap-1">{action}</div>}
+      </div>
+    </section>
+  );
+
   /* "See all" opens the day in place; "Show less" folds it back to one meeting. */
   const toggle = (label, open) => (
     <button
@@ -237,18 +267,44 @@ export const TodaySessionsCard = ({ onCheckedIn, focus = false }) => {
     </button>
   );
 
+  /* On the dashboard, a day with nothing left says what comes next, and leads there. */
+  const nextLine =
+    focus && nextAcross ? (
+      <button
+        type="button"
+        onClick={() => navigate(`/classroom/${nextAcross.entry.id}?pertemuan=${nextAcross.session.id}`)}
+        className="mt-1 block text-center text-[11px] font-bold text-brand hover:underline cursor-pointer"
+      >
+        {t('checkin.focus.nextAcross', {
+          subject: nextAcross.entry.subject.name,
+          when: meetingWhen(nextAcross.session, lang, { weekday: 'long' }),
+        })}
+      </button>
+    ) : null;
+
   if (sessions.length === 0) {
     const emptyKey = !day.timeZone ? 'checkin.empty.noZone' : !day.class ? 'checkin.empty.noClass' : 'checkin.empty.none';
-    return slim(t(emptyKey));
+    if (!focus) return slim(t(emptyKey), nextLine);
+    return emptyKey === 'checkin.empty.none'
+      ? idle(t('checkin.empty.title'), null, nextLine)
+      : idle(t('checkin.empty.noScheduleTitle'), t(emptyKey), nextLine);
   }
   if (view?.kind === 'done') {
-    return slim(
+    return idle(
+      t('checkin.empty.doneTitle'),
       t('checkin.focus.done', { checked: view.checkedIn, n: view.total }),
-      toggle(t('checkin.focus.seeAll', { n: sessions.length }), true)
+      <>
+        {toggle(t('checkin.focus.seeAll', { n: sessions.length }), true)}
+        {nextLine}
+      </>
     );
   }
   if (view?.kind === 'cancelled') {
-    return slim(t('checkin.focus.allCancelled'), toggle(t('checkin.focus.seeAll', { n: sessions.length }), true));
+    return idle(
+      t('checkin.empty.title'),
+      t('checkin.focus.allCancelled'),
+      toggle(t('checkin.focus.seeAll', { n: sessions.length }), true)
+    );
   }
 
   const shown = view ? [view.session] : sessions;
@@ -280,24 +336,40 @@ export const TodaySessionsCard = ({ onCheckedIn, focus = false }) => {
                   <span className="block text-xs font-extrabold text-slate-800 break-words">{session.subject?.name}</span>
                   <span className="block text-[11px] font-semibold text-slate-500">
                     {t('timetable.session.number', { n: session.number })}
-                    {state === 'otherClass' && ` · ${session.class}`}
+                    {state === 'otherClass' && (
+                      <span className="ml-1.5 px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold">{session.class}</span>
+                    )}
                   </span>
                   <SessionStatusLine state={state} session={session} checkedAt={checkedAt} t={t} />
-                  {state === 'open' && (
-                    <button
-                      type="button"
-                      onClick={() => checkIn(session)}
-                      disabled={Boolean(busy)}
-                      className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-extrabold text-white bg-brand hover:bg-brand-deep rounded-xl transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {running ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
-                      ) : (
-                        <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
-                      )}
-                      {running ? t(`checkin.step.${busy.step}`) : t('checkin.action')}
-                    </button>
-                  )}
+                  <span className="mt-2 flex flex-wrap items-center gap-2">
+                    {state === 'open' && (
+                      <button
+                        type="button"
+                        onClick={() => checkIn(session)}
+                        disabled={Boolean(busy)}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-extrabold text-white bg-brand hover:bg-brand-deep rounded-xl transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {running ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                        ) : (
+                          <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
+                        )}
+                        {running ? t(`checkin.step.${busy.step}`) : t('checkin.action')}
+                      </button>
+                    )}
+                    {/* The meeting's materials (backend bf6e9b5); a previous class's answers 404. */}
+                    {state !== 'otherClass' && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/classroom/${session.classSubjectId}?pertemuan=${session.id}`)}
+                        aria-label={t('content.openNamed', { subject: session.subject?.name ?? '', n: session.number })}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-brand-tint text-brand text-xs font-extrabold hover:bg-brand hover:text-white transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                      >
+                        <BookOpen className="w-3.5 h-3.5" aria-hidden="true" />
+                        {t('content.open')}
+                      </button>
+                    )}
+                  </span>
                 </span>
                 <span className="shrink-0 flex flex-col items-end gap-1">
                   {(state === 'final' || state === 'checkedIn') && (
@@ -324,9 +396,8 @@ export const TodaySessionsCard = ({ onCheckedIn, focus = false }) => {
         })}
       </ul>
       {view && view.others > 0 && (
-        <div className="mt-3 pt-3 border-t border-slate-100 text-[11px] font-semibold text-slate-500">
-          {t('checkin.focus.others', { n: view.others })}
-          {' · '}
+        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold text-slate-500">
+          <span>{t('checkin.focus.others', { n: view.others })}</span>
           {toggle(t('checkin.focus.seeAll', { n: sessions.length }), true)}
         </div>
       )}
@@ -336,6 +407,19 @@ export const TodaySessionsCard = ({ onCheckedIn, focus = false }) => {
     </section>
   );
 };
+
+/* The day and the class as two small pills under the heading, instead of "date · class" (owner, 2026-10-03). */
+const DayChips = ({ day, lang, className = '' }) => (
+  <span className={`flex flex-wrap items-center gap-1.5 ${className}`}>
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold">
+      <CalendarDays className="w-3 h-3" aria-hidden="true" />
+      {headingDate(day.from, lang)}
+    </span>
+    {day.class?.name && (
+      <span className="px-1.5 py-0.5 rounded-md bg-brand-tint text-brand text-[10px] font-extrabold">{day.class.name}</span>
+    )}
+  </span>
+);
 
 /* The line under a meeting's name: what happened, or what will. Also the lesson calendar's (/schedule). */
 export const SessionStatusLine = ({ state, session, checkedAt, t }) => {
@@ -368,9 +452,8 @@ export const SessionStatusLine = ({ state, session, checkedAt, t }) => {
     case 'checkedIn':
       return (
         <>
-          <span className={`${line} text-slate-500 tabular-nums`}>
-            {checkedAt && t('att.checkedInAt', { time: checkedAt.time })}
-            {checkedAt && ' · '}
+          <span className={`${line} text-slate-500 tabular-nums flex flex-wrap gap-x-2`}>
+            {checkedAt && <span>{t('att.checkedInAt', { time: checkedAt.time })}</span>}
             <span className="text-amber-700">{t('att.pending')}</span>
           </span>
           {flags}
@@ -379,9 +462,9 @@ export const SessionStatusLine = ({ state, session, checkedAt, t }) => {
     case 'final':
       return (
         <>
-          <span className={`${line} text-slate-500 tabular-nums`}>
-            {checkedAt ? `${t('att.checkedInAt', { time: checkedAt.time })} · ` : ''}
-            {t('checkin.state.final')}
+          <span className={`${line} text-slate-500 tabular-nums flex flex-wrap gap-x-2`}>
+            {checkedAt && <span>{t('att.checkedInAt', { time: checkedAt.time })}</span>}
+            <span>{t('checkin.state.final')}</span>
           </span>
           {flags}
         </>

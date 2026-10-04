@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarOff, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { CalendarOff, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import Select from '../../components/ui/Select';
 import { DateChip, Legend, SummaryCards, ViewToggle, YearCalendar } from '../../components/holidays/HolidayParts';
 import { KIND_STYLE } from '../../components/holidays/kindStyle';
 import { holidaysService } from '../../services/holidaysService';
@@ -310,7 +311,7 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
                       {formErrors.global}
                     </div>
                   )}
-                  <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+                  <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
                     <Button
                       type="button"
                       size="sm"
@@ -366,49 +367,58 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
                           <li
                             key={`${entry.source}-${entry.id}`}
                             data-days={days}
-                            className={`rounded-2xl border bg-white p-3 flex flex-col sm:flex-row sm:items-center gap-3 transition-shadow ${
+                            /* One line at every width: date, what, and the action on the
+                               right, centred (owner, 2026-10-03: a school holiday's
+                               withdraw button used to drop under the row, so that card
+                               stood taller and lopsided beside the others). Only the
+                               joint-leave picker wraps under, at full width, on a phone. */
+                            className={`rounded-2xl border bg-white p-3 flex flex-wrap sm:flex-nowrap items-center gap-3 transition-shadow ${
                               isHit ? 'border-brand ring-2 ring-brand/20 shadow-md' : 'border-slate-100 shadow-sm'
                             } ${past ? 'opacity-70' : ''}`}
                           >
-                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="flex items-center gap-3 min-w-0 flex-1 basis-56">
                               <DateChip start={entry.start} end={entry.end} lang={lang} past={past} />
                               <div className="min-w-0">
                                 <p className="text-sm font-bold text-slate-800 break-words">{entry.name}</p>
-                                <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold text-slate-500">
+                                <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-slate-500">
                                   <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${KIND_STYLE[entry.kind].soft}`}>
                                     {t(`holiday.kind.${entry.kind}`)}
                                   </span>
-                                  <span>{when(entry)}</span>
+                                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600">{when(entry)}</span>
                                   {entry.source === 'JOINT_LEAVE' && entry.choice !== null && entry.choice !== undefined && (
-                                    <span className="text-[10px] font-bold text-slate-500">· {t('holiday.joint.chosen')}</span>
+                                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600">{t('holiday.joint.chosen')}</span>
                                   )}
                                 </p>
                               </div>
                             </div>
 
                             {canManage && entry.source === 'JOINT_LEAVE' && (
-                              <select
+                              <Select
+                                size="sm"
+                                className="shrink-0 w-full sm:w-48"
                                 aria-label={t('holiday.joint.choice.label', { name: entry.name })}
                                 value={entry.choice === true ? 'off' : entry.choice === false ? 'in' : 'default'}
                                 disabled={busyId === entry.id}
                                 onChange={(e) => setDay(entry, e.target.value)}
-                                className="self-start sm:self-auto shrink-0 rounded-lg border border-slate-200 bg-white py-1.5 pl-2 pr-7 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand cursor-pointer disabled:cursor-wait"
                               >
                                 {JOINT_CHOICES.map((option) => (
                                   <option key={option.value} value={option.value}>
                                     {t(option.key)}
                                   </option>
                                 ))}
-                              </select>
+                              </Select>
                             )}
 
                             {canManage && entry.source === 'SCHOOL' && (
                               <button
                                 type="button"
                                 onClick={() => setWithdrawing(entry)}
-                                className="self-start sm:self-auto shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+                                aria-label={t('holiday.school.withdrawNamed', { name: entry.name })}
+                                title={t('holiday.school.withdraw')}
+                                className="shrink-0 inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
                               >
-                                {t('holiday.school.withdraw')}
+                                <Trash2 className="w-4 h-4 shrink-0" aria-hidden="true" />
+                                <span className="hidden sm:inline">{t('holiday.school.withdraw')}</span>
                               </button>
                             )}
                           </li>

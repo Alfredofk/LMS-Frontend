@@ -64,6 +64,16 @@ export const sessionsService = {
    * Vice Principal. Each is a session plus
    * `classSubject: { id, class, subject, semester, teacher: { membershipId, fullName } }`.
    */
+  /**
+   * The teacher says a meeting created already past did not take place (backend
+   * deb95e8): only one still `needsCompletion`, begun, not cancelled. Answers the
+   * session, now CANCELLED with `cancelReason: 'NOT_HELD'`.
+   */
+  async notHeld(sessionId) {
+    const answer = await api.post(`/sessions/${encodeURIComponent(sessionId)}/not-held`);
+    return answer?.session ?? null;
+  },
+
   async needsCompletion() {
     const answer = await api.get('/sessions/needs-completion');
     return answer?.sessions ?? [];

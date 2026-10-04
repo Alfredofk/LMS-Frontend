@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 import {
+  semesterLength,
   WEEK_DAYS,
   ALL_DAYS,
   visibleDays,
@@ -181,8 +182,8 @@ describe('sessionState — sessionView into a word', () => {
 
 describe('timeRange — a meeting time that never wraps', () => {
   it('joins both sides of the dash with a word joiner, so a narrow screen cannot break it', () => {
-    expect(timeRange('07:00', '08:30')).toBe('07:00\u2060–\u206008:30');
-    expect(timeRange('07:00', '08:30').replace(/\u2060/g, '')).toBe('07:00–08:30');
+    expect(timeRange('07:00', '08:30')).toBe('07:00\u2060-\u206008:30');
+    expect(timeRange('07:00', '08:30').replace(/\u2060/g, '')).toBe('07:00-08:30');
   });
 });
 
@@ -202,5 +203,22 @@ describe('rosterOpenable — a meeting whose attendance can exist', () => {
 
   it('not a cancelled one, even past', () => {
     expect(rosterOpenable(at('2026-09-07T00:00:00Z', 'CANCELLED'), now)).toBe(false);
+  });
+});
+
+describe('semesterLength - why a subject shows so few meetings', () => {
+  it('counts both ends, in calendar days', () => {
+    expect(semesterLength('2028-08-18T00:00:00.000Z', '2028-09-03T00:00:00.000Z')).toEqual({ days: 17, weeks: 2, short: true });
+  });
+  it('does not warn about a real half year', () => {
+    expect(semesterLength('2027-08-20', '2028-02-18')).toEqual({ days: 183, weeks: 26, short: false });
+  });
+  it('warns below eight weeks, not at eight', () => {
+    expect(semesterLength('2028-01-01', '2028-02-25').short).toBe(false);
+    expect(semesterLength('2028-01-01', '2028-02-24').short).toBe(true);
+  });
+  it('answers null for dates it cannot read or that run backwards', () => {
+    expect(semesterLength(null, '2028-01-01')).toBeNull();
+    expect(semesterLength('2028-02-01', '2028-01-01')).toBeNull();
   });
 });

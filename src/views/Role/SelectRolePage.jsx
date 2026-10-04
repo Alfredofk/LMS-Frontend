@@ -28,7 +28,6 @@ import { apiErrorMessage, cancelErrorMessage } from '../../i18n/apiError';
 import { membershipService } from '../../services/membershipService';
 import { schoolService } from '../../services/schoolService';
 import { authService } from '../../services/authService';
-import { adminService } from '../../services/adminService';
 import { accessTokenClaims } from '../../services/apiClient';
 
 /*
@@ -255,18 +254,8 @@ export const SelectRolePage = () => {
           what this screen is mainly for — so it is swallowed rather than
           replacing them with an error.
         */
-        /*
-          Both at once. The registration and the platform-admin probe are
-          independent, and running them in sequence made the pause before the
-          redirect twice as long as it needed to be.
-        */
         const noRoles = session.roles.length === 0;
-        const [mine, adminProbe] = await Promise.allSettled([
-          schoolService.listMyRegistrations(),
-          /* A probe: only the status code matters, so ask for one row rather
-             than the default page of fifty. */
-          noRoles ? adminService.list({ limit: 1 }) : Promise.reject(new Error('skipped')),
-        ]);
+        const [mine] = await Promise.allSettled([schoolService.listMyRegistrations()]);
 
         const latest =
           mine.status === 'fulfilled' ? (mine.value.registrations?.[0] ?? null) : null;
@@ -311,18 +300,11 @@ export const SelectRolePage = () => {
           join as a student, join as a teacher, register a school — none of
           which is their job.
 
-          There is no flag to read. `/users/me` answers `publicUser`, which
-          carries id, email, fullName, emailVerifiedAt and createdAt and nothing
-          about platform admins; the only place that knowledge lives is the
-          PlatformAdmin table, which `requirePlatformAdmin` consults on every
-          request. So the question is asked the only way it can be — by calling
-          an admin route and seeing whether it refuses.
-
-          Only asked when there are no roles at all, which is exactly the case
-          this screen cannot serve. Somebody with a school to enter is not
-          probed, and pays nothing for this.
+          `/users/me` says so since backend 1bd81ab, and `refreshMe` above has
+          just read it. One who also holds a school role is taken to that role
+          instead; the avatar menu offers them the admin's screens.
         */
-        if (noRoles && adminProbe.status === 'fulfilled') {
+        if (noRoles && session.isPlatformAdmin) {
           /* Returns without clearing `isLoading` or setting `hasChecked`, so
              this screen keeps its loading state for the frame or two before the
              route changes — no flash of cards nobody can use. */
@@ -448,8 +430,8 @@ export const SelectRolePage = () => {
     afterwards — which is what the probe inside `check()` used to do on its own —
     put the whole purple page on screen and then took it away again.
 
-    `check()` still probes as a fallback, for a session that predates this flag
-    or one whose admin rights were granted mid-session.
+    `check()` reads /users/me again as a fallback, for a session that predates
+    this flag or one whose admin rights were granted mid-session.
   */
   if (isPlatformAdmin && roles.length === 0) {
     return <Navigate to="/admin/school-registrations" replace />;
@@ -524,7 +506,7 @@ export const SelectRolePage = () => {
       >
         {t('account.title')}
       </button>
-      <span className="text-slate-200 select-none" aria-hidden="true">·</span>
+      <span className="w-px h-3.5 bg-slate-200" aria-hidden="true" />
       <button
         type="button"
         onClick={() => setIsSignOutOpen(true)}
@@ -552,7 +534,7 @@ export const SelectRolePage = () => {
           </h2>
           <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold break-all">
             {user?.fullName ? t('selectRole.signedInAs', { name: user.fullName }) : ''}
-            {user?.email ? ` · ${user.email}` : ''}
+            {user?.email ? ` (${user.email})` : ''}
           </p>
         </div>
 

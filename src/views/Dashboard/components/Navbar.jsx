@@ -17,6 +17,8 @@ import { classroomData } from '../../Classroom/classroomData';
 import { useT } from '../../../i18n/LanguageContext';
 import { getAccessToken } from '../../../services/apiClient';
 import AccountMenu from '../../../components/AccountMenu';
+import { useAuth } from '../../../context/AuthContext';
+import { homeFor, isPrincipalDesk } from '../../../constants/roles';
 
 /*
   What the bar says on each route, and whether it carries a back arrow.
@@ -60,6 +62,7 @@ const TITLES = {
 
 export const Navbar = ({ showToast, onOpenNav }) => {
   const navigate = useNavigate();
+  const { activeRole } = useAuth();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useT();
@@ -303,25 +306,36 @@ export const Navbar = ({ showToast, onOpenNav }) => {
       );
     }
 
+    /* A student's subject (ClassroomSubject): the page heads itself with the
+       subject's name; the breadcrumb only says where it sits and leads back.
+       Same gap and size as "Kelas Saya" on the list (owner, 2026-10-04: going
+       from one to the other, the title jumped 4px and shrank to 12px), so
+       "Kelas Saya" stays put and the detail appears beside it. */
     if (location.pathname.startsWith('/classroom/')) {
-      const courseId = location.pathname.split('/').pop();
-      const course = classroomData.find(c => c.id === courseId) || classroomData[0];
-      
-      if (!course) {
-        return (
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 select-none">
-            <span className="font-extrabold">{t('shell.myCourses')}</span>
-          </div>
-        );
-      }
-
       return (
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 select-none">
-          <span className="hover:text-slate-600 transition-colors">{t('shell.myCourses')}</span>
-          <span className="text-slate-300 text-[10px] font-bold">/</span>
-          <span className="hover:text-slate-600 transition-colors">{course.className}</span>
-          <span className="text-slate-300 text-[10px] font-bold">/</span>
-          <span className="text-slate-800 font-extrabold">{course.name}</span>
+        <div className="flex min-w-0 items-center gap-3 text-xl font-bold tracking-tight">
+          <button
+            type="button"
+            onClick={() => navigate('/classroom')}
+            aria-label={t('classroom.back')}
+            title={t('classroom.back')}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/classroom')}
+            className="hidden sm:inline shrink-0 text-slate-500 hover:text-brand transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+          >
+            {t('shell.myCourses')}
+          </button>
+          <span className="hidden sm:inline text-slate-300" aria-hidden="true">/</span>
+          {/* The full words cut to "Detail Mata Pe..." on a phone; a short form there. */}
+          <span className="truncate text-slate-900">
+            <span className="sm:hidden">{t('shell.title.courseDetailShort')}</span>
+            <span className="hidden sm:inline">{t('shell.title.courseDetail')}</span>
+          </span>
         </div>
       );
     }
@@ -378,7 +392,10 @@ export const Navbar = ({ showToast, onOpenNav }) => {
       );
     }
 
-    const entry = TITLES[location.pathname];
+    const found = TITLES[location.pathname];
+    /* /schedule is "Calendar" at the Principal's desk (owner, 2026-10-03). */
+    const entry =
+      found && location.pathname === '/schedule' && isPrincipalDesk(activeRole) ? { ...found, key: 'shell.calendar' } : found;
 
     /*
       Falling back to the dashboard's title is only right for a route that has
@@ -398,7 +415,7 @@ export const Navbar = ({ showToast, onOpenNav }) => {
       <div className="flex items-center gap-3">
         <button
           type="button"
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate(homeFor(activeRole))}
           className="w-8 h-8 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
           title={t('shell.backToDashboard')}
         >

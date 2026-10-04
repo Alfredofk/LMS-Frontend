@@ -40,6 +40,7 @@ import {
   validateSchoolName,
   validateCity,
   validateApplicantPhone,
+  validatePhone,
   validateDurationYears,
   validateKtpFile,
   fieldErrorsFrom,
@@ -50,6 +51,8 @@ import {
   confirmsName,
   childErrors,
   childPayload,
+  guardianErrors,
+  guardianRequestPayload,
   yearDatesMatchLabel,
   semesterFits,
   yearHoldsSemesters,
@@ -470,6 +473,19 @@ describe('applicant phone — school.schema.js:22-25', () => {
   });
 });
 
+describe('own phone — auth.schema.js phone, users.schema.js optionalPhone', () => {
+  it('is required unless asked to be optional', () => {
+    expect(keyOf(validatePhone(''))).toBe('validation.phone.required');
+    expect(validatePhone('', { optional: true })).toBeNull();
+    expect(validatePhone('   ', { optional: true })).toBeNull();
+  });
+
+  it('holds an optional number, once typed, to the same rule', () => {
+    expect(keyOf(validatePhone(digits(7), { optional: true }))).toBe('validation.phone.format');
+    expect(validatePhone('0812 3456 7890', { optional: true })).toBeNull();
+  });
+});
+
 describe('duration — school.schema.js:34-60 and shared/schoolType.js:20-25', () => {
   it('makes an SMK choose, and choose 3 or 4', () => {
     expect(keyOf(validateDurationYears('SMK', ''))).toBe('validation.duration.required');
@@ -649,6 +665,27 @@ describe('childErrors — the three boxes that name a child (membership.schema.j
 
   it('builds a payload of exactly those three, trimmed', () => {
     expect(childPayload({ ...ok, childFullName: '  Budi Santoso ', extra: 'x' })).toEqual(ok);
+  });
+});
+
+describe('guardianErrors — asking for GUARDIAN brings a phone (membership.schema.js guardianRequestPayload)', () => {
+  const ok = { childNisn: '0012345678', childFullName: 'Budi Santoso', relationship: 'Ayah', phone: '081234567890' };
+
+  it('passes the child and a phone', () => {
+    expect(guardianErrors(ok)).toEqual({});
+  });
+
+  it('asks for the phone beside the child boxes', () => {
+    expect(Object.keys(guardianErrors({ ...ok, phone: '' }))).toEqual(['phone']);
+    expect(Object.keys(guardianErrors({ ...ok, phone: '0812' }))).toEqual(['phone']);
+    expect(Object.keys(guardianErrors({}))).toEqual(['childNisn', 'childFullName', 'relationship', 'phone']);
+  });
+
+  it('builds the child payload plus the phone, trimmed', () => {
+    expect(guardianRequestPayload({ ...ok, phone: ' 0812-3456-7890 ', extra: 'x' })).toEqual({
+      ...ok,
+      phone: '0812-3456-7890',
+    });
   });
 });
 

@@ -128,9 +128,12 @@ export const AwaitingConfirmationCard = () => {
                       const endedTeacher = endedTeacherOf(session);
                       return (
                         <li key={session.id} className="rounded-lg bg-slate-50 px-3 py-2">
-                          <span className="block text-xs font-bold text-slate-800 break-words">
-                            {session.classSubject.class} · {session.classSubject.subject.name} ·{' '}
-                            {t('timetable.session.number', { n: session.number })}
+                          <span className="flex flex-wrap items-center gap-1.5 text-xs font-bold text-slate-800 break-words">
+                            <span className="px-1.5 py-0.5 rounded-md bg-brand-tint text-brand text-[10px] font-extrabold">{session.classSubject.class}</span>
+                            <span>{session.classSubject.subject.name}</span>
+                            <span className="px-1.5 py-0.5 rounded-md bg-white text-slate-600 text-[10px] font-extrabold border border-slate-200">
+                              {t('timetable.session.number', { n: session.number })}
+                            </span>
                           </span>
                           <span className="block text-[11px] font-semibold text-slate-500 tabular-nums">
                             {t('timetable.session.when', {

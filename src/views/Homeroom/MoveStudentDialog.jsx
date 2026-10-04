@@ -58,7 +58,7 @@ export const MoveStudentDialog = ({ student, fromClass, onClose, onRequested }) 
 
   /* Focus the select once it exists — the first thing to decide. */
   useEffect(() => {
-    if (targets) selectWrapRef.current?.querySelector('select')?.focus();
+    if (targets) selectWrapRef.current?.querySelector('[role="combobox"]')?.focus();
   }, [targets]);
 
   useEffect(() => {

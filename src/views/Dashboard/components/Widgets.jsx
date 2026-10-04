@@ -1,15 +1,16 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, ListTodo, Megaphone, Calendar, Wrench } from 'lucide-react';
+import { BookOpen, ListTodo, Calendar, UserRound, Wrench } from 'lucide-react';
 
 import { useT } from '../../../i18n/LanguageContext';
 import { SampleTag } from './SampleDataNotice';
 
 /*
-  Three cards on the student dashboard, still waiting for their endpoints. A fourth, today's
-  activities, became TodaySessionsCard on real data (owner, 2026-10-03).
+  Two cards on the student dashboard, still waiting for their endpoints. Today's
+  activities became TodaySessionsCard on real data, and school announcements became
+  PinnedAnnouncements at the top of the page (owner, 2026-10-03).
 
-  All four are presentational: they take their data as a prop and fetch nothing.
+  Both are presentational: they take their data as a prop and fetch nothing.
   That is not a temporary arrangement waiting for endpoints — it is what lets the
   same components render sample data today and a real payload tomorrow without
   being touched.
@@ -92,7 +93,7 @@ const WidgetCard = ({ titleKey, seeAllTo, isSample, notBuilt, footer, children }
       <div>
         <div className="flex items-center justify-between gap-2 pb-4">
           <div className="flex items-center gap-2 min-w-0">
-            <h3 className="text-sm font-extrabold text-slate-800 tracking-tight truncate">
+            <h3 className="text-sm font-extrabold text-slate-800 tracking-tight leading-snug">
               {t(titleKey)}
             </h3>
             {isSample && <SampleTag />}
@@ -167,7 +168,7 @@ export const ActiveAssessment = ({ assessments = [], isLoading, isSample, notBui
   };
 
   const dueTextOf = ({ daysLeft, date }) => {
-    if (daysLeft === null) return t('dash.assessment.dueOn', { date: '—' });
+    if (daysLeft === null) return t('dash.assessment.dueOn', { date: '-' });
     if (daysLeft <= 0) return t('dash.assessment.dueToday');
     if (daysLeft === 1) return t('dash.assessment.dueTomorrow');
     return t('dash.assessment.dueOn', { date });
@@ -204,7 +205,7 @@ export const ActiveAssessment = ({ assessments = [], isLoading, isSample, notBui
             const badge =
               task.daysLeft !== null && task.daysLeft <= 1
                 ? t('dash.assessment.badgeSoon')
-                : task.date ?? '—';
+                : task.date ?? '-';
 
             /*
               A sample row must not navigate. /assignment/:id is a real route
@@ -232,7 +233,7 @@ export const ActiveAssessment = ({ assessments = [], isLoading, isSample, notBui
                       {task.title}
                     </div>
                     <div className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
-                      {task.subjectName || t('dash.assessment.subjectFallback')} · {dueTextOf(task)}
+                      {task.subjectName || t('dash.assessment.subjectFallback')}, {dueTextOf(task)}
                     </div>
                   </div>
                 </div>
@@ -256,115 +257,72 @@ export const ActiveAssessment = ({ assessments = [], isLoading, isSample, notBui
 /**
  * @param {Array<{classSubjectId, subjectName, teacherName, totalTasks, submittedTasks}>} courseProgress
  */
-export const CourseProgress = ({ courseProgress = [], isLoading, isSample, notBuilt }) => {
-  const { t } = useT();
+/*
+  The subjects of the student's class this semester and how far each has come,
+  in meetings held (owner, 2026-10-04) - the data "Kelas Saya" reads
+  (views/Classroom/readMyClasses.js). A row opens the subject.
 
-  if (isLoading) return <WidgetSkeleton rows={2} />;
+  @param subjects  [{ entry, progress }] from currentSubjects, or null while reading
+  @param failed    the read failed
+*/
+export const CourseProgress = ({ subjects, failed }) => {
+  const { t } = useT();
+  const navigate = useNavigate();
+
+  if (subjects === null && !failed) return <WidgetSkeleton rows={3} />;
 
   return (
-    <WidgetCard titleKey="dash.progress.title" seeAllTo="/classroom" isSample={isSample} notBuilt={notBuilt}>
-      {courseProgress.length === 0 ? (
+    <WidgetCard titleKey="dash.progress.title" seeAllTo="/classroom">
+      {failed ? (
+        <EmptyState icon={BookOpen} messageKey="dash.progress.failed" />
+      ) : subjects.length === 0 ? (
         <EmptyState icon={BookOpen} messageKey="dash.progress.empty" />
       ) : (
-        <div className="space-y-4">
-          {courseProgress.slice(0, 4).map((course) => {
-            const total = Number(course.totalTasks) || 0;
-            const done = Number(course.submittedTasks) || 0;
+        <ul className="space-y-1">
+          {subjects.slice(0, 5).map(({ entry, progress }) => {
+            const total = progress?.total ?? 0;
+            const done = progress?.held ?? 0;
             const percent = total > 0 ? Math.round((done / total) * 100) : 0;
-
             return (
-              <div key={course.classSubjectId} className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-[#EDF3FF] text-[#4F46E5] flex items-center justify-center shrink-0">
-                    <BookOpen className="w-4 h-4 opacity-80" aria-hidden="true" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-900 truncate">
-                      {course.subjectName}
-                    </div>
-                    <div className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
-                      {course.teacherName || t('dash.progress.teacherFallback')}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="shrink-0 text-right">
-                  <span className="text-[11px] font-bold text-slate-800">
-                    {t('dash.progress.value', { done, total })}
-                  </span>
-                  <div className="w-24 sm:w-28 h-1 bg-slate-100 rounded-full overflow-hidden mt-1">
-                    <div
-                      className="h-full bg-brand rounded-full transition-all duration-300"
-                      style={{ width: `${percent}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </WidgetCard>
-  );
-};
-
-/* ---------------------------------------------------------------------- */
-/* 3. School announcements                                                */
-/* ---------------------------------------------------------------------- */
-
-/**
- * @param {Array<{id, title, body, createdAt, authorName}>} announcements
- */
-export const SchoolAnnouncement = ({ announcements = [], isLoading, isSample, notBuilt }) => {
-  const { t } = useT();
-
-  if (isLoading) return <WidgetSkeleton rows={2} />;
-
-  const now = new Date();
-
-  /* Same vocabulary the navbar uses for its notifications, so the two agree. */
-  const timeAgo = (iso) => {
-    const days = daysUntil(iso, now);
-    if (days === null) return t('shell.time.justNow');
-    return days >= 0 ? t('dash.time.today') : t('shell.time.days', { n: -days });
-  };
-
-  return (
-    <WidgetCard titleKey="dash.announcement.title" seeAllTo="/announcements" isSample={isSample} notBuilt={notBuilt}>
-      {announcements.length === 0 ? (
-        <EmptyState icon={Megaphone} messageKey="dash.announcement.empty" />
-      ) : (
-        <div className="space-y-3">
-          {announcements.slice(0, 3).map((ann, idx) => {
-            const meta = `${timeAgo(ann.createdAt)} · ${ann.authorName || t('dash.announcement.authorFallback')}`;
-
-            // The newest one is worth looking at first, so it gets the card.
-            if (idx === 0) {
-              return (
-                <div
-                  key={ann.id}
-                  className="bg-[#EFF6FF] border border-[#DBEAFE] rounded-xl p-3.5 space-y-1 text-left"
+              <li key={entry.id}>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/classroom/${entry.id}`)}
+                  className="w-full flex items-center justify-between gap-3 rounded-xl px-2 py-2 -mx-2 text-left hover:bg-slate-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                 >
-                  <div className="text-xs font-bold text-blue-700 leading-tight">{ann.title}</div>
-                  <p className="text-[11px] text-blue-600/90 leading-relaxed font-normal">
-                    {ann.body}
-                  </p>
-                  <div className="text-[9px] text-blue-400 font-medium pt-0.5">{meta}</div>
-                </div>
-              );
-            }
-
-            return (
-              <div key={ann.id} className="space-y-0.5 text-left pt-1">
-                <div className="text-xs font-bold text-slate-800 leading-tight">{ann.title}</div>
-                <p className="text-[11px] text-slate-500 leading-relaxed font-normal line-clamp-1">
-                  {ann.body}
-                </p>
-                <div className="text-[9px] text-slate-500 font-medium">{meta}</div>
-              </div>
+                  <span className="flex items-center gap-3 min-w-0">
+                    <span className="w-10 h-10 rounded-xl bg-brand-tint text-brand flex items-center justify-center shrink-0">
+                      <BookOpen className="w-5 h-5" aria-hidden="true" />
+                    </span>
+                    {/* Code above the name, as on "Kelas Saya" (owner, 2026-10-04). */}
+                    <span className="min-w-0">
+                      {entry.subject.code && (
+                        <span className="block text-[10px] font-extrabold uppercase tracking-wider text-brand leading-none">
+                          {entry.subject.code}
+                        </span>
+                      )}
+                      <span className="block mt-1 text-sm font-extrabold text-slate-900 leading-tight break-words">
+                        {entry.subject.name}
+                      </span>
+                      <span className="mt-0.5 flex items-center gap-1 text-[11px] font-semibold text-slate-500 min-w-0">
+                        <UserRound className="w-3 h-3 shrink-0" aria-hidden="true" />
+                        <span className="break-words min-w-0">{entry.teacher?.fullName}</span>
+                      </span>
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-right">
+                    <span className="text-[11px] font-bold text-slate-800 tabular-nums">
+                      {progress ? t('dash.progress.value', { done, total }) : '-'}
+                    </span>
+                    <span className="block w-24 sm:w-28 h-1 bg-slate-100 rounded-full overflow-hidden mt-1" aria-hidden="true">
+                      <span className="block h-full bg-brand rounded-full" style={{ width: `${percent}%` }} />
+                    </span>
+                  </span>
+                </button>
+              </li>
             );
           })}
-        </div>
+        </ul>
       )}
     </WidgetCard>
   );

@@ -1,5 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { UserPlus } from 'lucide-react';
+
+import { modalActions, modalCancelClass, modalConfirmClass } from '../../components/ui/modalStyles';
+import ModalHeading from '../../components/ui/ModalHeading';
 
 import SelectField from '../../components/ui/SelectField';
 import { academicsService } from '../../services/academicsService';
@@ -27,7 +31,7 @@ export const AssignTeacherDialog = ({ boardClass, semester, subjects, teachers, 
 
   useEffect(() => {
     openerRef.current = document.activeElement;
-    firstRef.current?.querySelector('select')?.focus();
+    firstRef.current?.querySelector('[role="combobox"]')?.focus();
     return () => {
       if (openerRef.current?.isConnected) openerRef.current.focus();
     };
@@ -73,7 +77,7 @@ export const AssignTeacherDialog = ({ boardClass, semester, subjects, teachers, 
 
   const option = (entry) => (
     <option key={entry.id} value={entry.id}>
-      {entry.code} — {entry.name}
+      {entry.code} - {entry.name}
     </option>
   );
 
@@ -91,14 +95,14 @@ export const AssignTeacherDialog = ({ boardClass, semester, subjects, teachers, 
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 sm:p-7 space-y-4 text-left max-h-[90dvh] overflow-y-auto"
       >
-        <div className="space-y-2">
-          <h2 id="assign-teacher-title" className="text-base font-extrabold text-slate-900 tracking-tight break-words">
-            {t('subjects.assign.title', { className: boardClass.name })}
-          </h2>
-          <p id="assign-teacher-body" className="text-xs text-slate-500 font-medium leading-relaxed">
-            {t('subjects.assign.body', { n: semester.ordinal, year: semester.academicYear })}
-          </p>
-        </div>
+        <ModalHeading
+          tone="brand"
+          icon={UserPlus}
+          titleId="assign-teacher-title"
+          title={t('subjects.assign.title', { className: boardClass.name })}
+          bodyId="assign-teacher-body"
+          body={t('subjects.assign.body', { n: semester.ordinal, year: semester.academicYear })}
+        />
 
         {subjects.length === 0 ? (
           <p className="text-xs font-semibold text-slate-600 leading-relaxed">{t('subjects.assign.noneFree')}</p>
@@ -162,14 +166,12 @@ export const AssignTeacherDialog = ({ boardClass, semester, subjects, teachers, 
           </div>
         )}
 
-        <div className="flex justify-end gap-2 pt-1">
+        <div className={modalActions}>
           <button
             type="button"
             onClick={onClose}
             disabled={busy}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold text-slate-600 border border-slate-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
-              busy ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer'
-            }`}
+            className={modalCancelClass(busy)}
           >
             {t('common.cancel')}
           </button>
@@ -178,9 +180,7 @@ export const AssignTeacherDialog = ({ boardClass, semester, subjects, teachers, 
               type="button"
               onClick={handleAssign}
               disabled={busy}
-              className={`px-5 py-2 rounded-xl text-xs font-extrabold text-white shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 bg-brand hover:bg-brand-deep focus-visible:ring-brand ${
-                busy ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'
-              }`}
+              className={modalConfirmClass('brand', busy)}
             >
               {busy ? t('common.loading') : t('subjects.assign.confirm')}
             </button>

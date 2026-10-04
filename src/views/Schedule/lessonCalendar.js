@@ -51,13 +51,35 @@ export function dayMarks(list) {
   return out;
 }
 
+/*
+  The month as an agenda (owner, 2026-10-03, after BINUSMAYA's "My Schedule"):
+  lessons and holidays together, by day, from a start day to the month's end.
+*/
+
 /**
- * The day to open when a month is shown: today when it is in that month, else
- * the first day with a meeting, else the first of the month.
+ * Where the list starts: a day the reader picked, else today when it falls in
+ * the month, else the first of the month.
  */
-export function openingDay({ year, month }, today, days) {
+export function agendaStart({ year, month }, today, picked = null) {
   const { from, to } = monthRange(year, month);
+  if (picked && picked >= from && picked <= to) return picked;
   if (today >= from && today <= to) return today;
-  const first = [...(days?.keys() ?? [])].filter((d) => d >= from && d <= to).sort()[0];
-  return first ?? from;
+  return from;
+}
+
+/**
+ * The days from `start` to the month's end that hold something, in order:
+ * `[{ date, holidays, sessions }]`. `days` is `byDay(sessions)`; `holidays` is
+ * utils/holidays.js `daysIndex(items)` — both keyed 'YYYY-MM-DD'.
+ */
+export function agendaOf({ year, month }, start, days, holidays) {
+  const { to } = monthRange(year, month);
+  const dates = new Set();
+  for (const date of days?.keys() ?? []) if (date >= start && date <= to) dates.add(date);
+  for (const date of holidays?.keys() ?? []) if (date >= start && date <= to) dates.add(date);
+  return [...dates].sort().map((date) => ({
+    date,
+    holidays: holidays?.get(date) ?? [],
+    sessions: days?.get(date) ?? [],
+  }));
 }

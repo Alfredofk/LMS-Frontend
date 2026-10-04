@@ -1,6 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
+import ModalHeading from './ModalHeading';
+import { modalActions, modalCancelClass, modalConfirmClass } from './modalStyles';
+
 /*
   A question that has to be answered before something irreversible happens.
 
@@ -25,18 +28,14 @@ import { createPortal } from 'react-dom';
   confirms it, which is the same accident one step later.
 */
 
-const TONES = {
-  danger: 'bg-rose-600 hover:bg-rose-700 focus-visible:ring-rose-500',
-  brand: 'bg-brand hover:bg-brand-deep focus-visible:ring-brand',
-};
-
 /**
  * @param {boolean} open
  * @param {string} title        already translated
  * @param {string} body         already translated
  * @param {string} confirmLabel already translated
  * @param {string} cancelLabel  already translated
- * @param {'danger'|'brand'} [tone]
+ * @param {'danger'|'brand'} [tone]  red with a bin, or purple with a question mark
+ * @param {import('react').ComponentType} [icon]  another lucide icon for the tile
  * @param {boolean} [busy]        the confirmed work is still running: both
  *                                buttons, Escape and the backdrop stop answering,
  *                                so the question cannot be answered twice
@@ -51,6 +50,7 @@ export const ConfirmDialog = ({
   confirmLabel,
   cancelLabel,
   tone = 'danger',
+  icon,
   busy = false,
   busyLabel,
   onConfirm,
@@ -103,16 +103,18 @@ export const ConfirmDialog = ({
         aria-busy={busy}
         /* The backdrop closes on click; the panel must not pass its own clicks up. */
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 sm:p-7 space-y-3 text-left max-h-[90dvh] overflow-y-auto"
+        className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 sm:p-7 space-y-4 text-left max-h-[90dvh] overflow-y-auto"
       >
-        <h2 id="confirm-dialog-title" className="text-base font-extrabold text-slate-900 tracking-tight">
-          {title}
-        </h2>
-        <p id="confirm-dialog-body" className="text-xs text-slate-500 font-medium leading-relaxed">
-          {body}
-        </p>
+        <ModalHeading
+          tone={tone === 'brand' ? 'brand' : 'danger'}
+          icon={icon}
+          titleId="confirm-dialog-title"
+          title={title}
+          bodyId="confirm-dialog-body"
+          body={body}
+        />
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className={modalActions}>
           <button
             ref={cancelRef}
             type="button"
@@ -125,9 +127,7 @@ export const ConfirmDialog = ({
               beating `cursor-pointer` would be luck. Only one of the two is
               emitted, which needs no luck.
             */
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold text-slate-600 border border-slate-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
-              busy ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer'
-            }`}
+            className={modalCancelClass(busy)}
           >
             {cancelLabel}
           </button>
@@ -135,9 +135,7 @@ export const ConfirmDialog = ({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className={`px-5 py-2 rounded-xl text-xs font-extrabold text-white shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
-              TONES[tone] ?? TONES.danger
-            } ${busy ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
+            className={modalConfirmClass(tone === 'brand' ? 'brand' : 'danger', busy)}
           >
             {busy ? busyLabel ?? confirmLabel : confirmLabel}
           </button>

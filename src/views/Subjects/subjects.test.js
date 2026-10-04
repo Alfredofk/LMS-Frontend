@@ -3,6 +3,8 @@ import { describe, it, expect } from 'vitest';
 import {
   defaultSlot,
   freeSubjects,
+  subjectsInUse,
+  selectionChanges,
   boardWritable,
   deadlinePassed,
   bulkOutcome,
@@ -54,6 +56,43 @@ describe('freeSubjects — one PENDING or ACTIVE per class + subject + semester'
     const catalog = [{ id: 'mtk' }, { id: 'bind' }, { id: 'fis' }];
     const boardClass = { subjects: [{ subject: { id: 'mtk' } }, { subject: { id: 'fis' } }] };
     expect(freeSubjects(catalog, boardClass).map((s) => s.id)).toEqual(['bind']);
+  });
+  it('never offers a subject the school deselected (assertSubjectSelected)', () => {
+    const catalog = [{ id: 'mtk', selected: true }, { id: 'bind', selected: false }, { id: 'fis' }];
+    expect(freeSubjects(catalog, { subjects: [] }).map((s) => s.id)).toEqual(['mtk', 'fis']);
+  });
+});
+
+describe('selectionChanges - the Catalog ticks against the server (a852609)', () => {
+  const catalog = [
+    { id: 'mtk', national: true, selected: true, activeClassSubjects: 2, pendingRequests: 1 },
+    { id: 'bjw', national: true, selected: true, activeClassSubjects: 0, pendingRequests: 0 },
+    { id: 'sen', national: true, selected: false, activeClassSubjects: 0, pendingRequests: 0 },
+    { id: 'mulok', national: false, selected: true },
+  ];
+  it('is clean when the ticks match the server', () => {
+    const c = selectionChanges(catalog, new Set(['mtk', 'bjw']));
+    expect(c.dirty).toBe(false);
+    expect(c.selectedIds).toEqual(['mtk', 'bjw']);
+  });
+  it('sends every national subject ticked, never a local one', () => {
+    const c = selectionChanges(catalog, new Set(['mtk', 'sen', 'mulok']));
+    expect(c.selectedIds).toEqual(['mtk', 'sen']);
+    expect(c.selecting.map((s) => s.id)).toEqual(['sen']);
+    expect(c.deselecting.map((s) => s.id)).toEqual(['bjw']);
+  });
+  it('flags a deselected subject only while something runs or waits on it', () => {
+    const c = selectionChanges(catalog, new Set([]));
+    expect(c.deselecting.map((s) => s.id)).toEqual(['mtk', 'bjw']);
+    expect(c.stillRunning.map((s) => s.id)).toEqual(['mtk']);
+    expect(c.selectedIds).toEqual([]);
+  });
+});
+
+describe('subjectsInUse - what the school teaches (a852609)', () => {
+  it('keeps selected and unmarked rows, drops deselected ones', () => {
+    expect(subjectsInUse([{ id: 'a', selected: true }, { id: 'b', selected: false }, { id: 'c' }]).map((s) => s.id)).toEqual(['a', 'c']);
+    expect(subjectsInUse(null)).toEqual([]);
   });
 });
 

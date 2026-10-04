@@ -60,7 +60,7 @@ const Empty = () => {
   const { t } = useT();
   return (
     <span className="text-slate-300 font-medium" title={t('profile.empty')}>
-      —
+      -
     </span>
   );
 };
@@ -79,7 +79,7 @@ const Identifier = ({ value }) => {
 };
 
 const initialsOf = (fullName) => {
-  if (!fullName) return '—';
+  if (!fullName) return '-';
   return fullName
     .split(' ')
     .filter(Boolean)
@@ -158,10 +158,12 @@ export const ProfileHeader = () => {
             {schoolName && (
               <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-extrabold rounded-md">
                 {schoolName}
-                {/* The level is part of naming a school here, not a separate fact:
-                    "Bintang Jaya Supreme" alone does not say what it teaches. */}
-                {schoolType ? ` · ${schoolType}` : ''}
               </span>
+            )}
+            {/* The level beside the school, in its own pill (owner, 2026-10-03: no
+                "a · b" lines): "Bintang Jaya Supreme" alone does not say what it teaches. */}
+            {schoolName && schoolType && (
+              <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-extrabold rounded-md">{schoolType}</span>
             )}
             {held.map((role) => (
               <span
@@ -183,7 +185,7 @@ export const ProfileHeader = () => {
                 ) : student?.class ? (
                   <span className="text-slate-700 font-bold">
                     {student.class.name}
-                    {student.class.academicYear ? ` · ${student.class.academicYear}` : ''}
+                    {student.class.academicYear ? ` (${student.class.academicYear})` : ''}
                   </span>
                 ) : (
                   <span className="text-slate-500 font-medium italic">{t('profile.class.none')}</span>

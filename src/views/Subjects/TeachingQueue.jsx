@@ -6,6 +6,7 @@ import ReasonDialog from '../../components/ReasonDialog';
 import { academicsService } from '../../services/academicsService';
 import { useT } from '../../i18n/LanguageContext';
 import { subjectsErrorMessage, isStaleTeaching } from '../../i18n/apiError';
+import SubjectLabel from '../../components/ui/SubjectLabel';
 import { bulkOutcome, isOwnRequest } from './subjects';
 
 /*
@@ -43,7 +44,7 @@ export const TeachingQueue = ({ requests, error, onChanged, showToast, selfId = 
 
   const locale = lang === 'en' ? 'en-GB' : 'id-ID';
   const day = (value) =>
-    value ? new Date(value).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
+    value ? new Date(value).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
 
   const toggle = (id) =>
     setTicked((prev) => {
@@ -125,7 +126,7 @@ export const TeachingQueue = ({ requests, error, onChanged, showToast, selfId = 
           <ul className="space-y-1">
             {failures.map(({ request, message }) => (
               <li key={request.id} className="text-[11px] font-semibold text-amber-800 break-words">
-                {request.teacher.fullName} · {request.subject.code} · {request.class.name} — {message}
+                {request.teacher.fullName} ({request.subject.code}, {request.class.name}): {message}
               </li>
             ))}
           </ul>
@@ -181,10 +182,9 @@ export const TeachingQueue = ({ requests, error, onChanged, showToast, selfId = 
                   )}
                   <div className="min-w-0 space-y-1">
                     <p className="text-sm font-extrabold text-slate-800 break-words">{request.teacher.fullName}</p>
-                    <p className="text-xs font-bold text-slate-700 break-words">
-                      <span className="tabular-nums text-slate-500">{request.subject.code}</span> · {request.subject.name}
-                      {' · '}
-                      {request.class.name}
+                    <p className="text-xs font-bold text-slate-700 break-words flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <SubjectLabel code={request.subject.code} name={request.subject.name} />
+                      <span className="px-1.5 py-0.5 rounded-md bg-brand-tint text-brand text-[10px] font-extrabold">{request.class.name}</span>
                     </p>
                     <p className="text-[11px] font-semibold text-slate-500">
                       {t('subjects.queue.when', {

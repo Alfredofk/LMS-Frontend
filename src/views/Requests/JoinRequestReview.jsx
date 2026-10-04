@@ -47,7 +47,7 @@ const Row = ({ label, children }) => (
       {label}
     </span>
     <span className="text-xs font-semibold text-slate-800 text-right break-words min-w-0">
-      {children ?? '—'}
+      {children ?? '-'}
     </span>
   </div>
 );
@@ -115,7 +115,7 @@ export const JoinRequestReview = ({ request, onBack, onDecided, showToast }) => 
   */
   const links = releasableLinksInPov(request, activeRole);
   const linkOnly = !isPending && links.length > 0;
-  const linkNames = links.map((link) => `${link.student?.fullName ?? '—'} (${link.relationship})`).join(', ');
+  const linkNames = links.map((link) => `${link.student?.fullName ?? '-'} (${link.relationship})`).join(', ');
   const canDecide = (isPending && releasable.length > 0) || links.length > 0;
   const releasingStudent = releasable.some((entry) => entry.role === ROLES.STUDENT);
   const grade = request.student?.gradeLevel ?? null;
@@ -314,7 +314,7 @@ export const JoinRequestReview = ({ request, onBack, onDecided, showToast }) => 
               {request.children.map((link) => (
                 <Row key={link.id} label={link.relationship}>
                   {link.student?.fullName}
-                  {link.student?.nisn ? ` · ${link.student.nisn}` : ''}
+                  {link.student?.nisn ? ` (NISN ${link.student.nisn})` : ''}
                   {/* Whose link this is, beside the child it names. */}
                   {links.includes(link) ? (
                     <span className="ml-2 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-brand-tint text-brand">
@@ -347,13 +347,13 @@ export const JoinRequestReview = ({ request, onBack, onDecided, showToast }) => 
                     <div className="h-12 bg-slate-50 rounded-xl animate-pulse" aria-label={t('common.loading')} />
                   ) : openClasses.length === 0 ? (
                     <p className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-2.5 leading-relaxed">
-                      {t(closedOnly ? 'requests.class.onlyClosed' : 'requests.class.none', { n: grade ?? '—' })}
+                      {t(closedOnly ? 'requests.class.onlyClosed' : 'requests.class.none', { n: grade ?? '-' })}
                     </p>
                   ) : (
                     <>
                       <SelectField
                         id="targetClass"
-                        label={t('requests.class.label', { n: grade ?? '—' })}
+                        label={t('requests.class.label', { n: grade ?? '-' })}
                         value={classId}
                         onChange={(e) => setClassId(e.target.value)}
                       >

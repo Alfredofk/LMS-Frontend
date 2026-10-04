@@ -13,7 +13,7 @@ export const formatDay = (value, lang) =>
         year: 'numeric',
         timeZone: 'UTC',
       })
-    : '—';
+    : '-';
 
 /* "2026/2027" for the July in which that year most likely starts — a hint, never a value. */
 export const suggestedYearLabel = (now = new Date()) => {

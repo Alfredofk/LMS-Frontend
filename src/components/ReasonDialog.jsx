@@ -1,5 +1,9 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { XCircle } from 'lucide-react';
+
+import { modalActions, modalCancelClass, modalConfirmClass } from './ui/modalStyles';
+import ModalHeading from './ui/ModalHeading';
 
 import { useT } from '../i18n/LanguageContext';
 import { validateLeaveReason } from '../utils/validation';
@@ -78,14 +82,14 @@ export const ReasonDialog = ({ title, body, label, hint, confirmLabel, onClose, 
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 sm:p-7 space-y-4 text-left max-h-[90dvh] overflow-y-auto"
       >
-        <div className="space-y-2">
-          <h2 id={ids.title} className="text-base font-extrabold text-slate-900 tracking-tight break-words">
-            {title}
-          </h2>
-          <p id={ids.body} className="text-xs text-slate-500 font-medium leading-relaxed">
-            {body}
-          </p>
-        </div>
+        <ModalHeading
+          tone="danger"
+          icon={XCircle}
+          titleId={ids.title}
+          title={title}
+          bodyId={ids.body}
+          body={body}
+        />
 
         <div className="space-y-1.5">
           <label htmlFor={ids.field} className="text-sm font-semibold text-slate-700 block">
@@ -117,14 +121,12 @@ export const ReasonDialog = ({ title, body, label, hint, confirmLabel, onClose, 
           )}
         </div>
 
-        <div className="flex justify-end gap-2 pt-1">
+        <div className={modalActions}>
           <button
             type="button"
             onClick={onClose}
             disabled={busy}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold text-slate-600 border border-slate-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
-              busy ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer'
-            }`}
+            className={modalCancelClass(busy)}
           >
             {t('common.cancel')}
           </button>
@@ -132,9 +134,7 @@ export const ReasonDialog = ({ title, body, label, hint, confirmLabel, onClose, 
             type="button"
             onClick={handleSubmit}
             disabled={busy}
-            className={`px-5 py-2 rounded-xl text-xs font-extrabold text-white shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 bg-rose-600 hover:bg-rose-700 focus-visible:ring-rose-500 ${
-              busy ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'
-            }`}
+            className={modalConfirmClass('danger', busy)}
           >
             {busy ? t('common.loading') : confirmLabel}
           </button>
