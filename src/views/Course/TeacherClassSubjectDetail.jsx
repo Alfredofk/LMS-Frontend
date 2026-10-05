@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useOutletContext, useParams, useSearchParams } from 'react-router-dom';
-import { AlertCircle, BookOpen, RefreshCw } from 'lucide-react';
+import { AlertCircle, BookOpen, RefreshCw, Lock } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -9,6 +9,8 @@ import SubjectHeader from '../../components/meetings/SubjectHeader';
 import SubjectProgress from '../Subjects/SubjectProgress';
 import { defaultMeetingId, progressOf, shownSessions } from '../Classroom/myClasses';
 import { readMyTeaching, forgetMyTeaching } from './readMyTeaching';
+import { academicsService } from '../../services/academicsService';
+import { openSemesterIds } from '../Dashboard/teacherHome';
 import { sessionPhase, unconfirmedCount } from './teaching';
 import TeacherMeeting from './TeacherMeeting';
 
@@ -45,10 +47,11 @@ export const TeacherClassSubjectDetail = () => {
 
   useEffect(() => {
     let cancelled = false;
-    readMyTeaching(membership?.id, { fresh: attempt > 0 })
-      .then((answer) => {
+    /* The years too: a subject of a closed year opens read only (owner, 2026-10-05). */
+    Promise.all([readMyTeaching(membership?.id, { fresh: attempt > 0 }), academicsService.academicYears()])
+      .then(([answer, years]) => {
         if (cancelled) return;
-        setData(answer);
+        setData({ ...answer, openSemesters: openSemesterIds(years) });
         setFailed(false);
       })
       .catch(() => !cancelled && setFailed(true));
@@ -59,6 +62,8 @@ export const TeacherClassSubjectDetail = () => {
 
   const entry = data?.rows.find((row) => row.id === classSubjectId) ?? null;
   const live = Boolean(entry && entry.status === 'ACTIVE' && !entry.endedAt);
+  /* Its year closed: looked back at, nothing changed (no material, confirmation or "not held"). */
+  const readOnly = Boolean(entry && data?.openSemesters && !data.openSemesters.has(entry.semester?.id));
   const raw = data?.sessionsById?.[classSubjectId];
   const sessions = useMemo(
     () =>
@@ -137,6 +142,13 @@ export const TeacherClassSubjectDetail = () => {
         progress={progress?.total > 0 ? { label: t('classroom.progress', { held: progress.held, total: progress.total }), percent } : null}
       />
 
+      {readOnly && (
+        <p className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-600 leading-relaxed">
+          <Lock className="w-3.5 h-3.5 mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
+          {t('teach.readOnly', { n: entry.semester.ordinal, year: entry.semester.academicYear })}
+        </p>
+      )}
+
       <div role="tablist" aria-label={t('meeting.sections')} className="flex gap-6 border-b border-slate-200">
         {SECTIONS.map((key) => (
           <button
@@ -170,7 +182,7 @@ export const TeacherClassSubjectDetail = () => {
             onPick={pick}
             dotOf={(session) => (['running', 'awaiting'].includes(sessionPhase(session)) ? 'bg-amber-400' : null)}
           />
-          {selected && <TeacherMeeting key={selected.id} meeting={selected} onChanged={onChanged} showToast={showToast} />}
+          {selected && <TeacherMeeting key={selected.id} meeting={selected} onChanged={onChanged} showToast={showToast} readOnly={readOnly} />}
         </div>
       )}
     </div>

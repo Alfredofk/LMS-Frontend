@@ -50,7 +50,7 @@ const StatusPicker = ({ value, onPick, disabled, name, t }) => (
   </div>
 );
 
-export const TeacherAttendance = ({ session, phase, onConfirmed, showToast }) => {
+export const TeacherAttendance = ({ session, phase, onConfirmed, showToast, readOnly = false }) => {
   const { t, lang } = useT();
   const { membership } = useAuth();
   const zone = membership?.school?.timeZone ?? null;
@@ -84,7 +84,8 @@ export const TeacherAttendance = ({ session, phase, onConfirmed, showToast }) =>
   const reload = useCallback(() => setAttempt((n) => n + 1), []);
   const students = roster?.students ?? [];
   const confirmed = phase === 'confirmed' || Boolean(roster?.session?.confirmed);
-  const editable = !confirmed && (phase === 'running' || phase === 'awaiting');
+  /* readOnly: a closed year's subject, looked back at (owner, 2026-10-05). */
+  const editable = !readOnly && !confirmed && (phase === 'running' || phase === 'awaiting');
   const tally = confirmTally(students, picks);
   const changed = confirmStatuses(students, picks, notes);
   const timeOf = (instant) => (instant ? localOf(instant, zone)?.time ?? '' : '');
@@ -232,7 +233,7 @@ export const TeacherAttendance = ({ session, phase, onConfirmed, showToast }) =>
                     ) : confirmed && student.status ? (
                       <span className="flex flex-wrap items-center gap-1.5 sm:justify-end">
                         <span className={`${pill} ${STATUS_TILE[student.status]}`}>{t(`att.status.${student.status}`)}</span>
-                        {!isFixing && student.attendanceId && (
+                        {!readOnly && !isFixing && student.attendanceId && (
                           <>
                             <button
                               type="button"

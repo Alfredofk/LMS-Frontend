@@ -6,10 +6,13 @@ import {
   contentErrors,
   defaultStatusOf,
   moveContent,
+  semesterGroups,
   requestChoices,
   requestableSemesters,
   sessionPhase,
+  shownTeachingSemester,
   splitTeaching,
+  teachingSemesters,
   unconfirmedCount,
 } from './teaching.js';
 
@@ -40,7 +43,58 @@ describe('splitTeaching - live, waiting, the rest (classSubjectView)', () => {
     expect(past.map((r) => r.id)).toEqual(['eko', 'fis', 'kim']);
   });
   it('reads nothing as nothing', () => {
-    expect(splitTeaching(null)).toEqual({ live: [], waiting: [], past: [] });
+    expect(splitTeaching(null)).toEqual({ taught: [], live: [], waiting: [], past: [] });
+  });
+  it("keeps a closed year's ACTIVE assignment taught, out of live and out of history", () => {
+    const { taught, live, past } = splitTeaching(
+      [row('mtk', 'ACTIVE'), row('old', 'ACTIVE', { semester: { id: 'sem-closed', ordinal: 1, academicYear: '2027/2028' } })],
+      new Set(['sem1'])
+    );
+    expect(taught.map((r) => r.id)).toEqual(['mtk', 'old']);
+    expect(live.map((r) => r.id)).toEqual(['mtk']);
+    expect(past).toEqual([]);
+  });
+});
+
+describe('teachingSemesters / shownTeachingSemester - looking back at an earlier semester', () => {
+  const sem = (id, ordinal, academicYear) => ({ id, ordinal, academicYear });
+  const taught = [
+    row('a', 'ACTIVE', { semester: sem('s26-1', 1, '2026/2027') }),
+    row('b', 'ACTIVE', { semester: sem('s27-2', 2, '2027/2028') }),
+    row('c', 'ACTIVE', { semester: sem('s27-1', 1, '2027/2028') }),
+    row('d', 'ACTIVE', { semester: sem('s26-1', 1, '2026/2027') }),
+    row('e', 'ACTIVE', { semester: sem('s25-2', 2, '2025/2026') }),
+  ];
+  const open = new Set(['s26-1']);
+
+  it('lists each semester once, newest first, saying which are open', () => {
+    expect(teachingSemesters(taught, open).map((s) => `${s.id}:${s.open}`)).toEqual([
+      's27-2:false',
+      's27-1:false',
+      's26-1:true',
+      's25-2:false',
+    ]);
+    expect(teachingSemesters([], open)).toEqual([]);
+    expect(teachingSemesters(taught, null).every((s) => s.open)).toBe(true);
+  });
+
+  it('opens on the one asked for, else the current one, else the newest', () => {
+    const semesters = teachingSemesters(taught, open);
+    expect(shownTeachingSemester(semesters, 's25-2', 's26-1')).toBe('s25-2');
+    expect(shownTeachingSemester(semesters, 'not-mine', 's26-1')).toBe('s26-1');
+    expect(shownTeachingSemester(semesters, null, null)).toBe('s27-2');
+    expect(shownTeachingSemester([], null, null)).toBeNull();
+  });
+
+  it('groups the dropdown: current, the open year\'s others, then the finished ones', () => {
+    const withSecond = teachingSemesters([...taught, row('f', 'ACTIVE', { semester: sem('s26-2', 2, '2026/2027') })], new Set(['s26-1', 's26-2']));
+    const groups = semesterGroups(withSecond, 's26-1');
+    expect(groups.map((g) => `${g.key}:${g.semesters.map((s) => s.id).join(',')}`)).toEqual([
+      'current:s26-1',
+      'open:s26-2',
+      'finished:s27-2,s27-1,s25-2',
+    ]);
+    expect(semesterGroups(teachingSemesters(taught, open), null).map((g) => g.key)).toEqual(['open', 'finished']);
   });
 });
 

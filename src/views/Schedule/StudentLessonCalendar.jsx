@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { sessionsService } from '../../services/sessionsService';
 import { academicsService } from '../../services/academicsService';
 import { sessionState } from '../Subjects/timetable';
-import { teacherSessionsIn, teachingAssignments } from './teacherLessons';
+import { openTeachingSessions, openYearLabels } from './teacherLessons';
 import { holidaysService } from '../../services/holidaysService';
 import { calendarItems, daysIndex, monthGrid, todayIso } from '../../utils/holidays';
 import { KIND_STYLE } from '../../components/holidays/kindStyle';
@@ -33,21 +33,24 @@ import { agendaOf, agendaStart, byDay, dayMarks, monthOf, monthRange, shiftMonth
     check in, not two.
 
   A teacher gets the same page (`teacher`, owner 2026-10-03): their meetings come
-  from their own assignments (teacherLessons.js), read once and kept across
-  months; each row says the meeting's state as the timetable does (`sessionState`)
-  instead of an attendance status. Nobody adds holidays here: that is the
+  from `GET /sessions/teaching` a month at a time, as a student's from /mine
+  (backend 1bd81ab; 2026-10-05, it replaced one read per assignment), a closed
+  year's left out (teacherLessons.js); each row says the meeting's state as the
+  timetable does (`sessionState`) instead of an attendance status. Nobody adds holidays here: that is the
   Principal's and a Vice Principal's, on their Calendar.
 */
 
-/* Every meeting the teacher holds, read once per page and cached in `cache`. */
+/* What a teacher's months share, read once per page and cached in `cache`: which
+   years are still open, and whether they teach anything now (for the empty state). */
 const readTeaching = (cache) => {
   if (!cache.current) {
     cache.current = (async () => {
-      const assignments = teachingAssignments(await academicsService.myClassSubjects());
-      const lists = await Promise.all(
-        assignments.map((entry) => sessionsService.sessions(entry.id).then((list) => [entry.id, list]))
-      );
-      return { assignments, sessionsById: Object.fromEntries(lists) };
+      const [years, rows] = await Promise.all([academicsService.academicYears(), academicsService.myClassSubjects()]);
+      const openLabels = openYearLabels(years);
+      const teaching = rows.filter(
+        (row) => row.status === 'ACTIVE' && !row.endedAt && openLabels.has(row.semester?.academicYear)
+      ).length;
+      return { openLabels, teaching };
     })().catch((err) => {
       cache.current = null;
       throw err;
@@ -81,6 +84,8 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
   const [shown, setShown] = useState(() => monthOf(today));
   /* A day picked in the small month; null follows agendaStart's default. */
   const [picked, setPicked] = useState(null);
+  /* One day at a time unless "whole month" was asked for (owner, 2026-10-05). */
+  const [wholeMonth, setWholeMonth] = useState(false);
 
   /* `{ key, answer }` once read; `failedKey` names the month whose read failed. */
   const [read, setRead] = useState(null);
@@ -95,14 +100,16 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
     let cancelled = false;
     const { from, to } = monthRange(shown.year, shown.month);
     const reading = teacher
-      ? readTeaching(teachingCache).then(({ assignments, sessionsById }) => ({
-          from,
-          to,
-          timeZone: zone,
-          class: null,
-          teaching: assignments.length,
-          sessions: teacherSessionsIn(assignments, sessionsById, from, to),
-        }))
+      ? Promise.all([readTeaching(teachingCache), sessionsService.teaching({ from, to })]).then(
+          ([{ openLabels, teaching }, answer]) => ({
+            from,
+            to,
+            timeZone: answer?.timeZone ?? null,
+            class: null,
+            teaching,
+            sessions: openTeachingSessions(answer?.sessions, openLabels),
+          })
+        )
       : sessionsService.mine({ from, to });
     reading
       .then((answer) => {
@@ -138,13 +145,19 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
   const weeks = useMemo(() => monthGrid(shown.year, shown.month), [shown]);
 
   const start = agendaStart(shown, today, picked);
-  const agenda = useMemo(() => agendaOf(shown, start, days, holidays), [shown, start, days, holidays]);
   const { from: monthFirst } = monthRange(shown.year, shown.month);
+  const agendaFrom = wholeMonth ? monthFirst : start;
+  const agenda = useMemo(() => agendaOf(shown, agendaFrom, days, holidays), [shown, agendaFrom, days, holidays]);
+
+  /* The day view (owner, 2026-10-05): the chosen day alone - today unless one was
+     picked - and a centred "no activity" when it holds nothing. */
+  const focusEntry = { date: start, holidays: holidays.get(start) ?? [], sessions: days.get(start) ?? [] };
 
   /* The agenda sits above the month on a phone: picking a day down there brings it into view. */
   const agendaRef = useRef(null);
   const pickDay = (date) => {
     setPicked(date);
+    setWholeMonth(false);
     if (typeof window !== 'undefined' && window.matchMedia?.('(max-width: 1023px)').matches) {
       agendaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -153,10 +166,12 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
   const go = (delta) => {
     setShown(shiftMonth(shown, delta));
     setPicked(null);
+    setWholeMonth(false);
   };
   const goToday = () => {
     setShown(monthOf(today));
     setPicked(null);
+    setWholeMonth(false);
   };
 
   const dayLabel = (date, style = 'long') =>
@@ -191,6 +206,91 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
         ? 'checkin.empty.noClass'
         : null;
 
+  /* One day of the agenda: its holidays and its meetings. */
+  const renderDay = (entry) => (
+    <li key={entry.date}>
+      <h3 className="flex items-center gap-2 text-xs font-extrabold text-slate-800 capitalize">
+        {dayLabel(entry.date)}
+        {entry.date === today && (
+          <span className="px-2 py-0.5 rounded-md bg-brand text-white text-[10px] font-extrabold normal-case">
+            {t('lessons.today')}
+          </span>
+        )}
+      </h3>
+      <ul className="mt-2 space-y-2">
+        {entry.holidays.map((holiday) => (
+          <li
+            key={`h-${holiday.id}`}
+            className={`rounded-xl px-3 py-2 text-xs font-bold ${KIND_STYLE[holiday.kind]?.soft ?? 'bg-slate-100 text-slate-600'}`}
+          >
+            <span className="block break-words">{holiday.name}</span>
+            <span className="block text-[10px] font-semibold opacity-80">{t(`holiday.kind.${holiday.kind}`)}</span>
+          </li>
+        ))}
+        {entry.sessions.map((session) => {
+          /* A teacher reads the meeting's own state; a student, their check-in. */
+          const state = teacher ? null : rowState(session, context);
+          const checkedAt = session.attendance?.checkedInAt
+            ? localOf(session.attendance.checkedInAt, current.timeZone)
+            : null;
+          return (
+            <li key={session.id} className="rounded-xl border border-slate-100 px-3 py-2.5 flex items-start gap-3">
+              <span className="w-12 shrink-0 tabular-nums">
+                <span className="block text-xs font-extrabold text-slate-800">{session.local.start}</span>
+                <span className="block text-[11px] font-semibold text-slate-500">{session.local.end}</span>
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-extrabold text-slate-800 break-words">{session.subject?.name}</span>
+                <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]">
+                  <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 font-bold">
+                    {t('timetable.session.number', { n: session.number })}
+                  </span>
+                  {session.class && (
+                    <span className="px-1.5 py-0.5 rounded-md bg-brand-tint text-brand font-extrabold">{session.class}</span>
+                  )}
+                </span>
+                {teacher ? (
+                  <span className="block text-[11px] font-semibold mt-1 text-slate-500">{t(sessionState(session))}</span>
+                ) : (
+                  <SessionStatusLine state={state} session={session} checkedAt={checkedAt} t={t} />
+                )}
+                {state === 'open' && (
+                  <button
+                    type="button"
+                    onClick={() => navigate('/attendance')}
+                    className="mt-1.5 text-[11px] font-bold text-brand hover:underline cursor-pointer"
+                  >
+                    {t('lessons.goCheckIn')}
+                  </button>
+                )}
+                {/* The meeting's materials (backend bf6e9b5). Not for a meeting of a
+                    class the student left: the server answers that one 404. */}
+                {!teacher && state !== 'otherClass' && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/classroom/${session.classSubjectId}?pertemuan=${session.id}`)}
+                    aria-label={t('content.openNamed', { subject: session.subject?.name ?? '', n: session.number })}
+                    className="mt-2 flex w-fit items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-brand-tint text-brand text-[11px] font-extrabold hover:bg-brand hover:text-white transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" aria-hidden="true" />
+                    {t('content.open')}
+                  </button>
+                )}
+              </span>
+              {session.attendance && (
+                <span
+                  className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-extrabold whitespace-nowrap ${STATUS_PILL[session.attendance.status] ?? 'bg-slate-100 text-slate-600'}`}
+                >
+                  {t(`att.status.${session.attendance.status}`)}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </li>
+  );
+
   return (
     <div className="space-y-4">
       {/* ‹ month › with Today beside it: the month sits between its two
@@ -221,20 +321,18 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* The agenda */}
-        <section ref={agendaRef} className={`${card} lg:col-span-2 scroll-mt-4`} aria-labelledby="lesson-month" aria-live="polite">
+        <section ref={agendaRef} className={`${card} lg:col-span-2 scroll-mt-4 flex flex-col`} aria-labelledby="lesson-month" aria-live="polite">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <p className="text-[11px] font-semibold text-slate-500">
-              {t('lessons.range', { date: dayLabel(start, 'short') })}
+              {wholeMonth ? t('lessons.range', { date: dayLabel(monthFirst, 'short') }) : t('lessons.dayView')}
             </p>
-            {start !== monthFirst && (
-              <button
-                type="button"
-                onClick={() => setPicked(monthFirst)}
-                className="text-[11px] font-bold text-brand hover:underline cursor-pointer"
-              >
-                {t('lessons.wholeMonth')}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setWholeMonth((on) => !on)}
+              className="text-[11px] font-bold text-brand hover:underline cursor-pointer"
+            >
+              {t(wholeMonth ? 'lessons.byDay' : 'lessons.wholeMonth')}
+            </button>
           </div>
 
           {holidayItems === false && (
@@ -260,104 +358,48 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
 
           {!current && !failed && <p className="text-xs font-semibold text-slate-500 animate-pulse">{t('lessons.loading')}</p>}
 
-          {current && agenda.length === 0 && (
+          {current && (wholeMonth || emptyKey) && agenda.length === 0 && (
             <div className="py-14 flex flex-col items-center justify-center text-center">
               <span className="w-14 h-14 bg-brand-tint text-brand rounded-2xl flex items-center justify-center mb-3">
                 <CalendarClock className="w-7 h-7" aria-hidden="true" />
               </span>
               <h3 className="text-sm font-extrabold text-slate-800">{t('lessons.empty.title')}</h3>
               <p className="text-xs font-semibold text-slate-500 mt-1 max-w-sm leading-relaxed">
-                {emptyKey ? t(emptyKey) : t('lessons.empty.body', { date: dayLabel(start, 'short') })}
+                {emptyKey ? t(emptyKey) : t('lessons.empty.body', { date: dayLabel(agendaFrom, 'short') })}
               </p>
             </div>
           )}
 
-          {current && agenda.length > 0 && (
-            <ol className="space-y-5">
-              {agenda.map((entry) => (
-                <li key={entry.date}>
-                  <h3 className="flex items-center gap-2 text-xs font-extrabold text-slate-800 capitalize">
-                    {dayLabel(entry.date)}
-                    {entry.date === today && (
-                      <span className="px-2 py-0.5 rounded-md bg-brand text-white text-[10px] font-extrabold normal-case">
-                        {t('lessons.today')}
-                      </span>
-                    )}
-                  </h3>
-                  <ul className="mt-2 space-y-2">
-                    {entry.holidays.map((holiday) => (
-                      <li
-                        key={`h-${holiday.id}`}
-                        className={`rounded-xl px-3 py-2 text-xs font-bold ${KIND_STYLE[holiday.kind]?.soft ?? 'bg-slate-100 text-slate-600'}`}
-                      >
-                        <span className="block break-words">{holiday.name}</span>
-                        <span className="block text-[10px] font-semibold opacity-80">{t(`holiday.kind.${holiday.kind}`)}</span>
-                      </li>
-                    ))}
-                    {entry.sessions.map((session) => {
-                      /* A teacher reads the meeting's own state; a student, their check-in. */
-                      const state = teacher ? null : rowState(session, context);
-                      const checkedAt = session.attendance?.checkedInAt
-                        ? localOf(session.attendance.checkedInAt, current.timeZone)
-                        : null;
-                      return (
-                        <li key={session.id} className="rounded-xl border border-slate-100 px-3 py-2.5 flex items-start gap-3">
-                          <span className="w-12 shrink-0 tabular-nums">
-                            <span className="block text-xs font-extrabold text-slate-800">{session.local.start}</span>
-                            <span className="block text-[11px] font-semibold text-slate-500">{session.local.end}</span>
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-xs font-extrabold text-slate-800 break-words">{session.subject?.name}</span>
-                            <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]">
-                              <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 font-bold">
-                                {t('timetable.session.number', { n: session.number })}
-                              </span>
-                              {session.class && (
-                                <span className="px-1.5 py-0.5 rounded-md bg-brand-tint text-brand font-extrabold">{session.class}</span>
-                              )}
-                            </span>
-                            {teacher ? (
-                              <span className="block text-[11px] font-semibold mt-1 text-slate-500">{t(sessionState(session))}</span>
-                            ) : (
-                              <SessionStatusLine state={state} session={session} checkedAt={checkedAt} t={t} />
-                            )}
-                            {state === 'open' && (
-                              <button
-                                type="button"
-                                onClick={() => navigate('/attendance')}
-                                className="mt-1.5 text-[11px] font-bold text-brand hover:underline cursor-pointer"
-                              >
-                                {t('lessons.goCheckIn')}
-                              </button>
-                            )}
-                            {/* The meeting's materials (backend bf6e9b5). Not for a meeting of a
-                                class the student left: the server answers that one 404. */}
-                            {!teacher && state !== 'otherClass' && (
-                              <button
-                                type="button"
-                                onClick={() => navigate(`/classroom/${session.classSubjectId}?pertemuan=${session.id}`)}
-                                aria-label={t('content.openNamed', { subject: session.subject?.name ?? '', n: session.number })}
-                                className="mt-2 flex w-fit items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-brand-tint text-brand text-[11px] font-extrabold hover:bg-brand hover:text-white transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                              >
-                                <BookOpen className="w-3.5 h-3.5" aria-hidden="true" />
-                                {t('content.open')}
-                              </button>
-                            )}
-                          </span>
-                          {session.attendance && (
-                            <span
-                              className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-extrabold whitespace-nowrap ${STATUS_PILL[session.attendance.status] ?? 'bg-slate-100 text-slate-600'}`}
-                            >
-                              {t(`att.status.${session.attendance.status}`)}
-                            </span>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </li>
-              ))}
-            </ol>
+          {current && wholeMonth && agenda.length > 0 && (
+            <ol className="space-y-5">{agenda.map(renderDay)}</ol>
+          )}
+
+          {/* One day (owner, 2026-10-05): the chosen day, or a centred "no activity". */}
+          {current && !wholeMonth && !(emptyKey && agenda.length === 0) && (
+            focusEntry.holidays.length + focusEntry.sessions.length > 0 ? (
+              <ol>{renderDay(focusEntry)}</ol>
+            ) : (
+              /* Fills the card, which the month beside it makes tall on a desktop, so
+                 the empty state sits in the middle rather than under the date with a
+                 blank half below (owner, 2026-10-05). */
+              <div className="flex-1 flex flex-col">
+                <h3 className="flex items-center gap-2 text-xs font-extrabold text-slate-800 capitalize">
+                  {dayLabel(start)}
+                  {start === today && (
+                    <span className="px-2 py-0.5 rounded-md bg-brand text-white text-[10px] font-extrabold normal-case">
+                      {t('lessons.today')}
+                    </span>
+                  )}
+                </h3>
+                <div className="flex-1 py-12 flex flex-col items-center justify-center text-center">
+                  <span className="w-14 h-14 bg-brand-tint text-brand rounded-2xl flex items-center justify-center mb-3">
+                    <CalendarClock className="w-7 h-7" aria-hidden="true" />
+                  </span>
+                  <p className="text-sm font-extrabold text-slate-800">{t('lessons.noActivity')}</p>
+                  <p className="mt-1 max-w-xs text-xs font-semibold text-slate-500 leading-relaxed">{t('lessons.noActivity.body')}</p>
+                </div>
+              </div>
+            )
           )}
         </section>
 

@@ -20,25 +20,68 @@ import { boardWritable, deadlinePassed, freeSubjects } from '../Subjects/subject
 
 const by = (key) => (a, b) => new Date(b[key] ?? 0) - new Date(a[key] ?? 0);
 
+const bySubjectThenClass = (a, b) =>
+  (a.subject?.code ?? '').localeCompare(b.subject?.code ?? '') || (a.class?.name ?? '').localeCompare(b.class?.name ?? '');
+
 /**
- * The reader's requests split three ways: what they teach now (ACTIVE, not ended),
- * what waits for the Principal (PENDING), and the rest - rejected, withdrawn, or
- * ended - newest first, as history.
+ * The reader's requests split four ways:
+ * - taught: every assignment they taught to its end or still teach - ACTIVE, not
+ *   ended - in any year, a closed one included (closing a year leaves its
+ *   assignments ACTIVE with no `endedAt`, academics.service.js closeAcademicYear);
+ * - live: those of them in a year still open (`openSemesters`, openSemesterIds in
+ *   Dashboard/teacherHome.js) - what they teach now; all of `taught` without it;
+ * - waiting: PENDING, for the Principal;
+ * - past: rejected, withdrawn, or ended, newest first, as history.
+ * A closed year's assignments stay in `taught` (owner, 2026-10-05: a teacher
+ * looks back at an earlier semester from the semester picker), not in history.
  */
-export function splitTeaching(rows) {
-  const live = [];
+export function splitTeaching(rows, openSemesters = null) {
+  const taught = [];
   const waiting = [];
   const past = [];
   for (const row of rows ?? []) {
-    if (row.status === 'ACTIVE' && !row.endedAt) live.push(row);
+    if (row.status === 'ACTIVE' && !row.endedAt) taught.push(row);
     else if (row.status === 'PENDING') waiting.push(row);
     else past.push(row);
   }
+  taught.sort(bySubjectThenClass);
   return {
-    live: live.sort((a, b) => (a.subject?.code ?? '').localeCompare(b.subject?.code ?? '') || (a.class?.name ?? '').localeCompare(b.class?.name ?? '')),
+    taught,
+    live: taught.filter((row) => !openSemesters || openSemesters.has(row.semester?.id)),
     waiting: waiting.sort(by('requestedAt')),
     past: past.sort((a, b) => new Date(b.endedAt ?? b.decidedAt ?? b.requestedAt ?? 0) - new Date(a.endedAt ?? a.decidedAt ?? a.requestedAt ?? 0)),
   };
+}
+
+/**
+ * The semesters a teacher can look at on /teacher/courses: every one they taught
+ * in, newest first (the year's label, then the ordinal), each saying whether its
+ * year is still open. `openSemesters` null counts every semester as open.
+ *
+ * @returns {{ id, ordinal, academicYear, open }[]}
+ */
+export function teachingSemesters(taught, openSemesters = null) {
+  const byId = new Map();
+  for (const row of taught ?? []) {
+    const semester = row.semester;
+    if (semester?.id && !byId.has(semester.id)) {
+      byId.set(semester.id, { ...semester, open: !openSemesters || openSemesters.has(semester.id) });
+    }
+  }
+  return [...byId.values()].sort(
+    (a, b) => String(b.academicYear ?? '').localeCompare(String(a.academicYear ?? '')) || b.ordinal - a.ordinal
+  );
+}
+
+/**
+ * The semester the page opens on: the one asked for in the URL when the teacher
+ * taught in it; else the current one (`current`, defaultSemesterId over the open
+ * year's assignments); else the newest.
+ */
+export function shownTeachingSemester(semesters, asked, current) {
+  if (asked && semesters.some((semester) => semester.id === asked)) return asked;
+  if (current && semesters.some((semester) => semester.id === current)) return current;
+  return semesters[0]?.id ?? null;
 }
 
 /**
@@ -177,4 +220,20 @@ export function moveContent(ids, id, step) {
   if (from < 0 || to < 0 || to >= list.length) return list;
   [list[from], list[to]] = [list[to], list[from]];
   return list;
+}
+
+/**
+ * The semester dropdown's groups (owner, 2026-10-05): the current semester, the
+ * open year's others, then the finished ones (a closed year), each newest first.
+ * Empty groups are left out.
+ *
+ * @returns {{ key: 'current'|'open'|'finished', semesters }[]}
+ */
+export function semesterGroups(semesters, current) {
+  const groups = [
+    { key: 'current', semesters: semesters.filter((semester) => semester.id === current) },
+    { key: 'open', semesters: semesters.filter((semester) => semester.id !== current && semester.open) },
+    { key: 'finished', semesters: semesters.filter((semester) => semester.id !== current && !semester.open) },
+  ];
+  return groups.filter((group) => group.semesters.length > 0);
 }

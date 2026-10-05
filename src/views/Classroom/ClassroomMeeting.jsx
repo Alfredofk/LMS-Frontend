@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { AlertCircle, BookOpen, CalendarClock, ChevronRight, ClipboardCheck, FileText, Link2, Loader2, MapPin, PlayCircle, RefreshCw, Type } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { AlertCircle, BookOpen, CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, FileText, Link2, Loader2, MapPin, PlayCircle, RefreshCw, Type } from 'lucide-react';
 
 import ContentItem from '../../components/content/ContentItem';
 import { useContentTracker } from '../../components/content/contentTracking';
@@ -14,6 +14,7 @@ import { localOf } from '../Attendance/attendance';
 import { PositionError, readPosition, rowState, withCheckIn } from '../Attendance/checkIn';
 import { SessionStatusLine } from '../Attendance/TodaySessionsCard';
 import { meetingState, meetingWhen } from './myClasses';
+import { firstUndone, isTracked, materialState, mergeProgress, progressById, progressSummary } from './materialProgress';
 
 /*
   One meeting, inside its subject's page (owner, 2026-10-04, after BINUSMAYA's
@@ -25,8 +26,14 @@ import { meetingState, meetingWhen } from './myClasses';
   - What to do: the student's attendance for it. On the meeting's own day the
     row comes from `GET /sessions/mine?date=` - it carries `canCheckIn` - and the
     check-in is taken right here, as on today's card (checkIn.js, the same
-    refusals); any other day it is the subject's attendance row. Then how many
-    materials the teacher shared.
+    refusals); any other day it is the subject's attendance row. Then the
+    materials the teacher shared, each with the student's own progress - done,
+    in progress, or not yet - and how many are done (materialProgress.js, backend
+    b0f3307; owner 2026-10-05). The tracker's answers tick a material at once; a
+    meeting whose every material is done says so beside its title.
+  - One material at a time under "Materi" (owner, 2026-10-05): the one picked in
+    "what to do", with previous / next under it. It opens on the first not yet
+    done (firstUndone), chosen once when the list arrives.
 
   Keyed on the meeting by its parent, so another meeting starts a fresh tracker
   and the last one's events are sent on the way out.
@@ -177,7 +184,16 @@ const CheckIn = ({ meeting, attendance, onAttendance }) => {
 
 export const ClassroomMeeting = ({ meeting, attendance, onAttendance }) => {
   const { t, lang } = useT();
-  const tracker = useContentTracker(true);
+  /* The material shown under "Materi"; set when the list arrives, then by the student. */
+  const [selected, setSelected] = useState(null);
+
+  /* The student's progress per material: from the list, then what each event's answer adds. */
+  const [progress, setProgress] = useState({});
+  const onProgress = useCallback(
+    (id, update) => setProgress((prev) => ({ ...prev, [id]: mergeProgress(prev[id], update, new Date().toISOString()) })),
+    []
+  );
+  const tracker = useContentTracker(true, onProgress);
 
   /* undefined: reading · { contents } · { error, gone } */
   const [content, setContent] = useState(undefined);
@@ -188,7 +204,14 @@ export const ClassroomMeeting = ({ meeting, attendance, onAttendance }) => {
     let cancelled = false;
     contentService
       .listForSession(meeting.id)
-      .then((answer) => !cancelled && setContent({ contents: answer?.contents ?? [] }))
+      .then((answer) => {
+        if (cancelled) return;
+        const contents = answer?.contents ?? [];
+        const byId = progressById(contents);
+        setContent({ contents });
+        setProgress(byId);
+        setSelected(firstUndone(contents, byId));
+      })
       .catch((err) => !cancelled && setContent({ error: apiErrorMessage(err, t), gone: err?.status === 404 }));
     return () => {
       cancelled = true;
@@ -196,6 +219,9 @@ export const ClassroomMeeting = ({ meeting, attendance, onAttendance }) => {
   }, [meeting.id, t, attempt]);
 
   const count = content?.contents?.length;
+  const tracked = isTracked(content?.contents);
+  const summary = progressSummary(content?.contents, progress);
+  const allDone = tracked && summary.total > 0 && summary.done === summary.total;
 
   /* A material picked in "what to do": scrolled to and ringed for a moment (owner, 2026-10-04). */
   const [highlighted, setHighlighted] = useState(null);
@@ -205,9 +231,18 @@ export const ClassroomMeeting = ({ meeting, attendance, onAttendance }) => {
     return () => clearTimeout(timer);
   }, [highlighted]);
   const goToContent = (id) => {
-    document.getElementById(`content-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setSelected(id);
     setHighlighted(id);
+    /* After the swap has rendered, so the material scrolled to is the new one. */
+    requestAnimationFrame(() =>
+      document.getElementById(`content-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    );
   };
+
+  const contents = content?.contents ?? [];
+  const shownIndex = Math.max(0, contents.findIndex((item) => item.id === selected));
+  const shown = contents[shownIndex] ?? null;
+  const stateOf = (item) => (tracked ? materialState(progress[item.id]) : null);
 
   return (
     /* On a wide screen the meeting and its materials read as one card, with "what to
@@ -218,8 +253,14 @@ export const ClassroomMeeting = ({ meeting, attendance, onAttendance }) => {
     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_18rem] gap-5 lg:gap-y-0 items-start">
       <div className={`${card} sm:p-6 min-w-0 lg:self-stretch lg:col-start-1 lg:row-start-1 lg:rounded-b-none lg:border-b-0 lg:pb-0 lg:[clip-path:inset(-1rem_-1rem_0_-1rem)]`}>
         <div className="space-y-2">
-          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
+          <h2 className="flex flex-wrap items-center gap-2 text-xl font-extrabold text-slate-900 tracking-tight">
             {t('meeting.title', { n: meeting.number })}
+            {allDone && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-extrabold tracking-normal">
+                <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
+                {t('meeting.done')}
+              </span>
+            )}
           </h2>
           <p className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-700 tabular-nums">
             <CalendarClock className="w-4 h-4 sm:w-5 sm:h-5 text-brand shrink-0" aria-hidden="true" />
@@ -239,37 +280,69 @@ export const ClassroomMeeting = ({ meeting, attendance, onAttendance }) => {
         <div className="rounded-xl bg-white text-slate-800 p-4">
           <CheckIn meeting={meeting} attendance={attendance} onAttendance={onAttendance} />
         </div>
-        {/* The materials, each a button to its place under "Materi". Whether each is
-            done waits on the backend saying so per material (owner, 2026-10-04). */}
+        {/* The materials, each a button to its place under "Materi", ticked when done
+            (owner, 2026-10-05). */}
         <div className="rounded-xl bg-white text-slate-800 p-4 space-y-2.5">
           <p className="flex items-center gap-2 text-sm font-extrabold">
             <FileText className="w-4 h-4 text-brand shrink-0" aria-hidden="true" />
             {count === undefined ? (
               <span className="block h-4 w-24 rounded bg-slate-100 animate-pulse" />
             ) : count > 0 ? (
-              t('meeting.materialsCount', { n: count })
+              tracked ? t('meeting.materialsDone', { done: summary.done, n: summary.total }) : t('meeting.materialsCount', { n: count })
             ) : (
               <span className="text-slate-500 font-semibold">{t('meeting.materialsNone')}</span>
             )}
           </p>
+          {count > 0 && tracked && (
+            <div
+              className="h-1.5 rounded-full bg-slate-100 overflow-hidden"
+              role="meter"
+              aria-label={t('meeting.materialsDone', { done: summary.done, n: summary.total })}
+              aria-valuemin={0}
+              aria-valuemax={summary.total}
+              aria-valuenow={summary.done}
+            >
+              <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${(summary.done / summary.total) * 100}%` }} />
+            </div>
+          )}
           {count > 0 && (
             <ul className="space-y-1">
               {content.contents.map((item) => {
-                const Icon = TYPE_ICON[item.type] ?? FileText;
+                const state = stateOf(item);
+                const current = shown?.id === item.id;
+                const Icon = state === 'done' ? CheckCircle2 : TYPE_ICON[item.type] ?? FileText;
                 return (
                   <li key={item.id}>
                     <button
                       type="button"
                       onClick={() => goToContent(item.id)}
                       aria-label={t('meeting.goToMaterial', { title: item.title })}
-                      className="w-full flex items-center gap-2.5 rounded-lg px-2 py-2 -mx-2 text-left hover:bg-brand-tint focus:outline-none focus-visible:ring-2 focus-visible:ring-brand cursor-pointer group"
+                      aria-current={current ? 'true' : undefined}
+                      className={`w-full flex items-center gap-2.5 rounded-lg px-2 py-2 -mx-2 text-left hover:bg-brand-tint focus:outline-none focus-visible:ring-2 focus-visible:ring-brand cursor-pointer group ${
+                        current ? 'bg-brand-tint ring-1 ring-brand/30' : ''
+                      }`}
                     >
-                      <span className="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 group-hover:bg-white group-hover:text-brand flex items-center justify-center shrink-0">
+                      <span
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                          state === 'done'
+                            ? 'bg-emerald-50 text-emerald-600'
+                            : 'bg-slate-100 text-slate-600 group-hover:bg-white group-hover:text-brand'
+                        }`}
+                      >
                         <Icon className="w-3.5 h-3.5" aria-hidden="true" />
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-xs font-bold text-slate-800 break-words leading-snug">{item.title}</span>
-                        <span className="block text-[10px] font-semibold text-slate-500">{t(`content.type.${item.type}`)}</span>
+                        {/* slate-600 on the tinted row: slate-500 on brand-tint measured 4.18:1 (2026-10-05). */}
+                        <span
+                          className={`flex flex-wrap items-center gap-x-1.5 text-[10px] font-semibold group-hover:text-slate-600 ${
+                            current ? 'text-slate-600' : 'text-slate-500'
+                          }`}
+                        >
+                          {t(`content.type.${item.type}`)}
+                          {state === 'done' && <span className="font-extrabold text-emerald-700">{t('content.state.done')}</span>}
+                          {state === 'opened' && <span className="font-extrabold text-amber-700">{t('content.state.opened')}</span>}
+                        </span>
                       </span>
                       <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-brand shrink-0" aria-hidden="true" />
                     </button>
@@ -324,11 +397,43 @@ export const ClassroomMeeting = ({ meeting, attendance, onAttendance }) => {
             </div>
           ) : (
             <>
-              <ul className="space-y-4">
-                {content.contents.map((item) => (
-                  <ContentItem key={item.id} item={item} tracker={tracker} onFileError={setFileError} highlighted={highlighted === item.id} />
-                ))}
-              </ul>
+              {shown && (
+                <ul>
+                  <ContentItem
+                    key={shown.id}
+                    item={shown}
+                    tracker={tracker}
+                    onFileError={setFileError}
+                    highlighted={highlighted === shown.id}
+                    state={stateOf(shown) !== 'new' ? stateOf(shown) : null}
+                  />
+                </ul>
+              )}
+              {contents.length > 1 && (
+                <nav className="flex items-center justify-between gap-2" aria-label={t('classroom.materials')}>
+                  <button
+                    type="button"
+                    disabled={shownIndex === 0}
+                    onClick={() => goToContent(contents[shownIndex - 1].id)}
+                    className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 text-xs font-extrabold text-slate-700 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />
+                    {t('meeting.prevMaterial')}
+                  </button>
+                  <span className="text-[11px] font-bold text-slate-500 tabular-nums">
+                    {t('meeting.materialPosition', { i: shownIndex + 1, n: contents.length })}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={shownIndex === contents.length - 1}
+                    onClick={() => goToContent(contents[shownIndex + 1].id)}
+                    className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-brand-tint text-xs font-extrabold text-brand hover:bg-brand hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                  >
+                    {t('meeting.nextMaterial')}
+                    <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+                  </button>
+                </nav>
+              )}
               {tracker && <p className="text-[11px] font-medium text-slate-500 leading-relaxed">{t('content.trackingNote')}</p>}
             </>
           )}

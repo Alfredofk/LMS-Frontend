@@ -13,7 +13,6 @@ import {
   ChevronLeft,
   Menu
 } from 'lucide-react';
-import { classroomData } from '../../Classroom/classroomData';
 import { useT } from '../../../i18n/LanguageContext';
 import { getAccessToken } from '../../../services/apiClient';
 import AccountMenu from '../../../components/AccountMenu';
@@ -30,6 +29,8 @@ import { homeFor, isPrincipalDesk } from '../../../constants/roles';
 
   `back` is for the screens somebody reaches from a dashboard card and wants a
   way out of. The role dashboards themselves have nowhere to go back to.
+  Every role's pages carry it, as the student's always did (owner, 2026-10-05:
+  "follow the student's"); only the homes, /profile and /account go without.
 */
 const TITLES = {
   '/dashboard': { key: 'shell.dashboard' },
@@ -46,17 +47,17 @@ const TITLES = {
   '/account': { key: 'account.title' },
 
   '/teacher/dashboard': { key: 'shell.title.teacherDashboard' },
-  '/teacher/courses': { key: 'shell.myCourses' },
-  '/teacher/gradebook': { key: 'shell.gradebook' },
-  '/teacher/homeroom': { key: 'shell.homeroom' },
+  '/teacher/courses': { key: 'shell.myCourses', back: true },
+  '/teacher/gradebook': { key: 'shell.gradebook', back: true },
+  '/teacher/homeroom': { key: 'shell.homeroom', back: true },
   '/teacher/create-assignment': { key: 'shell.title.createAssignment', back: true },
 
   '/headmaster/dashboard': { key: 'shell.title.principalDashboard' },
   '/vice/dashboard': { key: 'shell.title.viceDashboard' },
-  '/headmaster/classes': { key: 'shell.classes' },
-  '/headmaster/members': { key: 'shell.members' },
-  '/headmaster/subjects': { key: 'shell.subjects' },
-  '/join-requests': { key: 'shell.joinRequests' },
+  '/headmaster/classes': { key: 'shell.classes', back: true },
+  '/headmaster/members': { key: 'shell.members', back: true },
+  '/headmaster/subjects': { key: 'shell.subjects', back: true },
+  '/join-requests': { key: 'shell.joinRequests', back: true },
   '/guardian': { key: 'shell.myChildren' },
 };
 
@@ -287,31 +288,52 @@ export const Navbar = ({ showToast, onOpenNav }) => {
 
   // Get dynamic title based on active location pathname
   const getNavbarTitle = () => {
-    if (location.pathname.startsWith('/teacher/courses/')) {
+    /* A subject's own page - a student's (ClassroomSubject) or a teacher's
+       (TeacherClassSubjectDetail): the page heads itself with the subject's name;
+       the breadcrumb only says where it sits and leads back. Same gap and size as
+       "Kelas Saya" on the list (owner, 2026-10-04: going from one to the other, the
+       title jumped 4px and shrank to 12px), so "Kelas Saya" stays put and the detail
+       appears beside it. The teacher's had kept the old small one until 2026-10-05
+       (owner: follow the student's). */
+    const subjectDetail = location.pathname.startsWith('/classroom/')
+      ? { list: '/classroom', backKey: 'classroom.back' }
+      : location.pathname.startsWith('/teacher/courses/')
+        ? { list: '/teacher/courses', backKey: 'teacherCourses.back' }
+        : null;
+    if (subjectDetail) {
       return (
-        <div className="flex min-w-0 items-center gap-2 text-xs font-semibold text-slate-500">
+        <div className="flex min-w-0 items-center gap-3 text-xl font-bold tracking-tight">
           <button
             type="button"
-            onClick={() => navigate('/teacher/courses')}
-            aria-label={t('teacherCourses.back')}
-            title={t('teacherCourses.back')}
+            onClick={() => navigate(subjectDetail.list)}
+            aria-label={t(subjectDetail.backKey)}
+            title={t(subjectDetail.backKey)}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </button>
-          <span>{t('shell.myCourses')}</span>
-          <span className="text-slate-300">/</span>
-          <span className="truncate font-extrabold text-slate-800">{t('shell.title.courseDetail')}</span>
+          <button
+            type="button"
+            onClick={() => navigate(subjectDetail.list)}
+            className="hidden sm:inline shrink-0 text-slate-500 hover:text-brand transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+          >
+            {t('shell.myCourses')}
+          </button>
+          <span className="hidden sm:inline text-slate-300" aria-hidden="true">/</span>
+          {/* The full words cut to "Detail Mata Pe..." on a phone; a short form there. */}
+          <span className="truncate text-slate-900">
+            <span className="sm:hidden">{t('shell.title.courseDetailShort')}</span>
+            <span className="hidden sm:inline">{t('shell.title.courseDetail')}</span>
+          </span>
         </div>
       );
     }
 
-    /* A student's subject (ClassroomSubject): the page heads itself with the
-       subject's name; the breadcrumb only says where it sits and leads back.
-       Same gap and size as "Kelas Saya" on the list (owner, 2026-10-04: going
-       from one to the other, the title jumped 4px and shrank to 12px), so
-       "Kelas Saya" stays put and the detail appears beside it. */
-    if (location.pathname.startsWith('/classroom/')) {
+    /* An assignment (AssignmentDetailPage) sits under "Kelas Saya" like a subject's
+       page, and carries the same crumb (owner, 2026-10-05). The old one looked the
+       assignment up in classroomData, which is empty, so only "Kelas Saya / Tugas"
+       ever showed; that is what this says, in the subject page's size. */
+    if (location.pathname.startsWith('/assignment/')) {
       return (
         <div className="flex min-w-0 items-center gap-3 text-xl font-bold tracking-tight">
           <button
@@ -331,63 +353,7 @@ export const Navbar = ({ showToast, onOpenNav }) => {
             {t('shell.myCourses')}
           </button>
           <span className="hidden sm:inline text-slate-300" aria-hidden="true">/</span>
-          {/* The full words cut to "Detail Mata Pe..." on a phone; a short form there. */}
-          <span className="truncate text-slate-900">
-            <span className="sm:hidden">{t('shell.title.courseDetailShort')}</span>
-            <span className="hidden sm:inline">{t('shell.title.courseDetail')}</span>
-          </span>
-        </div>
-      );
-    }
-
-    if (location.pathname.startsWith('/assignment/')) {
-      const targetId = location.pathname.split('/').pop();
-      let activeAssignment = null;
-      let activeCourse = null;
-      
-      for (const course of classroomData) {
-        for (const section of course.sections) {
-          const found = section.assignments.find(a => a.id === targetId);
-          if (found) {
-            activeAssignment = found;
-            activeCourse = course;
-            break;
-          }
-        }
-        if (activeAssignment) break;
-      }
-
-      /*
-        Nothing found used to mean inventing something: a title, a class and a
-        subject, all written out in full and rendered as fact in the shell. And
-        because `classroomData` is empty, that was the only branch that ever
-        ran — so every visit to /assignment/:id put three lies in the chrome,
-        unmarked, unlike the dashboard which at least says its data is sample.
-        One of them, "XII IPA 2", also broke the IPA/IPS ban in the backend's
-        own glossary.
-
-        A breadcrumb that does not know where it is should say so by saying
-        less.
-      */
-      if (!activeAssignment) {
-        return (
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 select-none">
-            <span>{t('shell.myCourses')}</span>
-            <span className="text-slate-300 text-[10px] font-bold">/</span>
-            <span className="text-slate-800 font-extrabold">{t('shell.title.assignment')}</span>
-          </div>
-        );
-      }
-
-      return (
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 select-none">
-          <span className="hover:text-slate-600 transition-colors">{t('shell.myCourses')}</span>
-          <span className="text-slate-300 text-[10px] font-bold">/</span>
-          <span className="hover:text-slate-600 transition-colors">{activeCourse.className}</span>
-          <span className="text-slate-300 text-[10px] font-bold">/</span>
-          <span className="hover:text-slate-600 transition-colors">{activeCourse.name}</span>
-          <span className="text-slate-300 text-[10px] font-bold">/</span>
-          <span className="text-slate-800 font-extrabold">{activeAssignment.title}</span>
+          <span className="truncate text-slate-900">{t('shell.title.assignment')}</span>
         </div>
       );
     }
@@ -412,16 +378,17 @@ export const Navbar = ({ showToast, onOpenNav }) => {
     }
 
     return (
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         <button
           type="button"
           onClick={() => navigate(homeFor(activeRole))}
-          className="w-8 h-8 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
+          className="w-8 h-8 shrink-0 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          aria-label={t('shell.backToDashboard')}
           title={t('shell.backToDashboard')}
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="w-4 h-4" aria-hidden="true" />
         </button>
-        <span className="text-xl font-bold text-slate-900 tracking-tight">{t(entry.key)}</span>
+        <span className="truncate text-xl font-bold text-slate-900 tracking-tight">{t(entry.key)}</span>
       </div>
     );
   };

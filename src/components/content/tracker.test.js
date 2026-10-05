@@ -109,4 +109,56 @@ describe('createTracker', () => {
     await Promise.all([a, b]);
     expect(calls).toBe(1);
   });
+
+  it('reports each accepted event to onProgress, with completed, and nothing for a refused one', async () => {
+    const heard = [];
+    const tracker = createTracker({
+      send: async () => ({
+        results: [
+          { index: 0, ok: true, recorded: true, completed: false },
+          { index: 1, ok: true, recorded: true, completed: true },
+          { index: 2, ok: false, error: { code: 'NOT_FOUND' } },
+        ],
+      }),
+      now: fixedNow,
+      onProgress: (contentId, update) => heard.push([contentId, update]),
+    });
+    tracker.opened('c1');
+    tracker.readToEnd('c2');
+    tracker.linkClicked('gone');
+    await tracker.flush();
+    expect(heard).toEqual([
+      ['c1', { completed: false }],
+      ['c2', { completed: true }],
+    ]);
+  });
+
+  it('reports nothing when the batch failed, and a fetched file as completed', async () => {
+    const heard = [];
+    const tracker = createTracker({
+      send: async () => {
+        throw new TypeError('Failed to fetch');
+      },
+      now: fixedNow,
+      onProgress: (contentId, update) => heard.push([contentId, update]),
+    });
+    tracker.opened('c1');
+    await tracker.flush();
+    expect(heard).toEqual([]);
+    tracker.fileFetched('f1');
+    expect(heard).toEqual([['f1', { completed: true }]]);
+  });
+
+  it('listen swaps who hears, and its stop leaves a later listener alone', () => {
+    const a = [];
+    const b = [];
+    const tracker = createTracker({ send: async () => {}, now: fixedNow });
+    const stopA = tracker.listen((id) => a.push(id));
+    tracker.fileFetched('f1');
+    tracker.listen((id) => b.push(id));
+    stopA();
+    tracker.fileFetched('f2');
+    expect(a).toEqual(['f1']);
+    expect(b).toEqual(['f2']);
+  });
 });

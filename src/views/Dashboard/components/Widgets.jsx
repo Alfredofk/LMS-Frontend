@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { BookOpen, ListTodo, Calendar, UserRound, Wrench } from 'lucide-react';
 
 import { useT } from '../../../i18n/LanguageContext';
-import { SampleTag } from './SampleDataNotice';
 
 /*
   Two cards on the student dashboard, still waiting for their endpoints. Today's
@@ -84,7 +83,7 @@ const EmptyState = ({ icon: Icon, messageKey }) => {
   before this existed. `footer` is for the one widget that puts something below
   the list.
 */
-const WidgetCard = ({ titleKey, seeAllTo, isSample, notBuilt, footer, children }) => {
+const WidgetCard = ({ titleKey, seeAllTo, notBuilt, footer, children }) => {
   const navigate = useNavigate();
   const { t } = useT();
 
@@ -96,7 +95,6 @@ const WidgetCard = ({ titleKey, seeAllTo, isSample, notBuilt, footer, children }
             <h3 className="text-sm font-extrabold text-slate-800 tracking-tight leading-snug">
               {t(titleKey)}
             </h3>
-            {isSample && <SampleTag />}
           </div>
           <button
             type="button"
@@ -121,9 +119,8 @@ const WidgetCard = ({ titleKey, seeAllTo, isSample, notBuilt, footer, children }
 
 /**
  * @param {Array<{id, title, subjectName, dueAt}>} assessments  `dueAt` is ISO.
- * @param {boolean} isSample  sample rows do not navigate — see below.
  */
-export const ActiveAssessment = ({ assessments = [], isLoading, isSample, notBuilt }) => {
+export const ActiveAssessment = ({ assessments = [], isLoading, notBuilt }) => {
   const navigate = useNavigate();
   const { t, lang } = useT();
 
@@ -192,7 +189,6 @@ export const ActiveAssessment = ({ assessments = [], isLoading, isSample, notBui
     <WidgetCard
       titleKey="dash.assessment.title"
       seeAllTo="/assessment"
-      isSample={isSample}
       notBuilt={notBuilt}
       footer={footer}
     >
@@ -207,13 +203,7 @@ export const ActiveAssessment = ({ assessments = [], isLoading, isSample, notBui
                 ? t('dash.assessment.badgeSoon')
                 : task.date ?? '-';
 
-            /*
-              A sample row must not navigate. /assignment/:id is a real route
-              whose page 404s against the API, and a made-up row that carries
-              somebody to a broken page is the one place sample data stops being
-              decorative and starts misleading.
-            */
-            const open = isSample ? undefined : () => navigate(`/assignment/${task.id}`);
+            const open = () => navigate(`/assignment/${task.id}`);
 
             return (
               <div

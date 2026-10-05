@@ -309,7 +309,7 @@ export const Select = ({
                 <li
                   key={`g-${i}`}
                   role="presentation"
-                  className="px-3 pt-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 select-none"
+                  className="px-3 pt-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 select-none"
                 >
                   {item.label}
                 </li>

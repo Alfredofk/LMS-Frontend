@@ -59,6 +59,26 @@ export const sessionsService = {
   },
 
   /**
+   * A teacher's own meetings — backend `1bd81ab`, TEACHER only, the same days as
+   * `mine` (a day, or `{ from, to }` of at most 42 days, both ends included).
+   *
+   * Answers the whole `{ from, to, timeZone, sessions }` (sessions.service.js
+   * `listTeaching`): the meetings they answer for - their live assignments', and
+   * an ended one's in a slot they now teach. Each is a session plus
+   * `classSubjectId`, `classId`, `class` (name), `academicYear` (label),
+   * `subject: { code, name }` and `confirmed`. A closed year is not left out, and
+   * no grade comes with the class.
+   */
+  async teaching({ date, from, to } = {}) {
+    const params = new URLSearchParams();
+    if (date) params.set('date', date);
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    const query = params.toString();
+    return api.get(`/sessions/teaching${query ? `?${query}` : ''}`);
+  },
+
+  /**
    * Meetings created already past that still wait for their teacher's answer —
    * the reader's own for a teacher, the whole school's for the Principal or a
    * Vice Principal. Each is a session plus

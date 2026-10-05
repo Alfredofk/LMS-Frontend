@@ -389,7 +389,9 @@ export function movesErrorMessage(err, t) {
 */
 const SUBJECTS_BY_MESSAGE = [
   ['already has a subject with that code', 'subjects.error.codeTaken'],
-  ['does not use this subject', 'subjects.error.notSelected'],
+  /* Backend c6a1684 names the subject ("This school does not use MTK Matematika."),
+     where a852609 said "this subject"; the shared start matches both. */
+  ['This school does not use', 'subjects.error.notSelected'],
   ['changed by someone else at the same moment', 'subjects.error.selectionRace'],
   ['already has a teacher, or a request waiting', 'subjects.error.slotTaken'],
   ['has already been decided', 'subjects.error.decided'],

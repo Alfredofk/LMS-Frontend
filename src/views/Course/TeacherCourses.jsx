@@ -1,25 +1,30 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
-import { AlertCircle, BookOpen, BookPlus, CalendarClock, ChevronRight, ClipboardCheck, Hourglass, RefreshCw, School } from 'lucide-react';
+import { AlertCircle, BookOpen, BookPlus, CalendarClock, CalendarDays, ChevronRight, ClipboardCheck, Hourglass, Lock, RefreshCw, School } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { academicsService } from '../../services/academicsService';
 import { subjectsErrorMessage } from '../../i18n/apiError';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import Select from '../../components/ui/Select';
 import { formatDay } from '../Classes/format';
-import { defaultSemesterId, matchesSearch, meetingWhen, progressOf, semestersOf } from '../Classroom/myClasses';
+import { defaultSemesterId, matchesSearch, meetingWhen, progressOf } from '../Classroom/myClasses';
 import { readMyTeaching, forgetMyTeaching } from './readMyTeaching';
-import { splitTeaching, unconfirmedCount } from './teaching';
+import { semesterGroups, shownTeachingSemester, splitTeaching, teachingSemesters, unconfirmedCount } from './teaching';
+import { openSemesterIds } from '../Dashboard/teacherHome';
 import RequestSubjectDialog from './RequestSubjectDialog';
 
 /*
   "Kelas Saya" for a teacher (owner, 2026-10-04: the teacher's screens are ours
   now; it replaced the teammate's sample-data page). Two tabs:
 
-  - "Diajar": the subjects they teach now (ACTIVE, not ended), as cards a semester
-    at a time - the same card as a student's, plus what is still unconfirmed. A
-    card opens /teacher/courses/:classSubjectId.
+  - "Mata pelajaran": the subjects they teach or taught (ACTIVE, not ended), as cards
+    a semester at a time, picked from the app's dropdown in a small toolbar - grouped
+    as current, the open year's others and finished (a closed year), with the
+    chosen one's state and count beside it (owner, 2026-10-05). The same
+    card as a student's, plus what is still unconfirmed. A card opens
+    /teacher/courses/:classSubjectId.
   - "Pengajuan": their requests waiting for the Principal, each withdrawable, then
     the history - rejected (with the Principal's reason), withdrawn, ended.
 
@@ -32,14 +37,16 @@ const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm';
 const cardGrid = 'grid grid-cols-[repeat(auto-fill,minmax(max(17.5rem,calc((100%-2rem)/3)),1fr))] gap-4';
 const TABS = ['taught', 'requests'];
 
-const TeachingCard = ({ entry, sessions, onOpen }) => {
+const TeachingCard = ({ entry, sessions, onOpen, closed = false }) => {
   const { t, lang } = useT();
   const progress = progressOf(sessions);
   const percent = progress?.total ? Math.round((progress.held / progress.total) * 100) : 0;
-  const owed = sessions ? unconfirmedCount(sessions) : 0;
+  /* A closed year's meetings can no longer be confirmed or held, so neither is said. */
+  const owed = sessions && !closed ? unconfirmedCount(sessions) : 0;
 
   let line;
-  if (progress === null) line = <span className="text-amber-700">{t('classroom.meetingsFailed')}</span>;
+  if (closed) line = <span className="text-slate-500">{t('teach.card.yearClosed')}</span>;
+  else if (progress === null) line = <span className="text-amber-700">{t('classroom.meetingsFailed')}</span>;
   else if (progress.total === 0) line = <span className="text-slate-500">{t('teach.noTimetable')}</span>;
   else if (progress.current) line = <span className="text-emerald-700">{t('classroom.now')}</span>;
   else if (progress.next) line = <span className="text-slate-600">{t('classroom.next', { when: meetingWhen(progress.next, lang) })}</span>;
@@ -148,17 +155,17 @@ export const TeacherCourses = () => {
   const [data, setData] = useState(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const [semesterId, setSemesterId] = useState(null);
   const [asking, setAsking] = useState(false);
   const [withdrawing, setWithdrawing] = useState(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    readMyTeaching(membership?.id, { fresh: attempt > 0 })
-      .then((answer) => {
+    /* The years too: a closed year leaves its assignments ACTIVE (splitTeaching). */
+    Promise.all([readMyTeaching(membership?.id, { fresh: attempt > 0 }), academicsService.academicYears()])
+      .then(([answer, years]) => {
         if (cancelled) return;
-        setData(answer);
+        setData({ ...answer, openSemesters: openSemesterIds(years) });
         setFailed(false);
       })
       .catch(() => !cancelled && setFailed(true));
@@ -172,11 +179,26 @@ export const TeacherCourses = () => {
     setAttempt((n) => n + 1);
   };
 
-  const groups = useMemo(() => splitTeaching(data?.rows), [data]);
-  const semesters = useMemo(() => semestersOf(groups.live), [groups]);
-  const fallback = useMemo(() => (data ? defaultSemesterId(groups.live, data.sessionsById) : null), [data, groups]);
-  const shownSemester = semesterId ?? fallback;
-  const taught = groups.live.filter((entry) => entry.semester?.id === shownSemester && matchesSearch(entry, query));
+  /* Every semester the teacher taught in, a closed year's included (owner, 2026-10-05):
+     the page opens on the current one and the picker goes back to earlier ones. The
+     choice lives in `?semester=`, so Back from a subject returns to it. */
+  const groups = useMemo(() => splitTeaching(data?.rows, data?.openSemesters), [data]);
+  const semesters = useMemo(() => teachingSemesters(groups.taught, data?.openSemesters), [data, groups]);
+  const current = useMemo(() => (data ? defaultSemesterId(groups.live, data.sessionsById) : null), [data, groups]);
+  const shownSemester = shownTeachingSemester(semesters, searchParams.get('semester'), current);
+  const shownSemesterInfo = semesters.find((semester) => semester.id === shownSemester) ?? null;
+  const shownClosed = shownSemesterInfo?.open === false;
+  const inSemester = groups.taught.filter((entry) => entry.semester?.id === shownSemester);
+  const shownCount = inSemester.length;
+  const taught = inSemester.filter((entry) => matchesSearch(entry, query));
+  const semesterChoices = semesterGroups(semesters, current);
+
+  const pickSemester = (id) => {
+    const params = new URLSearchParams(searchParams);
+    if (id === current) params.delete('semester');
+    else params.set('semester', id);
+    setSearchParams(params, { replace: true });
+  };
 
   const setTab = (next) => {
     const params = new URLSearchParams(searchParams);
@@ -230,7 +252,7 @@ export const TeacherCourses = () => {
 
       <div role="tablist" aria-label={t('shell.myCourses')} className="flex gap-6 border-b border-slate-200">
         {TABS.map((key) => {
-          const count = key === 'taught' ? groups.live.length : groups.waiting.length;
+          const count = key === 'taught' ? shownCount : groups.waiting.length;
           return (
             <button
               key={key}
@@ -273,7 +295,7 @@ export const TeacherCourses = () => {
           ))}
         </div>
       ) : tab === 'taught' ? (
-        groups.live.length === 0 ? (
+        groups.taught.length === 0 ? (
           <div className={`${card} flex flex-col items-center text-center gap-3 py-10`}>
             <span className="w-14 h-14 rounded-2xl bg-brand-tint text-brand flex items-center justify-center">
               <BookOpen className="w-7 h-7" aria-hidden="true" />
@@ -285,26 +307,53 @@ export const TeacherCourses = () => {
           </div>
         ) : (
           <>
+            {/* The semester toolbar (owner, 2026-10-05: a dropdown, polished): the app's one
+                Select, grouped by state so no option needs a "(closed)" tail, and the
+                chosen semester's state and subject count beside it. */}
             {semesters.length > 1 && (
-              <div role="tablist" aria-label={t('classroom.semesters')} className="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
-                {semesters.map((semester) => {
-                  const selected = semester.id === shownSemester;
-                  return (
-                    <button
-                      key={semester.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={selected}
-                      onClick={() => setSemesterId(semester.id)}
-                      className={`px-3.5 py-1.5 text-xs font-extrabold rounded-lg transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
-                        selected ? 'bg-brand text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                      }`}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl border border-slate-100 bg-white p-3.5 sm:p-4 shadow-sm">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <span className="w-10 h-10 rounded-xl bg-brand-tint text-brand flex items-center justify-center shrink-0">
+                    <CalendarDays className="w-5 h-5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0 flex-1 sm:max-w-sm">
+                    <span id="teach-semester-label" className="block text-[11px] font-bold text-slate-500">
+                      {t('teach.semesterPick')}
+                    </span>
+                    <Select
+                      id="teach-semester"
+                      className="mt-1"
+                      aria-label={t('teach.semesterPick')}
+                      value={shownSemester ?? ''}
+                      onChange={(e) => pickSemester(e.target.value)}
                     >
-                      {t('teach.semesterTab', { n: semester.ordinal, year: semester.academicYear })}
-                    </button>
-                  );
-                })}
+                      {semesterChoices.map((group) => (
+                        <optgroup key={group.key} label={t(`teach.group.${group.key}`)}>
+                          {group.semesters.map((semester) => (
+                            <option key={semester.id} value={semester.id}>
+                              {t('teach.option', { n: semester.ordinal, year: semester.academicYear })}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 sm:justify-end pl-[3.25rem] sm:pl-0">
+                  {shownSemester === current ? (
+                    <span className="px-2 py-1 rounded-lg bg-brand-tint text-brand text-[11px] font-extrabold">{t('teach.semester.current')}</span>
+                  ) : shownClosed ? (
+                    <span className="px-2 py-1 rounded-lg bg-slate-100 text-slate-600 text-[11px] font-extrabold">{t('teach.semester.closed')}</span>
+                  ) : null}
+                  <span className="text-xs font-semibold text-slate-600">{t('teach.subjectCount', { n: shownCount })}</span>
+                </div>
               </div>
+            )}
+            {shownClosed && (
+              <p className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-600 leading-relaxed">
+                <Lock className="w-3.5 h-3.5 mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
+                {t('teach.readOnly', { n: shownSemesterInfo?.ordinal, year: shownSemesterInfo?.academicYear })}
+              </p>
             )}
             {taught.length === 0 ? (
               <p className={`${card} text-sm font-semibold text-slate-600 text-center py-8`}>{t('classroom.empty.search', { q: query.trim() })}</p>
@@ -315,6 +364,7 @@ export const TeacherCourses = () => {
                     key={entry.id}
                     entry={entry}
                     sessions={data.sessionsById[entry.id]}
+                    closed={shownClosed}
                     onOpen={() => navigate(`/teacher/courses/${entry.id}`)}
                   />
                 ))}

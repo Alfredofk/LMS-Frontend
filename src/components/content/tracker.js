@@ -17,6 +17,11 @@
   next flush; a 4xx would fail again unchanged and is dropped. Per-event refusals
   (a stale time, content gone) come back in a 200 and are dropped too: there is
   nothing to correct.
+
+  Each accepted event's answer says whether its content is now complete
+  (`completed`, backend b0f3307); `onProgress(contentId, { completed })` hears it,
+  so a tick appears without reading the list again. A FILE is completed by the
+  server when it is fetched, so `fileFetched` reports that one locally.
 */
 
 export const MAX_BATCH = 50;
@@ -34,13 +39,16 @@ export function readingMs(html) {
 export const tenthOf = (position, duration) => Math.min(10, Math.floor((position / duration) * 10));
 
 /**
- * @param {{ send: (events: object[]) => Promise<unknown>, now?: () => Date }} deps
+ * @param {{ send: (events: object[]) => Promise<unknown>, now?: () => Date,
+ *          onProgress?: (contentId: string, update: { completed: boolean }) => void }} deps
  */
-export function createTracker({ send, now = () => new Date() }) {
+export function createTracker({ send, now = () => new Date(), onProgress = null }) {
   const queue = [];
   const once = new Set();
   const tenths = new Map();
   let inFlight = null;
+  let listener = onProgress;
+  const notify = (contentId, update) => listener?.(contentId, update);
 
   const push = (event) => queue.push({ ...event, occurredAt: now().toISOString() });
 
@@ -55,13 +63,19 @@ export function createTracker({ send, now = () => new Date() }) {
   async function flushNow(options) {
     while (queue.length > 0) {
       const batch = queue.splice(0, MAX_BATCH);
+      let answer;
       try {
-        await send(batch, options);
+        answer = await send(batch, options);
       } catch (err) {
         const status = err?.status ?? 0;
         if (status >= 400 && status < 500) continue;
         queue.unshift(...batch);
         return;
+      }
+      /* An accepted event means the content has a progress row: opened at least. */
+      for (const result of answer?.results ?? []) {
+        const event = batch[result.index];
+        if (result.ok && event) notify(event.contentId, { completed: Boolean(result.completed) });
       }
     }
   }
@@ -70,6 +84,17 @@ export function createTracker({ send, now = () => new Date() }) {
     opened: (contentId) => pushOnce('content.opened', contentId),
     readToEnd: (contentId) => pushOnce('content.text_read_to_end', contentId),
     linkClicked: (contentId) => pushOnce('content.link_clicked', contentId),
+
+    /** A FILE fetched (opened, downloaded or previewed): the server completed it on the fetch. */
+    fileFetched: (contentId) => notify(contentId, { completed: true }),
+
+    /** Who hears onProgress from now on; returns the way to stop. */
+    listen(fn) {
+      listener = fn;
+      return () => {
+        if (listener === fn) listener = null;
+      };
+    },
 
     /** A YouTube player's position; queued only when it reaches a new tenth. */
     video(contentId, position, duration) {

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  CheckCircle2,
   Download,
   ExternalLink,
   FileImage,
@@ -27,6 +28,10 @@ import { readingMs } from './tracker';
 
   Given a `tracker` (contentTracking.js), it reports what a student does with it
   - the rules are in tracker.js. Without one it reports nothing.
+
+  `state` ('done' · 'opened', views/Classroom/materialProgress.js) puts the
+  student's own progress on the card as a badge (owner, 2026-10-05); absent for
+  staff and for a material never opened.
 */
 
 const VIDEO_POLL_MS = 2_000;
@@ -139,7 +144,7 @@ const FILE_ICON = { pdf: FileText, docx: FileText, pptx: Presentation, jpg: File
 const TYPE_ICON = { VIDEO: PlayCircle, TEXT: Type, LINK: Link2 };
 
 /* An image file, fetched with the token and shown from an object URL. */
-const ImagePreview = ({ contentId, alt }) => {
+const ImagePreview = ({ contentId, alt, onFetched }) => {
   const [url, setUrl] = useState(null);
   useEffect(() => {
     let made = null;
@@ -150,18 +155,19 @@ const ImagePreview = ({ contentId, alt }) => {
         if (cancelled) return;
         made = URL.createObjectURL(blob);
         setUrl(made);
+        onFetched?.();
       })
       .catch(() => {});
     return () => {
       cancelled = true;
       if (made) URL.revokeObjectURL(made);
     };
-  }, [contentId]);
+  }, [contentId, onFetched]);
   if (!url) return <div className="aspect-video rounded-xl bg-slate-100 animate-pulse" aria-hidden="true" />;
   return <img src={url} alt={alt} className="w-full max-h-80 object-contain rounded-xl bg-slate-50 border border-slate-100" />;
 };
 
-export const ContentItem = ({ item, staff, tracker, onFileError, highlighted = false, actions = null }) => {
+export const ContentItem = ({ item, staff, tracker, onFileError, highlighted = false, actions = null, state = null }) => {
   const { t, lang } = useT();
   const [opening, setOpening] = useState(false);
   const { type, payload } = item;
@@ -178,6 +184,8 @@ export const ContentItem = ({ item, staff, tracker, onFileError, highlighted = f
     () => (tracker ? (position, duration) => tracker.video(id, position, duration) : null),
     [tracker, id]
   );
+  /* The server completes a FILE when a student fetches it (tracking.record.js). */
+  const onFetched = useMemo(() => (tracker && type === 'FILE' ? () => tracker.fileFetched(id) : null), [tracker, type, id]);
   useSeenOnce(itemRef, onSeen);
   useReadToEnd(textRef, endRef, payload?.html, onRead);
   const Icon = type === 'FILE' ? FILE_ICON[payload?.fileType] ?? FileText : TYPE_ICON[type] ?? FileText;
@@ -187,6 +195,7 @@ export const ContentItem = ({ item, staff, tracker, onFileError, highlighted = f
     try {
       if (opensInTab(payload.fileType)) await openFileInNewTab(() => contentService.file(item.id));
       else await downloadFile(() => contentService.file(item.id), payload.fileName);
+      onFetched?.();
     } catch (err) {
       onFileError(apiErrorMessage(err, t));
     } finally {
@@ -217,7 +226,20 @@ export const ContentItem = ({ item, staff, tracker, onFileError, highlighted = f
           <Icon className="w-4.5 h-4.5" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-extrabold text-slate-800 break-words">{item.title}</h3>
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-sm font-extrabold text-slate-800 break-words">{item.title}</h3>
+            {state === 'done' && (
+              <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-extrabold">
+                <CheckCircle2 className="w-3 h-3" aria-hidden="true" />
+                {t('content.state.done')}
+              </span>
+            )}
+            {state === 'opened' && (
+              <span className="shrink-0 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[10px] font-extrabold">
+                {t('content.state.opened')}
+              </span>
+            )}
+          </div>
           <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] font-bold">
             <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600">{t(`content.type.${type}`)}</span>
             {type === 'FILE' && payload?.fileType && (
@@ -233,7 +255,7 @@ export const ContentItem = ({ item, staff, tracker, onFileError, highlighted = f
         </div>
       </div>
 
-      {type === 'FILE' && isImage(payload?.fileType) && <ImagePreview contentId={item.id} alt={item.title} />}
+      {type === 'FILE' && isImage(payload?.fileType) && <ImagePreview contentId={item.id} alt={item.title} onFetched={onFetched} />}
 
       {type === 'FILE' && (
         <button

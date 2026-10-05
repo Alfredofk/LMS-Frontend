@@ -32,12 +32,13 @@ const PHASE_PILL = {
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 sm:p-6 shadow-sm';
 
-export const TeacherMeeting = ({ meeting, onChanged, showToast }) => {
+export const TeacherMeeting = ({ meeting, onChanged, showToast, readOnly = false }) => {
   const { t, lang } = useT();
   const phase = sessionPhase(meeting);
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
-  const canSayNotHeld = meeting.needsCompletion && meeting.status === 'SCHEDULED' && phase !== 'upcoming' && phase !== 'confirmed';
+  const canSayNotHeld =
+    !readOnly && meeting.needsCompletion && meeting.status === 'SCHEDULED' && phase !== 'upcoming' && phase !== 'confirmed';
 
   const notHeld = async () => {
     setBusy(true);
@@ -88,12 +89,13 @@ export const TeacherMeeting = ({ meeting, onChanged, showToast }) => {
           <TeacherAttendance
             session={meeting}
             phase={phase}
+            readOnly={readOnly}
             showToast={showToast}
             onConfirmed={(session) => onChanged?.({ ...meeting, completedAt: session?.completedAt ?? new Date().toISOString(), needsCompletion: false })}
           />
         </div>
         <div className={card}>
-          <TeacherMaterials session={meeting} showToast={showToast} />
+          <TeacherMaterials session={meeting} showToast={showToast} readOnly={readOnly} />
         </div>
       </div>
 

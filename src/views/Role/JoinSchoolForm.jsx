@@ -472,7 +472,7 @@ export const JoinSchoolForm = ({ intent }) => {
       </Button>
 
       <p className="text-[11px] text-slate-500 font-medium leading-relaxed text-center">
-        {t('getStarted.join.approval')}
+        {t('getStarted.join.approval', { Role: t(`role.${(ROLES_BY_INTENT[intent] ?? [])[0]}.label`) })}
       </p>
     </form>
   );

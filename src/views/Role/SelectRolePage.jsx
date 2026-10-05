@@ -287,7 +287,16 @@ export const SelectRolePage = () => {
         /* `session.roles` comes from activeRolesOf, which keeps only roles with
            a ROLE_HOME — every role has one since /guardian, so an approved
            guardian trades their token in here like anybody else. */
-        if (session.roles.length > 0 && !accessTokenClaims()?.schoolId) {
+        /* The membership is compared too (owner, 2026-10-05). Somebody removed and
+           accepted back into the same school holds a token whose schoolId is
+           already right but whose membershipId names the ended membership, so
+           every route answered "not an active member" and MembershipGoneWatcher
+           sent them here, and on to the dashboard, in a loop that spent their
+           whole rate limit. */
+        const claims = accessTokenClaims();
+        const staleToken =
+          !claims?.schoolId || (session.membership?.id && claims.membershipId !== session.membership.id);
+        if (session.roles.length > 0 && staleToken) {
           await authService.refresh();
           session = await refreshMe();
         }

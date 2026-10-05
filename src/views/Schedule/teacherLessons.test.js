@@ -1,66 +1,31 @@
 import { describe, it, expect } from 'vitest';
 
-import { teachingAssignments, teacherSessionsIn } from './teacherLessons';
+import { openTeachingSessions, openYearLabels } from './teacherLessons';
 
-/* Shapes from academics.service.js classSubjectView and sessions.service.js sessionView. */
-const assignment = (id, extra = {}) => ({
-  id,
-  status: 'ACTIVE',
-  endedAt: null,
-  class: { id: `c-${id}`, name: `Class ${id}`, gradeLevel: 11 },
-  subject: { id: `s-${id}`, code: id.toUpperCase(), name: `Subject ${id}` },
-  semester: { id: 'sem', ordinal: 1, academicYear: '2028/2029' },
-  ...extra,
-});
-const session = (id, date, startsAt, extra = {}) => ({
-  id,
-  number: 1,
-  startsAt,
-  endsAt: startsAt,
-  local: { date, dayOfWeek: 1, start: '08:00', end: '09:00' },
-  status: 'SCHEDULED',
-  cancelReason: null,
-  needsCompletion: false,
-  completedAt: null,
-  topic: null,
-  ...extra,
-});
+/* A row as sessions.service.js listTeaching answers it - the fields this file reads. */
+const row = (id, academicYear) => ({ id, academicYear, class: 'XI IPS', subject: { code: 'MTK', name: 'Matematika' } });
 
-describe('teachingAssignments', () => {
-  it('keeps the ACTIVE ones only (a request still waiting has no meetings)', () => {
-    const list = [assignment('a'), assignment('b', { status: 'PENDING' }), assignment('c', { status: 'REJECTED' })];
-    expect(teachingAssignments(list).map((entry) => entry.id)).toEqual(['a']);
-  });
-  it('answers an empty list for nothing', () => {
-    expect(teachingAssignments(null)).toEqual([]);
+describe('openYearLabels - the years still ACTIVE', () => {
+  it('keeps ACTIVE labels only', () => {
+    const years = [
+      { label: '2026/2027', status: 'ACTIVE' },
+      { label: '2028/2029', status: 'CLOSED' },
+    ];
+    expect([...openYearLabels(years)]).toEqual(['2026/2027']);
+    expect(openYearLabels(undefined).size).toBe(0);
   });
 });
 
-describe('teacherSessionsIn - a teacher month from their assignments', () => {
-  const bio = assignment('bio');
-  const eko = assignment('eko');
-  const sessions = {
-    bio: [session('b1', '2028-08-21', '2028-08-21T01:40:00.000Z'), session('b2', '2028-09-04', '2028-09-04T01:40:00.000Z')],
-    eko: [session('e1', '2028-08-22', '2028-08-22T00:00:00.000Z')],
-  };
-
-  it('keeps the days inside the range, both ends included, oldest first', () => {
-    const out = teacherSessionsIn([bio, eko], sessions, '2028-08-01', '2028-08-31');
-    expect(out.map((row) => row.id)).toEqual(['b1', 'e1']);
+describe('openTeachingSessions - listTeaching keeps a closed year, the calendar does not', () => {
+  it("leaves out a closed year's meetings and gives every row attendance: null", () => {
+    const out = openTeachingSessions([row('a', '2026/2027'), row('b', '2028/2029')], new Set(['2026/2027']));
+    expect(out.map((r) => r.id)).toEqual(['a']);
+    expect(out[0].attendance).toBeNull();
+    expect(out[0].class).toBe('XI IPS');
   });
 
-  it('adds what the calendar draws: subject, class name, no attendance', () => {
-    const [row] = teacherSessionsIn([bio], sessions, '2028-08-21', '2028-08-21');
-    expect(row).toMatchObject({ classSubjectId: 'bio', subject: { code: 'BIO', name: 'Subject bio' }, class: 'Class bio', attendance: null });
-  });
-
-  it('drops the meetings of an ended assignment from its end on: they went to the successor', () => {
-    const ended = assignment('bio', { endedAt: '2028-08-25T00:00:00.000Z' });
-    const out = teacherSessionsIn([ended], sessions, '2028-08-01', '2028-09-30');
-    expect(out.map((row) => row.id)).toEqual(['b1']);
-  });
-
-  it('skips an assignment whose meetings were not read', () => {
-    expect(teacherSessionsIn([assignment('mtk')], sessions, '2028-01-01', '2028-12-31')).toEqual([]);
+  it('leaves nothing out when the years could not be read', () => {
+    expect(openTeachingSessions([row('a', '2026/2027'), row('b', '2028/2029')], null)).toHaveLength(2);
+    expect(openTeachingSessions(undefined, null)).toEqual([]);
   });
 });

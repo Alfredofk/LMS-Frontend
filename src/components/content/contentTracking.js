@@ -13,17 +13,23 @@ import { createTracker } from './tracker';
 
   What it gathers is sent every few seconds, when the tab is hidden or closed, and
   when the reading ends (tracker.js has the rules and the batching).
+
+  `onProgress(contentId, { completed })` hears what the server answered for each
+  accepted event, and a file fetched (tracker.js). It is handed to the tracker in an
+  effect (`listen`), so a new function on every render does not make a new tracker.
 */
 
 const FLUSH_MS = 8_000;
 
-export function useContentTracker(enabled = true) {
+export function useContentTracker(enabled = true, onProgress = null) {
   const { activeRole } = useAuth();
   const [tracker] = useState(() =>
     enabled && activeRole === ROLES.STUDENT
       ? createTracker({ send: (events, options) => trackingService.send(events, options) })
       : null
   );
+
+  useEffect(() => (tracker && onProgress ? tracker.listen(onProgress) : undefined), [tracker, onProgress]);
 
   useEffect(() => {
     if (!tracker) return undefined;

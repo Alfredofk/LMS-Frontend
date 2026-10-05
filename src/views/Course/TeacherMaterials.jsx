@@ -200,7 +200,7 @@ const ContentForm = ({ sessionId, editing, onSaved, onCancel }) => {
   );
 };
 
-export const TeacherMaterials = ({ session, showToast }) => {
+export const TeacherMaterials = ({ session, showToast, readOnly = false }) => {
   const { t } = useT();
   const [list, setList] = useState(undefined);
   const [error, setError] = useState(null);
@@ -288,7 +288,7 @@ export const TeacherMaterials = ({ session, showToast }) => {
         <h3 id={`materials-${session.id}`} className="text-base font-extrabold text-slate-800">
           {t('classroom.materials')}
         </h3>
-        {!form && !cancelled && list !== undefined && !error && (
+        {!readOnly && !form && !cancelled && list !== undefined && !error && (
           <button type="button" onClick={() => setForm('new')} className={`${tool} bg-brand-tint text-brand hover:bg-brand hover:text-white`}>
             <Plus className="w-3.5 h-3.5" aria-hidden="true" />
             {t('teach.content.add')}
@@ -329,7 +329,7 @@ export const TeacherMaterials = ({ session, showToast }) => {
                 staff
                 onFileError={(message) => showToast?.(message, 'error')}
                 actions={
-                  <>
+                  readOnly ? null : <>
                     {!item.published && (
                       <button type="button" onClick={() => setPublishing(item)} className={`${tool} bg-brand text-white hover:bg-brand-deep`}>
                         <Send className="w-3.5 h-3.5" aria-hidden="true" />

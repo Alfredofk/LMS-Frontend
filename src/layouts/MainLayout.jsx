@@ -1,6 +1,7 @@
 import React, { Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import PageLoading from '../components/ui/PageLoading';
+import RouteErrorBoundary from '../components/ui/PageError';
 import Sidebar from '../views/Dashboard/components/Sidebar';
 import Navbar from '../views/Dashboard/components/Navbar';
 import Toast from '../components/ui/Toast';
@@ -144,9 +145,12 @@ export const MainLayout = () => {
         <main ref={mainRef} className="flex-1 overflow-y-auto [scrollbar-gutter:stable] p-4 sm:p-6 lg:p-8 bg-canvas">
           <div className="max-w-7xl mx-auto text-left">
             {/* Child routes rendered here */}
-            <Suspense fallback={<PageLoading />}>
-              <Outlet context={{ showToast }} />
-            </Suspense>
+            {/* A page that throws shows an error here; the shell stays (PageError.jsx). */}
+            <RouteErrorBoundary>
+              <Suspense fallback={<PageLoading />}>
+                <Outlet context={{ showToast }} />
+              </Suspense>
+            </RouteErrorBoundary>
           </div>
         </main>
       </div>

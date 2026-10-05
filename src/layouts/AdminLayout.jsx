@@ -1,6 +1,7 @@
 import React, { Suspense, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import PageLoading from '../components/ui/PageLoading';
+import RouteErrorBoundary from '../components/ui/PageError';
 import { LogOut, School } from 'lucide-react';
 
 import BrandMark from '../components/ui/BrandMark';
@@ -106,9 +107,11 @@ export const AdminLayout = () => {
 
       <main className="flex-1 px-4 sm:px-6 py-8">
         <div className="max-w-6xl mx-auto text-left">
-          <Suspense fallback={<PageLoading />}>
-            <Outlet context={{ showToast }} />
-          </Suspense>
+          <RouteErrorBoundary>
+            <Suspense fallback={<PageLoading />}>
+              <Outlet context={{ showToast }} />
+            </Suspense>
+          </RouteErrorBoundary>
         </div>
       </main>
 

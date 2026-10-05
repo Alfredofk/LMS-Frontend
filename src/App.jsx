@@ -11,6 +11,7 @@ import AccountChrome from './views/Account/AccountChrome';
 import AdminLayout from './layouts/AdminLayout';
 import { ROLES } from './constants/roles';
 import PageLoading from './components/ui/PageLoading';
+import RouteErrorBoundary from './components/ui/PageError';
 
 /*
   Every page is its own chunk, fetched the first time it is opened (owner,
@@ -62,6 +63,8 @@ function App() {
       <ThemeProvider>
       <AuthProvider>
         <BrowserRouter>
+        {/* The pages with no layout, and a layout that throws itself (PageError.jsx). */}
+        <RouteErrorBoundary fullScreen>
         <Suspense fallback={<PageLoading fullScreen />}>
         <Routes>
           <Route path="/" element={<LandingPage />} />
@@ -261,6 +264,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </Suspense>
+        </RouteErrorBoundary>
         </BrowserRouter>
       </AuthProvider>
       </ThemeProvider>

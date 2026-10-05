@@ -565,9 +565,6 @@
 :root[data-theme="dark"] .bg-violet-50 { background-color: color-mix(in oklab, oklch(60.6% 0.25 292.717) 12%, transparent); }
 :root[data-theme="dark"] .hover\:bg-violet-50:hover { background-color: color-mix(in oklab, oklch(60.6% 0.25 292.717) 12%, transparent); }
 :root[data-theme="dark"] .group:hover .group-hover\:bg-violet-50 { background-color: color-mix(in oklab, oklch(60.6% 0.25 292.717) 12%, transparent); }
-:root[data-theme="dark"] .bg-violet-50\/10 { background-color: color-mix(in oklab, oklch(60.6% 0.25 292.717) 12%, transparent); }
-:root[data-theme="dark"] .hover\:bg-violet-50\/10:hover { background-color: color-mix(in oklab, oklch(60.6% 0.25 292.717) 12%, transparent); }
-:root[data-theme="dark"] .group:hover .group-hover\:bg-violet-50\/10 { background-color: color-mix(in oklab, oklch(60.6% 0.25 292.717) 12%, transparent); }
 :root[data-theme="dark"] .bg-violet-100 { background-color: color-mix(in oklab, oklch(60.6% 0.25 292.717) 18%, transparent); }
 :root[data-theme="dark"] .hover\:bg-violet-100:hover { background-color: color-mix(in oklab, oklch(60.6% 0.25 292.717) 18%, transparent); }
 :root[data-theme="dark"] .group:hover .group-hover\:bg-violet-100 { background-color: color-mix(in oklab, oklch(60.6% 0.25 292.717) 18%, transparent); }
@@ -610,9 +607,6 @@
 :root[data-theme="dark"] .bg-purple-50 { background-color: color-mix(in oklab, oklch(62.7% 0.265 303.9) 12%, transparent); }
 :root[data-theme="dark"] .hover\:bg-purple-50:hover { background-color: color-mix(in oklab, oklch(62.7% 0.265 303.9) 12%, transparent); }
 :root[data-theme="dark"] .group:hover .group-hover\:bg-purple-50 { background-color: color-mix(in oklab, oklch(62.7% 0.265 303.9) 12%, transparent); }
-:root[data-theme="dark"] .bg-purple-50\/20 { background-color: color-mix(in oklab, oklch(62.7% 0.265 303.9) 12%, transparent); }
-:root[data-theme="dark"] .hover\:bg-purple-50\/20:hover { background-color: color-mix(in oklab, oklch(62.7% 0.265 303.9) 12%, transparent); }
-:root[data-theme="dark"] .group:hover .group-hover\:bg-purple-50\/20 { background-color: color-mix(in oklab, oklch(62.7% 0.265 303.9) 12%, transparent); }
 :root[data-theme="dark"] .bg-purple-50\/50 { background-color: color-mix(in oklab, oklch(62.7% 0.265 303.9) 12%, transparent); }
 :root[data-theme="dark"] .hover\:bg-purple-50\/50:hover { background-color: color-mix(in oklab, oklch(62.7% 0.265 303.9) 12%, transparent); }
 :root[data-theme="dark"] .group:hover .group-hover\:bg-purple-50\/50 { background-color: color-mix(in oklab, oklch(62.7% 0.265 303.9) 12%, transparent); }
