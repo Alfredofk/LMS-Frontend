@@ -313,7 +313,7 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
         <button
           type="button"
           onClick={goToday}
-          className="px-4 h-9 rounded-xl bg-slate-100 text-xs font-extrabold text-slate-700 hover:bg-slate-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          className="px-4 h-9 rounded-xl bg-brand-tint text-xs font-extrabold text-brand hover:bg-brand hover:text-white transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
         >
           {t('lessons.today')}
         </button>
@@ -462,7 +462,11 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
           </div>
           <div className="mt-4 pt-3 border-t border-slate-100 space-y-1.5">
             <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand" aria-hidden="true" />
+              {/* The dot sits in a 12px box, the size of the holiday squares below,
+                  so the words line up with theirs. */}
+              <span className="w-3 h-3 flex items-center justify-center shrink-0" aria-hidden="true">
+                <span className="w-1.5 h-1.5 rounded-full bg-brand" />
+              </span>
               {t('lessons.legend.lesson')}
             </p>
             <Legend kinds={LEGEND_KINDS} />

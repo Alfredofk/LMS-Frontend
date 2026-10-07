@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, CalendarClock, CalendarRange, Clock, School } from 'lucide-react';
+import { AlertTriangle, CalendarClock, Clock, School } from 'lucide-react';
 
 import SelectField from '../../components/ui/SelectField';
-import InfoChips from '../../components/ui/InfoChips';
 import { formatDay } from '../Classes/format';
 import ScheduleDialog from './ScheduleDialog';
 import { academicsService } from '../../services/academicsService';
@@ -192,18 +191,16 @@ export const TimetableTab = ({ years, showToast, activeRole }) => {
           a weekly subject meets about once per week of it (owner, 2026-10-03). */}
       {semesterEntry && length && (
         <div className="rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm flex flex-wrap items-center gap-x-3 gap-y-2">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+          <span className="text-sm font-extrabold text-slate-900">
             {t('classes.semester.name', { n: semesterEntry.ordinal })}
           </span>
-          <InfoChips
-            items={[
-              {
-                icon: CalendarRange,
-                label: t('holiday.range', { start: formatDay(semesterEntry.startDate, lang), end: formatDay(semesterEntry.endDate, lang) }),
-              },
-              { icon: Clock, label: t('timetable.semester.length', { days: length.days, weeks: length.weeks }), tone: length.short ? 'amber' : 'slate' },
-            ]}
-          />
+          <span className="text-xs font-medium text-slate-500 tabular-nums">
+            {t('holiday.range', { start: formatDay(semesterEntry.startDate, lang), end: formatDay(semesterEntry.endDate, lang) })}
+          </span>
+          {/* Amber only when the semester is unusually short: the colour means something. */}
+          <span className={`text-xs tabular-nums ${length.short ? 'font-bold text-amber-700' : 'font-medium text-slate-500'}`}>
+            {t('timetable.semester.length', { days: length.days, weeks: length.weeks })}
+          </span>
         </div>
       )}
       {semesterEntry && length?.short && (
@@ -262,7 +259,7 @@ export const TimetableTab = ({ years, showToast, activeRole }) => {
           <ul className={`grid grid-cols-1 sm:grid-cols-2 gap-3 ${week.length === 7 ? 'xl:grid-cols-7' : 'lg:grid-cols-3 xl:grid-cols-6'}`}>
             {week.map(({ day, items }) => (
               <li key={day} className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm space-y-2 min-w-0">
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">{dayName(day, lang)}</h3>
+                <h3 className="text-sm font-extrabold text-slate-900">{dayName(day, lang)}</h3>
                 {items.length === 0 ? (
                   <p className="text-[11px] font-semibold text-slate-500">{t('timetable.dayEmpty')}</p>
                 ) : (
@@ -285,7 +282,7 @@ export const TimetableTab = ({ years, showToast, activeRole }) => {
 
           {(waiting.length > 0 || pending.length > 0) && (
             <section className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-2">
-              <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">{t('timetable.unscheduled')}</h3>
+              <h3 className="text-sm font-extrabold text-slate-900">{t('timetable.unscheduled')}</h3>
               <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 {waiting.map(({ row, state }) => (
                   <li key={row.classSubjectId}>

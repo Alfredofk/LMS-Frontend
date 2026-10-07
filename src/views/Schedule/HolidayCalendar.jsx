@@ -196,10 +196,7 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
   return (
     <section className="space-y-4 text-left">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-slate-500">
-          <CalendarOff className="w-4 h-4 shrink-0" aria-hidden="true" />
-          <h2 className="text-[11px] font-bold uppercase tracking-wider">{t('holiday.title')}</h2>
-        </div>
+        <h2 className="text-base font-extrabold text-slate-900">{t('holiday.title')}</h2>
         <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-0.5" role="group" aria-label={t('holiday.year')}>
           <button
             type="button"
@@ -355,7 +352,7 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
                 {months.map(([month, entries]) => (
                   <div key={month} className="space-y-2">
                     <div className="flex items-center gap-3">
-                      <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 capitalize">{monthName(month)}</h3>
+                      <h3 className="text-sm font-extrabold text-slate-900 capitalize">{monthName(month)}</h3>
                       <span className="h-px flex-1 bg-slate-100" aria-hidden="true" />
                     </div>
                     <ul className="space-y-2">

@@ -1,8 +1,6 @@
 import React from 'react';
-import { Clock, MapPinOff } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
-import InfoChips from '../../components/ui/InfoChips';
 import { STATUSES, STATUS_DOT, STATUS_TILE } from './attendance';
 
 /*
@@ -60,13 +58,11 @@ export const AttendanceSummaryCard = ({ total, headingId = 'att-summary' }) => {
       </div>
 
       {(total.late > 0 || total.outside > 0) && (
-        <InfoChips
-          className="mt-5 pt-4 border-t border-slate-100"
-          items={[
-            total.late > 0 && { icon: Clock, label: t('att.flags.late', { n: total.late }), tone: 'amber' },
-            total.outside > 0 && { icon: MapPinOff, label: t('att.flags.outside', { n: total.outside }) },
-          ]}
-        />
+        /* Plain text (owner, 2026-10-07); late stays amber, as a warning. */
+        <p className="mt-5 pt-4 border-t border-slate-100 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold">
+          {total.late > 0 && <span className="text-amber-700">{t('att.flags.late', { n: total.late })}</span>}
+          {total.outside > 0 && <span className="text-slate-600">{t('att.flags.outside', { n: total.outside })}</span>}
+        </p>
       )}
     </section>
   );

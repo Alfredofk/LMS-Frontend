@@ -9,6 +9,7 @@ import { modalCancelClass, modalConfirmClass } from '../../components/ui/modalSt
 import { academicsService } from '../../services/academicsService';
 import { membersService } from '../../services/membersService';
 import SetupChecklist from './components/SetupChecklist';
+import StatCard from './components/StatCard';
 import AwaitingConfirmationCard from './components/AwaitingConfirmationCard';
 import { currentYear } from './setup';
 import { defaultSemesterOf, subjectsInUse } from '../Subjects/subjects';
@@ -306,9 +307,8 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
         {/* Tab 1: Dashboard overview — every number counted, for the current year. */}
         {activeTab === 'dashboard' && (
           <>
-          {/* Three cards again, each with a line of context and a small grey icon
-              rather than a pastel tile (owner, 2026-10-07). Each opens where it is counted. */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 select-none">
+          {/* Three cards, each with a line of context. Each opens where it is counted. */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
             {[
               {
                 label: t('dash.principal.stat.teachers'),
@@ -333,27 +333,19 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
                 to: '/headmaster/classes',
                 Icon: School,
               },
-            ].map(({ label, value, note, to, tab, Icon: icon }) => {
-              const StatIcon = icon;
-              return (
-                <button
-                  key={label}
-                  type="button"
-                  /* Straight to the matching tab of Members (owner, 2026-10-03). */
-                  onClick={() => navigate(to, tab ? { state: { tab } } : undefined)}
-                  className="text-left min-w-0 bg-white border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-slate-200 transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                >
-                  <span className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-slate-600 truncate">{label}</span>
-                    <StatIcon className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
-                  </span>
-                  <span className="block text-3xl font-extrabold text-slate-900 tabular-nums leading-none mt-3">
-                    {overview ? value : <span className="inline-block w-10 h-7 bg-slate-100 rounded-lg animate-pulse align-middle" aria-label={t('common.loading')} />}
-                  </span>
-                  <span className="block text-xs font-medium text-slate-500 mt-2 truncate">{(overview && note) || ' '}</span>
-                </button>
-              );
-            })}
+            ].map(({ label, value, note, to, tab, Icon }) => (
+              /* StatCard, as on the teacher's and student's dashboards (owner,
+                 2026-10-07): the same one-colour icon tile. Straight to the
+                 matching tab of Members (owner, 2026-10-03). */
+              <StatCard
+                key={label}
+                title={label}
+                value={overview ? value : '…'}
+                subtext={(overview && note) || ''}
+                icon={Icon}
+                onClick={() => navigate(to, tab ? { state: { tab } } : undefined)}
+              />
+            ))}
           </div>
 
           {/* What waits on this desk, the same numbers as the sidebar's (owner, 2026-10-07). */}

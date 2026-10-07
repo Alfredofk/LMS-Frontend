@@ -1,12 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRightLeft, CalendarCheck, ChevronRight, Clock, IdCard, Pencil, Search, Trash2, UserMinus, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, ChevronRight, Clock, Pencil, Search, Trash2, UserMinus } from 'lucide-react';
 
 import Button from '../../../components/ui/Button';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import SelectField from '../../../components/ui/SelectField';
 import RemoveMemberDialog from '../../../components/RemoveMemberDialog';
 import PersonDetailDialog from '../../../components/PersonDetailDialog';
-import InfoChips from '../../../components/ui/InfoChips';
 import { foldText, initialsOf } from '../../../utils/names';
 import MoveStudentDialog from '../../Homeroom/MoveStudentDialog';
 import { ClassEditForm } from './ClassForm';
@@ -307,12 +306,9 @@ export const ClassDetail = ({
       </section>
 
       <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
-        <div className="flex items-center gap-2 text-slate-500">
-          <Users className="w-4 h-4 shrink-0" aria-hidden="true" />
-          <h3 className="text-[11px] font-bold uppercase tracking-wider">
-            {t('classes.detail.students', { n: students.length })}
-          </h3>
-        </div>
+        <h3 className="text-base font-extrabold text-slate-900">
+          {t('classes.detail.students', { n: students.length })}
+        </h3>
 
         {students.length > 1 && (
           <div className="relative mt-3">
@@ -354,13 +350,10 @@ export const ClassDetail = ({
                     <span className="block text-sm font-bold text-slate-800 break-words group-hover:text-brand transition-colors">
                       {student.fullName}
                     </span>
-                    <InfoChips
-                      size="xs"
-                      items={[
-                        { icon: IdCard, label: `${t('profile.nisn')} ${student.nisn ?? '-'}` },
-                        { icon: CalendarCheck, label: t('classes.detail.since', { date: formatDay(student.placedAt, lang) }) },
-                      ]}
-                    />
+                    <span className="flex flex-wrap gap-x-4 gap-y-0.5 mt-0.5 text-xs font-medium text-slate-500 tabular-nums">
+                      <span>{`${t('profile.nisn')} ${student.nisn ?? '-'}`}</span>
+                      <span>{t('classes.detail.since', { date: formatDay(student.placedAt, lang) })}</span>
+                    </span>
                   </span>
                   <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
                 </button>

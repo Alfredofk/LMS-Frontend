@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
-import { ShieldOff, Inbox, ChevronRight, Clock, GraduationCap, Search, SearchX, UserPlus } from 'lucide-react';
+import { ShieldOff, Inbox, ChevronRight, Search, SearchX } from 'lucide-react';
 
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
-import InfoChips from '../../components/ui/InfoChips';
 import { initialsOf } from '../../utils/names';
 import JoinRequestReview from './JoinRequestReview';
 import BulkApproveDialog from './BulkApproveDialog';
@@ -348,7 +347,7 @@ export const JoinRequestsPage = () => {
               ) : (
                 <div className="space-y-2.5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider select-none">
+                    <p className="text-sm font-extrabold text-slate-800 select-none">
                       {t('requests.queue.count', { n: visible.length })}
                     </p>
                     {bulkable.length > 1 && (
@@ -424,42 +423,31 @@ export const JoinRequestsPage = () => {
                           <span className="w-10 h-10 rounded-xl bg-brand-tint text-brand text-xs font-extrabold flex items-center justify-center shrink-0 select-none">
                             {initialsOf(row.applicant?.fullName)}
                           </span>
-                          <div className="min-w-0 space-y-1.5">
+                          {/* Plain text like the member rows (owner, 2026-10-07): what is
+                              asked for under the name, then grade and date in grey. */}
+                          <div className="min-w-0 space-y-0.5">
                             <h3 className="text-sm font-extrabold text-slate-900 truncate">
                               {row.applicant?.fullName ?? t('requests.applicant.unnamed')}
                             </h3>
-                            {/* What is asked for and when, side by side in small pills
-                                rather than two grey lines (owner, 2026-10-03). */}
-                            <InfoChips
-                              size="xs"
-                              items={[
-                                ...(furtherChild
-                                  ? [
-                                      {
-                                        icon: UserPlus,
-                                        tone: 'brand',
-                                        label: t('requests.link.row', {
-                                          names: row.children.filter((link) => link.status === 'PENDING').map((link) => link.student?.fullName).join(', '),
-                                        }),
-                                      },
-                                    ]
-                                  : roles.map((entry) => ({ tone: 'brand', label: t(ROLE_LABEL_KEY[entry.role] ?? 'requests.role.unknown') }))),
-                                row.student?.gradeLevel != null && {
-                                  icon: GraduationCap,
-                                  label: t('requests.field.grade', { n: row.student.gradeLevel }),
-                                },
-                                {
-                                  icon: Clock,
-                                  label: t('requests.list.requested', {
-                                    date: new Date(row.requestedAt).toLocaleDateString(locale, {
-                                      day: 'numeric',
-                                      month: 'short',
-                                      year: 'numeric',
-                                    }),
+                            <p className="text-xs font-semibold text-slate-600 break-words">
+                              {furtherChild
+                                ? t('requests.link.row', {
+                                    names: row.children.filter((link) => link.status === 'PENDING').map((link) => link.student?.fullName).join(', '),
+                                  })
+                                : roles.map((entry) => t(ROLE_LABEL_KEY[entry.role] ?? 'requests.role.unknown')).join(', ')}
+                            </p>
+                            <p className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs font-medium text-slate-500 tabular-nums">
+                              {row.student?.gradeLevel != null && <span>{t('requests.field.grade', { n: row.student.gradeLevel })}</span>}
+                              <span>
+                                {t('requests.list.requested', {
+                                  date: new Date(row.requestedAt).toLocaleDateString(locale, {
+                                    day: 'numeric',
+                                    month: 'short',
+                                    year: 'numeric',
                                   }),
-                                },
-                              ]}
-                            />
+                                })}
+                              </span>
+                            </p>
                           </div>
                         </div>
 

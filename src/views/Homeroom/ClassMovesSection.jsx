@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, ArrowRightLeft, Check, X } from 'lucide-react';
+import { ArrowRight, Check, X } from 'lucide-react';
 
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import ReasonDialog from '../../components/ReasonDialog';
@@ -161,17 +161,14 @@ export const ClassMovesSection = ({ moves, error, mineIds, onChanged, showToast 
   const group = (heading, list, actionsFor) =>
     list.length > 0 && (
       <div>
-        <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{heading}</h3>
+        <h3 className="text-sm font-extrabold text-slate-900">{heading}</h3>
         <ul className="divide-y divide-slate-100">{list.map((move) => row(move, actionsFor(move)))}</ul>
       </div>
     );
 
   return (
     <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
-      <div className="flex items-center gap-2 text-slate-500">
-        <ArrowRightLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
-        <h2 className="text-[11px] font-bold uppercase tracking-wider">{t('moves.title')}</h2>
-      </div>
+      <h2 className="text-base font-extrabold text-slate-900">{t('moves.title')}</h2>
 
       <div className="border-b border-slate-100 flex gap-6 select-none">
         {MOVE_TABS.map((name) => {

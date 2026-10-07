@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Award } from 'lucide-react';
 
 import { useAuth } from '../../../context/AuthContext';
+import { schoolService } from '../../../services/schoolService';
 import { useT } from '../../../i18n/LanguageContext';
-import { ROLES, ROLE_LABEL_KEY, heldRolesOf } from '../../../constants/roles';
+import { ROLES, heldRolesOf } from '../../../constants/roles';
 
 /*
   Who is signed in, and what the backend can actually say about them.
@@ -105,6 +106,31 @@ export const ProfileHeader = () => {
   */
   const isLearner = held.includes(ROLES.STUDENT);
   const teaches = held.includes(ROLES.TEACHER);
+  const principal = held.includes(ROLES.PRINCIPAL);
+
+  /*
+    The school's NPSN, beside the other identifiers (owner, 2026-10-07: it sat
+    between the School Code card's title and the code, as if it too were to be
+    handed out). It lives on the founder's registration only, so only a Principal
+    who founded the school sees it; nothing is shown when there is none.
+  */
+  const [npsn, setNpsn] = useState(null);
+  useEffect(() => {
+    if (!principal) return undefined;
+    let cancelled = false;
+    schoolService
+      .listMyRegistrations()
+      .then((answer) => {
+        /* Not `registrations[0]`: the list is newest first, and a rejected retry
+           can sit in front of the approved one that actually became a school. */
+        const founded = (answer.registrations ?? []).find((row) => row.status === 'APPROVED' && row.school);
+        if (!cancelled) setNpsn(founded?.npsn ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [principal]);
 
   const locale = lang === 'en' ? 'en-GB' : 'id-ID';
   const joinedAt = membership?.approvedAt
@@ -170,7 +196,10 @@ export const ProfileHeader = () => {
                 key={role}
                 className="px-2 py-0.5 bg-brand-tint text-brand text-[10px] font-extrabold rounded-md"
               >
-                {t(ROLE_LABEL_KEY[role] ?? 'requests.role.unknown')}
+                {/* The role's title, as in Members and the avatar menu - not the
+                    picker card's label, which names PRINCIPAL "Sekolah" for the
+                    register-a-school path (owner, 2026-10-07). */}
+                {t(`roleTitle.${role}`)}
               </span>
             ))}
           </div>
@@ -203,6 +232,11 @@ export const ProfileHeader = () => {
               <span>
                 {t('profile.joined')}: {joinedAt ?? <Empty />}
               </span>
+              {npsn && (
+                <span>
+                  {t('schoolCode.npsn')}: <span className="text-slate-700 font-bold tabular-nums select-all">{npsn}</span>
+                </span>
+              )}
               {teaches && (
                 <>
                   <span>

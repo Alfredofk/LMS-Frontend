@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, BookOpenCheck, CalendarCheck, Users } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage } from '../../i18n/apiError';
@@ -7,7 +7,6 @@ import { trackingService } from '../../services/trackingService';
 import { formatDay } from '../Classes/format';
 import { localOf } from '../Attendance/attendance';
 import { rateOf } from '../Classroom/myProgress';
-import InfoChips from '../../components/ui/InfoChips';
 
 /*
   One subject's learning progress, read only, inside ScheduleDialog (owner,
@@ -74,14 +73,11 @@ export const SubjectProgress = ({ classSubjectId, zone, onBack }) => {
         <div className="h-24 bg-slate-50 rounded-xl animate-pulse" aria-label={t('common.loading')} />
       ) : (
         <>
-          <InfoChips
-            size="xs"
-            items={[
-              { icon: Users, label: t('progress.rosterSize', { n: data.rosterSize }) },
-              { icon: BookOpenCheck, label: t('progress.contentCount', { n: data.contents.length }) },
-              { icon: CalendarCheck, label: t('progress.confirmedSessions', { n: data.confirmedSessions }) },
-            ]}
-          />
+          <p className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs font-medium text-slate-500 tabular-nums">
+            <span>{t('progress.rosterSize', { n: data.rosterSize })}</span>
+            <span>{t('progress.contentCount', { n: data.contents.length })}</span>
+            <span>{t('progress.confirmedSessions', { n: data.confirmedSessions })}</span>
+          </p>
 
           <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-100" role="tablist" aria-label={t('progress.title')}>
             {VIEWS.map((key) => (

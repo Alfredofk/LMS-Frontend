@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { CalendarRange, Check, ChevronRight, Pencil, Plus, School, Search, ShieldOff, Lock, Trash2, Users } from 'lucide-react';
+import { Check, ChevronRight, Pencil, Plus, School, Search, ShieldOff, Lock, Trash2, Users } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
-import InfoChips from '../../components/ui/InfoChips';
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
 import { AcademicYearForm, SemesterForm } from './components/PeriodForms';
 import ClassForm from './components/ClassForm';
@@ -371,16 +370,11 @@ export const ClassesPage = () => {
         /* An empty school starts here: nothing else on this page can exist
            before a year does. */
         <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-brand-tint text-brand flex items-center justify-center shrink-0">
-              <CalendarRange className="w-5 h-5" aria-hidden="true" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-base font-extrabold text-slate-800">{t('classes.year.firstTitle')}</h2>
-              <p className="text-xs font-semibold text-slate-500 leading-relaxed mt-0.5">
-                {t('classes.year.firstBody')}
-              </p>
-            </div>
+          <div className="min-w-0">
+            <h2 className="text-base font-extrabold text-slate-900">{t('classes.year.firstTitle')}</h2>
+            <p className="text-xs font-semibold text-slate-500 leading-relaxed mt-0.5">
+              {t('classes.year.firstBody')}
+            </p>
           </div>
           <div className="max-w-xl">
             <AcademicYearForm years={years ?? []} onCreated={handleYearCreated} />
@@ -391,10 +385,7 @@ export const ClassesPage = () => {
           {/* ---------------- the academic year ---------------- */}
           <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center gap-2 text-slate-500">
-                <CalendarRange className="w-4 h-4 shrink-0" aria-hidden="true" />
-                <h2 className="text-[11px] font-bold uppercase tracking-wider">{t('classes.year.heading')}</h2>
-              </div>
+              <h2 className="text-base font-extrabold text-slate-900">{t('classes.year.heading')}</h2>
               {openForm !== 'year' && (
                 <Button size="sm" variant="outline" className="shrink-0" onClick={() => setOpenForm('year')}>
                   <Plus className="w-4 h-4 mr-1" aria-hidden="true" />
@@ -484,13 +475,11 @@ export const ClassesPage = () => {
                         {classes === null ? (
                           <span className="block text-[11px] font-bold text-slate-500">{t('common.loading')}</span>
                         ) : (
-                          <InfoChips
-                            items={[
-                              { icon: CalendarRange, label: t('classes.year.stat.semesters', { n: summary.semesters }) },
-                              { icon: School, label: t('classes.year.stat.classes', { n: summary.classes }) },
-                              { icon: Users, label: t('classes.year.stat.students', { n: summary.students }) },
-                            ]}
-                          />
+                          <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-medium text-slate-500 tabular-nums">
+                            <span>{t('classes.year.stat.semesters', { n: summary.semesters })}</span>
+                            <span>{t('classes.year.stat.classes', { n: summary.classes })}</span>
+                            <span>{t('classes.year.stat.students', { n: summary.students })}</span>
+                          </span>
                         )}
                         {/* Said in words as well as drawn: the colour alone is not
                             enough to tell which year the rest of the page is about. */}
@@ -569,7 +558,7 @@ export const ClassesPage = () => {
                 {/* The dates are on the card above; this names the year the
                     semesters below belong to. The year's own Edit, Delete and Close
                     sit on its card (owner, 2026-10-03). */}
-                <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <h3 className="text-sm font-extrabold text-slate-900">
                   {t('classes.year.semestersIn', { label: year.label })}
                 </h3>
 
@@ -674,12 +663,9 @@ export const ClassesPage = () => {
           {year && (
             <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex items-center gap-2 text-slate-500">
-                  <School className="w-4 h-4 shrink-0" aria-hidden="true" />
-                  <h2 className="text-[11px] font-bold uppercase tracking-wider">
-                    {t('classes.class.heading', { label: year.label })}
-                  </h2>
-                </div>
+                <h2 className="text-base font-extrabold text-slate-900">
+                  {t('classes.class.heading', { label: year.label })}
+                </h2>
                 {yearOpen && openForm !== 'class' && (
                   <Button size="sm" className="shrink-0" onClick={() => setOpenForm('class')}>
                     <Plus className="w-4 h-4 mr-1" aria-hidden="true" />

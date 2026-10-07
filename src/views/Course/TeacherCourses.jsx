@@ -56,10 +56,8 @@ const TeachingCard = ({ entry, sessions, onOpen, closed = false }) => {
       onClick={onOpen}
       className={`${card} group w-full text-left hover:shadow-md hover:border-brand/30 transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand flex flex-col gap-3`}
     >
+      {/* No icon tile (owner, 2026-10-07): the code above the name already says "subject". */}
       <span className="flex items-center gap-3">
-        <span className="w-12 h-12 rounded-xl bg-brand-tint text-brand flex items-center justify-center shrink-0">
-          <BookOpen className="w-6 h-6" aria-hidden="true" />
-        </span>
         <span className="min-w-0 flex-1">
           {entry.subject.code && (
             <span className="block text-[10px] font-extrabold uppercase tracking-wider text-brand leading-none">{entry.subject.code}</span>

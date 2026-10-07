@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Check, X, Lock, School } from 'lucide-react';
+import { ArrowLeft, Check, X, Lock } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
@@ -334,12 +334,7 @@ export const JoinRequestReview = ({ request, onBack, onDecided, showToast }) => 
             <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-4">
               {needsClass && (
                 <div className="space-y-2 pb-4 border-b border-slate-100">
-                  <div className="flex items-center gap-2 text-slate-500">
-                    <School className="w-4 h-4 shrink-0" aria-hidden="true" />
-                    <h3 className="text-[11px] font-bold uppercase tracking-wider">
-                      {t('requests.class.heading')}
-                    </h3>
-                  </div>
+                  <h3 className="text-sm font-extrabold text-slate-900">{t('requests.class.heading')}</h3>
 
                   {classesError ? (
                     <p className="text-xs font-semibold text-red-600" role="alert">{classesError}</p>

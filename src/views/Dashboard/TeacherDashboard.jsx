@@ -148,7 +148,6 @@ export const TeacherDashboard = () => {
           value={loading ? '…' : failed ? '-' : String(classCount(live))}
           subtext={failed ? t('dash.att.failed') : loading ? '' : t('teacherDash.stat.classes.sub', { n: live.length })}
           icon={CalendarDays}
-          iconBg="bg-brand-tint text-brand"
           onClick={() => navigate('/teacher/courses')}
         />
         <StatCard
@@ -156,14 +155,12 @@ export const TeacherDashboard = () => {
           value={students === undefined ? '…' : students === null ? '-' : String(students)}
           subtext={students === null ? t('dash.att.failed') : students === undefined ? '' : t('teacherDash.stat.students.sub')}
           icon={Users}
-          iconBg="bg-emerald-50 text-emerald-600"
         />
         <StatCard
           title={t('teacherDash.stat.review')}
           value="-"
           subtext={t('common.notBuilt.title')}
           icon={ClipboardCheck}
-          iconBg="bg-amber-50 text-amber-600"
         />
       </section>
 

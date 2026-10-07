@@ -73,7 +73,7 @@ export const SchedulePage = () => {
       <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t(leads ? 'shell.calendar' : 'shell.schedule')}</h1>
       <HolidayCalendar canManage={leads} showToast={outlet?.showToast} />
       <section className="space-y-3">
-        <h2 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{t('holiday.lessons')}</h2>
+        <h2 className="text-base font-extrabold text-slate-900">{t('holiday.lessons')}</h2>
         {lessons}
       </section>
     </div>

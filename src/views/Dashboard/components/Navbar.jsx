@@ -496,7 +496,7 @@ export const Navbar = ({ showToast, onOpenNav }) => {
                 {unreadCount > 0 && (
                   <button 
                     onClick={handleMarkAllAsRead}
-                    className="text-[10px] font-extrabold text-brand hover:text-brand-deep cursor-pointer"
+                    className="text-xs font-bold text-brand hover:text-brand-deep cursor-pointer"
                   >
                     {t('shell.markAllRead')}
                   </button>

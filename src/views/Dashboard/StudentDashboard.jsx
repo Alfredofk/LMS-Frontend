@@ -57,9 +57,9 @@ const greetingKeyFor = (hour) => {
 };
 
 const STATS = [
-  { key: 'dash.stat.todo', icon: ListTodo, iconBg: 'bg-amber-50 text-amber-500' },
-  { key: 'dash.stat.avgScore', icon: Star, iconBg: 'bg-emerald-50 text-emerald-600' },
-  { key: 'dash.stat.newMaterials', icon: FileText, iconBg: 'bg-rose-50 text-rose-500' },
+  { key: 'dash.stat.todo', icon: ListTodo },
+  { key: 'dash.stat.avgScore', icon: Star },
+  { key: 'dash.stat.newMaterials', icon: FileText },
 ];
 
 export const StudentDashboard = () => {
@@ -174,7 +174,6 @@ export const StudentDashboard = () => {
           value={attendance.value}
           subtext={attendance.lines.map((line) => t(line.key, line.vars)).join(', ')}
           icon={CalendarCheck}
-          iconBg="bg-brand-tint text-brand"
           onClick={() => navigate('/attendance')}
           className="sm:col-span-2 xl:col-span-1"
         />
@@ -191,7 +190,6 @@ export const StudentDashboard = () => {
                   : t('dash.progress.empty')
           }
           icon={BookOpen}
-          iconBg="bg-brand-tint text-brand"
           onClick={() => navigate('/classroom')}
         />
         {STATS.map((stat) => (
@@ -201,7 +199,6 @@ export const StudentDashboard = () => {
             value="-"
             subtext={t('common.notBuilt.title')}
             icon={stat.icon}
-            iconBg={stat.iconBg}
           />
         ))}
       </div>

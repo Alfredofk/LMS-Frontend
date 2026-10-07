@@ -191,7 +191,7 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
   const view = (
     <>
       <div className="space-y-1.5">
-        <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">{t('timetable.slots')}</h3>
+        <h3 className="text-sm font-extrabold text-slate-900">{t('timetable.slots')}</h3>
         {schedule.slots.length === 0 ? (
           <p className="text-xs font-semibold text-slate-500">{t('timetable.noSlots')}</p>
         ) : (
@@ -232,7 +232,7 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
       </button>
 
       <div className="space-y-1.5">
-        <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">{t('timetable.sessions')}</h3>
+        <h3 className="text-sm font-extrabold text-slate-900">{t('timetable.sessions')}</h3>
         {sessions.error ? (
           <p className="text-xs font-semibold text-red-600" role="alert">
             {sessions.error}

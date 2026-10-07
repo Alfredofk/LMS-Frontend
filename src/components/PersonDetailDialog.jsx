@@ -1,20 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Cake,
-  CalendarCheck,
-  CalendarRange,
-  ClipboardCheck,
-  GraduationCap,
-  History,
-  IdCard,
-  LogOut,
   Mail,
   MessageCircle,
   Phone,
-  School,
-  UserRound,
-  Users,
   X,
 } from 'lucide-react';
 
@@ -26,7 +15,6 @@ import { formatDay } from '../views/Classes/format';
 import { semesterRate } from '../views/Attendance/attendance';
 import { initialsOf } from '../utils/names';
 import { telLink, waLink } from '../utils/contact';
-import InfoChips from './ui/InfoChips';
 import { modalActions, modalCancelClass } from './ui/modalStyles';
 
 /*
@@ -56,20 +44,14 @@ import { modalActions, modalCancelClass } from './ui/modalStyles';
 
 const LEADER_ROLES = [ROLES.PRINCIPAL, ROLES.VICE_PRINCIPAL];
 
-const Fact = ({ icon, label, children, wide = false }) => {
-  const Icon = icon;
-  return (
-    <div className={`flex items-start gap-3 rounded-2xl bg-slate-50 px-3.5 py-3 min-w-0 ${wide ? 'sm:col-span-2' : ''}`}>
-      <span className="w-8 h-8 rounded-xl bg-white text-brand flex items-center justify-center shrink-0 shadow-sm">
-        <Icon className="w-4 h-4" aria-hidden="true" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</span>
-        <span className="block text-sm font-bold text-slate-800 break-words tabular-nums">{children}</span>
-      </span>
-    </div>
-  );
-};
+/* A label over its value, no icon tile and no capitals (owner, 2026-10-07: not
+   so "AI"). Callers still pass `icon`; it is no longer drawn. */
+const Fact = ({ label, children, wide = false }) => (
+  <div className={`rounded-2xl bg-slate-50 px-3.5 py-3 min-w-0 ${wide ? 'sm:col-span-2' : ''}`}>
+    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</span>
+    <span className="block text-sm font-bold text-slate-800 break-words tabular-nums mt-0.5">{children}</span>
+  </div>
+);
 
 const linkClass = 'text-brand hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded';
 
@@ -107,21 +89,13 @@ const EmailValue = ({ email }) => {
   );
 };
 
-const SectionTitle = ({ icon, children }) => {
-  const Icon = icon;
-  return (
-    <h3 className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-slate-500">
-      <Icon className="w-4 h-4 text-brand" aria-hidden="true" />
-      {children}
-    </h3>
-  );
-};
+const SectionTitle = ({ children }) => <h3 className="text-sm font-extrabold text-slate-900">{children}</h3>;
 
 const Guardians = ({ guardians }) => {
   const { t } = useT();
   return (
     <section className="space-y-2.5">
-      <SectionTitle icon={Users}>{t('person.guardians')}</SectionTitle>
+      <SectionTitle>{t('person.guardians')}</SectionTitle>
       {guardians.length === 0 ? (
         <p className="text-xs text-slate-500 font-semibold">{t('person.guardiansNone')}</p>
       ) : (
@@ -156,7 +130,7 @@ const Attendance = ({ attendance }) => {
   const { t } = useT();
   return (
     <section className="space-y-2.5">
-      <SectionTitle icon={ClipboardCheck}>{t('person.attendance', { year: attendance.academicYear })}</SectionTitle>
+      <SectionTitle>{t('person.attendance', { year: attendance.academicYear })}</SectionTitle>
       <ul className="space-y-2">
         {attendance.semesters.map((semester) => {
           const rate = semesterRate(semester);
@@ -175,17 +149,15 @@ const Attendance = ({ attendance }) => {
                   <p className="-mt-1 text-[11px] font-semibold text-slate-500">
                     {t('person.att.of', { present: semester.present, n: semester.counted })}
                   </p>
-                  <InfoChips
-                    size="xs"
-                    items={[
-                      { label: `${t('att.status.PRESENT')} ${semester.present}`, tone: 'emerald' },
-                      { label: `${t('att.status.SICK')} ${semester.sick}`, tone: 'amber' },
-                      { label: `${t('att.status.EXCUSED')} ${semester.excused}`, tone: 'brand' },
-                      { label: `${t('att.status.ABSENT')} ${semester.absent}`, tone: 'rose' },
-                      semester.late > 0 && { label: t('att.flags.late', { n: semester.late }) },
-                      semester.outsideSchool > 0 && { label: t('att.flags.outside', { n: semester.outsideSchool }) },
-                    ]}
-                  />
+                  {/* Plain counts, not four coloured pills (owner, 2026-10-07). */}
+                  <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-medium text-slate-600 tabular-nums">
+                    <span>{`${t('att.status.PRESENT')} ${semester.present}`}</span>
+                    <span>{`${t('att.status.SICK')} ${semester.sick}`}</span>
+                    <span>{`${t('att.status.EXCUSED')} ${semester.excused}`}</span>
+                    <span>{`${t('att.status.ABSENT')} ${semester.absent}`}</span>
+                    {semester.late > 0 && <span>{t('att.flags.late', { n: semester.late })}</span>}
+                    {semester.outsideSchool > 0 && <span>{t('att.flags.outside', { n: semester.outsideSchool })}</span>}
+                  </p>
                 </>
               )}
             </li>
@@ -315,13 +287,13 @@ export const PersonDetailDialog = ({ person, placement: givenPlacement, onClose 
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {ids.map(([label, value]) => (
-            <Fact key={label} icon={IdCard} label={label}>
+            <Fact key={label} label={label}>
               {value}
             </Fact>
           ))}
 
           {student?.birthDate && (
-            <Fact icon={Cake} label={t('person.birthDate')}>
+            <Fact label={t('person.birthDate')}>
               {day(student.birthDate)}
             </Fact>
           )}
@@ -331,46 +303,46 @@ export const PersonDetailDialog = ({ person, placement: givenPlacement, onClose 
               <div className="h-[58px] rounded-2xl bg-slate-50 animate-pulse sm:col-span-2" aria-label={t('common.loading')} />
             ) : placement ? (
               <>
-                <Fact icon={School} label={t('person.class')}>
+                <Fact label={t('person.class')}>
                   {placement.className}
                   <span className="ml-1.5 px-1.5 py-0.5 bg-brand-tint text-brand text-[10px] font-extrabold rounded-md align-middle">
                     {t('classes.grade', { n: placement.gradeLevel })}
                   </span>
                 </Fact>
-                <Fact icon={CalendarRange} label={t('person.year')}>
+                <Fact label={t('person.year')}>
                   {placement.academicYear || '-'}
                 </Fact>
                 {placement.homeroomName !== undefined && (
-                  <Fact icon={GraduationCap} label={t('person.homeroom')}>
+                  <Fact label={t('person.homeroom')}>
                     {placement.homeroomName ?? t('classes.detail.noHomeroom')}
                   </Fact>
                 )}
                 {placement.placedAt !== undefined && (
-                  <Fact icon={CalendarCheck} label={t('person.inClassSince')}>
+                  <Fact label={t('person.inClassSince')}>
                     {day(placement.placedAt)}
                   </Fact>
                 )}
               </>
             ) : (
-              <Fact icon={School} label={t('person.class')}>
+              <Fact label={t('person.class')}>
                 {t('person.notPlaced')}
               </Fact>
             ))}
 
           {endedAt && student?.lastClass && (
-            <Fact icon={History} label={t('person.lastClass')}>
+            <Fact label={t('person.lastClass')}>
               {student.lastClass.name}
               <span className="ml-1.5 text-[11px] font-semibold text-slate-500">{student.lastClass.academicYear}</span>
             </Fact>
           )}
 
           {endedAt ? (
-            <Fact icon={LogOut} label={t('person.leftOn')}>
+            <Fact label={t('person.leftOn')}>
               {day(endedAt)}
             </Fact>
           ) : (
             joinedAt && (
-              <Fact icon={UserRound} label={t('person.joinedOn')}>
+              <Fact label={t('person.joinedOn')}>
                 {day(joinedAt)}
               </Fact>
             )
@@ -378,10 +350,10 @@ export const PersonDetailDialog = ({ person, placement: givenPlacement, onClose 
 
           {detail && (
             <>
-              <Fact icon={Mail} label={t('person.email')} wide>
+              <Fact label={t('person.email')} wide>
                 <EmailValue email={detail.email} />
               </Fact>
-              <Fact icon={Phone} label={t('person.phone')} wide>
+              <Fact label={t('person.phone')} wide>
                 <PhoneValue phone={detail.phone} name={person.fullName} />
               </Fact>
             </>

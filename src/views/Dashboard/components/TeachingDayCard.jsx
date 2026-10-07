@@ -111,6 +111,7 @@ export const TeachingDayCard = ({ live, meetings, today, className = '' }) => {
                   <span className={`block text-sm font-extrabold text-slate-900 leading-tight break-words ${phase === 'cancelled' ? 'line-through' : ''}`}>
                     <SubjectLabel code={meeting.subject?.code} name={meeting.subject?.name} />
                   </span>
+                  {/* Coloured pills kept (owner, 2026-10-07: plain grey read too bare here). */}
                   <InfoChips
                     size="xs"
                     className="mt-2"

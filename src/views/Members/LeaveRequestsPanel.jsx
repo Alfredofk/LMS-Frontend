@@ -3,8 +3,7 @@ import { createPortal } from 'react-dom';
 
 import { modalActions, modalCancelClass, modalConfirmClass } from '../../components/ui/modalStyles';
 import ModalHeading from '../../components/ui/ModalHeading';
-import { Check, Clock, DoorOpen, FileText, IdCard, X, XCircle } from 'lucide-react';
-import InfoChips from '../../components/ui/InfoChips';
+import { Check, DoorOpen, FileText, X, XCircle } from 'lucide-react';
 
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { leaveRequestsService } from '../../services/leaveRequestsService';
@@ -244,22 +243,17 @@ export const LeaveRequestsPanel = ({ requests, error, onChanged, showToast }) =>
 
           return (
             <li key={request.id} className="px-5 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-              <div className="min-w-0 space-y-1">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-sm font-extrabold text-slate-800 break-words">{member.fullName}</span>
-                  {member.roles.map((role) => (
-                    <span key={role} className="px-2 py-0.5 bg-brand-tint text-brand text-[10px] font-extrabold rounded-md">
-                      {t(`roleTitle.${role}`)}
-                    </span>
+              {/* Plain text like the member rows (owner, 2026-10-07): no pills or icons. */}
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-sm font-extrabold text-slate-800 break-words">{member.fullName}</p>
+                <p className="text-xs font-semibold text-slate-600 break-words">
+                  {member.roles.map((role) => t(`roleTitle.${role}`)).join(', ')}
+                </p>
+                <p className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs font-medium text-slate-500 tabular-nums">
+                  {[...ids, t('members.leave.requestedOn', { date: day(request.requestedAt) })].map((fact) => (
+                    <span key={fact}>{fact}</span>
                   ))}
-                </div>
-                <InfoChips
-                  size="xs"
-                  items={[
-                    ...ids.map((label) => ({ icon: IdCard, label })),
-                    { icon: Clock, label: t('members.leave.requestedOn', { date: day(request.requestedAt) }) },
-                  ]}
-                />
+                </p>
                 {/* Their own words, marked as a quotation. */}
                 <p className="mt-1 pl-2 border-l-2 border-slate-200 text-[11px] text-slate-600 font-semibold break-words">
                   {request.reason}

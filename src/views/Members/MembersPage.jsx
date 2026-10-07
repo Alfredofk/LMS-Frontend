@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useOutletContext } from 'react-router-dom';
 import { ChevronRight, DoorOpen, Search, ShieldCheck, ShieldOff, ShieldX, UserMinus, Users } from 'lucide-react';
+import { sortByRole } from './members';
 
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
 import RemoveMemberDialog from '../../components/RemoveMemberDialog';
@@ -151,7 +152,8 @@ export const MembersPage = () => {
   const inTab = useCallback(
     (name) => {
       if (name === 'LEFT') return left ?? [];
-      if (name === 'ALL') return active ?? [];
+      /* By role, then A-Z (owner, 2026-10-07); the one-role tabs keep the backend's A-Z. */
+      if (name === 'ALL') return sortByRole(active);
       return (active ?? []).filter((member) => member.roles.includes(name));
     },
     [active, left]
@@ -337,9 +339,9 @@ export const MembersPage = () => {
                   type="button"
                   onClick={() => setViewing(member)}
                   aria-label={t('members.openMember', { name: member.fullName })}
-                  className="group min-w-0 flex-1 flex items-start gap-3 text-left rounded-xl p-1.5 -m-1.5 hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                  className="group min-w-0 flex-1 flex items-center gap-3 text-left rounded-xl p-1.5 -m-1.5 hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                 >
-                <span className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 text-xs font-extrabold flex items-center justify-center shrink-0 select-none">
+                <span className="w-10 h-10 rounded-xl bg-brand-tint text-brand text-xs font-extrabold flex items-center justify-center shrink-0 select-none">
                   {initialsOf(member.fullName)}
                 </span>
                 <div className="min-w-0 flex-1 space-y-0.5">

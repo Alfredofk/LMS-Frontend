@@ -281,10 +281,8 @@ export const CourseProgress = ({ subjects, failed }) => {
                   className="w-full flex items-center justify-between gap-3 rounded-xl px-2 py-2 -mx-2 text-left hover:bg-slate-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                 >
                   <span className="flex items-center gap-3 min-w-0">
-                    <span className="w-10 h-10 rounded-xl bg-brand-tint text-brand flex items-center justify-center shrink-0">
-                      <BookOpen className="w-5 h-5" aria-hidden="true" />
-                    </span>
-                    {/* Code above the name, as on "Kelas Saya" (owner, 2026-10-04). */}
+                    {/* Code above the name, as on "Kelas Saya" (owner, 2026-10-04); no
+                        icon tile since 2026-10-07. */}
                     <span className="min-w-0">
                       {entry.subject.code && (
                         <span className="block text-[10px] font-extrabold uppercase tracking-wider text-brand leading-none">

@@ -78,6 +78,7 @@ export const SummaryCards = ({ stats, next, lang }) => {
         </div>
       ))}
 
+      {/* The purple tile stays (owner, 2026-10-07: a white card read too plain). */}
       <div className="col-span-2 rounded-2xl bg-gradient-to-br from-brand to-brand-deep p-4 text-white shadow-sm relative overflow-hidden">
         <Sparkles className="absolute -right-2 -top-2 w-20 h-20 text-white/10" aria-hidden="true" />
         <p className="text-[11px] font-bold uppercase tracking-wider text-white/90">{t('holiday.next')}</p>
@@ -151,7 +152,7 @@ export const YearCalendar = ({ year, index, today, selected, onPick, lang }) => 
             </div>
             <div className="grid grid-cols-7 gap-0.5 text-center">
               {weekdays.map((label, i) => (
-                <span key={`${label}-${i}`} className={`text-[9px] font-bold ${i === 6 ? 'text-rose-600' : 'text-slate-400'}`} aria-hidden="true">
+                <span key={`${label}-${i}`} className={`text-[9px] font-bold ${i === 6 ? 'text-rose-600' : 'text-slate-500'}`} aria-hidden="true">
                   {label}
                 </span>
               ))}

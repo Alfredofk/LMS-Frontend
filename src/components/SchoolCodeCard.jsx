@@ -56,13 +56,10 @@ const copyText = async (text) => {
 };
 
 /*
-  A school's two numbers, for the person who founded it.
-
-  The **School Code** is the one to hand out: eight characters somebody types to
-  ask to join. The **NPSN** is the school's national registration number, which
-  the founder typed once and may need again for something official. One is for
-  giving away, the other for reading back — which is why only the first has a copy
-  button.
+  The **School Code**, the one number to hand out: eight characters somebody types
+  to ask to join. The school's NPSN, which is never handed out, moved to the
+  profile header beside NIP and NUPTK (owner, 2026-10-07): sitting between this
+  card's title and the code, it read as if it too were to be given away.
 
   Founding a school generates a code and nothing ever showed it — so a principal
   had nothing to give the teachers and students who need one to join, and the
@@ -73,10 +70,9 @@ const copyText = async (text) => {
   to those who hand it out - the Principal, a Vice Principal, the homeroom teacher
   of a class in an active year - and null to everybody else; this renders `null`
   then, so no caller has to ask. Each of the three is told who to give it to
-  (owner, 2026-10-04). Replacing it stays the Principal's. The NPSN still comes
-  from `GET /school-registrations/mine`, so only a Principal who founded the
-  school sees it. Before 1bd81ab that route was the only source of the code too,
-  and a second Principal could not read it at all.
+  (owner, 2026-10-04). Replacing it stays the Principal's. Before 1bd81ab
+  `GET /school-registrations/mine` was the only source of the code, and a second
+  Principal could not read it at all.
 
   **One place shows it: My Profile.** It began on three screens, lost the
   join-requests queue, then the dashboard. A School Code is handed out in a burst
@@ -84,11 +80,6 @@ const copyText = async (text) => {
   a dashboard is where the work is. My Profile is one click from every signed-in
   screen through the pinned Account group, and again through the sidebar card, so
   the copies were buying almost nothing.
-
-  The NPSN cost nothing to add: `applicantView` has always sent it and this card
-  had always thrown it away, along with the city, the phone and the duration. Those
-  three are still thrown away — the city is on the header card directly above, and
-  nobody opens their own profile to look up their own phone number.
 
   ## Replacing a code that has spread
 
@@ -129,7 +120,6 @@ export const SchoolCodeCard = () => {
   const [rotateError, setRotateError] = useState(null);
   /* The code a rotation just answered, ahead of the next /users/me. */
   const [rotatedCode, setRotatedCode] = useState(null);
-  const [npsn, setNpsn] = useState(null);
 
   const code = rotatedCode ?? membership?.school?.schoolCode ?? null;
   const unknown = Boolean(membership?.school) && membership.school.schoolCode === undefined;
@@ -138,27 +128,6 @@ export const SchoolCodeCard = () => {
   useEffect(() => {
     if (unknown) refreshMe().catch(() => {});
   }, [unknown, refreshMe]);
-
-  /* The NPSN lives on the founder's registration only. */
-  useEffect(() => {
-    if (!principal) return undefined;
-    let cancelled = false;
-    schoolService
-      .listMyRegistrations()
-      .then((answer) => {
-        /*
-          Not `registrations[0]`, which is what SelectRolePage takes: the list is
-          newest first, and a rejected retry can sit in front of the approved one
-          that actually became a school.
-        */
-        const founded = (answer.registrations ?? []).find((row) => row.status === 'APPROVED' && row.school);
-        if (!cancelled) setNpsn(founded?.npsn ?? null);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [principal]);
 
   /* The label goes back on its own; nothing here is waiting on the answer. */
   useEffect(() => {
@@ -169,7 +138,7 @@ export const SchoolCodeCard = () => {
 
   if (!code) return null;
 
-  /* The code alone. The NPSN is not what anybody is being asked for. */
+  /* The code alone. */
   const handleCopy = async () => {
     if (await copyText(code)) setCopied(true);
   };
@@ -208,15 +177,6 @@ export const SchoolCodeCard = () => {
           http — somebody can still select the code by hand, which is why this is
           text rather than an image or a canvas.
         */}
-        {/* Above the code and read like the profile's NIP (owner, 2026-10-03).
-            Absent means something else went wrong (NPSN is required at
-            registration), and a blank row is not how to report that. */}
-        {npsn && (
-          <p className="mt-1.5 text-[11px] font-semibold text-slate-500">
-            {t('schoolCode.npsn')}:{' '}
-            <span className="text-slate-700 font-bold tabular-nums select-all">{npsn}</span>
-          </p>
-        )}
 
         <p className="mt-1.5 text-2xl sm:text-3xl font-extrabold font-mono tracking-[0.2em] text-slate-900 select-all break-all">
           {code}

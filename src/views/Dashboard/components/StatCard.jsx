@@ -1,7 +1,9 @@
 import React from 'react';
 
 /**
- * One metric, with a coloured icon square in the top right.
+ * One metric, with an icon square in the top right - always the brand's pale
+ * purple (owner, 2026-10-07): one colour for every card, so the colour means
+ * "a number", not a different meaning per card.
  *
  * A `<button>`, not a `<div onClick>`. It was the latter, wrapped from outside
  * by the dashboard — which meant the whole row of cards was invisible to the
@@ -18,7 +20,6 @@ export const StatCard = ({
   value,
   subtext,
   icon: Icon,
-  iconBg = 'bg-brand-tint text-brand',
   onClick,
   className = '',
 }) => {
@@ -36,7 +37,7 @@ export const StatCard = ({
     >
       <div className="flex items-start justify-between w-full">
         <span className="text-xs font-medium text-slate-500">{title}</span>
-        <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>
+        <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-brand-tint text-brand`}>
           {Icon && <Icon className="w-4 h-4" aria-hidden="true" />}
         </div>
       </div>

@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AlertCircle, BookOpen, CalendarRange, ChevronDown, History, Layers, RefreshCw, School, UserRound } from 'lucide-react';
 
-import InfoChips from '../../components/ui/InfoChips';
 import { useT } from '../../i18n/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { attendanceService } from '../../services/attendanceService';

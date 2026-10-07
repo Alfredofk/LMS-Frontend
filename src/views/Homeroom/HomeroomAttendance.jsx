@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarCheck, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ChevronRight } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage } from '../../i18n/apiError';
@@ -95,10 +95,7 @@ export const HomeroomAttendance = ({ classId, academicYearId }) => {
 
   const heading = (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-      <div className="flex items-center gap-2 text-slate-500">
-        <CalendarCheck className="w-4 h-4 shrink-0" aria-hidden="true" />
-        <h3 className="text-[11px] font-bold uppercase tracking-wider">{t('homeroom.att.title')}</h3>
-      </div>
+      <h3 className="text-base font-extrabold text-slate-900">{t('homeroom.att.title')}</h3>
       {semesters.length > 1 && (
         <label className="flex items-center gap-2">
           <span className="sr-only">{t('homeroom.att.semester')}</span>

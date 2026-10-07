@@ -9,7 +9,6 @@ import { STATUSES, STATUS_DOT, localOf, summarize, bySubject, historyOf } from '
 import TodaySessionsCard from './TodaySessionsCard';
 import AttendanceSummaryCard from './AttendanceSummaryCard';
 import Select from '../../components/ui/Select';
-import InfoChips from '../../components/ui/InfoChips';
 
 /*
   A student's own attendance (owner, 2026-10-02), from `GET /attendance/me`

@@ -119,7 +119,7 @@ export const SubjectCatalog = ({ subjects, onCreated, onSaved, showToast }) => {
 
   const list = (heading, rows, empty) => (
     <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-3">
-      <h2 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+      <h2 className="text-base font-extrabold text-slate-900">
         {heading} ({rows.length})
       </h2>
       {rows.length === 0 ? (
@@ -202,7 +202,7 @@ export const SubjectCatalog = ({ subjects, onCreated, onSaved, showToast }) => {
       <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-3" aria-labelledby="national-subjects">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h2 id="national-subjects" className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            <h2 id="national-subjects" className="text-base font-extrabold text-slate-900">
               {t('subjects.kind.national')} ({t('subjects.selection.count', { n: ticked.size, total: national.length })})
             </h2>
             <p className="mt-1 text-xs font-semibold text-slate-500 leading-relaxed">{t('subjects.selection.hint')}</p>
