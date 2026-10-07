@@ -11,20 +11,12 @@ import { membersService } from '../../services/membersService';
 import SetupChecklist from './components/SetupChecklist';
 import AwaitingConfirmationCard from './components/AwaitingConfirmationCard';
 import { currentYear } from './setup';
-import { subjectsInUse } from '../Subjects/subjects';
+import { defaultSemesterOf, subjectsInUse } from '../Subjects/subjects';
 import { ROLES } from '../../constants/roles';
-import {
-  Users,
-  GraduationCap,
-  BookOpen,
-  Plus,
-  Trash2,
-  School,
-  X,
-  Megaphone,
-  Library,
-  ArrowRight,
-} from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import InfoChips from '../../components/ui/InfoChips';
+import { usePendingCounts } from '../../hooks/usePendingCounts';
+import { CalendarDays, ChevronRight, GraduationCap, Plus, Trash2, School, Users, X, ArrowRight } from 'lucide-react';
 
 /*
   The Principal's dashboard. Its numbers are real since 2026-09-26 (owner):
@@ -54,7 +46,19 @@ import {
   2026-09-29): every read above is open to them (backend `89a5666`), so only
   the words change, the announcements tab is left out, and the checklist offers
   no button for the two steps that are the Principal's hands.
+
+  Plain on purpose (owner, 2026-10-07: "not so AI-looking"): a greeting with the
+  school, semester and date like the teacher's, one strip of numbers without
+  icon tiles, text-only tabs, and cards titled by words rather than icons.
 */
+
+/* The same four-way split of the day as the student's and teacher's dashboards. */
+const greetingKeyFor = (hour) => {
+  if (hour >= 5 && hour < 12) return 'dash.greeting.morning';
+  if (hour >= 12 && hour < 15) return 'dash.greeting.midday';
+  if (hour >= 15 && hour < 19) return 'dash.greeting.afternoon';
+  return 'dash.greeting.evening';
+};
 
 const soft = (promise) => promise.catch(() => null);
 
@@ -63,6 +67,8 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
   const { showToast } = useOutletContext();
   const navigate = useNavigate();
   const { t, lang } = useT();
+  const { user, membership, activeRole } = useAuth();
+  const pending = usePendingCounts(activeRole);
 
   // Navigation active tab: 'dashboard', 'courses' (subjects), 'announcements'.
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -105,8 +111,8 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
     if (activeTab !== 'courses' || subjectsExtra) return;
     let cancelled = false;
     Promise.all([soft(academicsService.classSubjects('PENDING')), soft(academicsService.subjects())]).then(
-      ([pending, catalog]) => {
-        if (!cancelled) setSubjectsExtra({ pending, catalog });
+      ([waiting, catalog]) => {
+        if (!cancelled) setSubjectsExtra({ pending: waiting, catalog });
       }
     );
     return () => {
@@ -114,13 +120,33 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
     };
   }, [activeTab, subjectsExtra]);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
   const year = overview?.years ? currentYear(overview.years, today) : null;
+  const semesterId = year ? defaultSemesterOf(year, today) : null;
+  const semester = year?.semesters?.find((entry) => entry.id === semesterId) ?? null;
+  const schoolName = membership?.school?.name ?? membership?.schoolName ?? '';
+  const todayLabel = now.toLocaleDateString(lang === 'en' ? 'en-GB' : 'id-ID', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  });
   const semesterIds = new Set((year?.semesters ?? []).map((semester) => semester.id));
   const withRole = (role) => overview?.members?.filter((member) => member.roles.includes(role)) ?? null;
   const teachers = withRole(ROLES.TEACHER);
   const students = withRole(ROLES.STUDENT);
   const classesNow = overview?.classes && year ? overview.classes.filter((entry) => entry.academicYear?.id === year.id) : null;
+  /* The cards' second lines: homeroom teachers and students placed, this year. */
+  const homerooms = classesNow
+    ? new Set(classesNow.map((entry) => entry.homeroomTeacher?.membershipId).filter(Boolean)).size
+    : null;
+  const placed = classesNow ? classesNow.reduce((sum, entry) => sum + (entry.studentCount ?? 0), 0) : null;
+
+  /* undefined while reading, null when the read failed (usePendingCounts). A Vice
+     Principal decides teaching requests only. */
+  const needs = [
+    !isVice && { key: 'join', label: t('dash.principal.needs.join'), n: pending.joinRequests, to: '/join-requests' },
+    !isVice && { key: 'leave', label: t('dash.principal.needs.leave'), n: pending.leaveRequests, to: '/headmaster/members', tab: 'LEAVE' },
+    { key: 'teaching', label: t('dash.principal.needs.teaching'), n: pending.teachingRequests, to: '/headmaster/subjects', tab: 'PENDING' },
+  ].filter(Boolean);
   const assignmentsNow = overview?.assignments
     ? overview.assignments.filter((entry) => semesterIds.has(entry.semester?.id))
     : null;
@@ -208,18 +234,24 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
   return (
     <div className="space-y-6 w-full text-left">
       
-      {/* 1. Header welcome */}
-      <div className="space-y-1 select-none">
-        <span className="px-2.5 py-1 bg-purple-100 text-brand text-xs font-extrabold rounded-lg uppercase">
-          {t(isVice ? 'dash.vice.badge' : 'dash.principal.badge')}
-        </span>
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight mt-2">
-          {t(isVice ? 'dash.vice.title' : 'dash.principal.title')}
+      <header className="select-none">
+        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+          {t(greetingKeyFor(now.getHours()), { name: user?.fullName || t(isVice ? 'dash.vice.fallback' : 'dash.principal.fallback') })}
         </h1>
-        <p className="text-sm text-slate-500 font-medium">
-          {t(isVice ? 'dash.vice.subtitle' : 'dash.principal.subtitle')}
-        </p>
-      </div>
+        <InfoChips
+          className="mt-2"
+          items={[
+            schoolName && { icon: School, label: schoolName },
+            year && {
+              icon: GraduationCap,
+              label: semester
+                ? t('teacherDash.academicContext', { year: year.label, n: semester.ordinal })
+                : year.label,
+            },
+            { icon: CalendarDays, label: todayLabel },
+          ]}
+        />
+      </header>
 
       {/* Real data, unlike the stat cards below: what the school still needs
           before it can teach anybody, in order (owner, 2026-09-26). Above the
@@ -244,26 +276,24 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
         tabs, so nothing overflows and nothing scrolls — measured identical after
         the change, down to each tab's x position.
       */}
-      <div className="border-b border-slate-100 flex gap-6 select-none overflow-x-auto">
+      <div role="tablist" className="border-b border-slate-200 flex gap-6 select-none overflow-x-auto">
         {[
-          { id: 'dashboard', label: t('dash.principal.tab.dashboard'), icon: School },
-          { id: 'courses', label: t('dash.principal.tab.courses'), icon: BookOpen },
-          { id: 'announcements', label: t('dash.principal.tab.announcements'), icon: Megaphone }
+          { id: 'dashboard', label: t('dash.principal.tab.dashboard') },
+          { id: 'courses', label: t('dash.principal.tab.courses') },
+          { id: 'announcements', label: t('dash.principal.tab.announcements') },
         ].filter((tab) => !(isVice && tab.id === 'announcements')).map((tab) => {
-          const TabIcon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
               onClick={() => setActiveTab(tab.id)}
-              className={`pb-3 text-sm font-extrabold transition-all flex items-center gap-2 border-b-2 focus:outline-none cursor-pointer shrink-0 whitespace-nowrap
-                ${isActive 
-                  ? 'border-brand text-brand' 
-                  : 'border-transparent text-slate-500 hover:text-slate-600'
-                }
-              `}
+              className={`px-1 pb-3 text-sm font-extrabold border-b-2 transition-colors cursor-pointer shrink-0 whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-t ${
+                isActive ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
             >
-              <TabIcon className="w-4 h-4" />
               {tab.label}
             </button>
           );
@@ -276,40 +306,87 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
         {/* Tab 1: Dashboard overview — every number counted, for the current year. */}
         {activeTab === 'dashboard' && (
           <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 select-none">
+          {/* Three cards again, each with a line of context and a small grey icon
+              rather than a pastel tile (owner, 2026-10-07). Each opens where it is counted. */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 select-none">
             {[
-              { label: t('dash.principal.stat.teachers'), value: shown(teachers), to: '/headmaster/members', tab: 'TEACHER', Icon: Users, tint: 'bg-purple-50 text-brand' },
-              { label: t('dash.principal.stat.students'), value: shown(students), to: '/headmaster/members', tab: 'STUDENT', Icon: GraduationCap, tint: 'bg-emerald-50 text-emerald-600' },
               {
-                label: year ? t('dash.principal.stat.classesIn', { label: year.label }) : t('dash.principal.stat.classes'),
+                label: t('dash.principal.stat.teachers'),
+                value: shown(teachers),
+                note: homerooms !== null && t('dash.principal.stat.teachers.note', { n: homerooms }),
+                to: '/headmaster/members',
+                tab: 'TEACHER',
+                Icon: Users,
+              },
+              {
+                label: t('dash.principal.stat.students'),
+                value: shown(students),
+                note: placed !== null && t('dash.principal.stat.students.note', { n: placed }),
+                to: '/headmaster/members',
+                tab: 'STUDENT',
+                Icon: GraduationCap,
+              },
+              {
+                label: t('dash.principal.stat.classes'),
                 value: shown(classesNow),
+                note: year && (semester ? t('teacherDash.academicContext', { year: year.label, n: semester.ordinal }) : year.label),
                 to: '/headmaster/classes',
                 Icon: School,
-                tint: 'bg-blue-50 text-blue-600',
               },
-            ].map(({ label, value, to, tab, Icon: icon, tint }) => {
+            ].map(({ label, value, note, to, tab, Icon: icon }) => {
               const StatIcon = icon;
               return (
-              <button
-                key={to + label}
-                type="button"
-                /* Straight to the matching tab of Members (owner, 2026-10-03). */
-                onClick={() => navigate(to, tab ? { state: { tab } } : undefined)}
-                className="text-left bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-slate-200 transition-all cursor-pointer flex items-center justify-between gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-              >
-                <span className="min-w-0">
-                  <span className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{label}</span>
-                  <span className="block text-3xl font-extrabold text-slate-800 mt-1 tabular-nums">
-                    {overview ? value : <span className="inline-block w-10 h-8 bg-slate-100 rounded-lg animate-pulse align-middle" aria-label={t('common.loading')} />}
+                <button
+                  key={label}
+                  type="button"
+                  /* Straight to the matching tab of Members (owner, 2026-10-03). */
+                  onClick={() => navigate(to, tab ? { state: { tab } } : undefined)}
+                  className="text-left min-w-0 bg-white border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-slate-200 transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-slate-600 truncate">{label}</span>
+                    <StatIcon className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
                   </span>
-                </span>
-                <span className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${tint}`}>
-                  <StatIcon className="w-6 h-6" aria-hidden="true" />
-                </span>
-              </button>
+                  <span className="block text-3xl font-extrabold text-slate-900 tabular-nums leading-none mt-3">
+                    {overview ? value : <span className="inline-block w-10 h-7 bg-slate-100 rounded-lg animate-pulse align-middle" aria-label={t('common.loading')} />}
+                  </span>
+                  <span className="block text-xs font-medium text-slate-500 mt-2 truncate">{(overview && note) || ' '}</span>
+                </button>
               );
             })}
           </div>
+
+          {/* What waits on this desk, the same numbers as the sidebar's (owner, 2026-10-07). */}
+          <section aria-labelledby="needs-action-title" className="mt-5 bg-white border border-slate-100 rounded-2xl p-5 sm:p-6 shadow-sm space-y-3">
+            <h2 id="needs-action-title" className="text-base font-extrabold text-slate-900">
+              {t('dash.principal.needs.title')}
+            </h2>
+            {needs.every((item) => item.n === 0) ? (
+              <p className="text-sm font-medium text-slate-500">{t('dash.principal.needs.none')}</p>
+            ) : (
+              <ul className="divide-y divide-slate-100 border border-slate-100 rounded-xl">
+                {needs.map(({ key, label, n, to, tab }) => (
+                  <li key={key}>
+                    <button
+                      type="button"
+                      onClick={() => navigate(to, tab ? { state: { tab } } : undefined)}
+                      className="w-full px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand first:rounded-t-xl last:rounded-b-xl"
+                    >
+                      <span className={`text-sm font-semibold ${n ? 'text-slate-800' : 'text-slate-500'}`}>{label}</span>
+                      <span className="flex items-center gap-2 shrink-0">
+                        {n === undefined ? (
+                          <span className="inline-block w-6 h-4 bg-slate-100 rounded animate-pulse" aria-label={t('common.loading')} />
+                        ) : (
+                          <span className={`text-sm font-extrabold tabular-nums ${n ? 'text-slate-900' : 'text-slate-500'}`}>{n === null ? '-' : n}</span>
+                        )}
+                        <ChevronRight className="w-4 h-4 text-slate-400" aria-hidden="true" />
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
           {/* Meetings waiting for their teacher's answer (backend 7cdc46d): hidden when none. */}
           <AwaitingConfirmationCard />
           </>
@@ -318,16 +395,11 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
         {/* Tab 2: Subjects — a summary of the real page (ticket 08), not a second copy of it. */}
         {activeTab === 'courses' && (
           <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm space-y-5">
-            <div className="flex items-start gap-3">
-              <span className="w-10 h-10 rounded-xl bg-brand-tint text-brand flex items-center justify-center shrink-0">
-                <Library className="w-5 h-5" aria-hidden="true" />
-              </span>
-              <div className="min-w-0">
-                <h2 className="text-sm font-extrabold text-slate-900">{t('dash.principal.subjects.title')}</h2>
-                <p className="text-xs font-semibold text-slate-500 leading-relaxed mt-0.5">
-                  {year ? t('dash.principal.subjects.body', { label: year.label }) : t('dash.principal.subjects.noYear')}
-                </p>
-              </div>
+            <div className="min-w-0">
+              <h2 className="text-base font-extrabold text-slate-900">{t('dash.principal.subjects.title')}</h2>
+              <p className="text-xs font-semibold text-slate-500 leading-relaxed mt-0.5">
+                {year ? t('dash.principal.subjects.body', { label: year.label }) : t('dash.principal.subjects.noYear')}
+              </p>
             </div>
             <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
@@ -347,7 +419,7 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
                 },
               ].map(({ term, value }) => (
                 <div key={term} className="rounded-xl border border-slate-100 px-4 py-3">
-                  <dt className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">{term}</dt>
+                  <dt className="text-xs font-semibold text-slate-600">{term}</dt>
                   <dd className="text-xl font-extrabold text-slate-800 mt-1 tabular-nums">
                     {value ?? <span className="inline-block w-10 h-6 bg-slate-100 rounded-lg animate-pulse align-middle" aria-label={t('common.loading')} />}
                   </dd>
@@ -368,7 +440,7 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
         {activeTab === 'announcements' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center select-none">
-              <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">{t('principal.ann.title')}</h3>
+              <h2 className="text-base font-extrabold text-slate-900">{t('principal.ann.title')}</h2>
               {!announcementsNotBuilt && (
               <button
                 onClick={() => setIsAnnouncementModalOpen(true)}
@@ -392,11 +464,11 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
                   <table className="w-full min-w-max text-xs font-medium text-slate-600">
                     <thead>
                       <tr className="border-b border-slate-100 text-slate-500 font-extrabold text-left">
-                        <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.ann.th.title')}</th>
-                        <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.ann.th.content')}</th>
-                        <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.ann.th.author')}</th>
-                        <th className="pb-3 font-extrabold text-[10px] uppercase">{t('principal.ann.th.date')}</th>
-                        <th className="pb-3 text-right font-extrabold text-[10px] uppercase">{t('principal.th.action')}</th>
+                        <th className="pb-3 font-bold text-[11px]">{t('principal.ann.th.title')}</th>
+                        <th className="pb-3 font-bold text-[11px]">{t('principal.ann.th.content')}</th>
+                        <th className="pb-3 font-bold text-[11px]">{t('principal.ann.th.author')}</th>
+                        <th className="pb-3 font-bold text-[11px]">{t('principal.ann.th.date')}</th>
+                        <th className="pb-3 text-right font-bold text-[11px]">{t('principal.th.action')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">

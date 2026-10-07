@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
-import { AlertCircle, FileQuestion, ImageIcon, Plus, RefreshCw, Search, UserRound } from 'lucide-react';
+import { AlertCircle, FileQuestion, Plus, RefreshCw, Search } from 'lucide-react';
 
 import Select from '../../components/ui/Select';
 import SubjectLabel from '../../components/ui/SubjectLabel';
@@ -10,8 +10,8 @@ import { useT } from '../../i18n/LanguageContext';
 import { questionBankErrorMessage } from '../../i18n/apiError';
 import { academicsService } from '../../services/academicsService';
 import { assessmentService } from '../../services/assessmentService';
-import { KINDS, bodyText, filterChoices, filterQuestions, formatQuestionDate, taughtPairs } from './questionBank';
-import QuestionPreviewDialog from './QuestionPreviewDialog';
+import { KINDS, filterChoices, filterQuestions, taughtPairs } from './questionBank';
+import QuestionItem from './QuestionItem';
 
 /*
   "Bank Soal" (backend ed46340, assessment ticket 01; owner 2026-10-07): the
@@ -25,47 +25,12 @@ import QuestionPreviewDialog from './QuestionPreviewDialog';
   - Two tabs: live questions (the pick list) and archived ones (a teacher's own,
     every one for a leader) - two reads, the second on first opening it.
   - Filters run in the browser (subject, grade, kind, "mine", words), offering
-    only what the bank holds. A card opens QuestionPreviewDialog with the key.
+    only what the bank holds. Each question is shown whole, key and actions
+    included, one under another (QuestionItem; owner 2026-10-07: no card to open).
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm';
 const TABS = ['live', 'archived'];
-
-const QuestionCard = ({ question, onOpen, t, lang }) => {
-  const words = bodyText(question.body);
-  const images = [question.imageId, ...(question.options ?? []).map((o) => o.imageId)].filter(Boolean).length;
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className={`${card} w-full text-left hover:shadow-md hover:border-brand/30 transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand flex flex-col gap-3`}
-    >
-      <span className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-600">
-        <span className="px-2 py-0.5 rounded-md bg-brand-tint text-brand text-[11px] font-extrabold">{t(`qbank.kind.${question.kind}`)}</span>
-        <SubjectLabel code={question.subject?.code} name={question.subject?.name} />
-        <span className="text-slate-500">{t('classes.grade', { n: question.gradeLevel })}</span>
-        {question.mine && (
-          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[11px] font-bold">{t('qbank.mineBadge')}</span>
-        )}
-      </span>
-      <span className="block text-sm font-semibold text-slate-800 leading-relaxed line-clamp-2 break-words">{words || '-'}</span>
-      <span className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-slate-500">
-        <span className="inline-flex items-center gap-1 min-w-0">
-          <UserRound className="w-3 h-3 shrink-0" aria-hidden="true" />
-          <span className="truncate">{t(question.author?.left ? 'qbank.byLeft' : 'qbank.by', { name: question.author?.fullName ?? '' })}</span>
-        </span>
-        <span>{formatQuestionDate(question.updatedAt, lang)}</span>
-        {images > 0 && (
-          <span className="inline-flex items-center gap-1">
-            <ImageIcon className="w-3 h-3" aria-hidden="true" />
-            {t('qbank.images', { n: images })}
-          </span>
-        )}
-        {question.duplicatedFromId && <span>{t('qbank.duplicate.from')}</span>}
-      </span>
-    </button>
-  );
-};
 
 export const QuestionBankPage = () => {
   const { t, lang } = useT();
@@ -82,7 +47,6 @@ export const QuestionBankPage = () => {
   /* What the Teacher writes for: undefined while reading, null when it could not be read. */
   const [pairs, setPairs] = useState(writable ? undefined : []);
   const [filters, setFilters] = useState({ subjectId: '', gradeLevel: '', kind: '', mine: false, query: '' });
-  const [open, setOpen] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -125,7 +89,6 @@ export const QuestionBankPage = () => {
   };
 
   const onChanged = (_question, toastKey) => {
-    setOpen(null);
     showToast?.(t(toastKey), 'success');
     reload();
   };
@@ -225,9 +188,9 @@ export const QuestionBankPage = () => {
       )}
 
       {list === undefined ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-busy="true" aria-label={t('common.loading')}>
-          {[0, 1, 2, 3].map((n) => (
-            <div key={n} className="h-32 rounded-2xl bg-white border border-slate-100 animate-pulse" />
+        <div className="space-y-4" aria-busy="true" aria-label={t('common.loading')}>
+          {[0, 1, 2].map((n) => (
+            <div key={n} className="h-56 rounded-2xl bg-white border border-slate-100 animate-pulse" />
           ))}
         </div>
       ) : list.error ? (
@@ -253,25 +216,23 @@ export const QuestionBankPage = () => {
       ) : (
         <>
           <p className="text-xs font-semibold text-slate-500">{t('qbank.count', { n: shown.length, total: questions.length })}</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {shown.map((question) => (
-              <QuestionCard key={question.id} question={question} onOpen={() => setOpen(question)} t={t} lang={lang} />
+          <div className="space-y-4">
+            {shown.map((question, i) => (
+              <QuestionItem
+                key={question.id}
+                question={question}
+                number={i + 1}
+                pairs={pairs ?? []}
+                writable={writable}
+                onEdit={() => navigate(`/question-bank/${question.id}/edit`)}
+                onChanged={onChanged}
+                onStale={() => reload()}
+                t={t}
+                lang={lang}
+              />
             ))}
           </div>
         </>
-      )}
-
-      {open && (
-        <QuestionPreviewDialog
-          key={open.id}
-          question={open}
-          pairs={pairs ?? []}
-          writable={writable}
-          onClose={() => setOpen(null)}
-          onEdit={() => navigate(`/question-bank/${open.id}/edit`)}
-          onChanged={onChanged}
-          onStale={() => reload()}
-        />
       )}
     </div>
   );

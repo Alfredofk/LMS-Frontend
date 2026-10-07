@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, ArrowRight, ChevronDown, ClipboardCheck } from 'lucide-react';
+import { AlertTriangle, ArrowRight, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import { useT } from '../../../i18n/LanguageContext';
@@ -56,16 +56,11 @@ export const AwaitingConfirmationCard = () => {
 
   return (
     <section className="mt-5 bg-white border border-slate-100 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4" aria-labelledby="awaiting-title">
-      <div className="flex items-start gap-3">
-        <span className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
-          <ClipboardCheck className="w-5 h-5" aria-hidden="true" />
-        </span>
-        <div className="min-w-0">
-          <h2 id="awaiting-title" className="text-sm font-extrabold text-slate-800">
-            {t('awaiting.title', { n: sessions.length })}
-          </h2>
-          <p className="text-xs font-semibold text-slate-500 leading-relaxed mt-0.5">{t('awaiting.body')}</p>
-        </div>
+      <div className="min-w-0">
+        <h2 id="awaiting-title" className="text-base font-extrabold text-slate-900">
+          {t('awaiting.title', { n: sessions.length })}
+        </h2>
+        <p className="text-xs font-semibold text-slate-500 leading-relaxed mt-0.5">{t('awaiting.body')}</p>
       </div>
 
       <ul className="divide-y divide-slate-100 border border-slate-100 rounded-xl">

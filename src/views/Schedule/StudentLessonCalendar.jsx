@@ -451,10 +451,10 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
                   >
                     {Number(date.slice(8))}
                   </span>
-                  <span className="flex items-center gap-0.5 h-1" aria-hidden="true">
-                    {Array.from({ length: Math.min(marks.held, 3) }, (_, n) => (
-                      <span key={n} className="w-1 h-1 rounded-full bg-brand" />
-                    ))}
+                  {/* One dot for "there are meetings", however many (owner, 2026-10-07);
+                      the count is in the day's label and its list. */}
+                  <span className="flex items-center h-1" aria-hidden="true">
+                    {marks.held > 0 && <span className="w-1 h-1 rounded-full bg-brand" />}
                   </span>
                 </button>
               );

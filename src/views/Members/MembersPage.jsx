@@ -1,11 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useOutletContext } from 'react-router-dom';
-import { CalendarCheck, ChevronRight, DoorOpen, IdCard, LogOut, Search, ShieldCheck, ShieldOff, ShieldX, UserMinus, Users } from 'lucide-react';
+import { ChevronRight, DoorOpen, Search, ShieldCheck, ShieldOff, ShieldX, UserMinus, Users } from 'lucide-react';
 
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
 import RemoveMemberDialog from '../../components/RemoveMemberDialog';
 import PersonDetailDialog from '../../components/PersonDetailDialog';
-import InfoChips from '../../components/ui/InfoChips';
 import { initialsOf } from '../../utils/names';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import LeaveRequestsPanel from './LeaveRequestsPanel';
@@ -82,7 +81,10 @@ export const MembersPage = () => {
   const [left, setLeft] = useState(null);
   /* A dashboard card can open a tab directly (`state.tab`, owner 2026-10-03). */
   const location = useLocation();
-  const [tab, setTab] = useState(() => (TABS.includes(location.state?.tab) ? location.state.tab : 'ALL'));
+  /* 'LEAVE' too: the dashboard's "Perlu tindakan" opens the leave requests. */
+  const [tab, setTab] = useState(() =>
+    TABS.includes(location.state?.tab) || location.state?.tab === 'LEAVE' ? location.state.tab : 'ALL'
+  );
   const [query, setQuery] = useState('');
   const [error, setError] = useState(null);
   const [denied, setDenied] = useState(false);
@@ -319,14 +321,15 @@ export const MembersPage = () => {
             const appointable =
               isPrincipal && here && !isVice && member.roles.includes(ROLES.TEACHER) && !member.roles.includes(ROLES.PRINCIPAL);
             const revocable = isPrincipal && here && isVice;
+            /* Plain text, no pills or icons (owner, 2026-10-07: the coloured chips were "pusing"). */
             const facts = [
-              member.nisn && { icon: IdCard, label: `${t('profile.nisn')} ${member.nisn}` },
-              member.nip && { icon: IdCard, label: `${t('profile.nip')} ${member.nip}` },
-              member.nuptk && { icon: IdCard, label: `${t('profile.nuptk')} ${member.nuptk}` },
+              member.nisn && `${t('profile.nisn')} ${member.nisn}`,
+              member.nip && `${t('profile.nip')} ${member.nip}`,
+              member.nuptk && `${t('profile.nuptk')} ${member.nuptk}`,
               tab === 'LEFT'
-                ? { icon: LogOut, label: t('members.leftOn', { date: day(member.endedAt) }) }
-                : { icon: CalendarCheck, label: t('members.joinedOn', { date: day(member.joinedAt) }) },
-            ];
+                ? t('members.leftOn', { date: day(member.endedAt) })
+                : t('members.joinedOn', { date: day(member.joinedAt) }),
+            ].filter(Boolean);
 
             return (
               <li key={member.membershipId} className="px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -336,24 +339,22 @@ export const MembersPage = () => {
                   aria-label={t('members.openMember', { name: member.fullName })}
                   className="group min-w-0 flex-1 flex items-start gap-3 text-left rounded-xl p-1.5 -m-1.5 hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                 >
-                <span className="w-10 h-10 rounded-xl bg-brand-tint text-brand text-xs font-extrabold flex items-center justify-center shrink-0 select-none">
+                <span className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 text-xs font-extrabold flex items-center justify-center shrink-0 select-none">
                   {initialsOf(member.fullName)}
                 </span>
-                <div className="min-w-0 flex-1 space-y-1.5">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-sm font-extrabold text-slate-800 break-words group-hover:text-brand transition-colors">{member.fullName}</span>
-                    {isSelf && (
-                      <span className="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-slate-100 text-slate-600">
-                        {t('members.you')}
-                      </span>
-                    )}
-                    {member.roles.map((role) => (
-                      <span key={role} className="px-2 py-0.5 bg-brand-tint text-brand text-[10px] font-extrabold rounded-md">
-                        {t(`roleTitle.${role}`)}
-                      </span>
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <p className="text-sm font-extrabold text-slate-800 break-words group-hover:text-brand transition-colors">
+                    {member.fullName}
+                    {isSelf && <span className="ml-1.5 text-xs font-semibold text-slate-500">({t('members.you')})</span>}
+                  </p>
+                  <p className="text-xs font-semibold text-slate-600 break-words">
+                    {member.roles.map((role) => t(`roleTitle.${role}`)).join(', ')}
+                  </p>
+                  <p className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs font-medium text-slate-500 tabular-nums">
+                    {facts.map((fact) => (
+                      <span key={fact}>{fact}</span>
                     ))}
-                  </div>
-                  <InfoChips size="xs" items={facts} />
+                  </p>
                   {tab === 'LEFT' && (
                     /* The reason somebody else wrote, so marked as a quotation;
                        none means they left on their own. */

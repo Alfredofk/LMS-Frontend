@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
-import { ChevronRight, Inbox, School, Users, NotebookPen } from 'lucide-react';
+import { ChevronRight, Inbox, School, NotebookPen } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
 import ClassDetail from '../Classes/components/ClassDetail';
@@ -167,31 +167,14 @@ export const HomeroomDashboard = () => {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center gap-4">
-              <div className="w-11 h-11 rounded-xl bg-brand-tint text-brand flex items-center justify-center shrink-0">
-                <School className="w-5 h-5" aria-hidden="true" />
-              </div>
-              <div>
-                <p className="text-2xl font-extrabold text-slate-900 tabular-nums">{mine.length}</p>
-                <p className="text-xs font-semibold text-slate-500">{t('homeroom.stat.classes')}</p>
-              </div>
-            </div>
-            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex items-center gap-4">
-              <div className="w-11 h-11 rounded-xl bg-brand-tint text-brand flex items-center justify-center shrink-0">
-                <Users className="w-5 h-5" aria-hidden="true" />
-              </div>
-              <div>
-                <p className="text-2xl font-extrabold text-slate-900 tabular-nums">{students}</p>
-                <p className="text-xs font-semibold text-slate-500">{t('homeroom.stat.students')}</p>
-              </div>
-            </div>
-          </div>
-
+          {/* The two counts sit in the list's heading line, not in two big cards
+              with icon tiles (owner, 2026-10-07: too much room, too "AI"). */}
           <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-3">
-            <div className="flex items-center gap-2 text-slate-500">
-              <School className="w-4 h-4 shrink-0" aria-hidden="true" />
-              <h2 className="text-[11px] font-bold uppercase tracking-wider">{t('homeroom.list.heading')}</h2>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <h2 className="text-base font-extrabold text-slate-900">{t('homeroom.list.heading')}</h2>
+              <p className="text-xs font-semibold text-slate-500 tabular-nums">
+                {t('homeroom.list.summary', { classes: mine.length, students })}
+              </p>
             </div>
             <ul className="divide-y divide-slate-100 -mx-2">
               {mine.map((entry) => {
@@ -214,7 +197,11 @@ export const HomeroomDashboard = () => {
                               open ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
                             }`}
                           >
-                            {entry.academicYear?.label} · {t(`classes.year.status.${open ? 'ACTIVE' : 'CLOSED'}`)}
+                            {/* Sentence case, as in the year dropdowns (owner, 2026-10-07). */}
+                            {t('subjects.board.yearOption', {
+                              label: entry.academicYear?.label ?? '',
+                              status: t(`subjects.board.yearStatus.${open ? 'ACTIVE' : 'CLOSED'}`),
+                            })}
                           </span>
                         </span>
                         <span className="block text-[11px] font-semibold text-slate-500 mt-0.5">

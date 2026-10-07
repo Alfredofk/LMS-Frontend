@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, ChevronDown, Circle, CircleDashed, ListChecks } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ChevronDown, Circle, CircleDashed } from 'lucide-react';
 
 import { useT } from '../../../i18n/LanguageContext';
 import { setupSteps } from '../setup';
@@ -64,23 +64,15 @@ export const SetupChecklist = ({ data, desk = 'principal' }) => {
         aria-controls="setup-steps"
         className="w-full flex items-center justify-between gap-3 p-5 text-left cursor-pointer rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
       >
-        <span className="flex items-center gap-3 min-w-0">
-          <span
-            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-              complete ? 'bg-emerald-50 text-emerald-600' : 'bg-brand-tint text-brand'
-            }`}
-          >
-            {complete ? <CheckCircle2 className="w-5 h-5" aria-hidden="true" /> : <ListChecks className="w-5 h-5" aria-hidden="true" />}
+        <span className="min-w-0">
+          <span id="setup-title" className="flex items-center gap-1.5 text-base font-extrabold text-slate-900">
+            {t('setup.title')}
+            {complete && <CheckCircle2 className="w-4 h-4 text-emerald-600" aria-hidden="true" />}
           </span>
-          <span className="min-w-0">
-            <span id="setup-title" className="block text-sm font-extrabold text-slate-900">
-              {t('setup.title')}
-            </span>
-            <span className="block text-xs font-semibold text-slate-500 mt-0.5">
-              {complete
-                ? t('setup.complete', { label: year?.label ?? '' })
-                : t('setup.progress', { done, total })}
-            </span>
+          <span className="block text-xs font-semibold text-slate-500 mt-0.5">
+            {complete
+              ? t('setup.complete', { label: year?.label ?? '' })
+              : t('setup.progress', { done, total })}
           </span>
         </span>
         <span className="flex items-center gap-3 shrink-0">
