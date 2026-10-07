@@ -231,8 +231,8 @@ export const StudentScores = () => {
     /* Still a raw fetch reading the wrong storage for a session without
        "Remember me". Deferred with the other mutation paths this slice left
        alone: the endpoint 404s and the modal that opens this is unreachable
-       while the marks list is empty. `gradebookService.protests.raise` is
-       waiting, and so is the `submissionId` ambiguity noted in the contract. */
+       while the marks list is empty. Move it onto `api` when the route exists;
+       the `submissionId` ambiguity noted in the contract waits with it. */
     try {
       setIsSubmittingProtest(true);
       const token = getAccessToken();
