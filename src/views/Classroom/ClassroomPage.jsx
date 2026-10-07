@@ -4,18 +4,25 @@ import { AlertCircle, BookOpen, CalendarClock, ChevronRight, RefreshCw, UserRoun
 
 import { useT } from '../../i18n/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import Select from '../../components/ui/Select';
 import ClassroomSubject from './ClassroomSubject';
 import { readMyClasses } from './readMyClasses';
-import { defaultSemesterId, matchesSearch, meetingWhen, progressOf, semestersOf } from './myClasses';
+import { defaultSemesterId, isCurrentClass, listedClassSubjects, matchesSearch, meetingWhen, progressOf, semestersOf } from './myClasses';
 
 /*
   "Kelas Saya" for a student (owner, 2026-10-04): the subjects of the class they
-  sit in, as cards, a semester at a time; a card opens /classroom/:classSubjectId
+  sit in, as cards, a semester at a time (a dropdown); a card opens /classroom/:classSubjectId
   (ClassroomSubject), whose meetings open their materials.
 
   Everything comes from readMyClasses (1 + N reads, kept a minute). The semester
   shown first is the one the meetings say is on (`defaultSemesterId`). The
   navbar's search box (`?q=`) narrows the cards by code, name or teacher.
+
+  Since backend 4bdd397 (request #11; owner, 2026-10-07) it looks back too: the
+  dropdown holds every class the student sat in, an earlier class's semester
+  named with that class, and its cards marked "Kelas sebelumnya". An ended
+  assignment shows as its own card, marked "Sudah berakhir", only when it has
+  meetings (`listedClassSubjects`).
 
   It replaced a page of sample components that rendered "not built yet": there
   was no route a student could read their subjects on until backend 1bd81ab.
@@ -73,6 +80,19 @@ const SubjectCard = ({ entry, sessions, onOpen }) => {
         <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-brand shrink-0" aria-hidden="true" />
       </span>
 
+      {(!isCurrentClass(entry) || entry.ended) && (
+        <span className="flex flex-wrap gap-1.5">
+          {!isCurrentClass(entry) && (
+            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[11px] font-bold">
+              {t('classroom.pastClass', { class: entry.class.name })}
+            </span>
+          )}
+          {entry.ended && (
+            <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[11px] font-bold">{t('classroom.ended')}</span>
+          )}
+        </span>
+      )}
+
       {progress?.total > 0 && (
         <span className="block space-y-1.5">
           <span className="flex items-center justify-between text-[11px] font-semibold text-slate-500 tabular-nums">
@@ -120,14 +140,15 @@ const SubjectList = () => {
     };
   }, [attempt, membership?.id]);
 
-  const semesters = useMemo(() => semestersOf(data?.classSubjects), [data]);
-  const fallback = useMemo(() => (data ? defaultSemesterId(data.classSubjects, data.sessionsById) : null), [data]);
+  const listed = useMemo(() => (data ? listedClassSubjects(data.classSubjects, data.sessionsById) : []), [data]);
+  const semesters = useMemo(() => semestersOf(listed), [listed]);
+  const fallback = useMemo(() => (data ? defaultSemesterId(listed, data.sessionsById) : null), [data, listed]);
   const shownSemester = semesterId ?? fallback;
-  const subjects = (data?.classSubjects ?? []).filter((entry) => entry.semester?.id === shownSemester);
+  const subjects = listed.filter((entry) => entry.semester?.id === shownSemester);
   const visible = subjects.filter((entry) => matchesSearch(entry, query));
 
   const placed = membership?.student?.class ?? null;
-  const first = data?.classSubjects?.[0];
+  const first = listed.find(isCurrentClass);
   const subtitle = first
     ? t('classroom.subtitle', { class: first.class.name, year: first.semester.academicYear })
     : placed
@@ -160,7 +181,7 @@ const SubjectList = () => {
             <div key={n} className="h-40 rounded-2xl bg-white border border-slate-100 animate-pulse" />
           ))}
         </div>
-      ) : data.classSubjects.length === 0 ? (
+      ) : listed.length === 0 ? (
         <div className={`${card} flex flex-col items-center text-center gap-3 py-10`}>
           <BookOpen className="w-8 h-8 text-slate-400" aria-hidden="true" />
           <p className="text-sm font-semibold text-slate-600 max-w-sm">
@@ -169,25 +190,25 @@ const SubjectList = () => {
         </div>
       ) : (
         <>
-          {semesters.length > 1 && (
-            <div role="tablist" aria-label={t('classroom.semesters')} className="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
-              {semesters.map((semester) => {
-                const selected = semester.id === shownSemester;
-                return (
-                  <button
-                    key={semester.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={selected}
-                    onClick={() => setSemesterId(semester.id)}
-                    className={`px-3.5 py-1.5 text-xs font-extrabold rounded-lg transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
-                      selected ? 'bg-brand text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    {t('person.semester', { n: semester.ordinal })}
-                  </button>
-                );
-              })}
+          {/* The same plain dropdown as the teacher's, on the left, newest first (owner,
+              2026-10-05); an earlier class's semester carries its name (2026-10-07). */}
+          {semesters.length > 0 && (
+            <div className="flex">
+              <Select
+                id="classroom-semester"
+                className="w-full sm:w-64"
+                aria-label={t('classroom.semesters')}
+                value={shownSemester ?? ''}
+                onChange={(e) => setSemesterId(e.target.value)}
+              >
+                {[...semesters].reverse().map((semester) => (
+                  <option key={semester.id} value={semester.id}>
+                    {semester.pastClass
+                      ? t('classroom.semesterPast', { n: semester.ordinal, year: semester.academicYear, class: semester.pastClass })
+                      : t('teach.option', { n: semester.ordinal, year: semester.academicYear })}
+                  </option>
+                ))}
+              </Select>
             </div>
           )}
 

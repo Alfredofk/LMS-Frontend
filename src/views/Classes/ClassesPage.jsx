@@ -293,7 +293,7 @@ export const ClassesPage = () => {
       setOpenForm(null);
       showToast(t('classes.year.closed', { label: year.label }), 'success');
     } catch (err) {
-      showToast(academicsErrorMessage(err, t), 'error');
+      showToast(academicsErrorMessage(err, t, lang), 'error');
     } finally {
       setIsClosing(false);
       setClosing(false);

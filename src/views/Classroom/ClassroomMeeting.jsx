@@ -47,12 +47,13 @@ const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm';
 const TONE = { PRESENT: 'emerald', SICK: 'amber', EXCUSED: 'sky', ABSENT: 'rose' };
 const TYPE_ICON = { VIDEO: PlayCircle, TEXT: Type, LINK: Link2, FILE: FileText };
 
-const CheckIn = ({ meeting, attendance, onAttendance }) => {
+const CheckIn = ({ meeting, attendance, onAttendance, readOnly }) => {
   const { t, lang } = useT();
   const { membership } = useAuth();
   const zone = membership?.school?.timeZone ?? null;
   const today = zone ? localOf(new Date(), zone)?.date : null;
-  const isToday = meeting.status === 'SCHEDULED' && meeting.local?.date === today;
+  /* An earlier class's meeting is never checked in to (backend 4bdd397). */
+  const isToday = !readOnly && meeting.status === 'SCHEDULED' && meeting.local?.date === today;
 
   /* The day as /sessions/mine answers it, for `canCheckIn`; only on the meeting's own day. */
   const [day, setDay] = useState(null);
@@ -182,7 +183,7 @@ const CheckIn = ({ meeting, attendance, onAttendance }) => {
   );
 };
 
-export const ClassroomMeeting = ({ meeting, attendance, onAttendance }) => {
+export const ClassroomMeeting = ({ meeting, attendance, onAttendance, onMaterials, readOnly = false }) => {
   const { t, lang } = useT();
   /* The material shown under "Materi"; set when the list arrives, then by the student. */
   const [selected, setSelected] = useState(null);
@@ -193,7 +194,8 @@ export const ClassroomMeeting = ({ meeting, attendance, onAttendance }) => {
     (id, update) => setProgress((prev) => ({ ...prev, [id]: mergeProgress(prev[id], update, new Date().toISOString()) })),
     []
   );
-  const tracker = useContentTracker(true, onProgress);
+  /* Nothing is tracked in an earlier class (backend 4bdd397): no tracker, so no events and no tracking note. */
+  const tracker = useContentTracker(!readOnly, onProgress);
 
   /* undefined: reading · { contents } · { error, gone } */
   const [content, setContent] = useState(undefined);
@@ -222,6 +224,12 @@ export const ClassroomMeeting = ({ meeting, attendance, onAttendance }) => {
   const tracked = isTracked(content?.contents);
   const summary = progressSummary(content?.contents, progress);
   const allDone = tracked && summary.total > 0 && summary.done === summary.total;
+
+  /* The meeting's own count, so its tab's tick follows a material finished here
+     (ClassroomSubject). A student's list only: staff lists carry no progress. */
+  useEffect(() => {
+    if (tracked) onMaterials?.(meeting.id, { published: summary.total, completed: summary.done });
+  }, [tracked, summary.total, summary.done, meeting.id, onMaterials]);
 
   /* A material picked in "what to do": scrolled to and ringed for a moment (owner, 2026-10-04). */
   const [highlighted, setHighlighted] = useState(null);
@@ -278,7 +286,7 @@ export const ClassroomMeeting = ({ meeting, attendance, onAttendance }) => {
       <aside className="lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:sticky lg:top-0 rounded-2xl bg-brand text-white p-5 shadow-sm space-y-4">
         <h3 className="text-base font-extrabold">{t('meeting.todo')}</h3>
         <div className="rounded-xl bg-white text-slate-800 p-4">
-          <CheckIn meeting={meeting} attendance={attendance} onAttendance={onAttendance} />
+          <CheckIn meeting={meeting} attendance={attendance} onAttendance={onAttendance} readOnly={readOnly} />
         </div>
         {/* The materials, each a button to its place under "Materi", ticked when done
             (owner, 2026-10-05). */}

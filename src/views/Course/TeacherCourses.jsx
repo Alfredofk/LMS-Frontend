@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
-import { AlertCircle, BookOpen, BookPlus, CalendarClock, CalendarDays, ChevronRight, ClipboardCheck, Hourglass, Lock, RefreshCw, School } from 'lucide-react';
+import { AlertCircle, BookOpen, BookPlus, CalendarClock, ChevronRight, ClipboardCheck, Hourglass, Lock, RefreshCw, School } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -11,7 +11,7 @@ import Select from '../../components/ui/Select';
 import { formatDay } from '../Classes/format';
 import { defaultSemesterId, matchesSearch, meetingWhen, progressOf } from '../Classroom/myClasses';
 import { readMyTeaching, forgetMyTeaching } from './readMyTeaching';
-import { semesterGroups, shownTeachingSemester, splitTeaching, teachingSemesters, unconfirmedCount } from './teaching';
+import { shownTeachingSemester, splitTeaching, teachingSemesters, unconfirmedCount } from './teaching';
 import { openSemesterIds } from '../Dashboard/teacherHome';
 import RequestSubjectDialog from './RequestSubjectDialog';
 
@@ -20,10 +20,8 @@ import RequestSubjectDialog from './RequestSubjectDialog';
   now; it replaced the teammate's sample-data page). Two tabs:
 
   - "Mata pelajaran": the subjects they teach or taught (ACTIVE, not ended), as cards
-    a semester at a time, picked from the app's dropdown in a small toolbar - grouped
-    as current, the open year's others and finished (a closed year), with the
-    chosen one's state and count beside it (owner, 2026-10-05). The same
-    card as a student's, plus what is still unconfirmed. A card opens
+    a semester at a time, picked from a plain dropdown, newest first (owner,
+    2026-10-05). The same card as a student's, plus what is still unconfirmed. A card opens
     /teacher/courses/:classSubjectId.
   - "Pengajuan": their requests waiting for the Principal, each withdrawable, then
     the history - rejected (with the Principal's reason), withdrawn, ended.
@@ -191,7 +189,6 @@ export const TeacherCourses = () => {
   const inSemester = groups.taught.filter((entry) => entry.semester?.id === shownSemester);
   const shownCount = inSemester.length;
   const taught = inSemester.filter((entry) => matchesSearch(entry, query));
-  const semesterChoices = semesterGroups(semesters, current);
 
   const pickSemester = (id) => {
     const params = new URLSearchParams(searchParams);
@@ -307,46 +304,23 @@ export const TeacherCourses = () => {
           </div>
         ) : (
           <>
-            {/* The semester toolbar (owner, 2026-10-05: a dropdown, polished): the app's one
-                Select, grouped by state so no option needs a "(closed)" tail, and the
-                chosen semester's state and subject count beside it. */}
-            {semesters.length > 1 && (
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl border border-slate-100 bg-white p-3.5 sm:p-4 shadow-sm">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <span className="w-10 h-10 rounded-xl bg-brand-tint text-brand flex items-center justify-center shrink-0">
-                    <CalendarDays className="w-5 h-5" aria-hidden="true" />
-                  </span>
-                  <div className="min-w-0 flex-1 sm:max-w-sm">
-                    <span id="teach-semester-label" className="block text-[11px] font-bold text-slate-500">
-                      {t('teach.semesterPick')}
-                    </span>
-                    <Select
-                      id="teach-semester"
-                      className="mt-1"
-                      aria-label={t('teach.semesterPick')}
-                      value={shownSemester ?? ''}
-                      onChange={(e) => pickSemester(e.target.value)}
-                    >
-                      {semesterChoices.map((group) => (
-                        <optgroup key={group.key} label={t(`teach.group.${group.key}`)}>
-                          {group.semesters.map((semester) => (
-                            <option key={semester.id} value={semester.id}>
-                              {t('teach.option', { n: semester.ordinal, year: semester.academicYear })}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </Select>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 sm:justify-end pl-[3.25rem] sm:pl-0">
-                  {shownSemester === current ? (
-                    <span className="px-2 py-1 rounded-lg bg-brand-tint text-brand text-[11px] font-extrabold">{t('teach.semester.current')}</span>
-                  ) : shownClosed ? (
-                    <span className="px-2 py-1 rounded-lg bg-slate-100 text-slate-600 text-[11px] font-extrabold">{t('teach.semester.closed')}</span>
-                  ) : null}
-                  <span className="text-xs font-semibold text-slate-600">{t('teach.subjectCount', { n: shownCount })}</span>
-                </div>
+            {/* A plain dropdown, newest first (owner, 2026-10-05: the toolbar with groups
+                and badges was too busy). */}
+            {semesters.length > 0 && (
+              <div className="flex">
+                <Select
+                  id="teach-semester"
+                  className="w-full sm:w-64"
+                  aria-label={t('teach.semesterPick')}
+                  value={shownSemester ?? ''}
+                  onChange={(e) => pickSemester(e.target.value)}
+                >
+                  {semesters.map((semester) => (
+                    <option key={semester.id} value={semester.id}>
+                      {t('teach.option', { n: semester.ordinal, year: semester.academicYear })}
+                    </option>
+                  ))}
+                </Select>
               </div>
             )}
             {shownClosed && (

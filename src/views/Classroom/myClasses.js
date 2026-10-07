@@ -4,10 +4,14 @@ import { timeRange } from '../Subjects/timetable.js';
   "Kelas Saya" for a student (owner, 2026-10-04) - what the page decides, apart
   from its markup so it can be tested.
 
-  - `GET /academics/me/class-subjects` (backend 1bd81ab): the live subjects of the
-    class the student sits in now, for every semester of its academic year:
+  - `GET /academics/me/class-subjects` (backend 1bd81ab): the student's subjects,
     `{ id, class: { id, name }, subject: { id, code, name }, semester: { id,
-    ordinal, academicYear }, teacher: { fullName } }`. No semester dates.
+    ordinal, academicYear }, teacher: { fullName }, current, ended }`. No semester
+    dates. Since 4bdd397 (request #11) from every class they sat in here, not just
+    the current one: `current` false for an earlier class (read only, nothing
+    tracked, its meetings only those begun before they left), `ended` true for an
+    assignment that ended - its successor is a row of its own. A teacher's rows
+    (TeacherCourses) carry neither key, so the helpers here read `current !== false`.
   - `GET /sessions/class-subjects/:id/sessions` per subject: every meeting by
     number, the timetable's sessionView (`local` in the school's zone, `status`,
     `cancelReason`, `completedAt`, `topic`).
@@ -23,22 +27,62 @@ import { timeRange } from '../Subjects/timetable.js';
 export const shownSessions = (sessions) =>
   (sessions ?? []).filter((session) => session.status === 'SCHEDULED' || session.cancelReason !== 'SCHEDULE_CHANGED');
 
-/** The semesters the subjects span, by ordinal: `[{ id, ordinal, academicYear }]`. */
+/** A row of the class the student sits in now (a teacher's rows count as theirs). */
+export const isCurrentClass = (entry) => entry?.current !== false;
+
+/**
+ * What "Kelas Saya" lists (owner, 2026-10-07): every row, but an ended assignment
+ * only when it has meetings to read - one replaced before it ever met would be a
+ * second, empty card beside its successor. One whose meetings could not be read is
+ * kept, so nothing vanishes on a failed read.
+ */
+export function listedClassSubjects(classSubjects, sessionsById) {
+  return (classSubjects ?? []).filter((entry) => {
+    if (!entry.ended) return true;
+    const sessions = sessionsById?.[entry.id];
+    return !Array.isArray(sessions) || shownSessions(sessions).length > 0;
+  });
+}
+
+/**
+ * The subjects running in the class the student sits in now: not an earlier
+ * class's, not an ended assignment. What the dashboard counts (owner, 2026-10-07).
+ */
+export const liveClassSubjects = (classSubjects) =>
+  (classSubjects ?? []).filter((entry) => isCurrentClass(entry) && !entry.ended);
+
+/**
+ * The semesters the subjects span, oldest first (year, then ordinal):
+ * `[{ id, ordinal, academicYear, pastClass }]`. `pastClass` names the class when
+ * every row of that semester is an earlier class's, so the dropdown can say which
+ * (owner, 2026-10-07); null when the current class is in it.
+ */
 export function semestersOf(classSubjects) {
   const byId = new Map();
   for (const entry of classSubjects ?? []) {
-    if (entry.semester?.id && !byId.has(entry.semester.id)) byId.set(entry.semester.id, entry.semester);
+    const id = entry.semester?.id;
+    if (!id) continue;
+    const seen = byId.get(id) ?? { ...entry.semester, current: false, pastClass: null };
+    if (isCurrentClass(entry)) seen.current = true;
+    else seen.pastClass ??= entry.class?.name ?? null;
+    byId.set(id, seen);
   }
-  return [...byId.values()].sort((a, b) => a.ordinal - b.ordinal);
+  return [...byId.values()]
+    .map(({ current, pastClass, ...semester }) => ({ ...semester, pastClass: current ? null : pastClass }))
+    .sort((a, b) => String(a.academicYear).localeCompare(String(b.academicYear)) || a.ordinal - b.ordinal);
 }
 
 /*
   The semester to open (owner, 2026-10-04). The answer carries no semester dates,
   so the meetings tell: the semester whose meetings span now; else the last one
   whose meetings have begun; else the first. Cancelled meetings count too - a
-  semester whose first week fell on a holiday has still begun.
+  semester whose first week fell on a holiday has still begun. Only the current
+  class's semesters are candidates while it has any, so an earlier class never
+  opens first.
 */
-export function defaultSemesterId(classSubjects, sessionsById, now = new Date()) {
+export function defaultSemesterId(rows, sessionsById, now = new Date()) {
+  const own = (rows ?? []).filter(isCurrentClass);
+  const classSubjects = own.length > 0 ? own : rows;
   const semesters = semestersOf(classSubjects);
   if (semesters.length === 0) return null;
 
@@ -168,7 +212,7 @@ export function meetingWindow(sessions, selectedId, size = 8) {
  */
 export function nextMeetingAcross(classSubjects, sessionsById, now = new Date()) {
   let best = null;
-  for (const entry of classSubjects ?? []) {
+  for (const entry of liveClassSubjects(classSubjects)) {
     const next = progressOf(sessionsById?.[entry.id], now)?.next;
     if (next && (!best || new Date(next.startsAt) < new Date(best.session.startsAt))) best = { entry, session: next };
   }
@@ -180,9 +224,10 @@ export function nextMeetingAcross(classSubjects, sessionsById, now = new Date())
  * with its meetings counted: `[{ entry, progress }]`, progress null when a
  * subject's meetings could not be read. For the dashboard.
  */
-export function currentSubjects(classSubjects, sessionsById, now = new Date()) {
+export function currentSubjects(rows, sessionsById, now = new Date()) {
+  const classSubjects = liveClassSubjects(rows);
   const semesterId = defaultSemesterId(classSubjects, sessionsById, now);
-  return (classSubjects ?? [])
+  return classSubjects
     .filter((entry) => entry.semester?.id === semesterId)
     .map((entry) => ({ entry, progress: progressOf(sessionsById?.[entry.id], now) }));
 }

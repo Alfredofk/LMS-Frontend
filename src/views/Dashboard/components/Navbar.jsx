@@ -58,6 +58,7 @@ const TITLES = {
   '/headmaster/members': { key: 'shell.members', back: true },
   '/headmaster/subjects': { key: 'shell.subjects', back: true },
   '/join-requests': { key: 'shell.joinRequests', back: true },
+  '/question-bank': { key: 'qbank.title', back: true },
   '/guardian': { key: 'shell.myChildren' },
 };
 
@@ -354,6 +355,34 @@ export const Navbar = ({ showToast, onOpenNav }) => {
           </button>
           <span className="hidden sm:inline text-slate-300" aria-hidden="true">/</span>
           <span className="truncate text-slate-900">{t('shell.title.assignment')}</span>
+        </div>
+      );
+    }
+
+    /* Writing or editing a question sits under "Bank Soal", with the same crumb. */
+    if (location.pathname.startsWith('/question-bank/')) {
+      return (
+        <div className="flex min-w-0 items-center gap-3 text-xl font-bold tracking-tight">
+          <button
+            type="button"
+            onClick={() => navigate('/question-bank')}
+            aria-label={t('qbank.back')}
+            title={t('qbank.back')}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/question-bank')}
+            className="hidden sm:inline shrink-0 text-slate-500 hover:text-brand transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+          >
+            {t('qbank.title')}
+          </button>
+          <span className="hidden sm:inline text-slate-300" aria-hidden="true">/</span>
+          <span className="truncate text-slate-900">
+            {t(location.pathname === '/question-bank/new' ? 'qbank.editor.newTitle' : 'qbank.editor.editTitle')}
+          </span>
         </div>
       );
     }

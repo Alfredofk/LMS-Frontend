@@ -15,6 +15,8 @@
  * worse than saying nothing. So the default here is the one that is true
  * everywhere, and the screens that know better say so with `overrides`.
  */
+import { formatDay } from '../views/Classes/format';
+
 const BY_CODE = {
   UNAUTHORIZED: 'error.unauthorized',
   EMAIL_NOT_VERIFIED: 'error.emailNotVerified',
@@ -334,13 +336,20 @@ export function cancelErrorMessage(err, t) {
 */
 const YEAR_OVERLAP = /The dates overlap academic year (\S+)/;
 const YEAR_LABEL_DATES = /Academic year (\S+) must start in (\d{4}) and end in (\d{4})/;
+/* Backend 4bdd397: a year closes only once no semester of it runs past today. */
+const YEAR_STILL_RUNNING = /Semester (\d+) of (\S+) runs until (\d{4}-\d{2}-\d{2})/;
 const SEMESTER_DATES_BY_MESSAGE = [
   ['A meeting in this Semester has already happened, so its start date is fixed', 'classes.error.semesterStartFixed'],
   ['The Semester cannot end before today', 'classes.error.semesterEndPast'],
 ];
 
-export function academicsErrorMessage(err, t) {
+/** `lang` only formats the date the "year still running" refusal names. */
+export function academicsErrorMessage(err, t, lang) {
   const message = err?.message ?? '';
+  const running = YEAR_STILL_RUNNING.exec(message);
+  if (running) {
+    return t('classes.error.yearStillRunning', { n: running[1], label: running[2], date: formatDay(running[3], lang) });
+  }
   const overlap = YEAR_OVERLAP.exec(message);
   if (overlap) return t('validation.academicYear.overlap', { label: overlap[1] });
   const labelDates = YEAR_LABEL_DATES.exec(message);
@@ -496,6 +505,39 @@ export function contentErrorMessage(err, t) {
   if (hit) return t(hit[1]);
   return apiErrorMessage(err, t);
 }
+
+/*
+  The question bank (backend ed46340, assessment.bank.js and shared/upload.js).
+  Two 403s and three 409s, each its own sentence; told apart on them as above.
+*/
+const QUESTION_BANK_BY_MESSAGE = [
+  ['The text is empty', 'qbank.error.bodyEmpty'],
+  ['subject and grade level you teach now', 'qbank.error.notTaught'],
+  ['Only its author changes a question', 'qbank.error.notAuthor'],
+  ['Use an image you uploaded', 'qbank.error.imageNotYours'],
+  ["A question's kind never changes", 'qbank.error.kindFixed'],
+  ['An option id does not belong', 'qbank.error.changedMeanwhile'],
+  ['changed meanwhile', 'qbank.error.changedMeanwhile'],
+  ['archived already', 'qbank.error.archivedAlready'],
+  ['is not archived', 'qbank.error.notArchived'],
+  ['image file must be at most', 'qbank.error.imageSize'],
+  ['image file must be one of', 'qbank.error.imageType'],
+  ['Question not found', 'qbank.error.gone'],
+  ['Image not found', 'qbank.image.failed'],
+];
+
+export function questionBankErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  const hit = QUESTION_BANK_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  if (hit) return t(hit[1]);
+  return apiErrorMessage(err, t);
+}
+
+/** A refusal that means the screen is behind: reload the question. */
+export const isStaleQuestion = (err) =>
+  ['changed meanwhile', 'An option id does not belong', 'archived already', 'is not archived', 'Question not found'].some((needle) =>
+    String(err?.message ?? '').includes(needle)
+  );
 
 /*
   A student's check-in — attendance.service.js `checkIn` (backend deb95e8,

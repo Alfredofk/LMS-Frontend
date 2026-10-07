@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { CheckCircle2, ChevronDown } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
 import { meetingWindow } from '../../views/Classroom/myClasses';
@@ -9,12 +9,22 @@ import { meetingWindow } from '../../views/Classroom/myClasses';
   course page): eight around the chosen one (`meetingWindow`), the rest behind
   "N more". Shared by a student's subject page and a teacher's, which differ only
   in what the small dot on a tab says (`dotOf(session)` → a bg class, or null) -
-  the student's attendance, or for the teacher a meeting still to confirm.
+  the student's attendance, or for the teacher a meeting still to confirm. A
+  student's tab is also ticked when every material of it is done (`doneOf(session)`
+  → boolean; backend 4bdd397, request #9).
   Cancelled meetings are struck through. On a narrow screen the row scrolls
   sideways and keeps the chosen tab in the middle.
 */
 
-const MeetingTab = ({ session, selected, dot, onPick, t }) => {
+/* A meeting whose materials the student has all done (`done`) is ticked. */
+const DoneTick = ({ selected, t }) => (
+  <>
+    <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${selected ? 'text-white' : 'text-emerald-600'}`} aria-hidden="true" />
+    <span className="sr-only">{t('meeting.done')}</span>
+  </>
+);
+
+const MeetingTab = ({ session, selected, dot, done, onPick, t }) => {
   const cancelled = session.status === 'CANCELLED';
   return (
     <button
@@ -22,18 +32,19 @@ const MeetingTab = ({ session, selected, dot, onPick, t }) => {
       role="tab"
       aria-selected={selected}
       onClick={() => onPick(session.id)}
-      title={cancelled ? t(`timetable.session.cancelled.${session.cancelReason ?? 'OTHER'}`) : undefined}
-      className={`relative shrink-0 px-3.5 py-2.5 rounded-t-xl text-xs font-extrabold whitespace-nowrap transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+      title={cancelled ? t(`timetable.session.cancelled.${session.cancelReason ?? 'OTHER'}`) : done ? t('meeting.done') : undefined}
+      className={`relative shrink-0 inline-flex items-center gap-1 px-3.5 py-2.5 rounded-t-xl text-xs font-extrabold whitespace-nowrap transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
         selected ? 'bg-brand text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
       } ${cancelled ? 'line-through opacity-70' : ''}`}
     >
       {t('meeting.tab', { n: session.number })}
+      {done && <DoneTick selected={selected} t={t} />}
       {dot && <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${dot}`} aria-hidden="true" />}
     </button>
   );
 };
 
-const MoreMenu = ({ rest, onPick, t }) => {
+const MoreMenu = ({ rest, doneOf, onPick, t }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -71,11 +82,12 @@ const MoreMenu = ({ rest, onPick, t }) => {
                   setOpen(false);
                   onPick(session.id);
                 }}
-                className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer ${
+                className={`w-full flex items-center gap-1 text-left px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer ${
                   session.status === 'CANCELLED' ? 'line-through opacity-70' : ''
                 }`}
               >
                 {t('meeting.tab', { n: session.number })}
+                {doneOf?.(session) && <DoneTick selected={false} t={t} />}
               </button>
             </li>
           ))}
@@ -85,7 +97,7 @@ const MoreMenu = ({ rest, onPick, t }) => {
   );
 };
 
-export const MeetingStrip = ({ sessions, selectedId, onPick, dotOf }) => {
+export const MeetingStrip = ({ sessions, selectedId, onPick, dotOf, doneOf }) => {
   const { t } = useT();
   const tabsRef = useRef(null);
   const { shown, rest } = meetingWindow(sessions ?? [], selectedId);
@@ -111,12 +123,13 @@ export const MeetingStrip = ({ sessions, selectedId, onPick, dotOf }) => {
             session={session}
             selected={session.id === selectedId}
             dot={dotOf?.(session) ?? null}
+            done={Boolean(doneOf?.(session))}
             onPick={onPick}
             t={t}
           />
         ))}
       </div>
-      <MoreMenu rest={rest} onPick={onPick} t={t} />
+      <MoreMenu rest={rest} doneOf={doneOf} onPick={onPick} t={t} />
     </div>
   );
 };

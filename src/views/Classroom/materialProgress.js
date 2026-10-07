@@ -39,6 +39,15 @@ export function mergeProgress(previous, update, at) {
   };
 }
 
+/**
+ * Whether a meeting's tab gets a tick (owner, 2026-10-05; backend 4bdd397, request
+ * #9): a student's session list carries `content: { published, completed }` on each
+ * meeting. Ticked when at least one material is published and every one is done -
+ * the same rule as the meeting's own "Materi selesai" badge. A staff list carries no
+ * `content`, so nothing is ticked there.
+ */
+export const meetingDone = (content) => Boolean(content && content.published > 0 && content.completed >= content.published);
+
 /** `{ done, total }` over the meeting's materials. */
 export function progressSummary(contents, byId) {
   const list = contents ?? [];

@@ -19,6 +19,7 @@ import {
   UserPlus,
   School,
   Library,
+  FileQuestion,
   X
 } from 'lucide-react';
 import { usePendingCounts } from '../../../hooks/usePendingCounts';
@@ -106,6 +107,9 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
     }
     if (routePath === '/teacher/courses') {
       return location.pathname.startsWith('/teacher/courses');
+    }
+    if (routePath === '/question-bank') {
+      return location.pathname.startsWith('/question-bank');
     }
     return location.pathname === routePath;
   };
@@ -351,6 +355,18 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
                 >
                   <Calendar className={`w-4 h-4 shrink-0 transition-colors ${isActive('/schedule') ? 'text-white' : 'text-brand'}`} />
                   {t('shell.calendar')}
+                </button>
+              )}
+
+              {/* The question bank (backend ed46340): written at the Teacher's
+                  desk, read at the Principal's and a Vice Principal's. */}
+              {(role === ROLES.TEACHER || isPrincipalDesk(role)) && (
+                <button
+                  onClick={() => handleLinkClick('qbank.title', '/question-bank')}
+                  className={isActive('/question-bank') ? activeBtnClass : inactiveBtnClass}
+                >
+                  <FileQuestion className={`w-4 h-4 shrink-0 transition-colors ${isActive('/question-bank') ? 'text-white' : 'text-brand'}`} />
+                  {t('qbank.title')}
                 </button>
               )}
 

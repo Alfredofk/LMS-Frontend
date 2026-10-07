@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { currentSubjects, defaultMeetingId, defaultSemesterId, matchesSearch, meetingState, meetingWhen, meetingWindow, nextMeetingAcross, progressOf, semestersOf, shownSessions } from './myClasses.js';
+import { currentSubjects, defaultMeetingId, defaultSemesterId, listedClassSubjects, liveClassSubjects, matchesSearch, meetingState, meetingWhen, meetingWindow, nextMeetingAcross, progressOf, semestersOf, shownSessions } from './myClasses.js';
 
 const session = (number, startsAt, extra = {}) => ({
   id: `s${number}`,
@@ -19,8 +19,18 @@ const subject = (id, semesterId, ordinal, extra = {}) => ({
   subject: { id: `sub-${id}`, code: id.toUpperCase(), name: `Subject ${id}` },
   semester: { id: semesterId, ordinal, academicYear: '2028/2029' },
   teacher: { fullName: 'Bu Rina' },
+  current: true,
+  ended: false,
   ...extra,
 });
+
+/* An earlier class's row, as 4bdd397 answers it. */
+const past = (id, semesterId, ordinal, academicYear, className = 'X IPA') =>
+  subject(id, semesterId, ordinal, {
+    class: { id: 'c0', name: className },
+    semester: { id: semesterId, ordinal, academicYear },
+    current: false,
+  });
 
 describe('shownSessions - as the calendars show them (SHOWN_ON_CALENDAR)', () => {
   it('drops only numbers cancelled because the timetable changed', () => {
@@ -205,5 +215,71 @@ describe('currentSubjects - the semester on, counted', () => {
     const list = currentSubjects(subjects, sessionsById, new Date('2028-08-01T01:00:00Z'));
     expect(list.map((item) => item.entry.id)).toEqual(['a']);
     expect(list[0].progress).toMatchObject({ total: 1 });
+  });
+});
+
+describe('looking back (backend 4bdd397, request #11; owner 2026-10-07)', () => {
+  it('lists an ended assignment only when it has meetings, or its meetings could not be read', () => {
+    const rows = [
+      subject('live', 'sem1', 1),
+      subject('emptyEnded', 'sem1', 1, { ended: true }),
+      subject('heldEnded', 'sem1', 1, { ended: true }),
+      subject('unreadEnded', 'sem1', 1, { ended: true }),
+      subject('movedOnly', 'sem1', 1, { ended: true }),
+    ];
+    const sessionsById = {
+      live: [],
+      emptyEnded: [],
+      heldEnded: [session(1, '2028-08-01T00:30:00Z')],
+      unreadEnded: null,
+      movedOnly: [session(1, '2028-08-01T00:30:00Z', { status: 'CANCELLED', cancelReason: 'SCHEDULE_CHANGED' })],
+    };
+    expect(listedClassSubjects(rows, sessionsById).map((e) => e.id)).toEqual(['live', 'heldEnded', 'unreadEnded']);
+  });
+
+  it('counts only the current class, not ended, as live', () => {
+    const rows = [subject('a', 'sem1', 1), subject('b', 'sem1', 1, { ended: true }), past('c', 'old1', 1, '2027/2028')];
+    expect(liveClassSubjects(rows).map((e) => e.id)).toEqual(['a']);
+    // A teacher's rows carry no `current`, and are theirs.
+    const { current: _drop, ...teacherRow } = subject('t', 'sem1', 1);
+    expect(liveClassSubjects([teacherRow]).map((e) => e.id)).toEqual(['t']);
+  });
+
+  it('orders semesters by year then ordinal, naming the class of a semester wholly in the past', () => {
+    const rows = [
+      subject('a', 'sem1', 1),
+      past('b', 'old2', 2, '2027/2028'),
+      past('c', 'old1', 1, '2027/2028'),
+      past('d', 'sem1', 1, '2028/2029', 'XI IPA'),
+    ];
+    expect(semestersOf(rows)).toEqual([
+      { id: 'old1', ordinal: 1, academicYear: '2027/2028', pastClass: 'X IPA' },
+      { id: 'old2', ordinal: 2, academicYear: '2027/2028', pastClass: 'X IPA' },
+      // Moved within the year: the current class sits in it too, so no name.
+      { id: 'sem1', ordinal: 1, academicYear: '2028/2029', pastClass: null },
+    ]);
+  });
+
+  it("opens on the current class's semester, even when an earlier class's spans now", () => {
+    const rows = [past('old', 'old1', 1, '2027/2028'), subject('a', 'sem1', 1)];
+    const sessionsById = {
+      old: [session(1, '2028-08-01T00:30:00Z'), session(2, '2028-09-01T00:30:00Z')],
+      a: [session(1, '2028-10-01T00:30:00Z')],
+    };
+    expect(defaultSemesterId(rows, sessionsById, new Date('2028-08-15T00:00:00Z'))).toBe('sem1');
+    // With no current class at all, the earlier ones are still offered.
+    expect(defaultSemesterId([rows[0]], sessionsById, new Date('2028-08-15T00:00:00Z'))).toBe('old1');
+  });
+
+  it('keeps the dashboard and the next meeting to the current class', () => {
+    const rows = [subject('a', 'sem1', 1), subject('b', 'sem1', 1, { ended: true }), past('c', 'sem1', 1, '2028/2029')];
+    const sessionsById = {
+      a: [session(1, '2028-08-10T00:30:00Z')],
+      b: [session(1, '2028-08-05T00:30:00Z')],
+      c: [session(1, '2028-08-03T00:30:00Z')],
+    };
+    const now = new Date('2028-08-01T00:00:00Z');
+    expect(currentSubjects(rows, sessionsById, now).map((item) => item.entry.id)).toEqual(['a']);
+    expect(nextMeetingAcross(rows, sessionsById, now).entry.id).toBe('a');
   });
 });

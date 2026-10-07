@@ -221,19 +221,3 @@ export function moveContent(ids, id, step) {
   [list[from], list[to]] = [list[to], list[from]];
   return list;
 }
-
-/**
- * The semester dropdown's groups (owner, 2026-10-05): the current semester, the
- * open year's others, then the finished ones (a closed year), each newest first.
- * Empty groups are left out.
- *
- * @returns {{ key: 'current'|'open'|'finished', semesters }[]}
- */
-export function semesterGroups(semesters, current) {
-  const groups = [
-    { key: 'current', semesters: semesters.filter((semester) => semester.id === current) },
-    { key: 'open', semesters: semesters.filter((semester) => semester.id !== current && semester.open) },
-    { key: 'finished', semesters: semesters.filter((semester) => semester.id !== current && !semester.open) },
-  ];
-  return groups.filter((group) => group.semesters.length > 0);
-}

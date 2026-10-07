@@ -51,7 +51,8 @@ export const membersService = {
    *   nip: string|null, nuptk: string|null, joinedAt: string|null, endedAt: string|null,
    *   endReason: string|null,
    *   student: null | { studentProfileId: string, birthDate: string|null,
-   *     class: { id, name, gradeLevel, academicYear }|null, lastClass: { id, name, gradeLevel, academicYear }|null,
+   *     class: Placement|null, lastClass: Placement|null, where Placement = { id, name, gradeLevel,
+   *       academicYear, homeroomTeacher: { membershipId, fullName }|null, placedAt } (ccba4e0),
    *     guardians: Array<{ membershipId, fullName, email, phone, relationship }>,
    *     attendance: null | { academicYear: string, semesters: Array<{ semesterId, ordinal, counted,
    *       present, sick, excused, absent, late, outsideSchool }> } } }|null>}

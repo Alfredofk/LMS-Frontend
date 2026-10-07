@@ -43,10 +43,9 @@ import { modalActions, modalCancelClass } from './ui/modalStyles';
   (owner, 2026-10-04) - a homeroom teacher who is neither would only earn a 403,
   and sees what the roster row carries.
 
-  The answer's class has no homeroom teacher and no placement date. The class
-  page knows both and hands them over as `placement`; from the member list they
-  are simply not shown (owner, 2026-10-04) - reading every class's roster for two
-  lines was the old way, dropped.
+  The answer's class carries its homeroom teacher and placement date since backend
+  ccba4e0 (request #7), so the member list shows both too. The class page still
+  hands over its own as `placement`, which wins.
 
   Phone numbers and email addresses are links: tel:, wa.me and mailto: (owner,
   2026-10-04).
@@ -260,9 +259,16 @@ export const PersonDetailDialog = ({ person, placement: givenPlacement, onClose 
     [t('profile.nuptk'), known.nuptk ?? person.nuptk],
   ].filter(([, value]) => value);
 
-  /* The class: what the caller handed over, else the detail's (no homeroom, no date). */
+  /* The class: what the caller handed over, else the detail's - with its homeroom
+     teacher and placement date since backend ccba4e0 (request #7). */
   const fromDetail = student?.class
-    ? { className: student.class.name, gradeLevel: student.class.gradeLevel, academicYear: student.class.academicYear }
+    ? {
+        className: student.class.name,
+        gradeLevel: student.class.gradeLevel,
+        academicYear: student.class.academicYear,
+        homeroomName: student.class.homeroomTeacher?.fullName ?? null,
+        placedAt: student.class.placedAt,
+      }
     : student
       ? null
       : undefined;

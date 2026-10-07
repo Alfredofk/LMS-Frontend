@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertCircle, BookOpen, CalendarRange, ChevronDown, Layers, RefreshCw, School, UserRound } from 'lucide-react';
+import { AlertCircle, BookOpen, CalendarRange, ChevronDown, History, Layers, RefreshCw, School, UserRound } from 'lucide-react';
 
 import InfoChips from '../../components/ui/InfoChips';
 import { useT } from '../../i18n/LanguageContext';
@@ -9,8 +9,9 @@ import { attendanceService } from '../../services/attendanceService';
 import { summarize } from '../Attendance/attendance';
 import AttendanceSummaryCard from '../Attendance/AttendanceSummaryCard';
 import ClassroomMeeting from './ClassroomMeeting';
-import { readMyClasses } from './readMyClasses';
-import { defaultMeetingId, progressOf, shownSessions } from './myClasses';
+import { noteMeetingMaterials, readMyClasses, withMeetingMaterials } from './readMyClasses';
+import { meetingDone } from './materialProgress';
+import { defaultMeetingId, isCurrentClass, progressOf, shownSessions } from './myClasses';
 import MeetingStrip from '../../components/meetings/MeetingStrip';
 import SubjectHeader, { PersonFact } from '../../components/meetings/SubjectHeader';
 
@@ -20,7 +21,9 @@ import SubjectHeader, { PersonFact } from '../../components/meetings/SubjectHead
   then two tabs.
 
   - "Pertemuan": a row of meeting tabs (meetingWindow, the rest behind "N more"),
-    each dotted with the student's own attendance, and the chosen meeting below
+    each dotted with the student's own attendance and ticked when all its
+    materials are done (the list's `content` count, backend 4bdd397), and the
+    chosen meeting below
     it (ClassroomMeeting: its materials and what to do). The page opens on the
     meeting running now, else the next (defaultMeetingId).
   - "Kehadiran": the student's numbers for this subject (summarize).
@@ -29,6 +32,10 @@ import SubjectHeader, { PersonFact } from '../../components/meetings/SubjectHead
   a link opens the right one and Back steps through them. A query change keeps
   the scroll where it is (MainLayout resets it on a path change only). The older
   `/classroom/:id/:sessionId` links still open that meeting.
+
+  An earlier class's subject (`current: false`, backend 4bdd397; owner,
+  2026-10-07) is read only: a note says so, no check-in, nothing tracked - the
+  materials keep the ticks earned back then. An ended assignment says it ended.
 
   Only tabs with data behind them are shown: there is no syllabus, forum,
   assignment, grade or roster route for a student yet.
@@ -89,6 +96,7 @@ export const ClassroomSubject = ({ classSubjectId, legacySessionId = null }) => 
   }, [classSubjectId]);
 
   const entry = data?.classSubjects.find((item) => item.id === classSubjectId) ?? null;
+  const readOnly = Boolean(entry) && !isCurrentClass(entry);
   const rawSessions = data?.sessionsById?.[classSubjectId];
   const sessions = useMemo(
     () => (Array.isArray(rawSessions) ? shownSessions(rawSessions).sort((a, b) => a.number - b.number) : null),
@@ -113,6 +121,16 @@ export const ClassroomSubject = ({ classSubjectId, legacySessionId = null }) => 
   const pick = (id) => setSearchParams({ pertemuan: id });
   const goSection = (next) =>
     setSearchParams(next === 'pertemuan' ? (selectedId ? { pertemuan: selectedId } : {}) : { tab: next });
+
+  /* A material finished in the open meeting ticks its tab at once, here and in
+     what readMyClasses keeps. */
+  const onMaterials = useCallback(
+    (sessionId, content) => {
+      noteMeetingMaterials(membership?.id, classSubjectId, sessionId, content);
+      setData((current) => withMeetingMaterials(current, classSubjectId, sessionId, content));
+    },
+    [membership?.id, classSubjectId]
+  );
 
   /* A check-in taken on this page shows on the tabs and in the summary at once. */
   const onAttendance = (row) =>
@@ -172,6 +190,13 @@ export const ClassroomSubject = ({ classSubjectId, legacySessionId = null }) => 
         progress={progress?.total > 0 ? { label: t('classroom.progress', { held: progress.held, total: progress.total }), percent } : null}
       />
 
+      {(readOnly || entry.ended) && (
+        <p className="flex items-start gap-2.5 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-700">
+          <History className="w-4 h-4 mt-0.5 text-slate-500 shrink-0" aria-hidden="true" />
+          {readOnly ? t('classroom.pastClassNote', { class: entry.class.name }) : t('classroom.endedNote')}
+        </p>
+      )}
+
       <div role="tablist" aria-label={t('meeting.sections')} className="flex gap-6 border-b border-slate-200">
         {SECTIONS.map((key) => (
           <button
@@ -205,6 +230,7 @@ export const ClassroomSubject = ({ classSubjectId, legacySessionId = null }) => 
               const row = rowBySession?.get(session.id);
               return row ? DOT[row.status] ?? 'bg-slate-400' : null;
             }}
+            doneOf={(session) => meetingDone(session.content)}
           />
 
           {selected && (
@@ -213,6 +239,8 @@ export const ClassroomSubject = ({ classSubjectId, legacySessionId = null }) => 
               meeting={selected}
               attendance={rows === false ? false : rowBySession ? rowBySession.get(selected.id) ?? null : undefined}
               onAttendance={onAttendance}
+              onMaterials={onMaterials}
+              readOnly={readOnly}
             />
           )}
         </div>

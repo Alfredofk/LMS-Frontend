@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { firstUndone, isTracked, materialState, mergeProgress, progressById, progressSummary } from './materialProgress.js';
+import { firstUndone, isTracked, materialState, meetingDone, mergeProgress, progressById, progressSummary } from './materialProgress.js';
+import { withMeetingMaterials } from './readMyClasses.js';
 
 const AT = '2026-10-05T03:00:00.000Z';
 const EARLIER = '2026-10-04T03:00:00.000Z';
@@ -63,5 +64,45 @@ describe('firstUndone - where the meeting opens', () => {
     const done = { firstOpenedAt: EARLIER, completedAt: EARLIER };
     expect(firstUndone(contents, { a: done, b: done, c: done })).toBe('a');
     expect(firstUndone([], {})).toBeNull();
+  });
+});
+
+describe('meetingDone: the tick on a meeting tab (backend 4bdd397, request #9)', () => {
+  it('ticks only when something is published and all of it is done', () => {
+    expect(meetingDone({ published: 3, completed: 3 })).toBe(true);
+    expect(meetingDone({ published: 3, completed: 2 })).toBe(false);
+    expect(meetingDone({ published: 0, completed: 0 })).toBe(false);
+  });
+
+  it('ticks nothing on a staff list, which carries no count', () => {
+    expect(meetingDone(undefined)).toBe(false);
+    expect(meetingDone(null)).toBe(false);
+  });
+});
+
+describe('withMeetingMaterials: a meeting finished on its page', () => {
+  const answer = {
+    classSubjects: [{ id: 'cs1' }],
+    sessionsById: {
+      cs1: [
+        { id: 's1', content: { published: 2, completed: 1 } },
+        { id: 's2', content: { published: 0, completed: 0 } },
+      ],
+      cs2: null,
+    },
+  };
+
+  it('replaces that meeting count only', () => {
+    const next = withMeetingMaterials(answer, 'cs1', 's1', { published: 2, completed: 2 });
+    expect(next.sessionsById.cs1[0].content).toEqual({ published: 2, completed: 2 });
+    expect(next.sessionsById.cs1[1]).toBe(answer.sessionsById.cs1[1]);
+    expect(answer.sessionsById.cs1[0].content.completed).toBe(1);
+  });
+
+  it('answers the same object when nothing changes or nothing matches', () => {
+    expect(withMeetingMaterials(answer, 'cs1', 's1', { published: 2, completed: 1 })).toBe(answer);
+    expect(withMeetingMaterials(answer, 'cs1', 'nope', { published: 1, completed: 1 })).toBe(answer);
+    expect(withMeetingMaterials(answer, 'cs2', 's1', { published: 1, completed: 1 })).toBe(answer);
+    expect(withMeetingMaterials(null, 'cs1', 's1', { published: 1, completed: 1 })).toBe(null);
   });
 });

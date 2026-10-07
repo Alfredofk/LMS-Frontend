@@ -35,3 +35,34 @@ export function readMyClasses(membershipId, { fresh = false } = {}) {
   });
   return promise;
 }
+
+/**
+ * `answer` with one meeting's `content` count replaced - the same object when it
+ * already says so, so a page setting it does not render for nothing.
+ */
+export function withMeetingMaterials(answer, classSubjectId, sessionId, content) {
+  const list = answer?.sessionsById?.[classSubjectId];
+  const session = Array.isArray(list) ? list.find((item) => item.id === sessionId) : null;
+  if (!session) return answer;
+  if (session.content?.published === content.published && session.content?.completed === content.completed) return answer;
+  return {
+    ...answer,
+    sessionsById: {
+      ...answer.sessionsById,
+      [classSubjectId]: list.map((item) => (item.id === sessionId ? { ...item, content } : item)),
+    },
+  };
+}
+
+/*
+  A meeting's material count as the student's own page last saw it (request #9),
+  written into what is kept, so a tick earned on a meeting is still there when the
+  student goes back to the list and in again within the minute.
+*/
+export function noteMeetingMaterials(membershipId, classSubjectId, sessionId, content) {
+  if (!cached || cached.membershipId !== membershipId) return;
+  cached = {
+    ...cached,
+    promise: cached.promise.then((answer) => withMeetingMaterials(answer, classSubjectId, sessionId, content)),
+  };
+}

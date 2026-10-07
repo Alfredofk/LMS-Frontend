@@ -50,6 +50,8 @@ const AttendancePage = lazy(() => import('./views/Attendance/AttendancePage'));
 const JoinRequestsPage = lazy(() => import('./views/Requests/JoinRequestsPage'));
 const ClassesPage = lazy(() => import('./views/Classes/ClassesPage'));
 const MembersPage = lazy(() => import('./views/Members/MembersPage'));
+const QuestionBankPage = lazy(() => import('./views/QuestionBank/QuestionBankPage'));
+const QuestionEditorPage = lazy(() => import('./views/QuestionBank/QuestionEditorPage'));
 const SubjectsPage = lazy(() => import('./views/Subjects/SubjectsPage'));
 
 function App() {
@@ -224,6 +226,31 @@ function App() {
             }
           >
             <Route path="/join-requests" element={<JoinRequestsPage />} />
+          </Route>
+
+          {/*
+            The question bank (backend ed46340): read by the Principal and Vice
+            Principals, written at the Teacher's desk only (owner, 2026-10-07). The
+            backend answers anyone else 404.
+          */}
+          <Route
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.TEACHER, ROLES.PRINCIPAL, ROLES.VICE_PRINCIPAL]}>
+                <MainLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/question-bank" element={<QuestionBankPage />} />
+          </Route>
+          <Route
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.TEACHER]}>
+                <MainLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/question-bank/new" element={<QuestionEditorPage />} />
+            <Route path="/question-bank/:id/edit" element={<QuestionEditorPage />} />
           </Route>
 
           {/* The guardian's home: their children, and nothing borrowed from the

@@ -134,6 +134,16 @@ const expectEvery = (keys) => {
 };
 
 describe('every expansion of a dynamic key exists', () => {
+  it('question bank: kinds, MCQ scorings and the two tabs (backend ed46340)', () => {
+    const kinds = quotedIn('views/QuestionBank/questionBank.js', /export const KINDS = \[([^\]]*)\]/);
+    const scorings = quotedIn('views/QuestionBank/questionBank.js', /export const MCQ_SCORINGS = \[([^\]]*)\]/);
+    const tabs = quotedIn('views/QuestionBank/QuestionBankPage.jsx', /const TABS = \[([^\]]*)\]/);
+    expectEvery(kinds.map((s) => `qbank.kind.${s}`));
+    expectEvery(scorings.map((s) => `qbank.scoring.${s}`));
+    expectEvery(scorings.map((s) => `qbank.scoringHint.${s}`));
+    expectEvery(tabs.map((s) => `qbank.tab.${s}`));
+  });
+
   it('admin queue: tabs, statuses and the on/off filter', () => {
     const file = 'views/Admin/AdminRegistrationsPage.jsx';
     const tabs = quotedIn(file, /const TABS = \[([^\]]*)\]/);
@@ -349,6 +359,19 @@ describe('academic years and semesters: the refusals added by backend a09f399 an
       academicsErrorMessage(refused('CONFLICT', 'A meeting in this Semester has already happened, so its start date is fixed'), t)
     ).toBe('classes.error.semesterStartFixed');
     expect(academicsErrorMessage(refused('CONFLICT', 'The Semester cannot end before today'), t)).toBe('classes.error.semesterEndPast');
+  });
+
+  it('names the semester still running when a year is closed early (backend 4bdd397, assertYearOver)', () => {
+    const err = refused(
+      'CONFLICT',
+      'Semester 1 of 2026/2027 runs until 2026-12-19. Shorten it to end today first, or close the year once it is over'
+    );
+    expect(academicsErrorMessage(err, t, 'id')).toBe(
+      'classes.error.yearStillRunning {"n":"1","label":"2026/2027","date":"19 Des 2026"}'
+    );
+    expect(academicsErrorMessage(err, t, 'en')).toBe(
+      'classes.error.yearStillRunning {"n":"1","label":"2026/2027","date":"19 Dec 2026"}'
+    );
   });
 
   it('still says a closed year is closed — the new patterns do not swallow it', () => {
