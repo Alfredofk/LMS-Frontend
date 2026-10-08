@@ -11,7 +11,7 @@ import { checkInErrorMessage, isStaleCheckIn } from '../../i18n/apiError';
 import { localOf } from './attendance';
 import { readMyClasses } from '../Classroom/readMyClasses';
 import { meetingWhen, nextMeetingAcross } from '../Classroom/myClasses';
-import { PositionError, focusOf, nextReadIn, readPosition, rowState, withCheckIn } from './checkIn';
+import { PositionError, checkInOpensClock, focusOf, nextReadIn, readPosition, rowState, withCheckIn } from './checkIn';
 
 /*
   Today's meetings, with the check-in button (owner, 2026-10-03) — on the
@@ -472,7 +472,7 @@ export const SessionStatusLine = ({ state, session, checkedAt, t }) => {
     case 'open':
       return <span className={`${line} text-brand`}>{t('checkin.state.open')}</span>;
     case 'upcoming':
-      return <span className={`${line} text-slate-500 tabular-nums`}>{t('checkin.state.upcoming', { time: session.local?.start ?? '' })}</span>;
+      return <span className={`${line} text-slate-500 tabular-nums`}>{t('checkin.state.upcoming', { time: checkInOpensClock(session.local) })}</span>;
     case 'missed':
       return <span className={`${line} text-amber-700`}>{t('checkin.state.missed')}</span>;
     case 'confirmed':

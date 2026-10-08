@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { createBrowserRouter, createRoutesFromElements, Navigate, Outlet, Route, RouterProvider } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { LanguageProvider } from './i18n/LanguageContext';
 import ThemeProvider from './theme/ThemeProvider';
@@ -11,7 +11,7 @@ import AccountChrome from './views/Account/AccountChrome';
 import AdminLayout from './layouts/AdminLayout';
 import { ROLES } from './constants/roles';
 import PageLoading from './components/ui/PageLoading';
-import RouteErrorBoundary from './components/ui/PageError';
+import RouteErrorBoundary, { RouterErrorPage } from './components/ui/PageError';
 
 /*
   Every page is its own chunk, fetched the first time it is opened (owner,
@@ -33,6 +33,7 @@ const StudentDashboard = lazy(() => import('./views/Dashboard/StudentDashboard')
 const TeacherDashboard = lazy(() => import('./views/Dashboard/TeacherDashboard'));
 const TeacherGradebook = lazy(() => import('./views/Gradebook/TeacherGradebook'));
 const CreateAssignmentForm = lazy(() => import('./views/Assignment/CreateAssignmentForm'));
+const TeacherAssessmentPage = lazy(() => import('./views/TeacherAssessment/TeacherAssessmentPage'));
 const ProfilePage = lazy(() => import('./views/Profile/ProfilePage'));
 const ClassroomPage = lazy(() => import('./views/Classroom/ClassroomPage'));
 const AssignmentDetailPage = lazy(() => import('./views/Assignment/AssignmentDetailPage'));
@@ -54,21 +55,24 @@ const QuestionBankPage = lazy(() => import('./views/QuestionBank/QuestionBankPag
 const QuestionEditorPage = lazy(() => import('./views/QuestionBank/QuestionEditorPage'));
 const SubjectsPage = lazy(() => import('./views/Subjects/SubjectsPage'));
 
-function App() {
-  return (
-    /*
-      Language wraps authentication, not the other way round. The signed-out
-      screens need it, and AuthProvider renders nothing at all until it has read
-      storage — so anything inside it would have no language during that moment.
-    */
-    <LanguageProvider>
-      <ThemeProvider>
-      <AuthProvider>
-        <BrowserRouter>
-        {/* The pages with no layout, and a layout that throws itself (PageError.jsx). */}
-        <RouteErrorBoundary fullScreen>
-        <Suspense fallback={<PageLoading fullScreen />}>
-        <Routes>
+/*
+  The root of every route: the pages with no layout, and a layout that throws
+  itself, are caught here (PageError.jsx), and a page still loading shows
+  PageLoading. A data router (createBrowserRouter, owner 2026-10-08) rather than
+  <BrowserRouter>, so a page can hold a navigation while it has unsaved changes
+  (useBlocker, hooks/useUnsavedGuard.js); the routes are the same <Route> tree.
+*/
+const RootShell = () => (
+  <RouteErrorBoundary fullScreen>
+    <Suspense fallback={<PageLoading fullScreen />}>
+      <Outlet />
+    </Suspense>
+  </RouteErrorBoundary>
+);
+
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <Route element={<RootShell />} errorElement={<RouterErrorPage />}>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
@@ -167,6 +171,8 @@ function App() {
             <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
             <Route path="/teacher/courses" element={<TeacherCourses />} />
             <Route path="/teacher/courses/:classSubjectId" element={<TeacherClassSubjectDetail />} />
+            <Route path="/teacher/courses/:classSubjectId/penilaian/new" element={<TeacherAssessmentPage />} />
+            <Route path="/teacher/courses/:classSubjectId/penilaian/:assessmentId" element={<TeacherAssessmentPage />} />
             <Route path="/teacher/gradebook" element={<TeacherGradebook />} />
             <Route path="/teacher/create-assignment" element={<CreateAssignmentForm />} />
             <Route path="/teacher/homeroom" element={<HomeroomDashboard />} />
@@ -289,10 +295,21 @@ function App() {
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        </Suspense>
-        </RouteErrorBoundary>
-        </BrowserRouter>
+    </Route>
+  )
+);
+
+function App() {
+  return (
+    /*
+      Language wraps authentication, not the other way round. The signed-out
+      screens need it, and AuthProvider renders nothing at all until it has read
+      storage — so anything inside it would have no language during that moment.
+    */
+    <LanguageProvider>
+      <ThemeProvider>
+      <AuthProvider>
+        <RouterProvider router={router} />
       </AuthProvider>
       </ThemeProvider>
     </LanguageProvider>

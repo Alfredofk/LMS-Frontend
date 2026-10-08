@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ChevronRight, ClipboardList } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage } from '../../i18n/apiError';
@@ -9,6 +9,7 @@ import { defaultSemesterOf } from '../Subjects/subjects';
 import SessionList from '../Subjects/SessionList';
 import SessionRoster from '../Subjects/SessionRoster';
 import { classSubjectsOf } from './homeroomSubjects';
+import AssessmentReader from '../TeacherAssessment/AssessmentReader';
 
 /*
   The homeroom teacher's class attendance, read only (owner, 2026-10-02; the
@@ -21,6 +22,8 @@ import { classSubjectsOf } from './homeroomSubjects';
   shared `SessionList`), one meeting's roster (shared `SessionRoster`). The
   backend lets a homeroom teacher read all three for their own class
   (sessions.service.js `assertCanRead`, attendance.service.js `canRead`).
+  A subject also opens its assessments, read only, in place (AssessmentReader;
+  backend 0bb4598 lets the homeroom teacher read them, owner 2026-10-08).
 
   The semester opens on the one running today in the class's year, and can be
   changed within that year. Only live assignments are on the board, so an ended
@@ -40,6 +43,7 @@ export const HomeroomAttendance = ({ classId, academicYearId }) => {
   const [subject, setSubject] = useState(null);
   const [sessions, setSessions] = useState({ list: null, zone: null, error: null });
   const [rosterSession, setRosterSession] = useState(null);
+  const [assessmentsOpen, setAssessmentsOpen] = useState(false);
   const [error, setError] = useState(null);
 
   /* The class's year, for its semesters. */
@@ -68,6 +72,7 @@ export const HomeroomAttendance = ({ classId, academicYearId }) => {
     setBoard({ data: null, error: null });
     setSubject(null);
     setRosterSession(null);
+    setAssessmentsOpen(false);
     academicsService
       .subjectBoard(semesterId)
       .then((data) => !cancelled && setBoard({ data, error: null }))
@@ -95,7 +100,7 @@ export const HomeroomAttendance = ({ classId, academicYearId }) => {
 
   const heading = (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-      <h3 className="text-base font-extrabold text-slate-900">{t('homeroom.att.title')}</h3>
+      <h3 className="text-base font-extrabold text-slate-900">{t(subject && assessmentsOpen ? 'tasm.pageTitle' : 'homeroom.att.title')}</h3>
       {semesters.length > 1 && (
         <label className="flex items-center gap-2">
           <span className="sr-only">{t('homeroom.att.semester')}</span>
@@ -138,13 +143,24 @@ export const HomeroomAttendance = ({ classId, academicYearId }) => {
   else if (!year) body = loading;
   else if (semesters.length === 0) body = message(t('homeroom.att.noSemester'));
   else if (rosterSession) body = <SessionRoster session={rosterSession} zone={sessions.zone} onBack={() => setRosterSession(null)} />;
+  else if (subject && assessmentsOpen) body = <AssessmentReader classSubjectId={subject.classSubjectId} onBack={() => setAssessmentsOpen(false)} showTitle={false} />;
   else if (subject) {
     body = (
       <div className="space-y-2">
         {back(t('homeroom.att.allSubjects'), () => setSubject(null))}
-        <p className="text-sm font-extrabold text-slate-800 break-words">
-          {subject.subject.name} <span className="font-semibold text-slate-500">· {subject.teacher.fullName}</span>
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-extrabold text-slate-800 break-words">
+            {subject.subject.name} <span className="font-semibold text-slate-500">· {subject.teacher.fullName}</span>
+          </p>
+          <button
+            type="button"
+            onClick={() => setAssessmentsOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-extrabold text-brand bg-brand-tint hover:bg-brand hover:text-white rounded-xl transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          >
+            <ClipboardList className="w-3.5 h-3.5" aria-hidden="true" />
+            {t('tasm.reader.open')}
+          </button>
+        </div>
         {sessions.error
           ? message(sessions.error, true)
           : sessions.list === null
@@ -164,7 +180,10 @@ export const HomeroomAttendance = ({ classId, academicYearId }) => {
           <li key={row.classSubjectId}>
             <button
               type="button"
-              onClick={() => setSubject(row)}
+              onClick={() => {
+                setSubject(row);
+                setAssessmentsOpen(false);
+              }}
               className="w-full px-3 py-2.5 flex items-center justify-between gap-2 text-left hover:bg-slate-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand"
             >
               <span className="min-w-0">
@@ -183,7 +202,7 @@ export const HomeroomAttendance = ({ classId, academicYearId }) => {
     <section className={card} aria-label={t('homeroom.att.title')}>
       {heading}
       {body}
-      {!rosterSession && year && semesters.length > 0 && (
+      {!rosterSession && !(subject && assessmentsOpen) && year && semesters.length > 0 && (
         <p className="text-[11px] font-semibold text-slate-500 leading-relaxed">{t('homeroom.att.liveOnly')}</p>
       )}
     </section>

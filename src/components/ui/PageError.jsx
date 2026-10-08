@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useRouteError } from 'react-router-dom';
 import { AlertTriangle, Home, RefreshCw } from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
@@ -101,5 +101,12 @@ export const RouteErrorBoundary = ({ fullScreen = false, children }) => {
     </PageErrorBoundary>
   );
 };
+
+/*
+  The data router's own errorElement (App.jsx, 2026-10-08): what it catches
+  outside the boundaries above shows the same panel, not React Router's default
+  page.
+*/
+export const RouterErrorPage = () => <ErrorPanel error={useRouteError()} fullScreen />;
 
 export default RouteErrorBoundary;

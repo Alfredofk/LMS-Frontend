@@ -13,6 +13,8 @@ import { academicsService } from '../../services/academicsService';
 import { openSemesterIds } from '../Dashboard/teacherHome';
 import { sessionPhase, unconfirmedCount } from './teaching';
 import TeacherMeeting from './TeacherMeeting';
+import AssessmentsTab from '../TeacherAssessment/AssessmentsTab';
+import { useSchoolZone } from '../../hooks/useSchoolToday';
 
 /*
   One subject a teacher teaches (owner, 2026-10-04; it replaced the teammate's
@@ -23,6 +25,9 @@ import TeacherMeeting from './TeacherMeeting';
     begun and not yet confirmed; the chosen one (`?pertemuan=<id>`, else the one on
     now or next - defaultMeetingId) renders TeacherMeeting: its attendance to
     confirm or correct, and its materials to add, publish, order and delete.
+  - "Penilaian" (`?tab=penilaian`, backend 0bb4598, owner 2026-10-08): the slot's
+    assessments (AssessmentsTab); each opens its own page under
+    /teacher/courses/:id/penilaian.
   - "Progres" (`?tab=progres`): the class's learning progress, per student and per
     material (SubjectProgress, the panel the Principal opens from the timetable).
 
@@ -30,7 +35,7 @@ import TeacherMeeting from './TeacherMeeting';
   (confirmed, said not held) updates in place and drops that cache.
 */
 
-const SECTIONS = ['pertemuan', 'progres'];
+const SECTIONS = ['pertemuan', 'penilaian', 'progres'];
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm';
 
 export const TeacherClassSubjectDetail = () => {
@@ -38,6 +43,7 @@ export const TeacherClassSubjectDetail = () => {
   const { t } = useT();
   const { showToast } = useOutletContext() ?? {};
   const { membership } = useAuth();
+  const zone = useSchoolZone();
   const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState(null);
   const [failed, setFailed] = useState(false);
@@ -166,7 +172,9 @@ export const TeacherClassSubjectDetail = () => {
         ))}
       </div>
 
-      {section === 'progres' ? (
+      {section === 'penilaian' ? (
+        <AssessmentsTab classSubjectId={entry.id} semesterId={entry.semester?.id} readOnly={readOnly} zone={zone} />
+      ) : section === 'progres' ? (
         <div className={`${card} sm:p-6`}>
           <SubjectProgress classSubjectId={entry.id} zone={membership?.school?.timeZone ?? null} />
         </div>

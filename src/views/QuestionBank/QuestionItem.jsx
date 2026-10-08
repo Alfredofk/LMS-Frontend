@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { Archive, ArchiveRestore, Check, CheckCircle2, Circle, Copy, Pencil } from 'lucide-react';
+import { Archive, ArchiveRestore, Check, CheckCircle2, Circle, Copy, Lock, Pencil } from 'lucide-react';
 
 import Select from '../../components/ui/Select';
 import SubjectLabel from '../../components/ui/SubjectLabel';
 import QuestionImage from '../../components/questionBank/QuestionImage';
 import { questionBankErrorMessage, isStaleQuestion } from '../../i18n/apiError';
 import { assessmentService } from '../../services/assessmentService';
-import { duplicateGrades, formatQuestionDate } from './questionBank';
+import { duplicateGrades, formatQuestionDate, formatSchoolDay, isPrivateOn } from './questionBank';
 
 /*
   One question in full, with its answer key, straight in the list (owner,
@@ -24,13 +24,19 @@ import { duplicateGrades, formatQuestionDate } from './questionBank';
   @param onEdit     () => void
   @param onChanged  (question, toastKey) => void - archived, restored or duplicated
   @param onStale    () => void - the list is behind; read it again
+  @param today      the school's date, 'YYYY-MM-DD': a privacy over by then is
+                    not shown (backend abbb3d5 sends the day still)
 */
 
 const tool =
   'inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50 disabled:cursor-not-allowed';
 
-/** The answer key, by kind. */
-export const QuestionAnswer = ({ question, t }) => {
+/**
+ * The answer key, by kind. `imageSource` says where its images are read: the bank
+ * question by default, or `{ assessmentId }` for an Assessment's copy.
+ */
+export const QuestionAnswer = ({ question, t, imageSource = null }) => {
+  const source = imageSource ?? { questionId: question.id };
   if (question.kind === 'MCQ') {
     return (
       <div className="space-y-2">
@@ -48,7 +54,7 @@ export const QuestionAnswer = ({ question, t }) => {
               </span>
               <span className="min-w-0 flex-1 space-y-1.5">
                 {option.text && <span className="block text-sm font-semibold text-slate-800 break-words">{option.text}</span>}
-                {option.imageId && <QuestionImage imageId={option.imageId} questionId={question.id} className="max-h-32" />}
+                {option.imageId && <QuestionImage imageId={option.imageId} {...source} className="max-h-32" />}
               </span>
               {option.correct ? (
                 <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-emerald-700 shrink-0">
@@ -89,7 +95,7 @@ export const QuestionAnswer = ({ question, t }) => {
   return <p className="text-sm font-semibold text-slate-600">{t('qbank.essay.note')}</p>;
 };
 
-export const QuestionItem = ({ question, number, pairs = [], writable = false, onEdit, onChanged, onStale, t, lang }) => {
+export const QuestionItem = ({ question, number, pairs = [], writable = false, onEdit, onChanged, onStale, today = '', t, lang }) => {
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
   const grades = writable ? duplicateGrades(question, pairs) : [];
@@ -139,6 +145,15 @@ export const QuestionItem = ({ question, number, pairs = [], writable = false, o
             {t('qbank.updated', { date: formatQuestionDate(question.updatedAt, lang) })}
             {question.duplicatedFromId && ` - ${t('qbank.duplicate.from')}`}
             {question.archived && ` - ${t('qbank.archivedOn', { date: formatQuestionDate(question.archivedAt, lang) })}`}
+            {isPrivateOn(question, today) && (
+              <>
+                {' - '}
+                <span className="inline-flex items-center gap-1 align-middle">
+                  <Lock className="w-3 h-3" aria-hidden="true" />
+                  {t('qbank.private.listed', { date: formatSchoolDay(question.privateUntil, lang) })}
+                </span>
+              </>
+            )}
           </p>
         </div>
       </div>

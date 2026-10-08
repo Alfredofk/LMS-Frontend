@@ -524,6 +524,8 @@ const QUESTION_BANK_BY_MESSAGE = [
   ['image file must be one of', 'qbank.error.imageType'],
   ['Question not found', 'qbank.error.gone'],
   ['Image not found', 'qbank.image.failed'],
+  ['cannot be a day already past', 'qbank.error.privatePast'],
+  ['private for at most a year', 'qbank.error.privateFar'],
 ];
 
 export function questionBankErrorMessage(err, t) {
@@ -533,6 +535,57 @@ export function questionBankErrorMessage(err, t) {
   return apiErrorMessage(err, t);
 }
 
+/*
+  Assessments - assessment.service.js (backend 0bb4598). Its CONFLICTs and
+  BAD_REQUESTs told apart on their sentences, as the bank's are.
+*/
+const ASSESSMENT_BY_MESSAGE = [
+  ['The window must lie inside Semester', 'tasm.error.outsideSemester'],
+  ['opensAt must come before closesAt', 'tasm.error.order'],
+  ['its type is fixed', 'tasm.error.typeFixed'],
+  ['An offline assessment has no settings', 'tasm.error.offlineSettings'],
+  ['but not to before now', 'tasm.error.closedBeforeNow'],
+  ['changed meanwhile', 'tasm.error.changedMeanwhile'],
+  ['nothing in it changes', 'tasm.error.isCancelled'],
+  ['it has no questions', 'tasm.error.offlineQuestions'],
+  ['A question named is not in this assessment', 'tasm.error.changedMeanwhile'],
+  ['A question is in this assessment already', 'tasm.error.twice'],
+  ['Pick live questions from the bank', 'tasm.error.bankPick'],
+  ['is published already', 'tasm.error.publishedAlready'],
+  ['Add at least one question', 'tasm.error.needsQuestion'],
+  ['delete it instead', 'tasm.error.isDraft'],
+  ['is cancelled already', 'tasm.error.cancelledAlready'],
+  ['a published assessment is never deleted', 'tasm.error.neverDeleted'],
+  ['set new assessments on the class subject that took its place', 'tasm.error.ended'],
+  ['is not open', 'tasm.error.semesterClosed'],
+  ['Academic year', 'tasm.error.yearClosed'],
+  ['Only the teacher of this class subject', 'tasm.error.notYours'],
+  ['Assessment not found', 'tasm.error.gone'],
+  ['Class subject not found', 'tasm.error.gone'],
+  ['The text is empty', 'tasm.error.instructionsEmpty'],
+  ['Give a reason', 'tasm.error.reasonEmpty'],
+  ['Copy only to your own live class subjects', 'tasm.error.copyTargets'],
+];
+
+export function assessmentErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  const hit = ASSESSMENT_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  if (hit) return t(hit[1]);
+  return apiErrorMessage(err, t);
+}
+
+/** A refusal that means the page is behind: read the assessment again. */
+export const isStaleAssessment = (err) =>
+  [
+    'changed meanwhile',
+    'nothing in it changes',
+    'A question named is not in this assessment',
+    'is published already',
+    'delete it instead',
+    'is cancelled already',
+    'a published assessment is never deleted',
+  ].some((needle) => String(err?.message ?? '').includes(needle));
+
 /** A refusal that means the screen is behind: reload the question. */
 export const isStaleQuestion = (err) =>
   ['changed meanwhile', 'An option id does not belong', 'archived already', 'is not archived', 'Question not found'].some((needle) =>
@@ -541,7 +594,7 @@ export const isStaleQuestion = (err) =>
 
 /*
   A student's check-in — attendance.service.js `checkIn` (backend deb95e8,
-  87f2670). Six CONFLICTs told apart on their sentences, as above. NOT_FOUND is a
+  87f2670; the window opens 30 minutes early since 0fb6cb9). Six CONFLICTs told apart on their sentences, as above. NOT_FOUND is a
   meeting of a Class the student is no longer in (moved since the card read).
   Every one of them means the card on screen is behind: it reads again.
 */
@@ -549,7 +602,7 @@ const CHECK_IN_BY_MESSAGE = [
   ['already checked in', 'checkin.error.already'],
   ['already confirmed this attendance', 'checkin.error.confirmed'],
   ['was cancelled', 'checkin.error.cancelled'],
-  ['opens when the session starts', 'checkin.error.notYet'],
+  ['minutes before the session starts', 'checkin.error.notYet'],
   ['check-in is closed', 'checkin.error.closed'],
   ['no location set', 'checkin.error.noLocation'],
 ];

@@ -2,6 +2,8 @@ import React, { useEffect, useId, useState } from 'react';
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { AlertCircle, ArrowDown, ArrowUp, CheckCircle2, Circle, Lock, Plus, RefreshCw, Square, SquareCheck, Trash2 } from 'lucide-react';
 
+import FactLine from '../../components/ui/FactLine';
+import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import ImagePicker from '../../components/questionBank/ImagePicker';
 import { useT } from '../../i18n/LanguageContext';
@@ -9,6 +11,8 @@ import { isStaleQuestion, questionBankErrorMessage } from '../../i18n/apiError';
 import { academicsService } from '../../services/academicsService';
 import { assessmentService } from '../../services/assessmentService';
 import TextEditor from '../Course/TextEditor';
+import { useSchoolToday } from '../../hooks/useSchoolToday';
+import { useUnsavedGuard } from '../../hooks/useUnsavedGuard';
 import {
   KINDS,
   MAX_ACCEPTED,
@@ -17,8 +21,10 @@ import {
   MCQ_SCORINGS,
   MIN_OPTIONS,
   blankOption,
+  draftChanged,
   draftFrom,
   emptyDraft,
+  formatSchoolDay,
   markCorrect,
   moveOption,
   pairKey,
@@ -26,6 +32,7 @@ import {
   questionPayload,
   taughtPairs,
   withKind,
+  yearAhead,
 } from './questionBank';
 
 /*
@@ -109,10 +116,12 @@ const OptionRow = ({ option, index, count, scoring, error, disabled, questionId,
 };
 
 const QuestionEditor = () => {
-  const { t } = useT();
+  const { t, lang } = useT();
   const navigate = useNavigate();
   const { id } = useParams();
   const editing = Boolean(id);
+  /* The school's date today, which a privacy day is read against (the server's todayOf). */
+  const today = useSchoolToday();
   const baseId = useId();
   const { showToast } = useOutletContext() ?? {};
 
@@ -125,6 +134,10 @@ const QuestionEditor = () => {
   const [errors, setErrors] = useState({});
   const [failure, setFailure] = useState(null);
   const [busy, setBusy] = useState(false);
+  /* The saved question as a draft, what an edit is measured against. */
+  const [baseline, setBaseline] = useState(null);
+  /* Unsaved work holds a move away (owner, 2026-10-08). */
+  const guard = useUnsavedGuard(editing ? Boolean(baseline) && draftChanged(draft, baseline) : draftChanged(draft));
 
   useEffect(() => {
     if (editing) return undefined;
@@ -151,7 +164,8 @@ const QuestionEditor = () => {
       .then((saved) => {
         if (cancelled) return;
         setQuestion(saved);
-        setDraft(draftFrom(saved));
+        setDraft(draftFrom(saved, today));
+        setBaseline(draftFrom(saved, today));
         setErrors({});
         setFailure(null);
       })
@@ -159,6 +173,8 @@ const QuestionEditor = () => {
     return () => {
       cancelled = true;
     };
+    // today is read once per load: a draft is not rebuilt at midnight.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing, id, attempt, t]);
 
   const update = (patch) => {
@@ -169,7 +185,7 @@ const QuestionEditor = () => {
     setDraft((prev) => ({ ...prev, options: prev.options.map((option) => (option.key === key ? { ...option, ...patch } : option)) }));
 
   const save = async () => {
-    const found = questionErrors(draft, { editing });
+    const found = questionErrors(draft, { editing, today });
     setErrors(found);
     if (Object.keys(found).length) {
       setFailure({ message: t('qbank.editor.fixErrors') });
@@ -182,6 +198,7 @@ const QuestionEditor = () => {
       if (editing) await assessmentService.update(id, body);
       else await assessmentService.create(body);
       showToast?.(t(editing ? 'qbank.toast.saved' : 'qbank.toast.created'), 'success');
+      guard.release();
       navigate('/question-bank');
     } catch (err) {
       setBusy(false);
@@ -238,9 +255,7 @@ const QuestionEditor = () => {
           {t(editing ? 'qbank.editor.editTitle' : 'qbank.editor.newTitle')}
         </h1>
         {editing && (
-          <p className="text-sm text-slate-500 font-medium">
-            {`${question.subject?.code} - ${question.subject?.name} - ${t('classes.grade', { n: question.gradeLevel })} - ${t(`qbank.kind.${question.kind}`)}`}
-          </p>
+          <FactLine code={question.subject?.code} name={question.subject?.name} facts={[t('classes.grade', { n: question.gradeLevel }), t(`qbank.kind.${question.kind}`)]} />
         )}
       </div>
 
@@ -271,7 +286,7 @@ const QuestionEditor = () => {
                 <option value="">{t('qbank.editor.pairPick')}</option>
                 {pairs.map((pair) => (
                   <option key={pair.key} value={pair.key}>
-                    {`${pair.subject.code} - ${pair.subject.name} - ${t('classes.grade', { n: pair.gradeLevel })}`}
+                    {`${pair.subject.code} - ${pair.subject.name} / ${t('classes.grade', { n: pair.gradeLevel })}`}
                   </option>
                 ))}
               </Select>
@@ -454,6 +469,52 @@ const QuestionEditor = () => {
         {draft.kind === 'ESSAY' && <p className="text-sm font-semibold text-slate-600">{t('qbank.essay.note')}</p>}
       </section>
 
+      <section className={`${card} space-y-3`} aria-labelledby={`${baseId}-privacy`}>
+        <h2 id={`${baseId}-privacy`} className="text-base font-extrabold text-slate-900">
+          {t('qbank.private.title')}
+        </h2>
+        <label className="flex items-start gap-2.5 text-sm font-bold text-slate-700 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={draft.isPrivate}
+            disabled={busy}
+            onChange={(e) => {
+              update({ isPrivate: e.target.checked });
+              setErrors((prev) => ({ ...prev, privateUntil: undefined }));
+            }}
+            className="mt-0.5 w-4 h-4 accent-brand cursor-pointer"
+          />
+          <span className="inline-flex items-center gap-1.5">
+            <Lock className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
+            {t('qbank.private.toggle')}
+          </span>
+        </label>
+        {draft.isPrivate && (
+          <div className="pl-6 space-y-2 max-w-xs">
+            <Input
+              id={`${baseId}-private-until`}
+              name="privateUntil"
+              type="date"
+              label={t('qbank.private.until')}
+              value={draft.privateUntil}
+              min={today || undefined}
+              max={today ? yearAhead(today) : undefined}
+              disabled={busy}
+              error={errors.privateUntil ? t(errors.privateUntil) : undefined}
+              onChange={(e) => {
+                update({ privateUntil: e.target.value });
+                setErrors((prev) => ({ ...prev, privateUntil: undefined }));
+              }}
+            />
+          </div>
+        )}
+        <p className="text-[11px] font-medium text-slate-500 leading-relaxed">
+          {draft.isPrivate
+            ? t('qbank.private.hintOn', { date: today ? formatSchoolDay(yearAhead(today), lang) : '-' })
+            : t('qbank.private.hintOff')}
+        </p>
+      </section>
+
       {failure && (
         <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold space-y-2" role="alert">
           <p>{failure.message}</p>
@@ -474,6 +535,7 @@ const QuestionEditor = () => {
           {busy ? t('common.loading') : t(editing ? 'qbank.editor.saveChanges' : 'qbank.editor.save')}
         </button>
       </div>
+      {guard.dialog}
     </div>
   );
 };

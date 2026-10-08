@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { PositionError, focusOf, nextReadIn, readPosition, rowState, withCheckIn } from './checkIn';
+import { PositionError, checkInOpensAt, checkInOpensClock, focusOf, nextReadIn, readPosition, rowState, withCheckIn } from './checkIn';
 
 /*
   Rows shaped as sessions.service.js `listMine` answers them (backend 2a281e7):
@@ -54,8 +54,9 @@ describe('rowState — what one of today\'s meetings shows', () => {
     expect(rowState(session({ canCheckIn: true }), context('2026-10-05T01:30:00Z'))).toBe('missed');
   });
 
-  it('before the start: upcoming; after the end with nothing recorded: missed', () => {
+  it('before the check-in opens: upcoming; after the end with nothing recorded: missed', () => {
     expect(rowState(session(), context('2026-10-04T23:00:00Z'))).toBe('upcoming');
+    expect(rowState(session(), context('2026-10-04T23:29:59Z'))).toBe('upcoming');
     expect(rowState(session(), context('2026-10-05T02:00:00Z'))).toBe('missed');
   });
 
@@ -66,20 +67,27 @@ describe('rowState — what one of today\'s meetings shows', () => {
     expect(rowState(session(), context(now))).toBe('waiting');
   });
 
+  it('check-in opens 30 minutes before the start (backend 0fb6cb9)', () => {
+    expect(rowState(session({ canCheckIn: true }), context('2026-10-04T23:30:00Z'))).toBe('open');
+    expect(rowState(session(), context('2026-10-04T23:30:00Z'))).toBe('waiting');
+    expect(rowState(session(), { ...context('2026-10-04T23:45:00Z'), hasLocation: false })).toBe('noLocation');
+  });
+
   it('an unknown hasLocation is not read as "no point"', () => {
     expect(rowState(session(), { now: at('2026-10-05T00:20:00Z'), className: 'XI IPS' })).toBe('waiting');
   });
 });
 
 describe('nextReadIn — when the card reads the day again', () => {
-  it('a second after the next start or end', () => {
-    expect(nextReadIn([session()], context('2026-10-04T23:00:00Z'))).toBe(60 * 60 * 1000 + 1000);
+  it('a second after the next check-in opening, start or end', () => {
+    expect(nextReadIn([session()], context('2026-10-04T23:00:00Z'))).toBe(30 * 60 * 1000 + 1000);
+    expect(nextReadIn([session({ canCheckIn: true })], context('2026-10-04T23:40:00Z'))).toBe(20 * 60 * 1000 + 1000);
     expect(nextReadIn([session({ canCheckIn: true })], context('2026-10-05T01:00:00Z'))).toBe(30 * 60 * 1000 + 1000);
   });
 
   it('the nearest edge of several meetings', () => {
     const later = session({ id: 's2', startsAt: '2026-10-05T03:00:00Z', endsAt: '2026-10-05T04:30:00Z' });
-    expect(nextReadIn([later, session()], context('2026-10-04T23:00:00Z'))).toBe(60 * 60 * 1000 + 1000);
+    expect(nextReadIn([later, session()], context('2026-10-04T23:00:00Z'))).toBe(30 * 60 * 1000 + 1000);
   });
 
   it('nothing to wait for: over, cancelled or confirmed', () => {
@@ -96,6 +104,20 @@ describe('nextReadIn — when the card reads the day again', () => {
   it('never longer than six hours', () => {
     const far = session({ startsAt: '2026-10-05T23:00:00Z', endsAt: '2026-10-05T23:30:00Z' });
     expect(nextReadIn([far], context('2026-10-05T00:00:00Z'))).toBe(6 * 60 * 60 * 1000);
+  });
+});
+
+describe('checkInOpensAt / checkInOpensClock — 30 minutes before the start', () => {
+  it('as an instant', () => {
+    expect(checkInOpensAt(session()).toISOString()).toBe('2026-10-04T23:30:00.000Z');
+  });
+
+  it('as the school clock time, across the hour and midnight', () => {
+    expect(checkInOpensClock({ start: '07:00' })).toBe('06:30');
+    expect(checkInOpensClock({ start: '10:45' })).toBe('10:15');
+    expect(checkInOpensClock({ start: '00:15' })).toBe('23:45');
+    expect(checkInOpensClock(undefined)).toBe('');
+    expect(checkInOpensClock({ start: '7:00' })).toBe('');
   });
 });
 

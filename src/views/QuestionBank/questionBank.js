@@ -63,11 +63,29 @@ const rowKey = () => `opt-${(nextKey += 1)}`;
 
 export const blankOption = () => ({ key: rowKey(), id: null, text: '', imageId: null, correct: false });
 
+/*
+  Private questions (backend abbb3d5, owner 2026-10-07). Up to `privateUntil`,
+  'YYYY-MM-DD', that day included, only the author and the leaders see one; then
+  it opens by itself. The day is the school's own date, not past, and at most a
+  year ahead (assessment.bank.js assertPrivateUntil); a duplicate keeps it.
+*/
+
+/** A year from a school day, as the server reckons it: 29 Feb gives 1 Mar. */
+export function yearAhead(today) {
+  const [year, month, date] = String(today).split('-').map(Number);
+  return new Date(Date.UTC(year + 1, month - 1, date)).toISOString().slice(0, 10);
+}
+
+/** Whether a question is private on the school's day `today`. */
+export const isPrivateOn = (question, today) => Boolean(question?.privateUntil) && question.privateUntil >= today;
+
 /** A new question's draft; a pair chosen beforehand may be passed. */
 export function emptyDraft(kind = 'MCQ', { subjectId = '', gradeLevel = '' } = {}) {
   return {
     subjectId,
     gradeLevel,
+    isPrivate: false,
+    privateUntil: '',
     kind,
     body: '',
     imageId: null,
@@ -78,17 +96,25 @@ export function emptyDraft(kind = 'MCQ', { subjectId = '', gradeLevel = '' } = {
   };
 }
 
-/** The draft with another kind: the body, its image and the pair stay, the rest starts afresh. */
+/** The draft with another kind: the body, its image, the pair and its privacy stay, the rest starts afresh. */
 export const withKind = (draft, kind) => ({
   ...emptyDraft(kind, { subjectId: draft.subjectId, gradeLevel: draft.gradeLevel }),
+  isPrivate: draft.isPrivate,
+  privateUntil: draft.privateUntil,
   body: draft.body,
   imageId: draft.imageId,
 });
 
-/** A saved question as a draft, for editing. */
-export function draftFrom(question) {
+/**
+ * A saved question as a draft, for editing. A privacy already over reads as
+ * none: the box starts unticked, and saving sends null.
+ */
+export function draftFrom(question, today) {
+  const isPrivate = isPrivateOn(question, today);
   return {
     ...emptyDraft(question.kind, { subjectId: question.subject?.id ?? '', gradeLevel: question.gradeLevel ?? '' }),
+    isPrivate,
+    privateUntil: isPrivate ? question.privateUntil : '',
     body: question.body ?? '',
     imageId: question.imageId ?? null,
     mcqScoring: question.mcqScoring ?? 'SINGLE',
@@ -142,12 +168,19 @@ export const bodyText = (html) =>
 
 /**
  * What is wrong with a draft, as dictionary keys (assessment.schema.js):
- * `{ pair?, body?, options?, option: { [key]: key }?, value?, accepted? }`.
- * An empty object means it may be sent.
+ * `{ pair?, privateUntil?, body?, options?, option: { [key]: key }?, value?, accepted? }`.
+ * An empty object means it may be sent. `today` is the school's date, for the
+ * privacy day.
  */
-export function questionErrors(draft, { editing = false } = {}) {
+export function questionErrors(draft, { editing = false, today } = {}) {
   const errors = {};
   if (!editing && (!draft.subjectId || !draft.gradeLevel)) errors.pair = 'qbank.error.pair';
+
+  if (draft.isPrivate) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.privateUntil ?? '')) errors.privateUntil = 'qbank.error.privateDate';
+    else if (today && draft.privateUntil < today) errors.privateUntil = 'qbank.error.privatePast';
+    else if (today && draft.privateUntil > yearAhead(today)) errors.privateUntil = 'qbank.error.privateFar';
+  }
 
   if (!bodyText(draft.body)) errors.body = 'qbank.error.bodyEmpty';
   else if (String(draft.body).length > MAX_BODY) errors.body = 'qbank.error.bodyLong';
@@ -186,12 +219,14 @@ const acceptedOf = (draft) => (draft.accepted ?? []).map((answer) => answer.trim
 /**
  * The body the server takes - strict, so only what the kind holds. A new
  * question names its subject and grade level; an edit never does, and keeps each
- * option's id so its answer and image stay with it.
+ * option's id so its answer and image stay with it. Both name their privacy: a
+ * day, or null for none.
  */
 export function questionPayload(draft, { editing = false } = {}) {
   const payload = {
     kind: draft.kind,
     ...(editing ? {} : { subjectId: draft.subjectId, gradeLevel: Number(draft.gradeLevel) }),
+    privateUntil: draft.isPrivate ? draft.privateUntil : null,
     body: draft.body,
     ...(draft.imageId ? { imageId: draft.imageId } : {}),
   };
@@ -210,6 +245,27 @@ export function questionPayload(draft, { editing = false } = {}) {
   if (draft.kind === 'TF') payload.value = draft.value;
   if (draft.kind === 'SHORT') payload.accepted = acceptedOf(draft);
   return payload;
+}
+
+/*
+  What a draft would send, its subject and grade aside: the pair is a choice, not
+  work, and a new question gets it picked for it when only one is taught.
+*/
+const contentOf = (draft, editing) => {
+  const { subjectId: _subject, gradeLevel: _grade, ...rest } = questionPayload(draft, { editing });
+  return JSON.stringify(rest);
+};
+
+/**
+ * Whether the editor holds work a move away would lose (owner, 2026-10-08): an
+ * edit that differs from the saved question (`saved`, its draftFrom), or a new
+ * question that differs from a blank one of its kind - so changing the kind alone
+ * is not work.
+ */
+export function draftChanged(draft, saved = null) {
+  if (!draft) return false;
+  if (saved) return contentOf(draft, true) !== contentOf(saved, true);
+  return contentOf(draft, false) !== contentOf(emptyDraft(draft.kind), false);
 }
 
 /** A file picked for a question image: a key when it may not be sent, else null. */
@@ -244,6 +300,10 @@ export function filterQuestions(questions, { subjectId = '', gradeLevel = '', ki
     );
   });
 }
+
+/** A calendar day 'YYYY-MM-DD' in the reader's language, read as the day it names: "15 Des 2026". */
+export const formatSchoolDay = (day, lang) =>
+  day ? new Date(`${day}T00:00:00Z`).toLocaleDateString(lang === 'en' ? 'en-GB' : 'id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '-';
 
 /** A question's date, in the reader's language: "7 Okt 2026". */
 export const formatQuestionDate = (value, lang) =>

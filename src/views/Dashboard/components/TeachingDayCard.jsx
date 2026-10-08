@@ -1,10 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle, ArrowRight, CalendarClock, ChevronRight, GraduationCap, Hash, Users } from 'lucide-react';
+import { AlertCircle, CalendarClock, CalendarX2, ChevronRight, GraduationCap, Hash, Users } from 'lucide-react';
 
 import InfoChips from '../../../components/ui/InfoChips';
 import SubjectLabel from '../../../components/ui/SubjectLabel';
 import { useT } from '../../../i18n/LanguageContext';
+import { meetingWhen } from '../../Classroom/myClasses';
 import { sessionPhase } from '../../Course/teaching';
 import { teachingDay } from '../teacherHome';
 
@@ -12,6 +13,8 @@ import { teachingDay } from '../teacherHome';
   The teacher's meetings today on the dashboard (owner, 2026-10-05: today only, not
   the week). A day with none says so and names the next meeting still to come, which
   opens it. Which meetings, and which is next, is teachingDay's (teacherHome.js).
+  The empty day looks as the student's today card does (owner, 2026-10-08): an
+  icon on a brand tint, a bold line, and "Berikutnya: ..." as a small brand link.
 
   @param live      liveAssignments(...), null when the read failed, undefined while reading
   @param meetings  dayMeetings(...) - the teacher's meetings from today on
@@ -36,11 +39,14 @@ export const TeachingDayCard = ({ live, meetings, today, className = '' }) => {
   const failed = live === null;
   const day = live ? teachingDay(meetings, today, now) : null;
 
-  const empty = (message, extra) => (
-    <div className="py-8 px-4 flex flex-col items-center justify-center text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/40">
-      <CalendarClock className="w-7 h-7 text-slate-300 mb-2" aria-hidden="true" />
-      <p className="text-xs font-semibold text-slate-600 max-w-xs leading-relaxed">{message}</p>
-      {extra}
+  /* As TodaySessionsCard's idle state: no dashed box. */
+  const empty = (title, extra) => (
+    <div className="flex-1 flex flex-col items-center justify-center text-center py-6">
+      <span className="w-14 h-14 bg-brand-tint text-brand rounded-2xl flex items-center justify-center mb-3">
+        <CalendarX2 className="w-7 h-7" aria-hidden="true" />
+      </span>
+      <p className="text-sm font-extrabold text-slate-800 max-w-xs">{title}</p>
+      {extra && <div className="mt-2 flex flex-col items-center gap-1">{extra}</div>}
     </div>
   );
 
@@ -61,7 +67,7 @@ export const TeachingDayCard = ({ live, meetings, today, className = '' }) => {
   } else if (live.length === 0) {
     body = empty(
       t('teacherDash.schedule.noTeaching'),
-      <Link to="/teacher/courses" className="mt-1 text-xs font-bold text-brand hover:underline">
+      <Link to="/teacher/courses" className="text-[11px] font-bold text-brand hover:underline">
         {t('teacherDash.schedule.toCourses')}
       </Link>
     );
@@ -70,24 +76,12 @@ export const TeachingDayCard = ({ live, meetings, today, className = '' }) => {
     body = empty(
       t('teacherDash.schedule.noneToday'),
       next && (
-        <Link
-          to={meetingPath(next)}
-          className="mt-3 inline-flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 rounded-xl bg-brand-tint px-3 py-2 text-xs font-bold text-brand hover:bg-brand hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-        >
-          <span>{t('teacherDash.schedule.next')}:</span>
-          <span className="font-extrabold">
-            {dayLabel(next.local.date, locale, {
-              weekday: 'short',
-              day: 'numeric',
-              month: 'short',
-              ...(today && next.local.date.slice(0, 4) !== today.slice(0, 4) ? { year: 'numeric' } : {}),
-            })}
-            , {next.local.start}
-          </span>
-          <span>
-            - {next.subject?.code ?? next.subject?.name} {next.class?.name}
-          </span>
-          <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+        <Link to={meetingPath(next)} className="block text-center text-[11px] font-bold text-brand hover:underline">
+          {t('teacherDash.schedule.nextLine', {
+            subject: next.subject?.name ?? next.subject?.code ?? '',
+            className: next.class?.name ?? '',
+            when: meetingWhen(next, lang, { weekday: 'long' }),
+          })}
         </Link>
       )
     );

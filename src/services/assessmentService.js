@@ -14,10 +14,23 @@ import { api, requestBlob } from './apiClient';
   `{ id, subject: { id, code, name }, gradeLevel, kind, mcqScoring, body, imageId,
      options?: [{ id, text, imageId, correct }] (MCQ) | value (TF) | accepted (SHORT),
      author: { membershipId, fullName, left }, mine, canEdit, archived, archivedAt,
-     duplicatedFromId, createdAt, updatedAt }`.
+     privateUntil ('YYYY-MM-DD' | null, backend abbb3d5), duplicatedFromId, createdAt, updatedAt }`.
 
   Images are uploaded first (JPG/PNG, 5 MB, field `image`) and named by id in the
   question; they are never deleted.
+
+  Assessments (backend 0bb4598, ticket 02), on a ClassSubject. Managed by its
+  answering teacher; its homeroom teacher, the Principal and Vice Principals read
+  (writes 403). assessment.service.js assessmentView:
+  `{ id, classSubject: { id, class: { id, name, gradeLevel, academicYear }, subject,
+     semester: { id, ordinal }, ended }, type: TUGAS|KUIS|UTS|UAS, mode: ONLINE|OFFLINE,
+     title, instructions, opensAt, closesAt, settings: { maxAttempts, acceptLate,
+     timeLimitMinutes, shuffleQuestions, shuffleOptions, showKeyOnRelease } | null,
+     status: DRAFT|PUBLISHED|CANCELLED, publishedAt, cancelledAt, cancelReason,
+     copiedFromId, questionCount, totalPoints, canManage, createdAt, updatedAt }`;
+  one read alone adds `questions: [{ id, order, points, sourceQuestionId, ...the
+  bank's content and key, bank: { changed, archived } | null }]`. Students answer
+  through routes of their own (ticket 03, not built).
 */
 
 const q = (id) => encodeURIComponent(id);
@@ -78,12 +91,77 @@ export const assessmentService = {
    * An image's bytes, with the token: a saved question's through that question,
    * the caller's own fresh upload by its id alone.
    */
-  imageBlob: ({ questionId = null, imageId }) =>
+  imageBlob: ({ questionId = null, assessmentId = null, imageId }) =>
     requestBlob(
-      questionId
-        ? `/assessments/questions/${q(questionId)}/images/${q(imageId)}`
-        : `/assessments/questions/images/${q(imageId)}`
+      assessmentId
+        ? `/assessments/${q(assessmentId)}/images/${q(imageId)}`
+        : questionId
+          ? `/assessments/questions/${q(questionId)}/images/${q(imageId)}`
+          : `/assessments/questions/images/${q(imageId)}`
     ),
+
+  // ---- Assessments ----
+
+  /** Every Assessment of the class subject's slot, drafts included, earliest window first. */
+  async listFor(classSubjectId) {
+    const answer = await api.get(`/assessments/class-subjects/${q(classSubjectId)}`);
+    return answer?.assessments ?? [];
+  },
+
+  /** `{ mode, type, title, instructions?, opensAt, closesAt, ...ONLINE settings }` -> the new one. */
+  async createAssessment(classSubjectId, body) {
+    const answer = await api.post(`/assessments/class-subjects/${q(classSubjectId)}`, body);
+    return answer?.assessment ?? null;
+  },
+
+  /** One, with its questions and their keys. */
+  async getAssessment(id) {
+    const answer = await api.get(`/assessments/${q(id)}`);
+    return answer?.assessment ?? null;
+  },
+
+  /** Only what changed; never the mode. Answers the detail. */
+  async updateAssessment(id, patch) {
+    const answer = await api.patch(`/assessments/${q(id)}`, patch);
+    return answer?.assessment ?? null;
+  },
+
+  /** The whole list, in order: `[{ id, points } | { questionId, points }]`. Answers the detail. */
+  async replaceQuestions(id, questions) {
+    const answer = await api.put(`/assessments/${q(id)}/questions`, { questions });
+    return answer?.assessment ?? null;
+  },
+
+  async publish(id) {
+    const answer = await api.post(`/assessments/${q(id)}/publish`);
+    return answer?.assessment ?? null;
+  },
+
+  async cancel(id, reason) {
+    const answer = await api.post(`/assessments/${q(id)}/cancel`, { reason });
+    return answer?.assessment ?? null;
+  },
+
+  /**
+   * What the teacher may copy into this class subject (backend 0bb4598/abbb3d5):
+   * their own of any semester, and anyone's of a semester that is over, of its
+   * subject and grade - not its own slot's. Each carries `canManage`.
+   */
+  async copySources(classSubjectId) {
+    const answer = await api.get(`/assessments/class-subjects/${q(classSubjectId)}/copy-sources`);
+    return answer?.assessments ?? [];
+  },
+
+  /** `{ classSubjectIds, opensAt?, closesAt? }` -> the drafts made, one per target, each a detail. */
+  async copy(id, body) {
+    const answer = await api.post(`/assessments/${q(id)}/copies`, body);
+    return answer?.assessments ?? [];
+  },
+
+  /** A draft only. */
+  async removeAssessment(id) {
+    await api.del(`/assessments/${q(id)}`);
+  },
 };
 
 export default assessmentService;

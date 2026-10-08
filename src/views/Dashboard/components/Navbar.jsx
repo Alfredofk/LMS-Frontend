@@ -296,6 +296,34 @@ export const Navbar = ({ showToast, onOpenNav }) => {
        title jumped 4px and shrank to 12px), so "Kelas Saya" stays put and the detail
        appears beside it. The teacher's had kept the old small one until 2026-10-05
        (owner: follow the student's). */
+    /* An assessment's page sits under its subject's "Penilaian" tab, and leads back there (owner, 2026-10-08). */
+    const assessmentPage = /^\/teacher\/courses\/([^/]+)\/penilaian\/([^/]+)$/.exec(location.pathname);
+    if (assessmentPage) {
+      const list = `/teacher/courses/${assessmentPage[1]}?tab=penilaian`;
+      return (
+        <div className="flex min-w-0 items-center gap-3 text-xl font-bold tracking-tight">
+          <button
+            type="button"
+            onClick={() => navigate(list)}
+            aria-label={t('tasm.backToList')}
+            title={t('tasm.backToList')}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate(list)}
+            className="hidden sm:inline shrink-0 text-slate-500 hover:text-brand transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+          >
+            {t('teach.section.penilaian')}
+          </button>
+          <span className="hidden sm:inline text-slate-300" aria-hidden="true">/</span>
+          <span className="truncate text-slate-900">{t(assessmentPage[2] === 'new' ? 'tasm.newTitle' : 'tasm.pageTitle')}</span>
+        </div>
+      );
+    }
+
     const subjectDetail = location.pathname.startsWith('/classroom/')
       ? { list: '/classroom', backKey: 'classroom.back' }
       : location.pathname.startsWith('/teacher/courses/')

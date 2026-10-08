@@ -10,9 +10,31 @@
   `canCheckIn` is the server's answer at the moment it read: the window, the
   current Class, no record yet, and the school having a point
   (sessions.service.js listMine). It goes stale as the clock runs — a meeting at
-  10:00 read at 07:00 says false — so the card reads again at the next start or
-  end (`nextReadIn`), and this file only says what the row shows in between.
+  10:00 read at 07:00 says false — so the card reads again when the next check-in
+  opens, starts or ends (`nextReadIn`), and this file only says what the row
+  shows in between.
 */
+
+/*
+  Check-in opens 30 minutes before a meeting starts (backend 0fb6cb9, owner
+  2026-10-08; at the start until then) and closes at its end, or when the teacher
+  confirms. Late still counts from the start. The server's `checkInOpeningOf`.
+*/
+export const CHECK_IN_EARLY_MS = 30 * 60 * 1000;
+
+/** When a meeting's check-in opens, as a Date. */
+export const checkInOpensAt = (session) => new Date(new Date(session.startsAt).getTime() - CHECK_IN_EARLY_MS);
+
+/**
+ * The same moment as a clock time in the school's zone, from the meeting's own
+ * `local.start` ('07:00' -> '06:30'), or '' without one.
+ */
+export function checkInOpensClock(local) {
+  const match = /^(\d{2}):(\d{2})$/.exec(local?.start ?? '');
+  if (!match) return '';
+  const minutes = (Number(match[1]) * 60 + Number(match[2]) - CHECK_IN_EARLY_MS / 60000 + 24 * 60) % (24 * 60);
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+}
 
 /**
  * What one of today's meetings shows:
@@ -21,14 +43,15 @@
  *   final       the teacher confirmed; `attendance.status` is the record
  *   checkedIn   the student checked in; waiting for the teacher
  *   open        check-in is taken now
- *   upcoming    not begun
+ *   upcoming    check-in not open yet (it opens 30 minutes before the start)
  *   missed      over, no check-in, the teacher has not confirmed yet
  *   confirmed   the teacher confirmed and there is no record for this student
  *               (placed in the Class after the meeting began)
- *   noLocation  begun, but the school has no point: the teacher records it
+ *   noLocation  check-in window open, but the school has no point: the teacher
+ *               records it
  *   otherClass  a meeting of the Class the student left today
- *   waiting     begun by this device's clock but not by the server's when it
- *               last answered: read again shortly
+ *   waiting     the window is open by this device's clock but was not by the
+ *               server's when it last answered: read again shortly
  *
  * @param {object} session  one of `sessions` from sessionsService.mine
  * @param {{ now?: Date, hasLocation?: boolean, className?: string|null }} context
@@ -40,12 +63,11 @@ export function rowState(session, { now = new Date(), hasLocation, className } =
   if (session.attendance) return session.completedAt ? 'final' : 'checkedIn';
   if (session.completedAt) return 'confirmed';
 
-  const start = new Date(session.startsAt);
   const end = new Date(session.endsAt);
   if (now >= end) return 'missed';
   /* The server's word first: a device clock a minute slow must not hide the button. */
   if (session.canCheckIn) return 'open';
-  if (now < start) return 'upcoming';
+  if (now < checkInOpensAt(session)) return 'upcoming';
   if (hasLocation === false) return 'noLocation';
   if (className && session.class !== className) return 'otherClass';
   return 'waiting';
@@ -101,16 +123,17 @@ const LONGEST_WAIT = 6 * 60 * 60 * SECOND;
 
 /**
  * How long until the card should read again, in ms — or null when nothing on it
- * can change by the clock alone. The next start or end of a meeting, a second
- * after it so the server agrees; sooner while a row is `waiting`.
+ * can change by the clock alone. The next check-in opening, start or end of a
+ * meeting, a second after it so the server agrees; sooner while a row is
+ * `waiting`.
  */
 export function nextReadIn(sessions, context = {}) {
   const now = context.now ?? new Date();
   let soonest = null;
   for (const session of sessions ?? []) {
     if (session.status !== 'SCHEDULED' || session.completedAt) continue;
-    for (const edge of [session.startsAt, session.endsAt]) {
-      const wait = new Date(edge).getTime() - now.getTime();
+    for (const edge of [checkInOpensAt(session), new Date(session.startsAt), new Date(session.endsAt)]) {
+      const wait = edge.getTime() - now.getTime();
       if (wait > 0 && (soonest === null || wait < soonest)) soonest = wait;
     }
     if (rowState(session, { ...context, now }) === 'waiting') {

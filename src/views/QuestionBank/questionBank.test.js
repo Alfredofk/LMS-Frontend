@@ -2,18 +2,21 @@ import { describe, expect, it } from 'vitest';
 
 import {
   bodyText,
+  draftChanged,
   draftFrom,
   duplicateGrades,
   emptyDraft,
   filterChoices,
   filterQuestions,
   imageFileError,
+  isPrivateOn,
   markCorrect,
   moveOption,
   questionErrors,
   questionPayload,
   taughtPairs,
   withKind,
+  yearAhead,
 } from './questionBank.js';
 
 /* Shapes from academics.service.js classSubjectView and assessment.bank.js questionView. */
@@ -136,10 +139,51 @@ describe('questionPayload - the strict body', () => {
 
   it('carries only what each kind holds', () => {
     const base = mcq('SINGLE', [0]);
-    expect(Object.keys(questionPayload({ ...withKind(base, 'TF'), value: true })).sort()).toEqual(['body', 'gradeLevel', 'kind', 'subjectId', 'value']);
+    expect(Object.keys(questionPayload({ ...withKind(base, 'TF'), value: true })).sort()).toEqual(['body', 'gradeLevel', 'kind', 'privateUntil', 'subjectId', 'value']);
     expect(questionPayload({ ...withKind(base, 'SHORT'), accepted: [' 2 ', '', 'dua'] }).accepted).toEqual(['2', 'dua']);
-    expect(Object.keys(questionPayload(withKind(base, 'ESSAY'))).sort()).toEqual(['body', 'gradeLevel', 'kind', 'subjectId']);
+    expect(Object.keys(questionPayload(withKind(base, 'ESSAY'))).sort()).toEqual(['body', 'gradeLevel', 'kind', 'privateUntil', 'subjectId']);
     expect(questionPayload({ ...withKind(base, 'ESSAY'), imageId: 'img9' }).imageId).toBe('img9');
+  });
+});
+
+describe('private questions - assessment.bank.js assertPrivateUntil (backend abbb3d5)', () => {
+  const today = '2026-10-08';
+  const privately = (privateUntil) => ({ ...mcq('SINGLE', [0]), isPrivate: true, privateUntil });
+
+  it('a year ahead as the server reckons it, 29 February included', () => {
+    expect(yearAhead('2026-10-08')).toBe('2027-10-08');
+    expect(yearAhead('2028-02-29')).toBe('2029-03-01');
+  });
+
+  it('today up to a year ahead passes; past, beyond or no day is refused', () => {
+    expect(questionErrors(privately('2026-10-08'), { today })).toEqual({});
+    expect(questionErrors(privately('2027-10-08'), { today })).toEqual({});
+    expect(questionErrors(privately('2026-10-07'), { today }).privateUntil).toBe('qbank.error.privatePast');
+    expect(questionErrors(privately('2027-10-09'), { today }).privateUntil).toBe('qbank.error.privateFar');
+    expect(questionErrors(privately(''), { today }).privateUntil).toBe('qbank.error.privateDate');
+  });
+
+  it('an unticked box sends null and ignores the day', () => {
+    const draft = { ...privately('2020-01-01'), isPrivate: false };
+    expect(questionErrors(draft, { today })).toEqual({});
+    expect(questionPayload(draft).privateUntil).toBeNull();
+    expect(questionPayload(privately('2026-12-15'), { editing: true }).privateUntil).toBe('2026-12-15');
+  });
+
+  it('private through its day, included; over the day after', () => {
+    expect(isPrivateOn({ privateUntil: '2026-10-08' }, today)).toBe(true);
+    expect(isPrivateOn({ privateUntil: '2026-10-07' }, today)).toBe(false);
+    expect(isPrivateOn({ privateUntil: null }, today)).toBe(false);
+  });
+
+  it('a saved privacy comes back into the draft; one already over does not', () => {
+    const saved = { kind: 'ESSAY', subject: { id: 's-MTK' }, gradeLevel: 11, body: '<p>x</p>' };
+    expect(draftFrom({ ...saved, privateUntil: '2026-12-15' }, today)).toMatchObject({ isPrivate: true, privateUntil: '2026-12-15' });
+    expect(draftFrom({ ...saved, privateUntil: '2026-10-01' }, today)).toMatchObject({ isPrivate: false, privateUntil: '' });
+  });
+
+  it('changing the kind keeps the privacy', () => {
+    expect(withKind(privately('2026-12-15'), 'TF')).toMatchObject({ isPrivate: true, privateUntil: '2026-12-15' });
   });
 });
 
@@ -162,6 +206,7 @@ describe('the draft', () => {
     const draft = draftFrom(saved);
     expect(questionPayload(draft, { editing: true })).toEqual({
       kind: 'MCQ',
+      privateUntil: null,
       body: '<p>Soal</p>',
       mcqScoring: 'PARTIAL',
       options: [
@@ -224,5 +269,30 @@ describe('the list', () => {
 
   it('reads the body as words', () => {
     expect(bodyText('<h3>Judul</h3><p>satu&nbsp;dua</p>')).toBe('Judul satu dua');
+  });
+});
+
+describe('draftChanged - what a move away would lose', () => {
+  it('a blank new question, or one with only its pair or kind chosen, holds nothing', () => {
+    expect(draftChanged(emptyDraft())).toBe(false);
+    expect(draftChanged(emptyDraft('MCQ', { subjectId: 's-MTK', gradeLevel: 11 }))).toBe(false);
+    expect(draftChanged(withKind(emptyDraft(), 'ESSAY'))).toBe(false);
+    expect(draftChanged(null)).toBe(false);
+  });
+
+  it('a body, an option, an answer or privacy is work', () => {
+    expect(draftChanged({ ...emptyDraft(), body: '<p>Soal</p>' })).toBe(true);
+    const draft = emptyDraft();
+    draft.options[0].text = 'A';
+    expect(draftChanged(draft)).toBe(true);
+    expect(draftChanged({ ...emptyDraft('TF'), value: true })).toBe(true);
+    expect(draftChanged({ ...emptyDraft(), isPrivate: true, privateUntil: '2026-12-15' })).toBe(true);
+  });
+
+  it('an edit is measured against the saved question', () => {
+    const saved = { kind: 'SHORT', subject: { id: 's-MTK' }, gradeLevel: 11, body: '<p>x</p>', accepted: ['5'] };
+    const baseline = draftFrom(saved, '2026-10-08');
+    expect(draftChanged(draftFrom(saved, '2026-10-08'), baseline)).toBe(false);
+    expect(draftChanged({ ...baseline, accepted: ['5', 'lima'] }, baseline)).toBe(true);
   });
 });

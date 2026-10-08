@@ -9,20 +9,22 @@ import { assessmentService } from '../../services/assessmentService';
   plain <img src> would carry no token: the bytes are fetched with it and shown
   from an object URL, revoked when the image leaves the page. A saved question's
   image is read through that question (`questionId`); a fresh upload, not yet
-  held by any question, by its id alone (the uploader's own).
+  held by any question, by its id alone (the uploader's own). An Assessment's copy
+  of a question is read through the Assessment (`assessmentId`, backend 0bb4598):
+  its staff may not see the bank question it came from.
 */
-export const QuestionImage = ({ imageId, questionId = null, alt = '', className = '' }) => {
+export const QuestionImage = ({ imageId, questionId = null, assessmentId = null, alt = '', className = '' }) => {
   const { t } = useT();
   /* What was read, and for which image: an answer for another id counts as none yet. */
   const [loaded, setLoaded] = useState(null);
-  const wanted = `${questionId ?? ''}/${imageId ?? ''}`;
+  const wanted = `${assessmentId ?? ''}/${questionId ?? ''}/${imageId ?? ''}`;
 
   useEffect(() => {
     if (!imageId) return undefined;
     let made = null;
     let cancelled = false;
     assessmentService
-      .imageBlob({ questionId, imageId })
+      .imageBlob({ questionId, assessmentId, imageId })
       .then((blob) => {
         if (cancelled) return;
         made = URL.createObjectURL(blob);
@@ -33,7 +35,7 @@ export const QuestionImage = ({ imageId, questionId = null, alt = '', className 
       cancelled = true;
       if (made) URL.revokeObjectURL(made);
     };
-  }, [imageId, questionId, wanted]);
+  }, [imageId, questionId, assessmentId, wanted]);
 
   if (!imageId) return null;
   const current = loaded?.for === wanted ? loaded : null;

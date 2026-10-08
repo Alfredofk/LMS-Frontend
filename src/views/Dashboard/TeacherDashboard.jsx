@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarDays, ClipboardCheck, GraduationCap, School, Users, Wrench } from 'lucide-react';
+import { CalendarDays, ClipboardCheck, GraduationCap, School, Users } from 'lucide-react';
 
 import InfoChips from '../../components/ui/InfoChips';
 import { useAuth } from '../../context/AuthContext';
@@ -11,6 +11,7 @@ import { trackingService } from '../../services/trackingService';
 import { localOf } from '../Attendance/attendance';
 import StatCard from './components/StatCard';
 import TeachingDayCard from './components/TeachingDayCard';
+import AssessmentsCard from './components/AssessmentsCard';
 import { openYearLabels } from '../Schedule/teacherLessons';
 import {
   DAYS_AHEAD, addDays, classCount, currentSemester, dayMeetings, liveAssignments, openSemesterIds, uniqueStudentCount,
@@ -28,8 +29,10 @@ import {
     2026-10-05 one read per assignment).
   - Students: one `GET /tracking/class-subjects/:id/progress` per live assignment,
     the only roster a subject teacher may read; see teacherHome.js.
-  - To review and recent submissions: no assignment or submission module in the
-    backend yet.
+  - To review: no submission module in the backend yet (ticket 03/04).
+  - Assessments (AssessmentsCard, owner 2026-10-08): open, upcoming and drafts
+    across the subjects taught now. It took the place of "recent submissions",
+    which had no route.
 */
 
 const greetingKeyFor = (hour) => {
@@ -38,27 +41,6 @@ const greetingKeyFor = (hour) => {
   if (hour >= 15 && hour < 19) return 'dash.greeting.afternoon';
   return 'dash.greeting.evening';
 };
-
-const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm text-left';
-
-const CardHeading = ({ id, icon: Icon, tile, title, aside }) => (
-  <div className="flex items-center justify-between gap-3 mb-4">
-    <div className="flex items-center gap-2.5 min-w-0">
-      <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${tile}`}>
-        {Icon && <Icon className="w-4.5 h-4.5" aria-hidden="true" />}
-      </span>
-      <h2 id={id} className="text-base font-extrabold text-slate-800 tracking-tight">{title}</h2>
-    </div>
-    {aside}
-  </div>
-);
-
-const EmptyBox = ({ icon: Icon, children }) => (
-  <div className="py-10 px-4 flex flex-col items-center justify-center text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/40">
-    {Icon && <Icon className="w-7 h-7 text-slate-300 mb-2" aria-hidden="true" />}
-    <div className="text-xs font-semibold text-slate-600">{children}</div>
-  </div>
-);
 
 export const TeacherDashboard = () => {
   const { user, membership } = useAuth();
@@ -172,15 +154,7 @@ export const TeacherDashboard = () => {
           className="lg:col-span-7"
         />
 
-        <section className={`${card} lg:col-span-5`} aria-labelledby="teacher-review-heading">
-          <CardHeading
-            id="teacher-review-heading"
-            icon={ClipboardCheck}
-            tile="bg-amber-50 text-amber-600"
-            title={t('teacherDash.review.title')}
-          />
-          <EmptyBox icon={Wrench}>{t('common.notBuilt.title')}</EmptyBox>
-        </section>
+        <AssessmentsCard live={teaching === undefined ? undefined : live} zone={zone} className="lg:col-span-5" />
       </div>
     </div>
   );

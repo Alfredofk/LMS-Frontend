@@ -20,9 +20,11 @@ import { validateLeaveReason } from '../utils/validation';
   `describeError`, next to the words that were typed.
 
   Render it only while open, keyed on what it is about, so each opening starts
-  empty.
+  empty. `validate` swaps the 3-500 rule for another one (cancelling an
+  assessment takes 1-500, assessment.schema.js cancelBody); it answers
+  `{ key, vars? }` or null.
 */
-export const ReasonDialog = ({ title, body, label, hint, confirmLabel, onClose, onSubmit, describeError }) => {
+export const ReasonDialog = ({ title, body, label, hint, confirmLabel, onClose, onSubmit, describeError, validate = validateLeaveReason }) => {
   const { t } = useT();
   const baseId = useId();
   const [reason, setReason] = useState('');
@@ -50,7 +52,7 @@ export const ReasonDialog = ({ title, body, label, hint, confirmLabel, onClose, 
   }, [busy, onClose]);
 
   const handleSubmit = async () => {
-    const failed = validateLeaveReason(reason);
+    const failed = validate(reason);
     if (failed) {
       setError(t(failed.key, failed.vars));
       fieldRef.current?.focus();

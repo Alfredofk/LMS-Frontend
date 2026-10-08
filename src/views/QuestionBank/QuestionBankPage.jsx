@@ -8,6 +8,8 @@ import { useAuth } from '../../context/AuthContext';
 import { ROLES } from '../../constants/roles';
 import { useT } from '../../i18n/LanguageContext';
 import { questionBankErrorMessage } from '../../i18n/apiError';
+import { useSchoolToday } from '../../hooks/useSchoolToday';
+import { useNarrow } from '../../hooks/useNarrow';
 import { academicsService } from '../../services/academicsService';
 import { assessmentService } from '../../services/assessmentService';
 import { KINDS, filterChoices, filterQuestions, taughtPairs } from './questionBank';
@@ -37,6 +39,10 @@ export const QuestionBankPage = () => {
   const navigate = useNavigate();
   const { showToast } = useOutletContext() ?? {};
   const { activeRole } = useAuth();
+  /* On a phone the three filters share one row, so each says only what it filters (owner, 2026-10-08). */
+  const narrow = useNarrow();
+  /* The school's date, which a question's privacy is read against. */
+  const today = useSchoolToday();
   const writable = activeRole === ROLES.TEACHER;
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get('tab') === 'archived' ? 'archived' : 'live';
@@ -137,8 +143,8 @@ export const QuestionBankPage = () => {
       </div>
 
       {questions.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))_auto] gap-2.5 items-center">
-          <label className="relative sm:col-span-2 lg:col-span-1">
+        <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))_auto] gap-2 sm:gap-2.5 items-center">
+          <label className="relative col-span-3 sm:col-span-2 lg:col-span-1">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
             <input
               type="search"
@@ -150,7 +156,7 @@ export const QuestionBankPage = () => {
             />
           </label>
           <Select size="sm" aria-label={t('qbank.filter.subject')} value={filters.subjectId} onChange={setFilter('subjectId')}>
-            <option value="">{t('qbank.filter.allSubjects')}</option>
+            <option value="">{t(narrow ? 'qbank.filter.subjectShort' : 'qbank.filter.allSubjects')}</option>
             {choices.subjects.map((subject) => (
               <option key={subject.id} value={subject.id}>
                 {`${subject.code} - ${subject.name}`}
@@ -158,7 +164,7 @@ export const QuestionBankPage = () => {
             ))}
           </Select>
           <Select size="sm" aria-label={t('qbank.filter.grade')} value={filters.gradeLevel} onChange={setFilter('gradeLevel')}>
-            <option value="">{t('qbank.filter.allGrades')}</option>
+            <option value="">{t(narrow ? 'qbank.filter.gradeShort' : 'qbank.filter.allGrades')}</option>
             {choices.grades.map((grade) => (
               <option key={grade} value={String(grade)}>
                 {t('classes.grade', { n: grade })}
@@ -166,7 +172,7 @@ export const QuestionBankPage = () => {
             ))}
           </Select>
           <Select size="sm" aria-label={t('qbank.filter.kind')} value={filters.kind} onChange={setFilter('kind')}>
-            <option value="">{t('qbank.filter.allKinds')}</option>
+            <option value="">{t(narrow ? 'qbank.filter.kindShort' : 'qbank.filter.allKinds')}</option>
             {KINDS.map((kind) => (
               <option key={kind} value={kind}>
                 {t(`qbank.kind.${kind}`)}
@@ -174,7 +180,7 @@ export const QuestionBankPage = () => {
             ))}
           </Select>
           {writable && tab === 'live' && (
-            <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer select-none">
+            <label className="col-span-3 sm:col-span-1 inline-flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={filters.mine}
@@ -227,6 +233,7 @@ export const QuestionBankPage = () => {
                 onEdit={() => navigate(`/question-bank/${question.id}/edit`)}
                 onChanged={onChanged}
                 onStale={() => reload()}
+                today={today}
                 t={t}
                 lang={lang}
               />
