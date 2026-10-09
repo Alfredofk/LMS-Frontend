@@ -247,6 +247,16 @@ export function questionPayload(draft, { editing = false } = {}) {
   return payload;
 }
 
+/**
+ * An assessment's copy edited in place (backend 6380e3e): the bank's whole
+ * content of its kind, without `privateUntil` - a copy has no privacy, and the
+ * body is strict. Points stay on the assessment's list.
+ */
+export function copyPayload(draft) {
+  const { privateUntil: _privacy, ...content } = questionPayload(draft, { editing: true });
+  return content;
+}
+
 /*
   What a draft would send, its subject and grade aside: the pair is a choice, not
   work, and a new question gets it picked for it when only one is taught.

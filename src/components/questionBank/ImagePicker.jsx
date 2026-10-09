@@ -15,9 +15,11 @@ import QuestionImage from './QuestionImage';
 
   @param imageId     the id the draft holds, or null
   @param questionId  the saved question's id, to read an image it already holds
+  @param assessmentId an assessment whose copy holds it (a copy edited in place,
+                      backend 6380e3e), read through that assessment instead
   @param onChange    (imageId | null) => void
 */
-export const ImagePicker = ({ imageId, questionId = null, onChange, disabled = false, label, compact = false }) => {
+export const ImagePicker = ({ imageId, questionId = null, assessmentId = null, onChange, disabled = false, label, compact = false }) => {
   const { t } = useT();
   const inputId = useId();
   const inputRef = useRef(null);
@@ -56,6 +58,7 @@ export const ImagePicker = ({ imageId, questionId = null, onChange, disabled = f
           <QuestionImage
             imageId={imageId}
             questionId={fresh.has(imageId) ? null : questionId}
+            assessmentId={fresh.has(imageId) ? null : assessmentId}
             alt={label ?? ''}
             className={compact ? 'max-h-32' : 'max-h-64'}
           />

@@ -80,6 +80,13 @@ const tool =
   'inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50 disabled:cursor-not-allowed';
 const smallInput =
   'block w-full rounded-xl border border-slate-200 bg-white py-2 px-3 text-base sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand disabled:bg-slate-50 disabled:text-slate-500';
+/*
+  A question's points and its three icon buttons share one row: at phone width
+  (~210px inside the card) the box shrank to 40px and hid its number. Both carry
+  their own padding, since a caller's px-* loses to the px-3 written here.
+*/
+const pointsInput = smallInput.replace('w-full', 'w-16 shrink-0').replace('px-3', 'px-2');
+const iconTool = tool.replace('px-3', 'px-1.5');
 
 const Failure = ({ message, onReload, t }) => (
   <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold space-y-2" role="alert">
@@ -216,7 +223,7 @@ const TeacherAssessment = () => {
         navigate(`/teacher/courses/${classSubjectId}/penilaian/${made.id}`, { replace: true });
         return;
       }
-      const answer = await assessmentService.updateAssessment(saved.id, patch);
+      const answer = await assessmentService.updateAssessment(saved.id, patch, saved.updatedAt);
       /* The questions part keeps what is being edited there. */
       setSaved(answer);
       setForm(formFrom(answer, zone));
@@ -239,7 +246,7 @@ const TeacherAssessment = () => {
     setBusy('questions');
     setFailure((prev) => ({ ...prev, questions: null }));
     try {
-      const answer = await assessmentService.replaceQuestions(saved.id, questionsBody(rows));
+      const answer = await assessmentService.replaceQuestions(saved.id, questionsBody(rows), saved.updatedAt);
       setSaved(answer);
       setRows(rowsFrom(answer));
       if (!detailsDirty) setForm(formFrom(answer, zone));
@@ -620,6 +627,7 @@ const TeacherAssessment = () => {
                 {t('tasm.questions')}
               </h2>
               <p className="text-xs font-semibold text-slate-500">{t('tasm.count', { n: rows.length, points: total })}</p>
+              {questionsDirty && actions.edit && rows.some((row) => row.id) && <p className="text-[11px] font-medium text-slate-500">{t('tasm.editCopy.saveListFirst')}</p>}
             </div>
             {actions.edit && (
               <button
@@ -667,17 +675,17 @@ const TeacherAssessment = () => {
                             setRows((prev) => prev.map((item) => (item.key === row.key ? { ...item, points: value } : item)));
                             setPointErrors((prev) => ({ ...prev, [row.key]: undefined }));
                           }}
-                          className={`${smallInput} w-20 py-1.5`}
+                          className={pointsInput}
                         />
                         {actions.edit && (
                           <>
-                            <button type="button" onClick={() => setRows((prev) => moveRow(prev, row.key, -1))} disabled={index === 0 || Boolean(busy)} aria-label={t('tasm.moveUp', { n: index + 1 })} className={`${tool} px-1.5 text-slate-500 hover:bg-slate-100`}>
+                            <button type="button" onClick={() => setRows((prev) => moveRow(prev, row.key, -1))} disabled={index === 0 || Boolean(busy)} aria-label={t('tasm.moveUp', { n: index + 1 })} className={`${iconTool} text-slate-500 hover:bg-slate-100`}>
                               <ArrowUp className="w-4 h-4" aria-hidden="true" />
                             </button>
-                            <button type="button" onClick={() => setRows((prev) => moveRow(prev, row.key, 1))} disabled={index === rows.length - 1 || Boolean(busy)} aria-label={t('tasm.moveDown', { n: index + 1 })} className={`${tool} px-1.5 text-slate-500 hover:bg-slate-100`}>
+                            <button type="button" onClick={() => setRows((prev) => moveRow(prev, row.key, 1))} disabled={index === rows.length - 1 || Boolean(busy)} aria-label={t('tasm.moveDown', { n: index + 1 })} className={`${iconTool} text-slate-500 hover:bg-slate-100`}>
                               <ArrowDown className="w-4 h-4" aria-hidden="true" />
                             </button>
-                            <button type="button" onClick={() => setRows((prev) => removeRow(prev, row.key))} disabled={Boolean(busy)} aria-label={t('tasm.removeQuestion', { n: index + 1 })} className={`${tool} px-1.5 text-rose-600 hover:bg-rose-50`}>
+                            <button type="button" onClick={() => setRows((prev) => removeRow(prev, row.key))} disabled={Boolean(busy)} aria-label={t('tasm.removeQuestion', { n: index + 1 })} className={`${iconTool} text-rose-600 hover:bg-rose-50`}>
                               <Trash2 className="w-4 h-4" aria-hidden="true" />
                             </button>
                           </>
@@ -699,11 +707,23 @@ const TeacherAssessment = () => {
                         )}
                       </div>
                     )}
+                    {row.id && actions.edit && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/teacher/courses/${classSubjectId}/penilaian/${saved.id}/soal/${row.id}`)}
+                        disabled={questionsDirty || Boolean(busy)}
+                        className={`${tool} border border-slate-200 text-slate-700 hover:bg-slate-50`}
+                      >
+                        {t('tasm.editCopy.open')}
+                      </button>
+                    )}
                   </li>
                 );
               })}
             </ol>
           )}
+
+          {published && actions.edit && <p className="text-[11px] font-medium text-slate-500">{t('tasm.questionsAfterPublish')}</p>}
 
           {failure.questions && <Failure message={failure.questions.message} onReload={failure.questions.stale ? () => setAttempt((n) => n + 1) : null} t={t} />}
 
@@ -764,7 +784,7 @@ const TeacherAssessment = () => {
         cancelLabel={t('common.cancel')}
         busy={busy === 'publish'}
         busyLabel={t('common.loading')}
-        onConfirm={() => runDialog('publish', () => assessmentService.publish(saved.id), 'tasm.toast.published')}
+        onConfirm={() => runDialog('publish', () => assessmentService.publish(saved.id, saved.updatedAt), 'tasm.toast.published')}
         onCancel={() => busy !== 'publish' && setDialog(null)}
       />
       <ConfirmDialog

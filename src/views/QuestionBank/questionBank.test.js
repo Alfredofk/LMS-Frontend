@@ -14,6 +14,7 @@ import {
   moveOption,
   questionErrors,
   questionPayload,
+  copyPayload,
   taughtPairs,
   withKind,
   yearAhead,
@@ -294,5 +295,40 @@ describe('draftChanged - what a move away would lose', () => {
     const baseline = draftFrom(saved, '2026-10-08');
     expect(draftChanged(draftFrom(saved, '2026-10-08'), baseline)).toBe(false);
     expect(draftChanged({ ...baseline, accepted: ['5', 'lima'] }, baseline)).toBe(true);
+  });
+});
+
+describe('copyPayload - an assessment copy edited in place (backend 6380e3e)', () => {
+  /* An MCQ copy as the assessment detail sends it (snapshotView: the bank's content view). */
+  const copy = {
+    id: 'aq-1',
+    kind: 'MCQ',
+    mcqScoring: 'SINGLE',
+    body: '<p>2 + 2 = ...</p>',
+    imageId: null,
+    options: [
+      { id: 'o-1', text: '3', imageId: null, correct: false },
+      { id: 'o-2', text: '4', imageId: null, correct: true },
+    ],
+    points: 5,
+  };
+
+  it('sends the whole content with option ids, never privacy, subject, grade or points', () => {
+    const body = copyPayload(draftFrom(copy, '2026-10-09'));
+    expect(body).toEqual({
+      kind: 'MCQ',
+      body: '<p>2 + 2 = ...</p>',
+      mcqScoring: 'SINGLE',
+      options: [
+        { id: 'o-1', text: '3', correct: false },
+        { id: 'o-2', text: '4', correct: true },
+      ],
+    });
+  });
+
+  it('reads a copy as unchanged until something is edited', () => {
+    const saved = draftFrom(copy, '2026-10-09');
+    expect(draftChanged(draftFrom(copy, '2026-10-09'), saved)).toBe(false);
+    expect(draftChanged({ ...saved, body: '<p>2 + 3 = ...</p>' }, saved)).toBe(true);
   });
 });

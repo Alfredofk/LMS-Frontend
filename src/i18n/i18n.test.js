@@ -28,7 +28,7 @@ import id from './id.js';
 import en from './en.js';
 import { LANGUAGES } from './languages.js';
 import { ROLES, ROLE_LABEL_KEY, ROLE_TAGLINE_KEY } from '../constants/roles.js';
-import { decisionErrorMessage, isAlreadyDecided, academicsErrorMessage } from './apiError.js';
+import { decisionErrorMessage, isAlreadyDecided, academicsErrorMessage, assessmentErrorMessage, isStaleAssessment, copyEditErrorMessage, isStaleCopy } from './apiError.js';
 import { SESSION_STATE_KEYS, sessionState } from '../views/Subjects/timetable.js';
 
 const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -376,5 +376,53 @@ describe('academic years and semesters: the refusals added by backend a09f399 an
 
   it('still says a closed year is closed — the new patterns do not swallow it', () => {
     expect(academicsErrorMessage(refused('CONFLICT', 'Academic year 2027/2028 is closed'), t)).toBe('classes.error.yearClosed');
+  });
+});
+
+describe('assessments: the refusals added by backend 6380e3e and a6d9d7e', () => {
+  /* The server's own sentences, copied from assessment.service.js (update, submissionEffectOf, copy). */
+  const t = (key, vars) => (vars ? `${key} ${JSON.stringify(vars)}` : key);
+  const refused = (code, message) => ({ status: code === 'CONFLICT' ? 409 : 400, code, message });
+
+  it('says the opening time is fixed once a student started, without reloading the page', () => {
+    const err = refused('CONFLICT', '"Kuis Bab 1" has submissions; its opensAt is fixed');
+    expect(assessmentErrorMessage(err, t)).toBe('tasm.error.opensFixed');
+    expect(isStaleAssessment(err)).toBe(false);
+  });
+
+  it('reads how many answers a change would void on a closed assessment', () => {
+    const err = refused(
+      'CONFLICT',
+      'This change voids 3 submission(s) to "Kuis Bab 1"; send a closesAt still ahead with it, so its students can answer again'
+    );
+    expect(assessmentErrorMessage(err, t)).toBe('tasm.error.voidsClosed {"n":"3"}');
+    expect(isStaleAssessment(err)).toBe(false);
+  });
+
+  it('refuses a copy into its own class (note #13)', () => {
+    const err = refused('BAD_REQUEST', '"Kuis Bab 1" is in that class already; copy it to another class');
+    expect(assessmentErrorMessage(err, t)).toBe('tasm.error.copyOwnClass');
+  });
+});
+
+describe('an assessment copy edited in place: its refusals (backend 6380e3e editQuestion)', () => {
+  const t = (key, vars) => (vars ? `${key} ${JSON.stringify(vars)}` : key);
+  const refused = (code, message) => ({ status: code === 'CONFLICT' ? 409 : 400, code, message });
+
+  it("says an empty body is the question's, not the instructions'", () => {
+    expect(copyEditErrorMessage(refused('BAD_REQUEST', 'The text is empty'), t)).toBe('qbank.error.bodyEmpty');
+  });
+
+  it("reads the assessment's refusals first, then the bank's content ones", () => {
+    const stale = refused('CONFLICT', 'This assessment was changed meanwhile. Reload it and try again');
+    expect(copyEditErrorMessage(stale, t)).toBe('tasm.error.changedMeanwhile');
+    expect(isStaleCopy(stale)).toBe(true);
+    expect(copyEditErrorMessage(refused('BAD_REQUEST', 'Use an image you uploaded'), t)).toBe('qbank.error.imageNotYours');
+    expect(isStaleCopy(refused('BAD_REQUEST', 'Use an image you uploaded'))).toBe(false);
+  });
+
+  it('reloads when the copy itself moved on', () => {
+    expect(isStaleCopy(refused('NOT_FOUND', 'Question not found'))).toBe(true);
+    expect(isStaleCopy(refused('BAD_REQUEST', 'An option id does not belong to this question'))).toBe(true);
   });
 });

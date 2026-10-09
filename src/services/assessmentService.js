@@ -57,9 +57,13 @@ export const assessmentService = {
     return answer?.question ?? null;
   },
 
-  /** The whole content again, its kind named; never its subject or grade level. */
-  async update(id, body) {
-    const answer = await api.put(`/assessments/questions/${q(id)}`, body);
+  /**
+   * The whole content again, its kind named; never its subject or grade level.
+   * `updatedAt` is the version the form was read at: one saved meanwhile answers
+   * 409 rather than being overwritten (backend a6d9d7e, note #12).
+   */
+  async update(id, body, updatedAt) {
+    const answer = await api.put(`/assessments/questions/${q(id)}`, { ...body, updatedAt });
     return answer?.question ?? null;
   },
 
@@ -120,20 +124,35 @@ export const assessmentService = {
     return answer?.assessment ?? null;
   },
 
+  /*
+   * The changes below send back the `updatedAt` last read: one changed since, in
+   * another tab say, answers 409 (backend a6d9d7e, note #12).
+   */
+
   /** Only what changed; never the mode. Answers the detail. */
-  async updateAssessment(id, patch) {
-    const answer = await api.patch(`/assessments/${q(id)}`, patch);
+  async updateAssessment(id, patch, updatedAt) {
+    const answer = await api.patch(`/assessments/${q(id)}`, { ...patch, updatedAt });
     return answer?.assessment ?? null;
   },
 
   /** The whole list, in order: `[{ id, points } | { questionId, points }]`. Answers the detail. */
-  async replaceQuestions(id, questions) {
-    const answer = await api.put(`/assessments/${q(id)}/questions`, { questions });
+  async replaceQuestions(id, questions, updatedAt) {
+    const answer = await api.put(`/assessments/${q(id)}/questions`, { questions, updatedAt });
     return answer?.assessment ?? null;
   },
 
-  async publish(id) {
-    const answer = await api.post(`/assessments/${q(id)}/publish`);
+  /**
+   * One copy edited in place (backend 6380e3e): `copyPayload`'s content. Only the
+   * copy changes, never the bank question. Published with answers in, a change
+   * to what students see voids them, to the key re-marks them. Answers the detail.
+   */
+  async editCopy(id, questionId, content, updatedAt) {
+    const answer = await api.put(`/assessments/${q(id)}/questions/${q(questionId)}`, { ...content, updatedAt });
+    return answer?.assessment ?? null;
+  },
+
+  async publish(id, updatedAt) {
+    const answer = await api.post(`/assessments/${q(id)}/publish`, { updatedAt });
     return answer?.assessment ?? null;
   },
 

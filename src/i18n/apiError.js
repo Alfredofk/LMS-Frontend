@@ -537,7 +537,9 @@ export function questionBankErrorMessage(err, t) {
 
 /*
   Assessments - assessment.service.js (backend 0bb4598). Its CONFLICTs and
-  BAD_REQUESTs told apart on their sentences, as the bank's are.
+  BAD_REQUESTs told apart on their sentences, as the bank's are. A third item
+  reads values out of the sentence for the words (backend 6380e3e names how
+  many submissions a change would void).
 */
 const ASSESSMENT_BY_MESSAGE = [
   ['The window must lie inside Semester', 'tasm.error.outsideSemester'],
@@ -565,12 +567,15 @@ const ASSESSMENT_BY_MESSAGE = [
   ['The text is empty', 'tasm.error.instructionsEmpty'],
   ['Give a reason', 'tasm.error.reasonEmpty'],
   ['Copy only to your own live class subjects', 'tasm.error.copyTargets'],
+  ['is in that class already', 'tasm.error.copyOwnClass'],
+  ['has submissions; its opensAt is fixed', 'tasm.error.opensFixed'],
+  ['send a closesAt still ahead', 'tasm.error.voidsClosed', (message) => ({ n: message.match(/voids (\d+) submission/)?.[1] ?? '' })],
 ];
 
 export function assessmentErrorMessage(err, t) {
   const message = String(err?.message ?? '');
   const hit = ASSESSMENT_BY_MESSAGE.find(([needle]) => message.includes(needle));
-  if (hit) return t(hit[1]);
+  if (hit) return t(hit[1], hit[2]?.(message));
   return apiErrorMessage(err, t);
 }
 
@@ -585,6 +590,24 @@ export const isStaleAssessment = (err) =>
     'is cancelled already',
     'a published assessment is never deleted',
   ].some((needle) => String(err?.message ?? '').includes(needle));
+
+/*
+  A copy edited in place (backend 6380e3e, `editQuestion`): the assessment's
+  refusals, then the bank's content ones (an image not the caller's, an option id
+  not the copy's). An empty body is the question's, not the instructions'.
+*/
+export function copyEditErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  if (message.includes('The text is empty')) return t('qbank.error.bodyEmpty');
+  const hit = ASSESSMENT_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  if (hit) return t(hit[1], hit[2]?.(message));
+  return questionBankErrorMessage(err, t);
+}
+
+/** A copy's refusal that means the page is behind: read the assessment again. */
+export const isStaleCopy = (err) =>
+  isStaleAssessment(err) ||
+  ['An option id does not belong', 'Question not found', "A question's kind never changes"].some((needle) => String(err?.message ?? '').includes(needle));
 
 /** A refusal that means the screen is behind: reload the question. */
 export const isStaleQuestion = (err) =>
