@@ -57,7 +57,10 @@ export const AuthLayout = ({
   const key = transitionKey ?? pathname;
 
   return (
-    <div className="min-h-screen lg:h-screen w-screen bg-brand flex flex-col lg:flex-row font-sans selection:bg-brand selection:text-white relative lg:overflow-hidden">
+    /* `w-full`, not `w-screen`: 100vw counts a desktop scrollbar too, and a
+       sign-in page taller than the window scrolled 15px sideways (audit
+       2026-10-08) - the same fix MainLayout already has. */
+    <div className="min-h-screen lg:h-screen w-full bg-brand flex flex-col lg:flex-row font-sans selection:bg-brand selection:text-white relative lg:overflow-hidden">
 
       {/* --- PURPLE COLUMN --- */}
       <div className="w-full text-white flex flex-col justify-between p-8 sm:p-12 relative shrink-0 z-0 text-left select-none bg-brand lg:w-[35%] lg:h-full lg:order-1 lg:overflow-hidden">

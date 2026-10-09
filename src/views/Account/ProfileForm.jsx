@@ -103,7 +103,7 @@ export const ProfileForm = ({ onSaved }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 text-left">
+    <form onSubmit={handleSubmit} className="space-y-4 text-left flex-1 flex flex-col">
       <Input
         id="fullName"
         name="fullName"
@@ -144,7 +144,7 @@ export const ProfileForm = ({ onSaved }) => {
         type="submit"
         isLoading={isSaving}
         isDisabled={unchanged}
-        className="w-full py-3 rounded-2xl justify-center text-base active:scale-[0.98] select-none"
+        className="w-full mt-auto py-3 rounded-2xl justify-center text-base active:scale-[0.98] select-none"
       >
         {isSaving ? t('account.profile.saving') : t('account.profile.save')}
       </Button>

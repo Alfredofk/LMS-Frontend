@@ -385,7 +385,7 @@ export const StudentScores = () => {
               setSearchParams(e.target.value ? { q: e.target.value } : {});
             }}
             placeholder={t('sc.search')}
-            className="w-full bg-brand-tint text-slate-800 text-xs font-medium pl-10 pr-4 py-2 rounded-full focus:outline-none focus:ring-1 focus:ring-brand placeholder:text-slate-400"
+            className="w-full bg-brand-tint text-slate-800 text-xs font-medium pl-10 pr-4 py-2 rounded-full focus:outline-none focus:ring-1 focus:ring-brand placeholder:text-slate-600"
           />
         </div>
       </div>
@@ -776,7 +776,7 @@ export const StudentScores = () => {
                   value={protestReason}
                   onChange={(e) => setProtestReason(e.target.value)}
                   placeholder={t('sc.protest.reasonPlaceholder')}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all placeholder:text-slate-400"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all placeholder:text-slate-500"
                   required
                 />
               </div>

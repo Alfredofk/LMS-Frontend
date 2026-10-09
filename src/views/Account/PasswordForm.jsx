@@ -129,7 +129,7 @@ export const PasswordForm = ({ onChanged }) => {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 text-left">
+    <form onSubmit={handleSubmit} className="space-y-4 text-left flex-1 flex flex-col">
       {errors.global && (
         <div
           className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700"
@@ -188,7 +188,7 @@ export const PasswordForm = ({ onChanged }) => {
       <Button
         type="submit"
         isLoading={isSending}
-        className="w-full py-3 rounded-2xl justify-center text-base active:scale-[0.98] select-none"
+        className="w-full mt-auto py-3 rounded-2xl justify-center text-base active:scale-[0.98] select-none"
       >
         {isSending ? t('account.pwd.submitting') : t('account.pwd.submit')}
       </Button>

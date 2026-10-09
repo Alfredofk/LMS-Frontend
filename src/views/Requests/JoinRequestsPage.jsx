@@ -326,7 +326,7 @@ export const JoinRequestsPage = () => {
                   }}
                   placeholder={t('requests.search.placeholder')}
                   aria-label={t('requests.search.placeholder')}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-brand focus:ring-1 focus:ring-brand outline-none text-xs font-semibold placeholder-slate-400 bg-white shadow-sm transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-brand focus:ring-1 focus:ring-brand outline-none text-xs font-semibold placeholder-slate-500 bg-white shadow-sm transition-all"
                 />
               </div>
 

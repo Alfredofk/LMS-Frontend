@@ -424,3 +424,16 @@ export const GET_STARTED_PATH = {
 
 /** Where to send somebody who holds these roles and has picked `activeRole`. */
 export const homeFor = (role) => ROLE_HOME[role] ?? '/select-role';
+
+/*
+  Where a signed-in person belongs - after signing in (LoginPage), and when they
+  open the landing page or a path that does not exist while still signed in
+  (LandingPage, owner 2026-10-08). One rule for both, so the two never disagree.
+
+  A platform admin with no school role goes to their own desk; no usable role at
+  all, or none chosen yet, means /select-role; otherwise the active role's home.
+*/
+export const signedInHome = ({ roles, activeRole, isPlatformAdmin }) => {
+  if ((roles ?? []).length === 0) return isPlatformAdmin ? '/admin/school-registrations' : '/select-role';
+  return activeRole ? homeFor(activeRole) : '/select-role';
+};

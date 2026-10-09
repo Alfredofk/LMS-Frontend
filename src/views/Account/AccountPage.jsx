@@ -39,8 +39,8 @@ import DeleteAccountCard from './DeleteAccountCard';
   sidebar is the way out, and a second copy of each would compete with them.
 */
 
-const Card = ({ title, children }) => (
-  <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-4 text-left">
+const Card = ({ title, children, className = '' }) => (
+  <section className={`border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-4 text-left ${className}`}>
     <h2 className="text-sm font-extrabold text-slate-900 tracking-tight">{title}</h2>
     {children}
   </section>
@@ -64,13 +64,13 @@ export const AccountPage = () => {
 
   const body = (
     <>
-      <Card title={t('account.profile.title')}>
+      <Card title={t('account.profile.title')} className="flex flex-col">
         <ProfileForm
           onSaved={() => setToast({ message: t('account.profile.saved'), type: 'success' })}
         />
       </Card>
 
-      <Card title={t('account.pwd.title')}>
+      <Card title={t('account.pwd.title')} className="flex flex-col">
         <PasswordForm
           onChanged={() => setToast({ message: t('account.pwd.changed'), type: 'success' })}
         />
@@ -111,9 +111,11 @@ export const AccountPage = () => {
             `body` is a fragment, and fragments emit no DOM node, so its two
             cards become grid items directly.
 
-            `items-start` because the password card is much the taller of the
-            two: without it the profile card would stretch to match and carry a
-            gap of dead space under its button.
+            The two cards stretch to one height and each form's button sits at
+            the card's foot (`mt-auto` in ProfileForm/PasswordForm), so the two
+            buttons line up. It used to be `items-start`, which left the shorter
+            profile card ending 65-95px above the password card on a wide
+            screen - a hole the owner read as unfinished (2026-10-08).
           */}
           {/*
             The language used to be switched from the foot of the sidebar, on
@@ -121,6 +123,9 @@ export const AccountPage = () => {
             Only in this branch: the standalone one below sits in AuthLayout,
             whose purple column already carries the same switch.
           */}
+          {/* Language and theme side by side on a wide screen: each is one line,
+              and at full width they were two long, nearly empty bars (2026-10-08). */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card title={t('account.language.title')}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <p className="text-xs text-slate-500 font-medium leading-relaxed">
@@ -164,8 +169,9 @@ export const AccountPage = () => {
               </button>
             </div>
           </Card>
+          </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {body}
           </div>
 

@@ -11,7 +11,7 @@ import { contentService } from '../../services/contentService';
 import { sessionsService } from '../../services/sessionsService';
 import { attendanceService } from '../../services/attendanceService';
 import { localOf } from '../Attendance/attendance';
-import { PositionError, readPosition, rowState, withCheckIn } from '../Attendance/checkIn';
+import { PositionError, checkInOpensClock, readPosition, rowState, withCheckIn } from '../Attendance/checkIn';
 import { SessionStatusLine } from '../Attendance/TodaySessionsCard';
 import { meetingState, meetingWhen } from './myClasses';
 import { firstUndone, isTracked, materialState, mergeProgress, progressById, progressSummary } from './materialProgress';
@@ -147,7 +147,7 @@ const CheckIn = ({ meeting, attendance, onAttendance, readOnly }) => {
         )}
         {upcoming && (
           <p className="text-[11px] font-semibold text-slate-500">
-            {t('meeting.checkInOpens', { when: meetingWhen(meeting, lang, { weekday: 'long' }) })}
+            {t('meeting.checkInOpens', { time: checkInOpensClock(meeting.local), when: meetingWhen(meeting, lang, { weekday: 'long' }) })}
           </p>
         )}
         {ended && (

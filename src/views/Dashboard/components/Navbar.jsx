@@ -50,7 +50,6 @@ const TITLES = {
   '/teacher/courses': { key: 'shell.myCourses', back: true },
   '/teacher/gradebook': { key: 'shell.gradebook', back: true },
   '/teacher/homeroom': { key: 'shell.homeroom', back: true },
-  '/teacher/create-assignment': { key: 'shell.title.createAssignment', back: true },
 
   '/headmaster/dashboard': { key: 'shell.title.principalDashboard' },
   '/vice/dashboard': { key: 'shell.title.viceDashboard' },
@@ -485,7 +484,7 @@ export const Navbar = ({ showToast, onOpenNav }) => {
               }}
               placeholder={t('shell.search')}
               aria-label={t('shell.search')}
-              className="w-full bg-brand-tint text-slate-800 text-xs font-medium pl-10 pr-4 py-2 rounded-full focus:outline-none focus:ring-1 focus:ring-brand placeholder:text-slate-400 transition-all"
+              className="w-full bg-brand-tint text-slate-800 text-xs font-medium pl-10 pr-4 py-2 rounded-full focus:outline-none focus:ring-1 focus:ring-brand placeholder:text-slate-600 transition-all"
             />
           </div>
         </div>

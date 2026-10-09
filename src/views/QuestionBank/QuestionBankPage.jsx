@@ -152,7 +152,7 @@ export const QuestionBankPage = () => {
               onChange={setFilter('query')}
               placeholder={t('qbank.filter.search')}
               aria-label={t('qbank.filter.search')}
-              className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
+              className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-800 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
             />
           </label>
           <Select size="sm" aria-label={t('qbank.filter.subject')} value={filters.subjectId} onChange={setFilter('subjectId')}>

@@ -24,6 +24,7 @@ import {
   activeRolesOf,
   heldRolesOf,
   homeFor,
+  signedInHome,
   isSchoolDeactivated,
   roleToEnter,
   defaultRoleOf,
@@ -436,6 +437,28 @@ describe('isPrincipalDesk — who works at the academic screens', () => {
     expect(isPrincipalDesk('VICE_PRINCIPAL')).toBe(true);
     expect(isPrincipalDesk('TEACHER')).toBe(false);
     expect(isPrincipalDesk(undefined)).toBe(false);
+  });
+});
+
+describe('signedInHome', () => {
+  it('enters the active role', () => {
+    expect(signedInHome({ roles: [ROLES.PRINCIPAL, ROLES.TEACHER], activeRole: ROLES.TEACHER })).toBe('/teacher/dashboard');
+  });
+
+  it('asks on /select-role when roles are held but none is chosen', () => {
+    expect(signedInHome({ roles: [ROLES.TEACHER], activeRole: null })).toBe('/select-role');
+  });
+
+  it('sends somebody with no usable role to /select-role', () => {
+    expect(signedInHome({ roles: [], activeRole: null, isPlatformAdmin: false })).toBe('/select-role');
+  });
+
+  it('sends a platform admin with no school role to the admin desk', () => {
+    expect(signedInHome({ roles: [], activeRole: null, isPlatformAdmin: true })).toBe('/admin/school-registrations');
+  });
+
+  it('enters a school role ahead of the admin desk when both are held', () => {
+    expect(signedInHome({ roles: [ROLES.PRINCIPAL], activeRole: ROLES.PRINCIPAL, isPlatformAdmin: true })).toBe('/headmaster/dashboard');
   });
 });
 

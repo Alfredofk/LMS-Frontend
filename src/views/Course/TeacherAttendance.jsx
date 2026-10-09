@@ -267,7 +267,7 @@ export const TeacherAttendance = ({ session, phase, onConfirmed, showToast, read
                       onChange={(e) => setNotes((prev) => ({ ...prev, [id]: e.target.value }))}
                       placeholder={t('teach.att.notePlaceholder')}
                       aria-label={t('teach.att.noteFor', { name: student.fullName ?? '' })}
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
                     />
                   )}
 
@@ -288,8 +288,13 @@ export const TeacherAttendance = ({ session, phase, onConfirmed, showToast, read
                         onChange={(e) => setFixing((prev) => ({ ...prev, note: e.target.value, error: null }))}
                         placeholder={t('teach.att.correctionNote')}
                         aria-label={t('teach.att.correctionNote')}
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
+                        aria-describedby={`fix-hint-${id}`}
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
                       />
+                      {/* The rule stays on screen: a placeholder alone was cut at 320px and gone once typing (audit 2026-10-08). */}
+                      <p id={`fix-hint-${id}`} className="text-[11px] font-medium text-slate-500 leading-relaxed">
+                        {t('teach.att.correctionHint')}
+                      </p>
                       {fixing.error && <p className="text-[11px] font-semibold text-red-600" role="alert">{fixing.error}</p>}
                       <div className="flex gap-2 justify-end">
                         <button type="button" onClick={() => setFixing(null)} disabled={busy} className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer">

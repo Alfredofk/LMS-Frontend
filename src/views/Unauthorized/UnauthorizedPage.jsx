@@ -24,7 +24,8 @@ export const UnauthorizedPage = () => {
   };
 
   return (
-    <div className="min-h-screen w-screen bg-slate-50 flex items-center justify-center p-6 text-center font-sans antialiased text-slate-800">
+    /* `w-full`, not `w-screen`: 100vw counts a desktop scrollbar (see AuthLayout). */
+    <div className="min-h-screen w-full bg-slate-50 flex items-center justify-center p-6 text-center font-sans antialiased text-slate-800">
       <div className="max-w-md w-full bg-white rounded-3xl border border-slate-100 shadow-2xl p-8 sm:p-12 space-y-6">
         {/* Warning Icon Badge */}
         <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto shadow-inner">

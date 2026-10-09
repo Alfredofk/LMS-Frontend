@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { signedInHome } from '../../constants/roles';
 import Button from '../../components/ui/Button';
 import Toast from '../../components/ui/Toast';
 import BrandMark from '../../components/ui/BrandMark';
@@ -24,6 +26,14 @@ export const LandingPage = () => {
   const navigate = useNavigate();
   const { t } = useT();
   const [toast, setToast] = useState(null);
+  const { isAuthenticated, roles, activeRole, isPlatformAdmin } = useAuth();
+
+  /*
+    Signed in already: the landing page's "Masuk / Daftar" has nothing to offer,
+    so go where signing in would have gone (owner, 2026-10-08). This also covers
+    a path that does not exist, which App.jsx sends here.
+  */
+  if (isAuthenticated) return <Navigate to={signedInHome({ roles, activeRole, isPlatformAdmin })} replace />;
 
   // Dynamic Toast trigger
   const showToast = (message, type = 'info') => {

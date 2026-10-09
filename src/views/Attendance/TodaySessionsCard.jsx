@@ -482,7 +482,7 @@ export const SessionStatusLine = ({ state, session, checkedAt, t }) => {
     case 'otherClass':
       return <span className={`${line} text-slate-500`}>{t('checkin.state.otherClass')}</span>;
     default:
-      return <span className={`${line} text-slate-400`}>{t('common.checking')}</span>;
+      return <span className={`${line} text-slate-500`}>{t('common.checking')}</span>;
   }
 };
 

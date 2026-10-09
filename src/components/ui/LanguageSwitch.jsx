@@ -16,7 +16,8 @@ const TONES = {
   light: {
     wrap: 'bg-slate-100',
     on: 'bg-white text-brand shadow-sm',
-    off: 'text-slate-500 hover:text-slate-800',
+    // slate-600: slate-500 on the slate-100 track measured 4.35:1 (audit 2026-10-08).
+    off: 'text-slate-600 hover:text-slate-800',
   },
   // On the purple auth panels.
   dark: {

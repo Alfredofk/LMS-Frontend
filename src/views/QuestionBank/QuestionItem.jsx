@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Archive, ArchiveRestore, Check, CheckCircle2, Circle, Copy, Lock, Pencil } from 'lucide-react';
 
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import Select from '../../components/ui/Select';
 import SubjectLabel from '../../components/ui/SubjectLabel';
 import QuestionImage from '../../components/questionBank/QuestionImage';
@@ -98,6 +99,9 @@ export const QuestionAnswer = ({ question, t, imageSource = null }) => {
 export const QuestionItem = ({ question, number, pairs = [], writable = false, onEdit, onChanged, onStale, today = '', t, lang }) => {
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
+  /* A copy is a permanent row - the bank has no delete (assessment.bank.js
+     duplicateQuestion) - so it is asked first (owner, 2026-10-08). */
+  const [confirming, setConfirming] = useState(false);
   const grades = writable ? duplicateGrades(question, pairs) : [];
   /* The grade picked, else its own when taught, else the first taught - so an
      item drawn before the pairs arrived still names a grade. */
@@ -116,6 +120,7 @@ export const QuestionItem = ({ question, number, pairs = [], writable = false, o
       if (isStaleQuestion(err)) onStale?.();
     } finally {
       setBusy(null);
+      setConfirming(false);
     }
   };
 
@@ -195,7 +200,7 @@ export const QuestionItem = ({ question, number, pairs = [], writable = false, o
                   ))}
                 </Select>
               )}
-              <button type="button" onClick={() => act('duplicate')} disabled={Boolean(busy)} className={`${tool} border border-slate-200 text-slate-700 hover:bg-slate-50`}>
+              <button type="button" onClick={() => setConfirming(true)} disabled={Boolean(busy)} className={`${tool} border border-slate-200 text-slate-700 hover:bg-slate-50`}>
                 <Copy className="w-3.5 h-3.5" aria-hidden="true" />
                 {busy === 'duplicate' ? t('common.loading') : t('qbank.duplicate.action')}
               </button>
@@ -214,6 +219,22 @@ export const QuestionItem = ({ question, number, pairs = [], writable = false, o
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirming}
+        tone="brand"
+        icon={Copy}
+        title={t('qbank.duplicate.confirmTitle')}
+        body={[
+          t('qbank.duplicate.confirmBody', { grade: t('classes.grade', { n: grade }) }),
+          isPrivateOn(question, today) ? t('qbank.duplicate.confirmPrivate', { date: formatSchoolDay(question.privateUntil, lang) }) : '',
+        ].filter(Boolean).join(' ')}
+        confirmLabel={t('qbank.duplicate.action')}
+        cancelLabel={t('common.cancel')}
+        busy={busy === 'duplicate'}
+        onConfirm={() => act('duplicate')}
+        onCancel={() => setConfirming(false)}
+      />
     </article>
   );
 };

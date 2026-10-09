@@ -32,7 +32,6 @@ const ResetPasswordPage = lazy(() => import('./views/Password/ResetPasswordPage'
 const StudentDashboard = lazy(() => import('./views/Dashboard/StudentDashboard'));
 const TeacherDashboard = lazy(() => import('./views/Dashboard/TeacherDashboard'));
 const TeacherGradebook = lazy(() => import('./views/Gradebook/TeacherGradebook'));
-const CreateAssignmentForm = lazy(() => import('./views/Assignment/CreateAssignmentForm'));
 const TeacherAssessmentPage = lazy(() => import('./views/TeacherAssessment/TeacherAssessmentPage'));
 const ProfilePage = lazy(() => import('./views/Profile/ProfilePage'));
 const ClassroomPage = lazy(() => import('./views/Classroom/ClassroomPage'));
@@ -174,7 +173,8 @@ const router = createBrowserRouter(
             <Route path="/teacher/courses/:classSubjectId/penilaian/new" element={<TeacherAssessmentPage />} />
             <Route path="/teacher/courses/:classSubjectId/penilaian/:assessmentId" element={<TeacherAssessmentPage />} />
             <Route path="/teacher/gradebook" element={<TeacherGradebook />} />
-            <Route path="/teacher/create-assignment" element={<CreateAssignmentForm />} />
+            {/* An assessment of any type, Tugas included, is set from the subject's Penilaian tab. */}
+            <Route path="/teacher/create-assignment" element={<Navigate to="/teacher/courses" replace />} />
             <Route path="/teacher/homeroom" element={<HomeroomDashboard />} />
           </Route>
 

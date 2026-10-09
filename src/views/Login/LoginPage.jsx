@@ -5,7 +5,7 @@ import useLoginForm from '../../hooks/useLoginForm';
 import LoginForm from './LoginForm';
 import Toast from '../../components/ui/Toast';
 import AuthLayout from '../../layouts/AuthLayout';
-import { homeFor } from '../../constants/roles';
+import { signedInHome } from '../../constants/roles';
 import { useT } from '../../i18n/LanguageContext';
 
 /*
@@ -52,11 +52,7 @@ export const LoginPage = () => {
       worked out who they were. `signIn` has already asked by the time this
       runs, so the answer is here rather than a round trip away.
     */
-    if (roles.length === 0 && isPlatformAdmin) {
-      navigate('/admin/school-registrations', { replace: true });
-    } else if (roles.length === 0) navigate('/select-role', { replace: true });
-    else if (activeRole) navigate(homeFor(activeRole), { replace: true });
-    else navigate('/select-role', { replace: true });
+    navigate(signedInHome({ roles, activeRole, isPlatformAdmin }), { replace: true });
   });
 
   const { authStep, setAuthStep, isSignUp, isCheckEmail, toast, closeToast } = formState;

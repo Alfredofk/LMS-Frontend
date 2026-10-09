@@ -61,7 +61,7 @@ export const Input = React.forwardRef(({
           aria-describedby={error ? `${id}-error` : undefined}
           required={required}
           className={`
-            block w-full rounded-xl border transition-all duration-200 text-slate-900 placeholder-slate-400 text-base
+            block w-full rounded-xl border transition-all duration-200 text-slate-900 placeholder-slate-500 text-base
             py-2.5 md:py-3 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand
             ${icon ? 'pl-11' : 'pl-4'}
             ${isPassword ? 'pr-11' : 'pr-4'}

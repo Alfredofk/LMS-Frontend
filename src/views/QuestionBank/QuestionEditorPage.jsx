@@ -85,7 +85,7 @@ const OptionRow = ({ option, index, count, scoring, error, disabled, questionId,
             aria-label={t('qbank.editor.optionText', { letter })}
             aria-invalid={Boolean(error)}
             placeholder={t('qbank.editor.optionPlaceholder')}
-            className={`w-full resize-y rounded-xl border bg-white px-3 py-2 text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand ${
+            className={`w-full resize-y rounded-xl border bg-white px-3 py-2 text-sm font-medium text-slate-800 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand ${
               error ? 'border-red-400' : 'border-slate-200'
             }`}
           />

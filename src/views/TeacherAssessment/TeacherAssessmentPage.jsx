@@ -394,10 +394,13 @@ const TeacherAssessment = () => {
           {t(yearClosed ? 'tasm.readOnlyYear' : 'tasm.readOnlyNotYours')}
         </p>
       )}
-      <p className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-600 leading-relaxed">
-        <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
-        {t('tasm.studentsNotYet')}
-      </p>
+      {/* Not on a cancelled one: no student will ever take it, so "saved for this class" would mislead. */}
+      {saved?.status !== 'CANCELLED' && (
+        <p className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-600 leading-relaxed">
+          <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
+          {t('tasm.studentsNotYet')}
+        </p>
+      )}
 
       {/* ---- Detail ---- */}
       <section className={`${card} space-y-5`} aria-labelledby={`${baseId}-details`}>
@@ -453,7 +456,8 @@ const TeacherAssessment = () => {
                     }`}
                   >
                     <span className={`block text-sm font-bold ${on ? 'text-brand' : 'text-slate-700'}`}>{t(`tasm.mode.${mode}`)}</span>
-                    <span className="block text-[11px] font-medium text-slate-500 leading-relaxed">{t(`tasm.modeHint.${mode}`)}</span>
+                    {/* slate-500 on the brand tint measured 4.18:1; slate-600 clears 4.5 (audit 2026-10-08). */}
+                    <span className={`block text-[11px] font-medium leading-relaxed ${on ? 'text-slate-600' : 'text-slate-500'}`}>{t(`tasm.modeHint.${mode}`)}</span>
                   </button>
                 );
               })}
