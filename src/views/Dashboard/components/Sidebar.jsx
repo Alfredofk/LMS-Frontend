@@ -286,6 +286,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
                 >
                   <BookOpen className={`w-4 h-4 shrink-0 transition-colors ${isActive(role === ROLES.TEACHER ? '/teacher/courses' : '/classroom') ? 'text-white' : 'text-brand'}`} />
                   {t('shell.myCourses')}
+                  {role === ROLES.TEACHER && <PendingBadge n={pending.marking} />}
                 </button>
               )}
 

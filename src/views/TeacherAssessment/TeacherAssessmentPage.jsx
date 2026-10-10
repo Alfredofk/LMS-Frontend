@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
+import { useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
 import { AlertCircle, ArrowDown, ArrowUp, Ban, Copy, Info, Library, Lock, RefreshCw, Send, Trash2 } from 'lucide-react';
 
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
@@ -20,6 +20,7 @@ import { readMyTeaching } from '../Course/readMyTeaching';
 import { formatSchoolDay } from '../QuestionBank/questionBank';
 import { QuestionAnswer } from '../QuestionBank/QuestionItem';
 import BankPickerDialog from './BankPickerDialog';
+import ResultsTab from './ResultsTab';
 import StateWord from './StateWord';
 import CopyToClassesDialog from './CopyToClassesDialog';
 import {
@@ -35,6 +36,7 @@ import {
   formErrors,
   formFrom,
   heldBankIds,
+  isReleased,
   moveRow,
   patchBody,
   questionsBody,
@@ -70,6 +72,11 @@ import {
   - "Salin ke kelas lain" (CopyToClassesDialog) on any one the teacher can open,
     read-only ones included: last year's, or a colleague's from a semester over.
     One copy opens its draft; several stay here, named in a toast.
+  - Once released (backend 5255842, `releasedAt`) the list is locked: nothing
+    added, removed, moved or re-pointed. A copy's key or points are fixed on its
+    own page, with a reason the corrected scores carry.
+  - Two tabs once published (owner, 2026-10-10): "Pengaturan" (all of the above)
+    and "Hasil" (`?tab=hasil`, ResultsTab: results, marking, release).
   Students cannot answer it yet (ticket 03); the page says so.
 */
 
@@ -132,6 +139,10 @@ const TeacherAssessment = () => {
   const [failure, setFailure] = useState({});
   const [dialog, setDialog] = useState(null);
   const [swapping, setSwapping] = useState(null);
+  /* Offline marks typed on "Hasil" and not saved yet. */
+  const [resultsDirty, setResultsDirty] = useState(false);
+  const [resultsSeen, setResultsSeen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const adopt = useCallback(
     (assessment) => {
@@ -191,12 +202,17 @@ const TeacherAssessment = () => {
   const actions = actionsOf(saved, { readOnly });
   const editable = creating ? !readOnly : actions.edit;
   const published = saved?.status === 'PUBLISHED';
+  const released = isReleased(saved);
+  /* Results exist once it was published; a cancelled one keeps its scores. */
+  const hasResults = Boolean(saved) && saved.status !== 'DRAFT';
+  const tab = hasResults && searchParams.get('tab') === 'hasil' ? 'hasil' : 'pengaturan';
+  if (tab === 'hasil' && !resultsSeen) setResultsSeen(true);
   const patch = saved && form ? patchBody(form, saved, zone) : {};
   const detailsDirty = Object.keys(patch).length > 0;
   const questionsDirty = saved ? rowsChanged(rows, saved.questions) : false;
   const back = `/teacher/courses/${classSubjectId}?tab=penilaian`;
   /* Unsaved work holds a move away (owner, 2026-10-08): a new form touched, or either part changed. */
-  const guard = useUnsavedGuard(creating ? Boolean(form) && JSON.stringify(form) !== JSON.stringify(emptyForm()) : detailsDirty || questionsDirty);
+  const guard = useUnsavedGuard(creating ? Boolean(form) && JSON.stringify(form) !== JSON.stringify(emptyForm()) : detailsDirty || questionsDirty || resultsDirty);
 
   const setField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -345,6 +361,7 @@ const TeacherAssessment = () => {
             <span>{t(`tasm.type.${saved.type}`)}</span>
             <span>{t(`tasm.mode.${saved.mode}`)}</span>
             <span className="tabular-nums">{windowText(saved, zone, lang)}</span>
+            {released && <span>{t('tasm.releasedOn', { date: formatSchoolDay(localOf(saved.releasedAt, zone)?.date, lang) })}</span>}
           </p>
         )}
       </div>
@@ -389,362 +406,398 @@ const TeacherAssessment = () => {
 
       {failure.top && <Failure message={failure.top.message} onReload={failure.top.stale ? () => setAttempt((n) => n + 1) : null} t={t} />}
 
-      {saved?.status === 'CANCELLED' && (
-        <div className="rounded-2xl bg-rose-50 px-4 py-3 space-y-1">
-          <p className="text-sm font-bold text-rose-700">{t('tasm.cancelledOn', { date: formatSchoolDay(localOf(saved.cancelledAt, zone)?.date, lang) })}</p>
-          {saved.cancelReason && <p className="text-sm font-semibold text-rose-700 break-words">{t('tasm.cancelledReason', { reason: saved.cancelReason })}</p>}
+      {hasResults && (
+        <div role="tablist" aria-label={t('tasm.tabs')} className="flex gap-6 border-b border-slate-200">
+          {['pengaturan', 'hasil'].map((key) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={tab === key}
+              onClick={() => setSearchParams(key === 'hasil' ? { tab: 'hasil' } : {}, { replace: true })}
+              className={`px-1 pb-3 -mb-px text-sm font-extrabold border-b-2 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-t ${
+                tab === key ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              {t(key === 'hasil' ? 'tasm.tab.results' : 'tasm.tab.settings')}
+            </button>
+          ))}
         </div>
       )}
-      {readOnly && saved?.status !== 'CANCELLED' && (
-        <p className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-600 leading-relaxed">
-          <Lock className="w-3.5 h-3.5 mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
-          {t(yearClosed ? 'tasm.readOnlyYear' : 'tasm.readOnlyNotYours')}
-        </p>
-      )}
-      {/* Not on a cancelled one: no student will ever take it, so "saved for this class" would mislead. */}
-      {saved?.status !== 'CANCELLED' && (
-        <p className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-600 leading-relaxed">
-          <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
-          {t('tasm.studentsNotYet')}
-        </p>
-      )}
 
-      {/* ---- Detail ---- */}
-      <section className={`${card} space-y-5`} aria-labelledby={`${baseId}-details`}>
-        <h2 id={`${baseId}-details`} className="text-base font-extrabold text-slate-900">
-          {t('tasm.details')}
-        </h2>
+      {/*
+        Kept mounted once opened, hidden on the other tab: a tab switch changes only
+        the query, which the leave guard lets through, so unsaved offline marks would
+        otherwise vanish without a word.
+      */}
+      {resultsSeen && (
+        <div hidden={tab !== 'hasil'}>
+          <ResultsTab key={saved.id} assessment={saved} zone={zone} onReleased={() => setAttempt((n) => n + 1)} onDirty={setResultsDirty} />
+        </div>
+      )}
+      {tab !== 'hasil' && (
+        <>
 
-        <div className="space-y-2">
-          <span id={`${baseId}-type`} className={fieldLabel}>
-            {t('tasm.field.type')}
-          </span>
-          <div role="radiogroup" aria-labelledby={`${baseId}-type`} className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {TYPES.map((type) => {
-              const on = form.type === type;
-              return (
-                <button
-                  key={type}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  disabled={disabled || published}
-                  onClick={() => setField('type', type)}
-                  className={`px-3 py-2.5 rounded-xl border text-sm font-bold cursor-pointer disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
-                    on ? 'border-brand bg-brand-tint text-brand' : 'border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-60'
-                  }`}
-                >
-                  {t(`tasm.type.${type}`)}
-                </button>
-              );
-            })}
+        {saved?.status === 'CANCELLED' && (
+          <div className="rounded-2xl bg-rose-50 px-4 py-3 space-y-1">
+            <p className="text-sm font-bold text-rose-700">{t('tasm.cancelledOn', { date: formatSchoolDay(localOf(saved.cancelledAt, zone)?.date, lang) })}</p>
+            {saved.cancelReason && <p className="text-sm font-semibold text-rose-700 break-words">{t('tasm.cancelledReason', { reason: saved.cancelReason })}</p>}
           </div>
-          {published && editable && <p className="text-[11px] font-medium text-slate-500">{t('tasm.typeFixed')}</p>}
-        </div>
+        )}
+        {readOnly && saved?.status !== 'CANCELLED' && (
+          <p className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-600 leading-relaxed">
+            <Lock className="w-3.5 h-3.5 mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
+            {t(yearClosed ? 'tasm.readOnlyYear' : 'tasm.readOnlyNotYours')}
+          </p>
+        )}
+        {/* Not on a cancelled one: no student will ever take it, so "saved for this class" would mislead. */}
+        {saved?.status !== 'CANCELLED' && (
+          <p className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-600 leading-relaxed">
+            <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
+            {t('tasm.studentsNotYet')}
+          </p>
+        )}
 
-        <div className="space-y-2">
-          <span id={`${baseId}-mode`} className={fieldLabel}>
-            {t('tasm.field.mode')}
-          </span>
-          {creating ? (
-            <div role="radiogroup" aria-labelledby={`${baseId}-mode`} className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {MODES.map((mode) => {
-                const on = form.mode === mode;
+        {/* ---- Detail ---- */}
+        <section className={`${card} space-y-5`} aria-labelledby={`${baseId}-details`}>
+          <h2 id={`${baseId}-details`} className="text-base font-extrabold text-slate-900">
+            {t('tasm.details')}
+          </h2>
+
+          <div className="space-y-2">
+            <span id={`${baseId}-type`} className={fieldLabel}>
+              {t('tasm.field.type')}
+            </span>
+            <div role="radiogroup" aria-labelledby={`${baseId}-type`} className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {TYPES.map((type) => {
+                const on = form.type === type;
                 return (
                   <button
-                    key={mode}
+                    key={type}
                     type="button"
                     role="radio"
                     aria-checked={on}
-                    disabled={disabled}
-                    onClick={() => setField('mode', mode)}
-                    className={`px-3.5 py-3 rounded-xl border text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
-                      on ? 'border-brand bg-brand-tint' : 'border-slate-200 hover:bg-slate-50'
+                    disabled={disabled || published}
+                    onClick={() => setField('type', type)}
+                    className={`px-3 py-2.5 rounded-xl border text-sm font-bold cursor-pointer disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+                      on ? 'border-brand bg-brand-tint text-brand' : 'border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-60'
                     }`}
                   >
-                    <span className={`block text-sm font-bold ${on ? 'text-brand' : 'text-slate-700'}`}>{t(`tasm.mode.${mode}`)}</span>
-                    {/* slate-500 on the brand tint measured 4.18:1; slate-600 clears 4.5 (audit 2026-10-08). */}
-                    <span className={`block text-[11px] font-medium leading-relaxed ${on ? 'text-slate-600' : 'text-slate-500'}`}>{t(`tasm.modeHint.${mode}`)}</span>
+                    {t(`tasm.type.${type}`)}
                   </button>
                 );
               })}
             </div>
-          ) : (
-            <p className="text-sm font-semibold text-slate-700">
-              {t(`tasm.mode.${form.mode}`)} <span className="text-xs font-medium text-slate-500">- {t('tasm.modeFixed')}</span>
-            </p>
-          )}
-        </div>
-
-        <Input
-          id={`${baseId}-title`}
-          name="title"
-          label={t('tasm.field.title')}
-          value={form.title}
-          maxLength={200}
-          disabled={disabled}
-          error={errors.title ? t(errors.title) : undefined}
-          onChange={(e) => setField('title', e.target.value)}
-        />
-
-        <div className="space-y-2">
-          <span id={`${baseId}-instructions`} className={fieldLabel}>
-            {t('tasm.field.instructions')}
-          </span>
-          <TextEditor
-            key={saved ? saved.updatedAt : 'new'}
-            id={`${baseId}-instructions-box`}
-            labelledBy={`${baseId}-instructions`}
-            value={form.instructions}
-            onChange={(html) => setField('instructions', html)}
-            disabled={disabled}
-            invalid={Boolean(errors.instructions)}
-          />
-          {errors.instructions ? <p className={errorText}>{t(errors.instructions)}</p> : <p className="text-[11px] font-medium text-slate-500">{t('tasm.instructionsHint')}</p>}
-        </div>
-
-        <div className="space-y-3">
-          {[
-            ['opens', 'opensDate', 'opensTime'],
-            ['closes', 'closesDate', 'closesTime'],
-          ].map(([end, dateKey, timeKey]) => (
-            <fieldset key={end} className="space-y-1.5">
-              <legend className={fieldLabel}>{t(`tasm.field.${end}`) + tz}</legend>
-              <div className="grid grid-cols-[1fr_auto] gap-2 max-w-sm">
-                <input
-                  type="date"
-                  aria-label={t(`tasm.field.${end}Date`)}
-                  value={form[dateKey]}
-                  min={span?.first}
-                  max={span?.last}
-                  disabled={disabled}
-                  aria-invalid={Boolean(errors[end])}
-                  onChange={(e) => setField(dateKey, e.target.value)}
-                  className={smallInput}
-                />
-                <input
-                  type="time"
-                  aria-label={t(`tasm.field.${end}Time`)}
-                  value={form[timeKey]}
-                  disabled={disabled}
-                  aria-invalid={Boolean(errors[end])}
-                  onChange={(e) => setField(timeKey, e.target.value)}
-                  className={`${smallInput} w-32`}
-                />
-              </div>
-              {errors[end] && <p className={errorText}>{t(errors[end])}</p>}
-            </fieldset>
-          ))}
-          <p className="text-[11px] font-medium text-slate-500">
-            {span
-              ? t('tasm.windowHint', { n: ctx.semesterOrdinal, from: formatSchoolDay(span.first, lang), to: formatSchoolDay(span.last, lang) })
-              : t('tasm.windowHintNoSemester')}
-          </p>
-        </div>
-
-        {form.mode === 'ONLINE' && (
-          <div className="space-y-4 pt-4 border-t border-slate-100">
-            <h3 className="text-sm font-extrabold text-slate-900">{t('tasm.settings')}</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label htmlFor={`${baseId}-attempts`} className={fieldLabel}>
-                  {t('tasm.field.attempts')}
-                </label>
-                <input
-                  id={`${baseId}-attempts`}
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={MAX_ATTEMPTS}
-                  value={form.maxAttempts}
-                  disabled={disabled}
-                  aria-invalid={Boolean(errors.maxAttempts)}
-                  onChange={(e) => setField('maxAttempts', e.target.value)}
-                  className={`${smallInput} w-28`}
-                />
-                {errors.maxAttempts ? <p className={errorText}>{t(errors.maxAttempts)}</p> : <p className="text-[11px] font-medium text-slate-500">{t('tasm.attemptsHint')}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <label htmlFor={`${baseId}-limit`} className={fieldLabel}>
-                  {t('tasm.field.timeLimit')}
-                </label>
-                <input
-                  id={`${baseId}-limit`}
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={MAX_TIME_LIMIT}
-                  placeholder={t('tasm.noLimit')}
-                  value={form.timeLimit}
-                  disabled={disabled}
-                  aria-invalid={Boolean(errors.timeLimit)}
-                  onChange={(e) => setField('timeLimit', e.target.value)}
-                  className={`${smallInput} w-36`}
-                />
-                {errors.timeLimit ? <p className={errorText}>{t(errors.timeLimit)}</p> : <p className="text-[11px] font-medium text-slate-500">{t('tasm.timeLimitHint')}</p>}
-              </div>
-            </div>
-            <div className="space-y-3">
-              <Toggle checked={form.acceptLate} disabled={disabled} onChange={(v) => setField('acceptLate', v)} label={t('tasm.field.acceptLate')} hint={t('tasm.acceptLateHint')} />
-              <Toggle checked={form.shuffleQuestions} disabled={disabled} onChange={(v) => setField('shuffleQuestions', v)} label={t('tasm.field.shuffleQuestions')} />
-              <Toggle checked={form.shuffleOptions} disabled={disabled} onChange={(v) => setField('shuffleOptions', v)} label={t('tasm.field.shuffleOptions')} hint={t('tasm.shuffleOptionsHint')} />
-              <Toggle checked={form.showKeyOnRelease} disabled={disabled} onChange={(v) => setField('showKeyOnRelease', v)} label={t('tasm.field.showKey')} hint={t('tasm.showKeyHint')} />
-            </div>
-            {published && editable && <p className="text-[11px] font-medium text-slate-500">{t('tasm.settingsAfterPublish')}</p>}
+            {published && editable && <p className="text-[11px] font-medium text-slate-500">{t('tasm.typeFixed')}</p>}
           </div>
-        )}
 
-        {failure.details && <Failure message={failure.details.message} onReload={failure.details.stale ? () => setAttempt((n) => n + 1) : null} t={t} />}
-
-        {editable && (
-          <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-1">
-            {creating && (
-              <button type="button" onClick={() => navigate(back)} disabled={Boolean(busy)} className={`${tool} px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100`}>
-                {t('common.cancel')}
-              </button>
+          <div className="space-y-2">
+            <span id={`${baseId}-mode`} className={fieldLabel}>
+              {t('tasm.field.mode')}
+            </span>
+            {creating ? (
+              <div role="radiogroup" aria-labelledby={`${baseId}-mode`} className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {MODES.map((mode) => {
+                  const on = form.mode === mode;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      disabled={disabled}
+                      onClick={() => setField('mode', mode)}
+                      className={`px-3.5 py-3 rounded-xl border text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+                        on ? 'border-brand bg-brand-tint' : 'border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className={`block text-sm font-bold ${on ? 'text-brand' : 'text-slate-700'}`}>{t(`tasm.mode.${mode}`)}</span>
+                      {/* slate-500 on the brand tint measured 4.18:1; slate-600 clears 4.5 (audit 2026-10-08). */}
+                      <span className={`block text-[11px] font-medium leading-relaxed ${on ? 'text-slate-600' : 'text-slate-500'}`}>{t(`tasm.modeHint.${mode}`)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm font-semibold text-slate-700">
+                {t(`tasm.mode.${form.mode}`)} <span className="text-xs font-medium text-slate-500">- {t('tasm.modeFixed')}</span>
+              </p>
             )}
-            <button
-              type="button"
-              onClick={saveDetails}
-              disabled={Boolean(busy) || (!creating && !detailsDirty)}
-              className={`${tool} px-5 py-2.5 text-sm bg-brand text-white hover:bg-brand-deep`}
-            >
-              {busy === 'details' ? t('common.loading') : t(creating ? 'tasm.createDraft' : 'tasm.saveDetails')}
-            </button>
           </div>
-        )}
-      </section>
 
-      {/* ---- Soal ---- */}
-      {saved && saved.mode === 'OFFLINE' && (
-        <p className={`${card} text-sm font-semibold text-slate-600`}>{t('tasm.offlineNote')}</p>
-      )}
-      {saved && saved.mode === 'ONLINE' && (
-        <section className={`${card} space-y-4`} aria-labelledby={`${baseId}-questions`}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 id={`${baseId}-questions`} className="text-base font-extrabold text-slate-900">
-                {t('tasm.questions')}
-              </h2>
-              <p className="text-xs font-semibold text-slate-500">{t('tasm.count', { n: rows.length, points: total })}</p>
-              {questionsDirty && actions.edit && rows.some((row) => row.id) && <p className="text-[11px] font-medium text-slate-500">{t('tasm.editCopy.saveListFirst')}</p>}
+          <Input
+            id={`${baseId}-title`}
+            name="title"
+            label={t('tasm.field.title')}
+            value={form.title}
+            maxLength={200}
+            disabled={disabled}
+            error={errors.title ? t(errors.title) : undefined}
+            onChange={(e) => setField('title', e.target.value)}
+          />
+
+          <div className="space-y-2">
+            <span id={`${baseId}-instructions`} className={fieldLabel}>
+              {t('tasm.field.instructions')}
+            </span>
+            <TextEditor
+              key={saved ? saved.updatedAt : 'new'}
+              id={`${baseId}-instructions-box`}
+              labelledBy={`${baseId}-instructions`}
+              value={form.instructions}
+              onChange={(html) => setField('instructions', html)}
+              disabled={disabled}
+              invalid={Boolean(errors.instructions)}
+            />
+            {errors.instructions ? <p className={errorText}>{t(errors.instructions)}</p> : <p className="text-[11px] font-medium text-slate-500">{t('tasm.instructionsHint')}</p>}
+          </div>
+
+          <div className="space-y-3">
+            {[
+              ['opens', 'opensDate', 'opensTime'],
+              ['closes', 'closesDate', 'closesTime'],
+            ].map(([end, dateKey, timeKey]) => (
+              <fieldset key={end} className="space-y-1.5">
+                <legend className={fieldLabel}>{t(`tasm.field.${end}`) + tz}</legend>
+                <div className="grid grid-cols-[1fr_auto] gap-2 max-w-sm">
+                  <input
+                    type="date"
+                    aria-label={t(`tasm.field.${end}Date`)}
+                    value={form[dateKey]}
+                    min={span?.first}
+                    max={span?.last}
+                    disabled={disabled}
+                    aria-invalid={Boolean(errors[end])}
+                    onChange={(e) => setField(dateKey, e.target.value)}
+                    className={smallInput}
+                  />
+                  <input
+                    type="time"
+                    aria-label={t(`tasm.field.${end}Time`)}
+                    value={form[timeKey]}
+                    disabled={disabled}
+                    aria-invalid={Boolean(errors[end])}
+                    onChange={(e) => setField(timeKey, e.target.value)}
+                    className={`${smallInput} w-32`}
+                  />
+                </div>
+                {errors[end] && <p className={errorText}>{t(errors[end])}</p>}
+              </fieldset>
+            ))}
+            <p className="text-[11px] font-medium text-slate-500">
+              {span
+                ? t('tasm.windowHint', { n: ctx.semesterOrdinal, from: formatSchoolDay(span.first, lang), to: formatSchoolDay(span.last, lang) })
+                : t('tasm.windowHintNoSemester')}
+            </p>
+          </div>
+
+          {form.mode === 'ONLINE' && (
+            <div className="space-y-4 pt-4 border-t border-slate-100">
+              <h3 className="text-sm font-extrabold text-slate-900">{t('tasm.settings')}</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label htmlFor={`${baseId}-attempts`} className={fieldLabel}>
+                    {t('tasm.field.attempts')}
+                  </label>
+                  <input
+                    id={`${baseId}-attempts`}
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={MAX_ATTEMPTS}
+                    value={form.maxAttempts}
+                    disabled={disabled}
+                    aria-invalid={Boolean(errors.maxAttempts)}
+                    onChange={(e) => setField('maxAttempts', e.target.value)}
+                    className={`${smallInput} w-28`}
+                  />
+                  {errors.maxAttempts ? <p className={errorText}>{t(errors.maxAttempts)}</p> : <p className="text-[11px] font-medium text-slate-500">{t('tasm.attemptsHint')}</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor={`${baseId}-limit`} className={fieldLabel}>
+                    {t('tasm.field.timeLimit')}
+                  </label>
+                  <input
+                    id={`${baseId}-limit`}
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={MAX_TIME_LIMIT}
+                    placeholder={t('tasm.noLimit')}
+                    value={form.timeLimit}
+                    disabled={disabled}
+                    aria-invalid={Boolean(errors.timeLimit)}
+                    onChange={(e) => setField('timeLimit', e.target.value)}
+                    className={`${smallInput} w-36`}
+                  />
+                  {errors.timeLimit ? <p className={errorText}>{t(errors.timeLimit)}</p> : <p className="text-[11px] font-medium text-slate-500">{t('tasm.timeLimitHint')}</p>}
+                </div>
+              </div>
+              <div className="space-y-3">
+                <Toggle checked={form.acceptLate} disabled={disabled} onChange={(v) => setField('acceptLate', v)} label={t('tasm.field.acceptLate')} hint={t('tasm.acceptLateHint')} />
+                <Toggle checked={form.shuffleQuestions} disabled={disabled} onChange={(v) => setField('shuffleQuestions', v)} label={t('tasm.field.shuffleQuestions')} />
+                <Toggle checked={form.shuffleOptions} disabled={disabled} onChange={(v) => setField('shuffleOptions', v)} label={t('tasm.field.shuffleOptions')} hint={t('tasm.shuffleOptionsHint')} />
+                <Toggle checked={form.showKeyOnRelease} disabled={disabled} onChange={(v) => setField('showKeyOnRelease', v)} label={t('tasm.field.showKey')} hint={t('tasm.showKeyHint')} />
+              </div>
+              {published && editable && <p className="text-[11px] font-medium text-slate-500">{t('tasm.settingsAfterPublish')}</p>}
             </div>
-            {actions.edit && (
+          )}
+
+          {failure.details && <Failure message={failure.details.message} onReload={failure.details.stale ? () => setAttempt((n) => n + 1) : null} t={t} />}
+
+          {editable && (
+            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-1">
+              {creating && (
+                <button type="button" onClick={() => navigate(back)} disabled={Boolean(busy)} className={`${tool} px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100`}>
+                  {t('common.cancel')}
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => setDialog('picker')}
-                disabled={Boolean(busy)}
-                className={`${tool} px-3.5 py-2.5 text-sm border border-slate-200 text-slate-700 hover:bg-slate-50`}
+                onClick={saveDetails}
+                disabled={Boolean(busy) || (!creating && !detailsDirty)}
+                className={`${tool} px-5 py-2.5 text-sm bg-brand text-white hover:bg-brand-deep`}
               >
-                <Library className="w-4 h-4" aria-hidden="true" />
-                {t('tasm.addFromBank')}
+                {busy === 'details' ? t('common.loading') : t(creating ? 'tasm.createDraft' : 'tasm.saveDetails')}
               </button>
-            )}
-          </div>
-
-          {rows.length === 0 ? (
-            <p className="rounded-xl bg-slate-50 px-4 py-6 text-center text-sm font-semibold text-slate-600">{t(actions.edit ? 'tasm.noQuestions' : 'tasm.noQuestionsReadOnly')}</p>
-          ) : (
-            <ol className="space-y-3">
-              {rows.map((row, index) => {
-                const question = row.content;
-                const imageSource = row.id ? { assessmentId: saved.id } : { questionId: row.questionId };
-                const archived = Boolean(row.bank?.archived);
-                const changed = Boolean(row.bank?.changed) && !archived;
-                return (
-                  <li key={row.key} className="rounded-2xl border border-slate-200 p-4 space-y-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 text-xs font-extrabold flex items-center justify-center shrink-0">{index + 1}</span>
-                      <span className="text-xs font-bold text-slate-600">{t(`qbank.kind.${question.kind}`)}</span>
-                      {!row.id && <span className="text-xs font-bold text-brand">{t('tasm.unsavedRow')}</span>}
-                      <span className="ml-auto flex items-center gap-1.5">
-                        <label htmlFor={`${baseId}-pts-${row.key}`} className="text-xs font-bold text-slate-600">
-                          {t('tasm.points')}
-                        </label>
-                        <input
-                          id={`${baseId}-pts-${row.key}`}
-                          type="number"
-                          inputMode="numeric"
-                          min={1}
-                          max={MAX_POINTS}
-                          value={row.points}
-                          disabled={!actions.edit || Boolean(busy)}
-                          aria-invalid={Boolean(pointErrors[row.key])}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setRows((prev) => prev.map((item) => (item.key === row.key ? { ...item, points: value } : item)));
-                            setPointErrors((prev) => ({ ...prev, [row.key]: undefined }));
-                          }}
-                          className={pointsInput}
-                        />
-                        {actions.edit && (
-                          <>
-                            <button type="button" onClick={() => setRows((prev) => moveRow(prev, row.key, -1))} disabled={index === 0 || Boolean(busy)} aria-label={t('tasm.moveUp', { n: index + 1 })} className={`${iconTool} text-slate-500 hover:bg-slate-100`}>
-                              <ArrowUp className="w-4 h-4" aria-hidden="true" />
-                            </button>
-                            <button type="button" onClick={() => setRows((prev) => moveRow(prev, row.key, 1))} disabled={index === rows.length - 1 || Boolean(busy)} aria-label={t('tasm.moveDown', { n: index + 1 })} className={`${iconTool} text-slate-500 hover:bg-slate-100`}>
-                              <ArrowDown className="w-4 h-4" aria-hidden="true" />
-                            </button>
-                            <button type="button" onClick={() => setRows((prev) => removeRow(prev, row.key))} disabled={Boolean(busy)} aria-label={t('tasm.removeQuestion', { n: index + 1 })} className={`${iconTool} text-rose-600 hover:bg-rose-50`}>
-                              <Trash2 className="w-4 h-4" aria-hidden="true" />
-                            </button>
-                          </>
-                        )}
-                      </span>
-                    </div>
-                    {pointErrors[row.key] && <p className={errorText}>{t(pointErrors[row.key])}</p>}
-                    <div className="content-html text-sm text-slate-800 break-words" dangerouslySetInnerHTML={{ __html: question.body ?? '' }} />
-                    {question.imageId && <QuestionImage imageId={question.imageId} {...imageSource} className="max-h-56" />}
-                    <QuestionAnswer question={question} t={t} imageSource={imageSource} />
-                    {archived && <p className="text-xs font-semibold text-slate-500">{t('tasm.bank.archived')}</p>}
-                    {changed && (
-                      <div className="flex flex-wrap items-center gap-2 rounded-xl bg-amber-50 px-3 py-2">
-                        <p className="text-xs font-semibold text-amber-700 flex-1 min-w-[12rem]">{t('tasm.bank.changed')}</p>
-                        {actions.edit && (
-                          <button type="button" onClick={() => swapToBank(row)} disabled={Boolean(busy) || swapping === row.key} className={`${tool} bg-white border border-amber-200 text-amber-700 hover:bg-amber-50`}>
-                            {swapping === row.key ? t('common.loading') : t('tasm.bank.use')}
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    {row.id && actions.edit && (
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/teacher/courses/${classSubjectId}/penilaian/${saved.id}/soal/${row.id}`)}
-                        disabled={questionsDirty || Boolean(busy)}
-                        className={`${tool} border border-slate-200 text-slate-700 hover:bg-slate-50`}
-                      >
-                        {t('tasm.editCopy.open')}
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
-          )}
-
-          {published && actions.edit && <p className="text-[11px] font-medium text-slate-500">{t('tasm.questionsAfterPublish')}</p>}
-
-          {failure.questions && <Failure message={failure.questions.message} onReload={failure.questions.stale ? () => setAttempt((n) => n + 1) : null} t={t} />}
-
-          {actions.edit && (
-            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:items-center sm:justify-between pt-1">
-              <a href="/question-bank/new" target="_blank" rel="noreferrer" className="text-xs font-bold text-brand hover:underline">
-                {t('tasm.writeInBank')}
-              </a>
-              <div className="flex flex-col-reverse sm:flex-row gap-2">
-                {questionsDirty && (
-                  <button type="button" onClick={() => { setRows(rowsFrom(saved)); setPointErrors({}); setFailure((prev) => ({ ...prev, questions: null })); }} disabled={Boolean(busy)} className={`${tool} px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100`}>
-                    {t('tasm.undo')}
-                  </button>
-                )}
-                <button type="button" onClick={saveQuestions} disabled={Boolean(busy) || !questionsDirty} className={`${tool} px-5 py-2.5 text-sm bg-brand text-white hover:bg-brand-deep`}>
-                  {busy === 'questions' ? t('common.loading') : t('tasm.saveQuestions')}
-                </button>
-              </div>
             </div>
           )}
         </section>
+
+        {/* ---- Soal ---- */}
+        {saved && saved.mode === 'OFFLINE' && (
+          <p className={`${card} text-sm font-semibold text-slate-600`}>{t('tasm.offlineNote')}</p>
+        )}
+        {saved && saved.mode === 'ONLINE' && (
+          <section className={`${card} space-y-4`} aria-labelledby={`${baseId}-questions`}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 id={`${baseId}-questions`} className="text-base font-extrabold text-slate-900">
+                  {t('tasm.questions')}
+                </h2>
+                <p className="text-xs font-semibold text-slate-500">{t('tasm.count', { n: rows.length, points: total })}</p>
+                {questionsDirty && actions.editList && rows.some((row) => row.id) && <p className="text-[11px] font-medium text-slate-500">{t('tasm.editCopy.saveListFirst')}</p>}
+              </div>
+              {actions.editList && (
+                <button
+                  type="button"
+                  onClick={() => setDialog('picker')}
+                  disabled={Boolean(busy)}
+                  className={`${tool} px-3.5 py-2.5 text-sm border border-slate-200 text-slate-700 hover:bg-slate-50`}
+                >
+                  <Library className="w-4 h-4" aria-hidden="true" />
+                  {t('tasm.addFromBank')}
+                </button>
+              )}
+            </div>
+
+            {rows.length === 0 ? (
+              <p className="rounded-xl bg-slate-50 px-4 py-6 text-center text-sm font-semibold text-slate-600">{t(actions.editList ? 'tasm.noQuestions' : 'tasm.noQuestionsReadOnly')}</p>
+            ) : (
+              <ol className="space-y-3">
+                {rows.map((row, index) => {
+                  const question = row.content;
+                  const imageSource = row.id ? { assessmentId: saved.id } : { questionId: row.questionId };
+                  const archived = Boolean(row.bank?.archived);
+                  const changed = Boolean(row.bank?.changed) && !archived;
+                  return (
+                    <li key={row.key} className="rounded-2xl border border-slate-200 p-4 space-y-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 text-xs font-extrabold flex items-center justify-center shrink-0">{index + 1}</span>
+                        <span className="text-xs font-bold text-slate-600">{t(`qbank.kind.${question.kind}`)}</span>
+                        {!row.id && <span className="text-xs font-bold text-brand">{t('tasm.unsavedRow')}</span>}
+                        <span className="ml-auto flex items-center gap-1.5">
+                          <label htmlFor={`${baseId}-pts-${row.key}`} className="text-xs font-bold text-slate-600">
+                            {t('tasm.points')}
+                          </label>
+                          <input
+                            id={`${baseId}-pts-${row.key}`}
+                            type="number"
+                            inputMode="numeric"
+                            min={1}
+                            max={MAX_POINTS}
+                            value={row.points}
+                            disabled={!actions.editList || Boolean(busy)}
+                            aria-invalid={Boolean(pointErrors[row.key])}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setRows((prev) => prev.map((item) => (item.key === row.key ? { ...item, points: value } : item)));
+                              setPointErrors((prev) => ({ ...prev, [row.key]: undefined }));
+                            }}
+                            className={pointsInput}
+                          />
+                          {actions.editList && (
+                            <>
+                              <button type="button" onClick={() => setRows((prev) => moveRow(prev, row.key, -1))} disabled={index === 0 || Boolean(busy)} aria-label={t('tasm.moveUp', { n: index + 1 })} className={`${iconTool} text-slate-500 hover:bg-slate-100`}>
+                                <ArrowUp className="w-4 h-4" aria-hidden="true" />
+                              </button>
+                              <button type="button" onClick={() => setRows((prev) => moveRow(prev, row.key, 1))} disabled={index === rows.length - 1 || Boolean(busy)} aria-label={t('tasm.moveDown', { n: index + 1 })} className={`${iconTool} text-slate-500 hover:bg-slate-100`}>
+                                <ArrowDown className="w-4 h-4" aria-hidden="true" />
+                              </button>
+                              <button type="button" onClick={() => setRows((prev) => removeRow(prev, row.key))} disabled={Boolean(busy)} aria-label={t('tasm.removeQuestion', { n: index + 1 })} className={`${iconTool} text-rose-600 hover:bg-rose-50`}>
+                                <Trash2 className="w-4 h-4" aria-hidden="true" />
+                              </button>
+                            </>
+                          )}
+                        </span>
+                      </div>
+                      {pointErrors[row.key] && <p className={errorText}>{t(pointErrors[row.key])}</p>}
+                      <div className="content-html text-sm text-slate-800 break-words" dangerouslySetInnerHTML={{ __html: question.body ?? '' }} />
+                      {question.imageId && <QuestionImage imageId={question.imageId} {...imageSource} className="max-h-56" />}
+                      <QuestionAnswer question={question} t={t} imageSource={imageSource} />
+                      {archived && <p className="text-xs font-semibold text-slate-500">{t('tasm.bank.archived')}</p>}
+                      {changed && (
+                        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-amber-50 px-3 py-2">
+                          <p className="text-xs font-semibold text-amber-700 flex-1 min-w-[12rem]">{t('tasm.bank.changed')}</p>
+                          {actions.editList && (
+                            <button type="button" onClick={() => swapToBank(row)} disabled={Boolean(busy) || swapping === row.key} className={`${tool} bg-white border border-amber-200 text-amber-700 hover:bg-amber-50`}>
+                              {swapping === row.key ? t('common.loading') : t('tasm.bank.use')}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {row.id && actions.edit && (
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/teacher/courses/${classSubjectId}/penilaian/${saved.id}/soal/${row.id}`)}
+                          disabled={questionsDirty || Boolean(busy)}
+                          className={`${tool} border border-slate-200 text-slate-700 hover:bg-slate-50`}
+                        >
+                          {t('tasm.editCopy.open')}
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+
+            {released && actions.edit && <p className="text-[11px] font-medium text-slate-500">{t('tasm.questionsReleased')}</p>}
+            {published && !released && actions.edit && <p className="text-[11px] font-medium text-slate-500">{t('tasm.questionsAfterPublish')}</p>}
+
+            {failure.questions && <Failure message={failure.questions.message} onReload={failure.questions.stale ? () => setAttempt((n) => n + 1) : null} t={t} />}
+
+            {actions.editList && (
+              <div className="flex flex-col-reverse sm:flex-row gap-2 sm:items-center sm:justify-between pt-1">
+                <a href="/question-bank/new" target="_blank" rel="noreferrer" className="text-xs font-bold text-brand hover:underline">
+                  {t('tasm.writeInBank')}
+                </a>
+                <div className="flex flex-col-reverse sm:flex-row gap-2">
+                  {questionsDirty && (
+                    <button type="button" onClick={() => { setRows(rowsFrom(saved)); setPointErrors({}); setFailure((prev) => ({ ...prev, questions: null })); }} disabled={Boolean(busy)} className={`${tool} px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100`}>
+                      {t('tasm.undo')}
+                    </button>
+                  )}
+                  <button type="button" onClick={saveQuestions} disabled={Boolean(busy) || !questionsDirty} className={`${tool} px-5 py-2.5 text-sm bg-brand text-white hover:bg-brand-deep`}>
+                    {busy === 'questions' ? t('common.loading') : t('tasm.saveQuestions')}
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        </>
       )}
 
       {guard.dialog}

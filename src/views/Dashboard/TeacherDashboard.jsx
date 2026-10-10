@@ -12,6 +12,8 @@ import { localOf } from '../Attendance/attendance';
 import StatCard from './components/StatCard';
 import TeachingDayCard from './components/TeachingDayCard';
 import AssessmentsCard from './components/AssessmentsCard';
+import { readMarkingQueue } from '../TeacherAssessment/markingQueue';
+import { dashboardAssessments } from '../TeacherAssessment/teacherAssessment';
 import { openYearLabels } from '../Schedule/teacherLessons';
 import {
   DAYS_AHEAD, addDays, classCount, currentSemester, dayMeetings, liveAssignments, openSemesterIds, uniqueStudentCount,
@@ -29,7 +31,9 @@ import {
     2026-10-05 one read per assignment).
   - Students: one `GET /tracking/class-subjects/:id/progress` per live assignment,
     the only roster a subject teacher may read; see teacherHome.js.
-  - To review: no submission module in the backend yet (ticket 03/04).
+  - To review (owner, 2026-10-10): attempts waiting for marking, and under them
+    how many are ready to release - markingQueue.js, shared with the sidebar's
+    number; a click opens the first assessment that waits, on its "Hasil" tab.
   - Assessments (AssessmentsCard, owner 2026-10-08): open, upcoming and drafts
     across the subjects taught now. It took the place of "recent submissions",
     which had no route.
@@ -94,6 +98,22 @@ export const TeacherDashboard = () => {
   }, [live]);
   const students = teaching === null ? null : counted;
 
+  /* undefined -> reading; { lists, waitingById, marking, release } -> read; null -> failed. */
+  const [queue, setQueue] = useState(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    readMarkingQueue(membership?.id)
+      .then((answer) => !cancelled && setQueue(answer))
+      .catch(() => !cancelled && setQueue(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [membership?.id]);
+  const firstWaiting = useMemo(
+    () => (queue ? dashboardAssessments(queue.lists, { waitingById: queue.waitingById }).items.find((item) => item.group === 'review') ?? null : null),
+    [queue]
+  );
+
   const now = new Date();
   const today = now.toLocaleDateString(locale, {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
@@ -140,9 +160,10 @@ export const TeacherDashboard = () => {
         />
         <StatCard
           title={t('teacherDash.stat.review')}
-          value="-"
-          subtext={t('common.notBuilt.title')}
+          value={queue === undefined ? '…' : queue === null ? '-' : String(queue.marking)}
+          subtext={queue === null ? t('dash.att.failed') : queue === undefined ? '' : t('teacherDash.stat.review.sub', { n: queue.release })}
           icon={ClipboardCheck}
+          onClick={firstWaiting ? () => navigate(`/teacher/courses/${firstWaiting.row.id}/penilaian/${firstWaiting.assessment.id}?tab=hasil`) : undefined}
         />
       </section>
 
@@ -154,7 +175,7 @@ export const TeacherDashboard = () => {
           className="lg:col-span-7"
         />
 
-        <AssessmentsCard live={teaching === undefined ? undefined : live} zone={zone} className="lg:col-span-5" />
+        <AssessmentsCard queue={queue} zone={zone} className="lg:col-span-5" />
       </div>
     </div>
   );

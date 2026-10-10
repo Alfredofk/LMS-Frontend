@@ -300,24 +300,48 @@ export const totalPoints = (rows) => rows.reduce((sum, row) => sum + (wholeIn(ro
 
 /**
  * What the teacher may do to it, by the server's rules: `edit` the details and
- * questions (not cancelled), `publish` (a draft; an ONLINE one with a question
- * saved), `remove` (a draft), `cancel` (published, not cancelled). All false
- * when it is read only - not theirs to manage (`canManage`), or a closed year.
+ * a copy (not cancelled), `editList` - add, remove, move and re-point questions -
+ * until the first release (backend 5255842: the list then answers 409),
+ * `publish` (a draft; an ONLINE one with a question saved), `remove` (a draft),
+ * `cancel` (published, not cancelled). All false when it is read only - not
+ * theirs to manage (`canManage`), or a closed year.
  */
 export function actionsOf(assessment, { readOnly = false } = {}) {
-  const none = { edit: false, publish: false, remove: false, cancel: false };
+  const none = { edit: false, editList: false, publish: false, remove: false, cancel: false };
   if (!assessment || readOnly || !assessment.canManage) return none;
   const { status } = assessment;
   if (status === 'CANCELLED') return none;
   return {
     edit: true,
+    editList: !isReleased(assessment),
     publish: status === 'DRAFT' && (assessment.mode === 'OFFLINE' || assessment.questionCount > 0),
     remove: status === 'DRAFT',
     cancel: status === 'PUBLISHED',
   };
 }
 
-/** A cancellation's reason (cancelBody: trimmed, 1 to 500), as a key or null. */
+/** Whether a release has recorded scores (backend 5255842): its questions are then locked. */
+export const isReleased = (assessment) => Boolean(assessment?.releasedAt);
+
+/**
+ * A released copy's fix (backend 5255842, `editQuestion`): its key or its points
+ * only, with a reason (1 to 500) every corrected score carries. Keys or {}.
+ */
+export function releasedFixErrors({ points, reason }) {
+  const errors = {};
+  if (!wholeIn(points, MIN_POINTS, MAX_POINTS)) errors.points = 'tasm.error.points';
+  const reasonError = cancelReasonError(reason);
+  if (reasonError) errors.reason = reasonError.key === 'tasm.error.reasonEmpty' ? 'tasm.error.fixReasonEmpty' : reasonError.key;
+  return errors;
+}
+
+/** What a released fix sends: the copy's content as it stands, its points and the reason. */
+export const releasedFixBody = (content, { points, reason }) => ({ ...content, points: Number(points), reason: String(reason).trim() });
+
+/** Whether a released copy holds a fix to send: its key (the rest is locked) or its points. */
+export const releasedFixChanged = ({ keyChanged, points, savedPoints }) => keyChanged || String(points).trim() !== String(savedPoints);
+
+/** A reason as the server takes one (trimmed, 1 to 500): a cancellation's, a released fix's. A key or null. */
 export function cancelReasonError(value) {
   const trimmed = String(value ?? '').trim();
   if (!trimmed) return { key: 'tasm.error.reasonEmpty' };
@@ -457,20 +481,22 @@ export function sourcesBySemester(sources) {
 // ---------------------------------------------------------------------------
 
 export const DASHBOARD_LIMIT = 5;
-const DASHBOARD_GROUPS = ['open', 'upcoming', 'draft'];
+const DASHBOARD_GROUPS = ['review', 'open', 'upcoming', 'draft'];
 
 /**
  * What the dashboard's "Penilaian" card lists, from each live class subject's
  * list (`[{ row, assessments }]`, `row` the teacher's own `?mine=true` row): the
  * ones open now, soonest to close first; then the published ones not open yet,
  * soonest to open; then drafts, by their window. Ended and cancelled ones ask
- * nothing of the teacher and are left out. One reached through two rows of a
+ * nothing of the teacher and are left out - unless attempts wait on them
+ * (waitingById, markingQueue.js, owner 2026-10-10): those come first, in
+ * "review", whatever their window, most to mark first. One reached through two rows of a
  * slot is listed once. Each item keeps the row it was read through, which is
  * the page's own class subject.
  *
- * @returns {{ items: { assessment, row, group }[], more: number, counts: { open, upcoming, draft } }}
+ * @returns {{ items: { assessment, row, group, waiting? }[], more: number, counts: { review, open, upcoming, draft } }}
  */
-export function dashboardAssessments(lists, { now = new Date(), limit = DASHBOARD_LIMIT } = {}) {
+export function dashboardAssessments(lists, { now = new Date(), limit = DASHBOARD_LIMIT, waitingById = {} } = {}) {
   const seen = new Set();
   const all = [];
   for (const { row, assessments } of lists ?? []) {
@@ -478,13 +504,19 @@ export function dashboardAssessments(lists, { now = new Date(), limit = DASHBOAR
       if (seen.has(assessment.id)) continue;
       seen.add(assessment.id);
       const state = stateOf(assessment, now);
+      const waiting = waitingById[assessment.id];
+      if (waiting && state !== 'CANCELLED') {
+        all.push({ assessment, row, group: 'review', waiting });
+        continue;
+      }
       if (state === 'ENDED' || state === 'CANCELLED') continue;
       const group = state === 'DRAFT' ? 'draft' : windowPhase(assessment, now) === 'open' ? 'open' : 'upcoming';
       all.push({ assessment, row, group });
     }
   }
   const at = (item) => new Date(item.group === 'open' ? item.assessment.closesAt : item.assessment.opensAt).getTime();
-  all.sort((a, b) => DASHBOARD_GROUPS.indexOf(a.group) - DASHBOARD_GROUPS.indexOf(b.group) || at(a) - at(b));
+  const toMark = (item) => (item.group === 'review' ? -item.waiting.marking : 0);
+  all.sort((a, b) => DASHBOARD_GROUPS.indexOf(a.group) - DASHBOARD_GROUPS.indexOf(b.group) || toMark(a) - toMark(b) || at(a) - at(b));
   const counts = Object.fromEntries(DASHBOARD_GROUPS.map((group) => [group, all.filter((item) => item.group === group).length]));
   return { items: all.slice(0, limit), more: Math.max(0, all.length - limit), counts };
 }

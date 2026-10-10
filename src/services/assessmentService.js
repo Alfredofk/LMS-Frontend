@@ -181,6 +181,49 @@ export const assessmentService = {
   async removeAssessment(id) {
     await api.del(`/assessments/${q(id)}`);
   },
+
+  // ---- Marking, release and scores (backend 5255842, ticket 04) ----
+
+  /**
+   * Every student of the class over the semester, and anyone with a submission:
+   * `{ assessment, waiting: { marking, release, inProgress }, students }`, each
+   * with status, `countedScore` and attempts. Staff only; homeroom and leaders read.
+   */
+  async results(id) {
+    return api.get(`/assessments/${q(id)}/submissions`);
+  },
+
+  /** One attempt for marking: `{ assessment, submission, scores, questions }`, keys included. */
+  async marking(id, submissionId) {
+    return api.get(`/assessments/${q(id)}/submissions/${q(submissionId)}`);
+  },
+
+  /** An essay's file, for the staff. */
+  markingFile: (id, submissionId, questionId) =>
+    requestBlob(`/assessments/${q(id)}/submissions/${q(submissionId)}/answers/${q(questionId)}/file`),
+
+  /**
+   * `{ answers?: [{ questionId, points?, comment? }], comment?, reason? }` - the
+   * answering teacher only. A draft until release; after it changed points need a
+   * reason. Answers the marking view again.
+   */
+  async mark(id, submissionId, body) {
+    return api.put(`/assessments/${q(id)}/submissions/${q(submissionId)}/marks`, body);
+  },
+
+  /**
+   * An OFFLINE one's marks, `{ marks: [{ studentProfileId, value 0-100, comment? }], reason? }`:
+   * all or none, students of the roster only. A draft until release; after it a
+   * changed mark needs the reason. Answers the results.
+   */
+  async offlineMarks(id, body) {
+    return api.put(`/assessments/${q(id)}/offline-marks`, body);
+  },
+
+  /** Records a score for every attempt ready: `{ assessment, released, waitingForMarking, inProgress }`. */
+  async release(id) {
+    return api.post(`/assessments/${q(id)}/release`, {});
+  },
 };
 
 export default assessmentService;

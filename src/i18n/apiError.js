@@ -569,6 +569,23 @@ const ASSESSMENT_BY_MESSAGE = [
   ['Copy only to your own live class subjects', 'tasm.error.copyTargets'],
   ['is in that class already', 'tasm.error.copyOwnClass'],
   ['has submissions; its opensAt is fixed', 'tasm.error.opensFixed'],
+  ['is released; its questions are locked', 'tasm.error.locked'],
+  ['is released; give a reason', 'tasm.error.fixReason'],
+  ['is a draft; it has nothing to mark', 'tasm.error.isDraftMark'],
+  ['release it once it has closed', 'tasm.error.releaseOpen'],
+  ['Enter marks only for students of', 'tasm.offline.error.notRoster'],
+  ['Marks were entered meanwhile', 'tasm.offline.error.meanwhile'],
+  ['its attempts are marked answer by answer', 'tasm.offline.error.online'],
+  ['A released mark changes only with a reason', 'tasm.error.fixReason'],
+  ['was cancelled meanwhile', 'tasm.error.isCancelled'],
+  ['A question named was not answered', 'tasm.mark.error.unanswered'],
+  ['its key marks it', 'tasm.mark.error.keyMarks'],
+  ['was released with its mark', 'tasm.mark.error.keepEssay'],
+  ['point(s)', 'tasm.mark.error.tooManyServer'],
+  ['This attempt is still in progress', 'tasm.mark.readOnly.inProgress'],
+  ['This attempt was voided', 'tasm.mark.error.voided'],
+  ['A question named is not in this submission', 'tasm.error.changedMeanwhile'],
+  ['Submission not found', 'tasm.mark.error.gone'],
   ['send a closesAt still ahead', 'tasm.error.voidsClosed', (message) => ({ n: message.match(/voids (\d+) submission/)?.[1] ?? '' })],
 ];
 
@@ -589,6 +606,7 @@ export const isStaleAssessment = (err) =>
     'delete it instead',
     'is cancelled already',
     'a published assessment is never deleted',
+    'is released; its questions are locked',
   ].some((needle) => String(err?.message ?? '').includes(needle));
 
 /*

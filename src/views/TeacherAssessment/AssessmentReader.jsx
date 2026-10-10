@@ -7,6 +7,8 @@ import { useT } from '../../i18n/LanguageContext';
 import { assessmentErrorMessage } from '../../i18n/apiError';
 import { assessmentService } from '../../services/assessmentService';
 import { QuestionAnswer } from '../QuestionBank/QuestionItem';
+import { Marking } from './MarkingPage';
+import ResultsTab from './ResultsTab';
 import StateWord from './StateWord';
 import { windowText } from './teacherAssessment';
 
@@ -20,6 +22,9 @@ import { windowText } from './teacherAssessment';
   marked), then one opened in the same place (GET /assessments/:id): its window,
   instructions, settings and questions with their keys - the staff see the key,
   as in the bank. No action anywhere; the teacher of the class subject manages.
+  Once published it has "Soal" and "Hasil" (backend 5255842, owner 2026-10-10):
+  the results (ResultsTab, bare) and an attempt opened in place (Marking,
+  embedded), both read only - the server answers these readers 403 on any write.
 
   @param classSubjectId  the class subject
   @param onBack          () => void - back to what opened it
@@ -54,6 +59,9 @@ const settingsFacts = (settings, t) =>
 const Detail = ({ id, zone, onBack, t, lang }) => {
   /* undefined: reading · assessment · { error } */
   const [assessment, setAssessment] = useState(undefined);
+  /* "Soal" or "Hasil" once published; an attempt opened from the results. */
+  const [part, setPart] = useState('soal');
+  const [submissionId, setSubmissionId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,6 +88,11 @@ const Detail = ({ id, zone, onBack, t, lang }) => {
 
   const facts = settingsFacts(assessment.settings, t);
   const questions = assessment.questions ?? [];
+  const hasResults = assessment.status !== 'DRAFT';
+
+  if (submissionId) {
+    return <Marking key={submissionId} assessmentId={assessment.id} submissionId={submissionId} onBack={() => setSubmissionId(null)} embedded />;
+  }
 
   return (
     <div className="space-y-4">
@@ -106,51 +119,76 @@ const Detail = ({ id, zone, onBack, t, lang }) => {
         {t('tasm.reader.readOnly')}
       </p>
 
-      {assessment.instructions && (
-        <div className="space-y-1">
-          <p className="text-sm font-extrabold text-slate-900">{t('tasm.reader.instructions')}</p>
-          <div className="content-html text-sm text-slate-800 break-words" dangerouslySetInnerHTML={{ __html: assessment.instructions }} />
+      {hasResults && (
+        <div role="tablist" aria-label={t('tasm.tabs')} className="flex gap-5 border-b border-slate-200">
+          {['soal', 'hasil'].map((key) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={part === key}
+              onClick={() => setPart(key)}
+              className={`px-1 pb-2 -mb-px text-xs font-extrabold border-b-2 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-t ${
+                part === key ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              {t(key === 'hasil' ? 'tasm.tab.results' : 'tasm.reader.tabQuestions')}
+            </button>
+          ))}
         </div>
       )}
 
-      {facts.length > 0 && (
-        <div className="space-y-1">
-          <p className="text-sm font-extrabold text-slate-900">{t('tasm.settings')}</p>
-          <p className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs font-semibold text-slate-600">
-            {facts.map((fact) => (
-              <span key={fact}>{fact}</span>
-            ))}
-          </p>
-        </div>
-      )}
-
-      {assessment.mode === 'OFFLINE' ? (
-        <p className="text-xs font-semibold text-slate-500 leading-relaxed">{t('tasm.offlineNote')}</p>
+      {hasResults && part === 'hasil' ? (
+        <ResultsTab assessment={assessment} zone={zone} onOpen={setSubmissionId} bare readOnly />
       ) : (
-        <div className="space-y-2">
-          <p className="text-sm font-extrabold text-slate-900">
-            {t('tasm.questions')}{' '}
-            <span className="text-xs font-semibold text-slate-500">{t('tasm.count', { n: assessment.questionCount, points: assessment.totalPoints })}</span>
-          </p>
-          {questions.length === 0 ? (
-            <p className="text-xs font-semibold text-slate-500">{t('tasm.noQuestionsReadOnly')}</p>
-          ) : (
-            <ol className="space-y-3">
-              {questions.map((question, index) => (
-                <li key={question.id} className="rounded-xl border border-slate-200 p-3.5 space-y-2.5">
-                  <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs font-bold text-slate-600">
-                    <span className="w-6 h-6 rounded-lg bg-slate-100 text-slate-700 text-[11px] font-extrabold flex items-center justify-center shrink-0">{index + 1}</span>
-                    <span>{t(`qbank.kind.${question.kind}`)}</span>
-                    <span className="ml-auto tabular-nums">{t('tasm.reader.points', { n: question.points })}</span>
-                  </p>
-                  <div className="content-html text-sm text-slate-800 break-words" dangerouslySetInnerHTML={{ __html: question.body ?? '' }} />
-                  {question.imageId && <QuestionImage imageId={question.imageId} assessmentId={assessment.id} className="max-h-48" />}
-                  <QuestionAnswer question={question} t={t} imageSource={{ assessmentId: assessment.id }} />
-                </li>
-              ))}
-            </ol>
+        <>
+          {assessment.instructions && (
+            <div className="space-y-1">
+              <p className="text-sm font-extrabold text-slate-900">{t('tasm.reader.instructions')}</p>
+              <div className="content-html text-sm text-slate-800 break-words" dangerouslySetInnerHTML={{ __html: assessment.instructions }} />
+            </div>
           )}
-        </div>
+
+          {facts.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-sm font-extrabold text-slate-900">{t('tasm.settings')}</p>
+              <p className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs font-semibold text-slate-600">
+                {facts.map((fact) => (
+                  <span key={fact}>{fact}</span>
+                ))}
+              </p>
+            </div>
+          )}
+
+          {assessment.mode === 'OFFLINE' ? (
+            <p className="text-xs font-semibold text-slate-500 leading-relaxed">{t('tasm.offlineNote')}</p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm font-extrabold text-slate-900">
+                {t('tasm.questions')}{' '}
+                <span className="text-xs font-semibold text-slate-500">{t('tasm.count', { n: assessment.questionCount, points: assessment.totalPoints })}</span>
+              </p>
+              {questions.length === 0 ? (
+                <p className="text-xs font-semibold text-slate-500">{t('tasm.noQuestionsReadOnly')}</p>
+              ) : (
+                <ol className="space-y-3">
+                  {questions.map((question, index) => (
+                    <li key={question.id} className="rounded-xl border border-slate-200 p-3.5 space-y-2.5">
+                      <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs font-bold text-slate-600">
+                        <span className="w-6 h-6 rounded-lg bg-slate-100 text-slate-700 text-[11px] font-extrabold flex items-center justify-center shrink-0">{index + 1}</span>
+                        <span>{t(`qbank.kind.${question.kind}`)}</span>
+                        <span className="ml-auto tabular-nums">{t('tasm.reader.points', { n: question.points })}</span>
+                      </p>
+                      <div className="content-html text-sm text-slate-800 break-words" dangerouslySetInnerHTML={{ __html: question.body ?? '' }} />
+                      {question.imageId && <QuestionImage imageId={question.imageId} assessmentId={assessment.id} className="max-h-48" />}
+                      <QuestionAnswer question={question} t={t} imageSource={{ assessmentId: assessment.id }} />
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

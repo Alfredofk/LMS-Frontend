@@ -7,6 +7,7 @@ import { leaveRequestsService } from '../services/leaveRequestsService';
 import { academicsService } from '../services/academicsService';
 import { ROLES, requestInPov } from '../constants/roles';
 import { isOwnRequest } from '../views/Subjects/subjects';
+import { readMarkingQueue } from '../views/TeacherAssessment/markingQueue';
 
 /*
   How many things wait for this person's decision, for the numbers beside the
@@ -20,7 +21,8 @@ import { isOwnRequest } from '../views/Subjects/subjects';
   moves waiting for *their* decision (`canDecide`).
 
     PRINCIPAL — joinRequests · leaveRequests · teachingRequests
-    TEACHER   — joinRequests · classMoves
+    TEACHER   — joinRequests · classMoves · marking (attempts to mark + to release,
+                markingQueue.js: read at most once a minute, shared with the dashboard)
 
   Read on arrival, again on navigation at most every 20 seconds (the backend
   rate-limits), and at once when a page reports a decision through
@@ -70,13 +72,15 @@ async function countsFor(role, selfId) {
     };
   }
   if (role === ROLES.TEACHER) {
-    const [join, moves] = await Promise.all([
+    const [join, moves, queue] = await Promise.all([
       soft(membershipReviewService.list('PENDING')),
       soft(academicsService.classMoves()),
+      soft(readMarkingQueue(selfId)),
     ]);
     return {
       joinRequests: join ? (join.requests ?? []).filter((row) => requestInPov(row, role)).length : null,
       classMoves: moves ? moves.filter((move) => move.canDecide).length : null,
+      marking: queue ? queue.marking + queue.release : null,
     };
   }
   return {};

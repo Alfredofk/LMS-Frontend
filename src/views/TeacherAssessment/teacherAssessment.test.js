@@ -13,11 +13,15 @@ import {
   formFrom,
   heldBankIds,
   instantOf,
+  isReleased,
   moveRow,
   needsNewWindow,
   partsOf,
   patchBody,
   questionsBody,
+  releasedFixBody,
+  releasedFixChanged,
+  releasedFixErrors,
   removeRow,
   rowErrors,
   rowsChanged,
@@ -186,19 +190,49 @@ describe('the question list', () => {
 
 describe('actionsOf - what the server lets the teacher do', () => {
   it('a draft: edit, delete; publish once an online one has a question', () => {
-    expect(actionsOf(saved)).toEqual({ edit: true, publish: true, remove: true, cancel: false });
+    expect(actionsOf(saved)).toEqual({ edit: true, editList: true, publish: true, remove: true, cancel: false });
     expect(actionsOf({ ...saved, questionCount: 0 }).publish).toBe(false);
     expect(actionsOf({ ...saved, mode: 'OFFLINE', questionCount: 0 }).publish).toBe(true);
   });
 
   it('published: edit and cancel, never delete; cancelled: nothing', () => {
-    expect(actionsOf({ ...saved, status: 'PUBLISHED' })).toEqual({ edit: true, publish: false, remove: false, cancel: true });
-    expect(actionsOf({ ...saved, status: 'CANCELLED' })).toEqual({ edit: false, publish: false, remove: false, cancel: false });
+    expect(actionsOf({ ...saved, status: 'PUBLISHED' })).toEqual({ edit: true, editList: true, publish: false, remove: false, cancel: true });
+    expect(actionsOf({ ...saved, status: 'CANCELLED' })).toEqual({ edit: false, editList: false, publish: false, remove: false, cancel: false });
   });
 
   it('nothing for a reader, or in a closed year', () => {
     expect(actionsOf({ ...saved, canManage: false }).edit).toBe(false);
     expect(actionsOf(saved, { readOnly: true }).edit).toBe(false);
+  });
+
+  it('released: the list locks, a copy and the details stay editable (backend 5255842)', () => {
+    const released = { ...saved, status: 'PUBLISHED', releasedAt: '2026-10-20T01:00:00Z' };
+    expect(isReleased(released)).toBe(true);
+    expect(isReleased(saved)).toBe(false);
+    expect(actionsOf(released)).toEqual({ edit: true, editList: false, publish: false, remove: false, cancel: true });
+  });
+
+  it('a released fix: points 1 to 100 and a reason of 1 to 500 (questionCopyEdit)', () => {
+    expect(releasedFixErrors({ points: '5', reason: 'Kunci salah' })).toEqual({});
+    expect(releasedFixErrors({ points: '0', reason: ' ' })).toEqual({ points: 'tasm.error.points', reason: 'tasm.error.fixReasonEmpty' });
+    expect(releasedFixErrors({ points: '101', reason: 'x'.repeat(501) })).toEqual({ points: 'tasm.error.points', reason: 'tasm.error.reasonLong' });
+    expect(releasedFixErrors({ points: '2.5', reason: 'x' }).points).toBe('tasm.error.points');
+  });
+
+  it('a released fix sends the content, the points as a number and the reason trimmed', () => {
+    expect(releasedFixBody({ kind: 'TF', body: '<p>a</p>', value: false }, { points: ' 4 ', reason: ' Kunci salah ' })).toEqual({
+      kind: 'TF',
+      body: '<p>a</p>',
+      value: false,
+      points: 4,
+      reason: 'Kunci salah',
+    });
+  });
+
+  it('a released fix is something to send once the key or the points moved', () => {
+    expect(releasedFixChanged({ keyChanged: false, points: '3', savedPoints: 3 })).toBe(false);
+    expect(releasedFixChanged({ keyChanged: false, points: '4', savedPoints: 3 })).toBe(true);
+    expect(releasedFixChanged({ keyChanged: true, points: '3', savedPoints: 3 })).toBe(true);
   });
 
   it('a cancellation needs a reason of 1 to 500 (cancelBody)', () => {
@@ -308,7 +342,7 @@ describe('dashboardAssessments - the dashboard card', () => {
     ];
     const out = dashboardAssessments(lists, { now });
     expect(out.items.map((item) => `${item.group}:${item.assessment.id}`)).toEqual(['open:openSoon', 'open:openLate', 'upcoming:upcoming', 'draft:draft']);
-    expect(out.counts).toEqual({ open: 2, upcoming: 1, draft: 1 });
+    expect(out.counts).toEqual({ review: 0, open: 2, upcoming: 1, draft: 1 });
     expect(out.items[0].row.id).toBe('cs-2');
     expect(out.more).toBe(0);
   });
@@ -319,5 +353,21 @@ describe('dashboardAssessments - the dashboard card', () => {
     expect(out.items).toHaveLength(5);
     expect(out.more).toBe(2);
     expect(out.counts.draft).toBe(7);
+  });
+
+  it('attempts waiting come first as review, ended ones too, most to mark first; never a cancelled one', () => {
+    const lists = [
+      { row, assessments: [
+        a('openNone', 'PUBLISHED', '2026-10-19T00:00:00Z', '2026-10-30T00:00:00Z'),
+        a('endedWaits', 'PUBLISHED', '2026-10-01T00:00:00Z', '2026-10-02T00:00:00Z'),
+        a('openWaits', 'PUBLISHED', '2026-10-19T00:00:00Z', '2026-10-31T00:00:00Z'),
+        a('cancelled', 'CANCELLED', '2026-10-19T00:00:00Z', '2026-10-30T00:00:00Z'),
+      ] },
+    ];
+    const waitingById = { endedWaits: { marking: 1, release: 2 }, openWaits: { marking: 3, release: 0 }, cancelled: { marking: 1, release: 0 } };
+    const out = dashboardAssessments(lists, { now, waitingById });
+    expect(out.items.map((item) => `${item.group}:${item.assessment.id}`)).toEqual(['review:openWaits', 'review:endedWaits', 'open:openNone']);
+    expect(out.items[1].waiting).toEqual({ marking: 1, release: 2 });
+    expect(out.counts.review).toBe(2);
   });
 });

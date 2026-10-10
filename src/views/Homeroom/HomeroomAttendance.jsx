@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ChevronRight, ClipboardList } from 'lucide-react';
+import { ArrowLeft, ChevronRight, ClipboardList, GraduationCap } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage } from '../../i18n/apiError';
@@ -10,6 +10,7 @@ import SessionList from '../Subjects/SessionList';
 import SessionRoster from '../Subjects/SessionRoster';
 import { classSubjectsOf } from './homeroomSubjects';
 import AssessmentReader from '../TeacherAssessment/AssessmentReader';
+import GradebookReader from '../Gradebook/GradebookReader';
 
 /*
   The homeroom teacher's class attendance, read only (owner, 2026-10-02; the
@@ -44,6 +45,7 @@ export const HomeroomAttendance = ({ classId, academicYearId }) => {
   const [sessions, setSessions] = useState({ list: null, zone: null, error: null });
   const [rosterSession, setRosterSession] = useState(null);
   const [assessmentsOpen, setAssessmentsOpen] = useState(false);
+  const [gradebookOpen, setGradebookOpen] = useState(false);
   const [error, setError] = useState(null);
 
   /* The class's year, for its semesters. */
@@ -73,6 +75,7 @@ export const HomeroomAttendance = ({ classId, academicYearId }) => {
     setSubject(null);
     setRosterSession(null);
     setAssessmentsOpen(false);
+    setGradebookOpen(false);
     academicsService
       .subjectBoard(semesterId)
       .then((data) => !cancelled && setBoard({ data, error: null }))
@@ -100,7 +103,7 @@ export const HomeroomAttendance = ({ classId, academicYearId }) => {
 
   const heading = (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-      <h3 className="text-base font-extrabold text-slate-900">{t(subject && assessmentsOpen ? 'tasm.pageTitle' : 'homeroom.att.title')}</h3>
+      <h3 className="text-base font-extrabold text-slate-900">{t(subject && assessmentsOpen ? 'tasm.pageTitle' : subject && gradebookOpen ? 'gradebook.readerTitle' : 'homeroom.att.title')}</h3>
       {semesters.length > 1 && (
         <label className="flex items-center gap-2">
           <span className="sr-only">{t('homeroom.att.semester')}</span>
@@ -144,6 +147,9 @@ export const HomeroomAttendance = ({ classId, academicYearId }) => {
   else if (semesters.length === 0) body = message(t('homeroom.att.noSemester'));
   else if (rosterSession) body = <SessionRoster session={rosterSession} zone={sessions.zone} onBack={() => setRosterSession(null)} />;
   else if (subject && assessmentsOpen) body = <AssessmentReader classSubjectId={subject.classSubjectId} onBack={() => setAssessmentsOpen(false)} showTitle={false} />;
+  else if (subject && gradebookOpen) {
+    body = <GradebookReader classSubjectId={subject.classSubjectId} name={[subject.subject.code, subject.subject.name].filter(Boolean).join(' ')} onBack={() => setGradebookOpen(false)} showTitle={false} />;
+  }
   else if (subject) {
     body = (
       <div className="space-y-2">
@@ -159,6 +165,14 @@ export const HomeroomAttendance = ({ classId, academicYearId }) => {
           >
             <ClipboardList className="w-3.5 h-3.5" aria-hidden="true" />
             {t('tasm.reader.open')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setGradebookOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-extrabold text-brand bg-brand-tint hover:bg-brand hover:text-white rounded-xl transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          >
+            <GraduationCap className="w-3.5 h-3.5" aria-hidden="true" />
+            {t('gradebook.open')}
           </button>
         </div>
         {sessions.error

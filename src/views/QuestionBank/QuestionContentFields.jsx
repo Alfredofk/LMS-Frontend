@@ -16,6 +16,9 @@ import { MAX_ACCEPTED, MAX_OPTIONS, MAX_OPTION_TEXT, MCQ_SCORINGS, MIN_OPTIONS, 
                       question, `{ assessmentId }` for a copy
   @param editorKey    the version read: the body's editor takes its HTML once, so
                       a reload remounts it
+  @param keyOnly      a released copy (backend 5255842): what students were shown
+                      is locked - body, images, options, scoring - and only the
+                      key stays open (an MCQ's marks, TF's answer, SHORT's list)
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 sm:p-6 shadow-sm';
@@ -26,7 +29,7 @@ const iconTool = tool.replace('px-2.5', 'px-1.5');
 const fieldLabel = 'block text-sm font-bold text-slate-700';
 const errorText = 'text-xs font-semibold text-red-600';
 
-const OptionRow = ({ option, index, count, scoring, error, disabled, imageSource, onChange, onCorrect, onMove, onRemove, t }) => {
+const OptionRow = ({ option, index, count, scoring, error, disabled, locked, imageSource, onChange, onCorrect, onMove, onRemove, t }) => {
   const single = scoring === 'SINGLE';
   const MarkIcon = option.correct ? (single ? CheckCircle2 : SquareCheck) : single ? Circle : Square;
   const letter = String.fromCharCode(65 + index);
@@ -50,7 +53,7 @@ const OptionRow = ({ option, index, count, scoring, error, disabled, imageSource
             rows={2}
             value={option.text}
             maxLength={MAX_OPTION_TEXT}
-            disabled={disabled}
+            disabled={disabled || locked}
             onChange={(e) => onChange({ text: e.target.value })}
             aria-label={t('qbank.editor.optionText', { letter })}
             aria-invalid={Boolean(error)}
@@ -63,29 +66,31 @@ const OptionRow = ({ option, index, count, scoring, error, disabled, imageSource
             compact
             imageId={option.imageId}
             {...imageSource}
-            disabled={disabled}
+            disabled={disabled || locked}
             label={t('qbank.editor.optionImage')}
             onChange={(imageId) => onChange({ imageId })}
           />
           {error && <p className={errorText}>{t(error)}</p>}
         </div>
-        <div className="flex flex-col gap-1 shrink-0">
-          <button type="button" onClick={() => onMove(-1)} disabled={disabled || index === 0} aria-label={t('qbank.editor.moveUp', { letter })} className={`${iconTool} text-slate-500 hover:bg-slate-100`}>
-            <ArrowUp className="w-3.5 h-3.5" aria-hidden="true" />
-          </button>
-          <button type="button" onClick={() => onMove(1)} disabled={disabled || index === count - 1} aria-label={t('qbank.editor.moveDown', { letter })} className={`${iconTool} text-slate-500 hover:bg-slate-100`}>
-            <ArrowDown className="w-3.5 h-3.5" aria-hidden="true" />
-          </button>
-          <button type="button" onClick={onRemove} disabled={disabled || count <= MIN_OPTIONS} aria-label={t('qbank.editor.removeOption', { letter })} className={`${iconTool} text-rose-600 hover:bg-rose-50`}>
-            <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-          </button>
-        </div>
+        {!locked && (
+          <div className="flex flex-col gap-1 shrink-0">
+            <button type="button" onClick={() => onMove(-1)} disabled={disabled || index === 0} aria-label={t('qbank.editor.moveUp', { letter })} className={`${iconTool} text-slate-500 hover:bg-slate-100`}>
+              <ArrowUp className="w-3.5 h-3.5" aria-hidden="true" />
+            </button>
+            <button type="button" onClick={() => onMove(1)} disabled={disabled || index === count - 1} aria-label={t('qbank.editor.moveDown', { letter })} className={`${iconTool} text-slate-500 hover:bg-slate-100`}>
+              <ArrowDown className="w-3.5 h-3.5" aria-hidden="true" />
+            </button>
+            <button type="button" onClick={onRemove} disabled={disabled || count <= MIN_OPTIONS} aria-label={t('qbank.editor.removeOption', { letter })} className={`${iconTool} text-rose-600 hover:bg-rose-50`}>
+              <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+            </button>
+          </div>
+        )}
       </div>
     </li>
   );
 };
 
-export const QuestionContentFields = ({ draft, setDraft, update, errors, setErrors, busy, baseId, editorKey, imageSource, t }) => {
+export const QuestionContentFields = ({ draft, setDraft, update, errors, setErrors, busy, baseId, editorKey, imageSource, keyOnly = false, t }) => {
   const options = draft.options ?? [];
   const updateOption = (key, patch) =>
     setDraft((prev) => ({ ...prev, options: prev.options.map((option) => (option.key === key ? { ...option, ...patch } : option)) }));
@@ -98,10 +103,10 @@ export const QuestionContentFields = ({ draft, setDraft, update, errors, setErro
             {t('qbank.editor.body')}
           </span>
           {/* Keyed on the version read: the editor takes its HTML once, so a reload remounts it. */}
-          <TextEditor key={editorKey} id={`${baseId}-body-box`} labelledBy={`${baseId}-body`} value={draft.body} onChange={(html) => update({ body: html })} disabled={busy} invalid={Boolean(errors.body)} />
+          <TextEditor key={editorKey} id={`${baseId}-body-box`} labelledBy={`${baseId}-body`} value={draft.body} onChange={(html) => update({ body: html })} disabled={busy || keyOnly} invalid={Boolean(errors.body)} />
           {errors.body && <p className={errorText}>{t(errors.body)}</p>}
         </div>
-        <ImagePicker imageId={draft.imageId} {...imageSource} disabled={busy} label={t('qbank.editor.bodyImage')} onChange={(imageId) => update({ imageId })} />
+        <ImagePicker imageId={draft.imageId} {...imageSource} disabled={busy || keyOnly} label={t('qbank.editor.bodyImage')} onChange={(imageId) => update({ imageId })} />
       </section>
 
       <section className={`${card} space-y-4`} aria-labelledby={`${baseId}-answer`}>
@@ -115,7 +120,7 @@ export const QuestionContentFields = ({ draft, setDraft, update, errors, setErro
               <label htmlFor={`${baseId}-scoring`} className={fieldLabel}>
                 {t('qbank.editor.scoring')}
               </label>
-              <Select id={`${baseId}-scoring`} value={draft.mcqScoring} disabled={busy} onChange={(e) => update({ mcqScoring: e.target.value })}>
+              <Select id={`${baseId}-scoring`} value={draft.mcqScoring} disabled={busy || keyOnly} onChange={(e) => update({ mcqScoring: e.target.value })}>
                 {MCQ_SCORINGS.map((scoring) => (
                   <option key={scoring} value={scoring}>
                     {t(`qbank.scoring.${scoring}`)}
@@ -135,6 +140,7 @@ export const QuestionContentFields = ({ draft, setDraft, update, errors, setErro
                   scoring={draft.mcqScoring}
                   error={errors.option?.[option.key]}
                   disabled={busy}
+                  locked={keyOnly}
                   imageSource={imageSource}
                   t={t}
                   onChange={(patch) => updateOption(option.key, patch)}
@@ -144,7 +150,7 @@ export const QuestionContentFields = ({ draft, setDraft, update, errors, setErro
                 />
               ))}
             </ol>
-            {options.length < MAX_OPTIONS && (
+            {options.length < MAX_OPTIONS && !keyOnly && (
               <button
                 type="button"
                 disabled={busy}

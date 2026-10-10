@@ -52,9 +52,6 @@
 :root[data-theme="dark"] .bg-red-50 { background-color: color-mix(in oklab, oklch(63.7% 0.237 25.331) 12%, transparent); }
 :root[data-theme="dark"] .hover\:bg-red-50:hover { background-color: color-mix(in oklab, oklch(63.7% 0.237 25.331) 12%, transparent); }
 :root[data-theme="dark"] .group:hover .group-hover\:bg-red-50 { background-color: color-mix(in oklab, oklch(63.7% 0.237 25.331) 12%, transparent); }
-:root[data-theme="dark"] .bg-red-50\/5 { background-color: color-mix(in oklab, oklch(63.7% 0.237 25.331) 12%, transparent); }
-:root[data-theme="dark"] .hover\:bg-red-50\/5:hover { background-color: color-mix(in oklab, oklch(63.7% 0.237 25.331) 12%, transparent); }
-:root[data-theme="dark"] .group:hover .group-hover\:bg-red-50\/5 { background-color: color-mix(in oklab, oklch(63.7% 0.237 25.331) 12%, transparent); }
 :root[data-theme="dark"] .bg-red-100 { background-color: color-mix(in oklab, oklch(63.7% 0.237 25.331) 18%, transparent); }
 :root[data-theme="dark"] .hover\:bg-red-100:hover { background-color: color-mix(in oklab, oklch(63.7% 0.237 25.331) 18%, transparent); }
 :root[data-theme="dark"] .group:hover .group-hover\:bg-red-100 { background-color: color-mix(in oklab, oklch(63.7% 0.237 25.331) 18%, transparent); }
@@ -310,9 +307,6 @@
 :root[data-theme="dark"] .bg-emerald-50 { background-color: color-mix(in oklab, oklch(69.6% 0.17 162.48) 12%, transparent); }
 :root[data-theme="dark"] .hover\:bg-emerald-50:hover { background-color: color-mix(in oklab, oklch(69.6% 0.17 162.48) 12%, transparent); }
 :root[data-theme="dark"] .group:hover .group-hover\:bg-emerald-50 { background-color: color-mix(in oklab, oklch(69.6% 0.17 162.48) 12%, transparent); }
-:root[data-theme="dark"] .bg-emerald-50\/30 { background-color: color-mix(in oklab, oklch(69.6% 0.17 162.48) 12%, transparent); }
-:root[data-theme="dark"] .hover\:bg-emerald-50\/30:hover { background-color: color-mix(in oklab, oklch(69.6% 0.17 162.48) 12%, transparent); }
-:root[data-theme="dark"] .group:hover .group-hover\:bg-emerald-50\/30 { background-color: color-mix(in oklab, oklch(69.6% 0.17 162.48) 12%, transparent); }
 :root[data-theme="dark"] .bg-emerald-100 { background-color: color-mix(in oklab, oklch(69.6% 0.17 162.48) 18%, transparent); }
 :root[data-theme="dark"] .hover\:bg-emerald-100:hover { background-color: color-mix(in oklab, oklch(69.6% 0.17 162.48) 18%, transparent); }
 :root[data-theme="dark"] .group:hover .group-hover\:bg-emerald-100 { background-color: color-mix(in oklab, oklch(69.6% 0.17 162.48) 18%, transparent); }

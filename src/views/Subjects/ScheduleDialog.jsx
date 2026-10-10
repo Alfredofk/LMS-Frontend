@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { modalActions, modalCancelClass, modalConfirmClass } from '../../components/ui/modalStyles';
-import { BarChart3, ClipboardList, Plus, Trash2 } from 'lucide-react';
+import { BarChart3, ClipboardList, GraduationCap, Plus, Trash2 } from 'lucide-react';
 
 import Select from '../../components/ui/Select';
 
@@ -25,6 +25,7 @@ import SessionList from './SessionList';
 import SessionRoster from './SessionRoster';
 import SubjectProgress from './SubjectProgress';
 import AssessmentReader from '../TeacherAssessment/AssessmentReader';
+import GradebookReader from '../Gradebook/GradebookReader';
 import SessionContentDrawer from '../../components/content/SessionContentDrawer';
 
 /*
@@ -63,6 +64,7 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
   const [progressOpen, setProgressOpen] = useState(false);
   /* Its assessments, read only, open in place of the view (backend 0bb4598, owner 2026-10-08). */
   const [assessmentsOpen, setAssessmentsOpen] = useState(false);
+  const [gradebookOpen, setGradebookOpen] = useState(false);
   /* The meeting whose materials are open in the side panel (drafts shown: staff). */
   const [contentOf, setContentOf] = useState(null);
   const openerRef = useRef(null);
@@ -242,6 +244,10 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
         <ClipboardList className="w-3.5 h-3.5" aria-hidden="true" />
         {t('tasm.reader.open')}
       </button>
+      <button type="button" onClick={() => setGradebookOpen(true)} className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-extrabold text-brand bg-brand-tint hover:bg-brand hover:text-white rounded-xl transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand">
+        <GraduationCap className="w-3.5 h-3.5" aria-hidden="true" />
+        {t('gradebook.open')}
+      </button>
       </div>
 
       <div className="space-y-1.5">
@@ -406,6 +412,8 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
           <SubjectProgress classSubjectId={row.classSubjectId} zone={schedule.timeZone} onBack={() => setProgressOpen(false)} />
         ) : assessmentsOpen ? (
           <AssessmentReader classSubjectId={row.classSubjectId} onBack={() => setAssessmentsOpen(false)} />
+        ) : gradebookOpen ? (
+          <GradebookReader classSubjectId={row.classSubjectId} name={`${row.subject.name} - ${boardClass.name}`} onBack={() => setGradebookOpen(false)} />
         ) : (
           view
         )}
@@ -439,7 +447,7 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
               <button type="button" onClick={onClose} className={secondary}>
                 {t('timetable.close')}
               </button>
-              {canEdit && !rosterSession && !progressOpen && !assessmentsOpen && (
+              {canEdit && !rosterSession && !progressOpen && !assessmentsOpen && !gradebookOpen && (
                 <button type="button" onClick={startEditing} className={primary}>
                   {t(schedule.slots.length ? 'timetable.edit' : 'timetable.set')}
                 </button>

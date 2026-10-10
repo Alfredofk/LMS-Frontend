@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronRight, ClipboardList } from 'lucide-react';
 
 import { useT } from '../../../i18n/LanguageContext';
-import { assessmentService } from '../../../services/assessmentService';
 import StateWord from '../../TeacherAssessment/StateWord';
 import { dashboardAssessments, windowText } from '../../TeacherAssessment/teacherAssessment';
 
@@ -11,45 +10,35 @@ import { dashboardAssessments, windowText } from '../../TeacherAssessment/teache
   The teacher's assessments on the dashboard (owner, 2026-10-08), in the place
   "Pengumpulan terbaru" held while it had no route: what is open now, what opens
   next and drafts not yet published, across every subject taught now
-  (dashboardAssessments). One GET /assessments/class-subjects/:id per live
-  assignment; a list that fails is left out, and only every one failing says so.
-  At most five rows, the rest counted with a way to "Kelas Saya". A row opens the
-  assessment's page through the teacher's own class subject.
+  (dashboardAssessments). The lists come from markingQueue.js (one GET
+  /assessments/class-subjects/:id per live assignment, a list that fails left out),
+  and with them what waits (owner, 2026-10-10): an assessment with attempts to
+  mark or release comes first, under "Perlu dinilai", whatever its window, and
+  opens on its "Hasil" tab. At most five rows, the rest counted with a way to
+  "Kelas Saya". A row opens the assessment's page through the teacher's own class
+  subject.
 
-  @param live       the live `?mine=true` rows (liveAssignments): undefined while
-                    reading, null when they could not be read
+  @param queue      readMarkingQueue's answer: undefined while reading, null when
+                    it could not be read
   @param zone       the school's zone, for the windows
   @param className  the grid placement
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm text-left';
 
-export const AssessmentsCard = ({ live, zone, className = '' }) => {
+export const AssessmentsCard = ({ queue, zone, className = '' }) => {
   const { t, lang } = useT();
   const navigate = useNavigate();
-  /* undefined: reading · { items, more, counts } · null: every list failed */
-  const [data, setData] = useState(undefined);
+  /* { items, more, counts }, or what the queue is: undefined reading, null failed. */
+  const data = useMemo(() => (queue ? dashboardAssessments(queue.lists, { waitingById: queue.waitingById }) : queue), [queue]);
 
-  useEffect(() => {
-    if (!live) return undefined;
-    let cancelled = false;
-    Promise.allSettled(live.map((row) => assessmentService.listFor(row.id).then((assessments) => ({ row, assessments })))).then((results) => {
-      if (cancelled) return;
-      const lists = results.filter((result) => result.status === 'fulfilled').map((result) => result.value);
-      setData(live.length > 0 && lists.length === 0 ? null : dashboardAssessments(lists));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [live]);
-
-  const reading = live === undefined || (live && data === undefined);
-  const empty = live?.length === 0 || data?.items.length === 0;
+  const reading = queue === undefined;
+  const empty = data?.items.length === 0;
 
   let body;
   if (reading) {
     body = <div className="h-40 rounded-xl bg-slate-50 animate-pulse" aria-label={t('common.loading')} />;
-  } else if (live === null || data === null) {
+  } else if (data === null) {
     body = <p className="text-xs font-semibold text-rose-700" role="alert">{t('teacherDash.asm.failed')}</p>;
   } else if (empty) {
     body = (
@@ -63,7 +52,7 @@ export const AssessmentsCard = ({ live, zone, className = '' }) => {
     body = (
       <div className="space-y-1">
         <ul className="space-y-1">
-          {data.items.map(({ assessment, row, group }, i) => {
+          {data.items.map(({ assessment, row, group, waiting }, i) => {
             /* A group is named above its first row. */
             const heading = i === 0 || data.items[i - 1].group !== group ? group : null;
             return (
@@ -75,7 +64,7 @@ export const AssessmentsCard = ({ live, zone, className = '' }) => {
                 )}
                 <button
                   type="button"
-                  onClick={() => navigate(`/teacher/courses/${row.id}/penilaian/${assessment.id}`)}
+                  onClick={() => navigate(`/teacher/courses/${row.id}/penilaian/${assessment.id}${waiting ? '?tab=hasil' : ''}`)}
                   className="w-full text-left px-3 py-2.5 rounded-xl flex items-center gap-2 hover:bg-slate-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                 >
                   <span className="min-w-0 flex-1 space-y-0.5">
@@ -88,7 +77,14 @@ export const AssessmentsCard = ({ live, zone, className = '' }) => {
                       <span>{row.subject?.code}</span>
                       <span>{t(`tasm.type.${assessment.type}`)}</span>
                     </span>
-                    <span className="block text-[11px] font-semibold text-slate-500 tabular-nums">{windowText(assessment, zone, lang)}</span>
+                    {waiting ? (
+                      <span className="flex flex-wrap gap-x-2.5 gap-y-0.5 text-[11px] font-bold">
+                        {waiting.marking > 0 && <span className="text-amber-700">{t('teacherDash.asm.toMark', { n: waiting.marking })}</span>}
+                        {waiting.release > 0 && <span className="text-brand">{t('teacherDash.asm.toRelease', { n: waiting.release })}</span>}
+                      </span>
+                    ) : (
+                      <span className="block text-[11px] font-semibold text-slate-500 tabular-nums">{windowText(assessment, zone, lang)}</span>
+                    )}
                   </span>
                   <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
                 </button>
