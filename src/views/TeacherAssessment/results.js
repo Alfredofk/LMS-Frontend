@@ -150,17 +150,18 @@ export const MAX_OFFLINE_MARK = 100;
 
 /**
  * A student's offline mark as saved: the attempt the teacher entered (closedBy
- * TEACHER, not void) - `{ submissionId, value, released }` - or null.
+ * TEACHER, not void) - `{ submissionId, value, released, comment }` - or null.
  */
 export function offlineSavedOf(student) {
   const attempt = (student?.attempts ?? []).find((item) => item.closedBy === 'TEACHER' && item.status !== 'VOID');
   if (!attempt) return null;
-  return { submissionId: attempt.id, value: attempt.mark?.value ?? null, released: Boolean(attempt.releasedAt) };
+  return { submissionId: attempt.id, value: attempt.mark?.value ?? null, released: Boolean(attempt.releasedAt), comment: attempt.comment ?? null };
 }
 
 /**
- * The form per student: `{ mark, comment, loadedComment }`. `comment` stays null
- * until the teacher opens it (the results carry no comment; it is read then).
+ * The form per student: `{ mark, comment, loadedComment }`, the comment filled
+ * from the results (each attempt carries it since backend d13ded4), so saving a
+ * mark never sends an empty comment over a stored one.
  */
 export function offlineDraftsFrom(students, lang = 'en') {
   const drafts = {};
@@ -168,12 +169,13 @@ export function offlineDraftsFrom(students, lang = 'en') {
     const saved = offlineSavedOf(student);
     /* Written as the reader writes it ("85,5"); pointsValue reads either. A mark is at most 100, so no grouping. */
     const mark = saved?.value === null || saved?.value === undefined ? '' : formatNumber(saved.value, lang);
-    drafts[student.studentProfileId] = { mark, comment: null, loadedComment: null };
+    const stored = saved?.comment ?? null;
+    drafts[student.studentProfileId] = { mark, comment: stored ?? '', loadedComment: stored };
   }
   return drafts;
 }
 
-const commentChanged = (draft) => draft.comment !== null && (draft.comment.trim() || null) !== (draft.loadedComment ?? null);
+const commentChanged = (draft) => (String(draft.comment ?? '').trim() || null) !== (draft.loadedComment ?? null);
 
 /** Per student whose row changed: `{ markChanged, commentChanged, value }`. */
 function offlineChanges(drafts, students) {
@@ -200,7 +202,7 @@ export function offlineErrors(drafts, students) {
     const id = student.studentProfileId;
     if (value === null) errors[id] = saved ? 'tasm.offline.error.keep' : 'tasm.offline.error.needMark';
     else if (Number.isNaN(value) || !twoDecimals(value) || value > MAX_OFFLINE_MARK) errors[id] = 'tasm.offline.error.mark';
-    if (draft.comment !== null && draft.comment.trim().length > 2000) errors[`${id}:comment`] = 'tasm.mark.error.commentLong';
+    if (String(draft.comment ?? '').trim().length > 2000) errors[`${id}:comment`] = 'tasm.mark.error.commentLong';
   }
   return errors;
 }
@@ -215,7 +217,7 @@ export function offlineBody(drafts, students, reason = '') {
   const marks = changes.map(({ student, draft, value, commentChanged: withComment }) => ({
     studentProfileId: student.studentProfileId,
     value,
-    ...(withComment ? { comment: draft.comment.trim() || null } : {}),
+    ...(withComment ? { comment: String(draft.comment ?? '').trim() || null } : {}),
   }));
   return offlineNeedsReason(drafts, students) ? { marks, reason: String(reason).trim() } : { marks };
 }

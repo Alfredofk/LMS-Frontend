@@ -3,6 +3,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom';
 import { AlertCircle, RefreshCw, Send } from 'lucide-react';
 
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import FactLine from '../../components/ui/FactLine';
 import { useT } from '../../i18n/LanguageContext';
 import { assessmentErrorMessage } from '../../i18n/apiError';
 import { assessmentService } from '../../services/assessmentService';
@@ -11,6 +12,8 @@ import { formatSchoolDay } from '../QuestionBank/questionBank';
 import { forgetMarkingQueue } from './markingQueue';
 import { notifyPendingChanged } from '../../hooks/usePendingCounts';
 import { cancelReasonError } from './teacherAssessment';
+import ExceptionDialog from './ExceptionDialog';
+import { canSetException, exceptionFacts } from './exceptions';
 import {
   MAX_OFFLINE_MARK,
   attemptsNewestFirst,
@@ -33,10 +36,16 @@ import {
   none, which is not 0.
 
   An OFFLINE one's marks are typed here (owner 2026-10-10): a box per student
-  (0-100, two decimals), a comment opened per row - read from that attempt, since
-  the results carry none - and one "Simpan nilai" sending what changed
+  (0-100, two decimals), a comment per row - filled from the results, which carry
+  each attempt's comment since backend d13ded4, and shown open when one is stored -
+  and one "Simpan nilai" sending what changed
   (PUT offline-marks, all or none). Released, a changed mark asks a reason. Release
   waits while marks are unsaved; the page's leave guard hears `onDirty`.
+
+  Make-up and remedial (backend 1e6c749, ticket 05; owner 2026-10-11): a row's
+  exception is one grey line under its status (FactLine), and an attempt started
+  under a remedial says "Remedial". On an ONLINE one published, the answering
+  teacher has "Susulan / remedial" per student placed now (ExceptionDialog).
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 sm:p-6 shadow-sm';
@@ -62,10 +71,11 @@ const errorText = 'text-xs font-semibold text-red-600';
 const box =
   'rounded-xl border bg-white px-3 py-2 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand disabled:bg-slate-50 disabled:text-slate-500';
 
-/* One student's offline mark: the box, and the comment opened on demand. */
+/* One student's offline mark: the box, and the comment - open when one is stored, else on demand. */
 const OfflineRow = ({ student, draft, error, commentError, busy, lang, t, onMark, onComment, onOpenComment, onHistory }) => {
   const id = student.studentProfileId;
   const saved = offlineSavedOf(student);
+  const commentShown = draft.commentOpen || Boolean(draft.loadedComment);
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -90,29 +100,25 @@ const OfflineRow = ({ student, draft, error, commentError, busy, lang, t, onMark
             {t('tasm.offline.history')}
           </button>
         )}
-        {!draft.commentOpen && (
+        {!commentShown && (
           <button type="button" onClick={onOpenComment} disabled={busy} className={`${tool} ml-auto border border-slate-200 text-slate-700 hover:bg-slate-50`}>
             {t('tasm.offline.comment')}
           </button>
         )}
       </div>
       {error && <p className={errorText}>{t(error)}</p>}
-      {draft.commentOpen &&
-        (draft.commentLoading ? (
-          <p className="text-xs font-semibold text-slate-500">{t('common.loading')}</p>
-        ) : (
-          <textarea
-            aria-label={t('tasm.offline.commentFor', { name: student.fullName ?? '' })}
-            rows={2}
-            value={draft.comment ?? ''}
-            maxLength={2000}
-            disabled={busy}
-            onChange={(e) => onComment(e.target.value)}
-            className={`${box} w-full resize-y ${commentError ? 'border-red-400' : 'border-slate-200'}`}
-          />
-        ))}
+      {commentShown && (
+        <textarea
+          aria-label={t('tasm.offline.commentFor', { name: student.fullName ?? '' })}
+          rows={2}
+          value={draft.comment ?? ''}
+          maxLength={2000}
+          disabled={busy}
+          onChange={(e) => onComment(e.target.value)}
+          className={`${box} w-full resize-y ${commentError ? 'border-red-400' : 'border-slate-200'}`}
+        />
+      )}
       {commentError && <p className={errorText}>{t(commentError)}</p>}
-      {draft.commentFailure && <p className={errorText}>{draft.commentFailure}</p>}
     </div>
   );
 };
@@ -122,7 +128,7 @@ const OfflineRow = ({ student, draft, error, commentError, busy, lang, t, onMark
   person, so a Principal who teaches the subject is told true; at the Principal's
   desk nothing is changed all the same - they mark and release as Teacher.
 */
-export const ResultsTab = ({ assessment, zone, onReleased, onDirty, onOpen = null, bare = false, readOnly = false }) => {
+export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty, onOpen = null, bare = false, readOnly = false }) => {
   const { t, lang } = useT();
   const navigate = useNavigate();
   const { showToast } = useOutletContext() ?? {};
@@ -136,6 +142,8 @@ export const ResultsTab = ({ assessment, zone, onReleased, onDirty, onOpen = nul
   const [drafts, setDrafts] = useState({});
   const [reason, setReason] = useState('');
   const [errors, setErrors] = useState({});
+  /* The student whose make-up/remedial dialog is open. */
+  const [excFor, setExcFor] = useState(null);
 
   const adoptResults = useCallback((answer) => {
     const students = answer.students ?? [];
@@ -203,23 +211,6 @@ export const ResultsTab = ({ assessment, zone, onReleased, onDirty, onOpen = nul
     setErrors((prev) => ({ ...prev, [studentProfileId]: undefined, [`${studentProfileId}:comment`]: undefined, save: undefined }));
   };
 
-  const openComment = async (student) => {
-    const id = student.studentProfileId;
-    const saved = offlineSavedOf(student);
-    if (!saved) {
-      setDraft(id, { commentOpen: true, comment: drafts[id]?.comment ?? '' });
-      return;
-    }
-    setDraft(id, { commentOpen: true, commentLoading: true, commentFailure: null });
-    try {
-      const view = await assessmentService.marking(current.id, saved.submissionId);
-      const stored = view.submission?.comment ?? null;
-      setDraft(id, { commentLoading: false, comment: stored ?? '', loadedComment: stored });
-    } catch (err) {
-      setDraft(id, { commentOpen: false, commentLoading: false, commentFailure: assessmentErrorMessage(err, t) });
-    }
-  };
-
   const saveMarks = async () => {
     const found = offlineErrors(drafts, students);
     if (needsReason) {
@@ -244,6 +235,16 @@ export const ResultsTab = ({ assessment, zone, onReleased, onDirty, onOpen = nul
       setBusy(false);
     }
   };
+
+  const excDone = (outcome) => {
+    const name = excFor?.fullName ?? '';
+    setExcFor(null);
+    showToast?.(t(outcome === 'removed' ? 'tasm.exc.toast.removed' : 'tasm.exc.toast.saved', { name }), 'success');
+    setAttempt((n) => n + 1);
+  };
+
+  const factText = (fact) =>
+    t(fact.key, fact.key === 'tasm.exc.fact.makeUp' ? { opens: when(fact.vars.opens, zone, lang), closes: when(fact.vars.closes, zone, lang) } : fact.vars);
 
   const doRelease = async () => {
     setBusy(true);
@@ -318,6 +319,17 @@ export const ResultsTab = ({ assessment, zone, onReleased, onDirty, onOpen = nul
                     <span className={STATUS_TONE[student.status]}>{t(`tasm.results.status.${student.status}`)}</span>
                     {!student.placedNow && <span className="text-slate-500">{t('tasm.results.movedAway')}</span>}
                   </p>
+                  {student.exception && <FactLine size="xs" wrap facts={exceptionFacts(student.exception).map(factText)} />}
+                  {canSetException(current, student, manages) && (
+                    <button
+                      type="button"
+                      onClick={() => setExcFor(student)}
+                      disabled={busy}
+                      className="text-xs font-bold text-brand hover:text-brand-deep hover:underline cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded disabled:opacity-50"
+                    >
+                      {t('tasm.exc.open')}
+                    </button>
+                  )}
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-lg font-extrabold text-slate-900 tabular-nums leading-tight">{formatNumber(student.countedScore, lang)}</p>
@@ -328,7 +340,7 @@ export const ResultsTab = ({ assessment, zone, onReleased, onDirty, onOpen = nul
               {entering && (
                 <OfflineRow
                   student={student}
-                  draft={drafts[student.studentProfileId] ?? { mark: '', comment: null }}
+                  draft={drafts[student.studentProfileId] ?? { mark: '', comment: '', loadedComment: null }}
                   error={errors[student.studentProfileId]}
                   commentError={errors[`${student.studentProfileId}:comment`]}
                   busy={busy}
@@ -336,7 +348,7 @@ export const ResultsTab = ({ assessment, zone, onReleased, onDirty, onOpen = nul
                   t={t}
                   onMark={(mark) => setDraft(student.studentProfileId, { mark })}
                   onComment={(comment) => setDraft(student.studentProfileId, { comment })}
-                  onOpenComment={() => openComment(student)}
+                  onOpenComment={() => setDraft(student.studentProfileId, { commentOpen: true })}
                   onHistory={() => open(offlineSavedOf(student).submissionId)}
                 />
               )}
@@ -354,6 +366,7 @@ export const ResultsTab = ({ assessment, zone, onReleased, onDirty, onOpen = nul
                         <span className={STATUS_TONE[item.status]}>{t(`tasm.results.attemptStatus.${item.status}`)}</span>
                         {item.submittedAt && <span className="tabular-nums">{when(item.submittedAt, zone, lang)}</span>}
                         {item.late && <span className="text-amber-700">{t('tasm.results.late')}</span>}
+                        {item.remedial && <span className="text-brand">{t('tasm.results.remedial')}</span>}
                         {item.status === 'WAITING_FOR_MARKING' && item.waitingForMarking > 0 && <span>{t('tasm.results.essaysLeft', { n: item.waitingForMarking })}</span>}
                         {shown && (
                           <span className="tabular-nums text-slate-700">
@@ -420,6 +433,21 @@ export const ResultsTab = ({ assessment, zone, onReleased, onDirty, onOpen = nul
             </button>
           </div>
         </div>
+      )}
+
+      {excFor && (
+        <ExceptionDialog
+          assessment={current}
+          student={excFor}
+          zone={zone}
+          span={span}
+          onDone={excDone}
+          onStale={() => {
+            setExcFor(null);
+            setAttempt((n) => n + 1);
+          }}
+          onClose={() => setExcFor(null)}
+        />
       )}
 
       <ConfirmDialog

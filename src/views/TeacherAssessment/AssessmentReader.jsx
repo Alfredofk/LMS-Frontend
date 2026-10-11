@@ -9,6 +9,7 @@ import { assessmentService } from '../../services/assessmentService';
 import { QuestionAnswer } from '../QuestionBank/QuestionItem';
 import { Marking } from './MarkingPage';
 import ResultsTab from './ResultsTab';
+import AssessmentList from './AssessmentList';
 import StateWord from './StateWord';
 import { windowText } from './teacherAssessment';
 
@@ -230,31 +231,7 @@ export const AssessmentReader = ({ classSubjectId, onBack, showTitle = true }) =
           <p className="text-xs font-semibold text-slate-500">{t('tasm.reader.empty')}</p>
         </div>
       ) : (
-        <ul className="divide-y divide-slate-100 border border-slate-100 rounded-xl">
-          {list.map((assessment) => (
-            <li key={assessment.id}>
-              <button
-                type="button"
-                onClick={() => setOpenId(assessment.id)}
-                className="w-full px-3 py-2.5 flex items-center gap-2 text-left hover:bg-slate-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand"
-              >
-                <span className="min-w-0 flex-1 space-y-0.5">
-                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span className="min-w-0 text-xs font-bold text-slate-800 break-words">{assessment.title}</span>
-                    <StateWord assessment={assessment} t={t} />
-                  </span>
-                  <span className="flex flex-wrap gap-x-2.5 gap-y-0.5 text-[11px] font-semibold text-slate-500">
-                    <span>{t(`tasm.type.${assessment.type}`)}</span>
-                    <span>{t(`tasm.mode.${assessment.mode}`)}</span>
-                    {assessment.mode === 'ONLINE' && <span>{t('tasm.count', { n: assessment.questionCount, points: assessment.totalPoints })}</span>}
-                  </span>
-                  <span className="block text-[11px] font-semibold text-slate-500 tabular-nums">{windowText(assessment, zone, lang)}</span>
-                </span>
-                <ChevronRight className="w-4 h-4 text-slate-500 shrink-0" aria-hidden="true" />
-              </button>
-            </li>
-          ))}
-        </ul>
+        <AssessmentList assessments={list} zone={zone} onOpen={(assessment) => setOpenId(assessment.id)} compact />
       )}
     </div>
   );

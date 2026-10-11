@@ -361,35 +361,6 @@ export const Navbar = ({ showToast, onOpenNav }) => {
       );
     }
 
-    /* An assignment (AssignmentDetailPage) sits under "Kelas Saya" like a subject's
-       page, and carries the same crumb (owner, 2026-10-05). The old one looked the
-       assignment up in classroomData, which is empty, so only "Kelas Saya / Tugas"
-       ever showed; that is what this says, in the subject page's size. */
-    if (location.pathname.startsWith('/assignment/')) {
-      return (
-        <div className="flex min-w-0 items-center gap-3 text-xl font-bold tracking-tight">
-          <button
-            type="button"
-            onClick={() => navigate('/classroom')}
-            aria-label={t('classroom.back')}
-            title={t('classroom.back')}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-          >
-            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/classroom')}
-            className="hidden sm:inline shrink-0 text-slate-500 hover:text-brand transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
-          >
-            {t('shell.myCourses')}
-          </button>
-          <span className="hidden sm:inline text-slate-300" aria-hidden="true">/</span>
-          <span className="truncate text-slate-900">{t('shell.title.assignment')}</span>
-        </div>
-      );
-    }
-
     /* Writing or editing a question sits under "Bank Soal", with the same crumb. */
     if (location.pathname.startsWith('/question-bank/')) {
       return (
@@ -418,7 +389,8 @@ export const Navbar = ({ showToast, onOpenNav }) => {
       );
     }
 
-    const found = TITLES[location.pathname];
+    /* One assessment, or an attempt at it, sits under "Penilaian" (owner, 2026-10-11). */
+    const found = TITLES[location.pathname] ?? (location.pathname.startsWith('/assessment/') ? TITLES['/assessment'] : undefined);
     /* /schedule is "Calendar" at the Principal's desk (owner, 2026-10-03). */
     const entry =
       found && location.pathname === '/schedule' && isPrincipalDesk(activeRole) ? { ...found, key: 'shell.calendar' } : found;

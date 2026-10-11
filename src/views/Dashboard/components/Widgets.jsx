@@ -203,7 +203,7 @@ export const ActiveAssessment = ({ assessments = [], isLoading, notBuilt }) => {
                 ? t('dash.assessment.badgeSoon')
                 : task.date ?? '-';
 
-            const open = () => navigate(`/assignment/${task.id}`);
+            const open = () => navigate(`/assessment/${task.id}`);
 
             return (
               <div

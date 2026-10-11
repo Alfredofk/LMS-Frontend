@@ -3,7 +3,7 @@ import React from 'react';
 const fieldLabel = 'block text-sm font-bold text-slate-700';
 const errorText = 'text-xs font-semibold text-red-600';
 const smallInput =
-  'block w-full rounded-xl border border-slate-200 bg-white py-2 px-3 text-base sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand disabled:bg-slate-50 disabled:text-slate-500';
+  'block w-full min-w-0 rounded-xl border border-slate-200 bg-white py-2 px-3 text-base sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand disabled:bg-slate-50 disabled:text-slate-500';
 
 /*
   A copy's window (backend copyBody: a new window as both ends, or none). When
@@ -22,8 +22,50 @@ const smallInput =
   @param zone        the school's zone, said in the labels
   @param requiredKey what to say when a new window is required
 */
-export const WindowChoice = ({ required, keep, onKeep, value, onChange, errors = {}, sourceText, bounds = null, zone, disabled = false, requiredKey = 'tasm.copy.windowRequired', t }) => {
+/*
+  The two ends of a window, each a day and a time in the school's zone: shared by
+  WindowChoice and a student's make-up window (ExceptionDialog).
+*/
+export const WindowFields = ({ value, onChange, errors = {}, bounds = null, zone, disabled = false, t }) => {
   const tz = zone ? ` (${zone})` : '';
+  return (
+    <div className="space-y-3">
+      {[
+        ['opens', 'opensDate', 'opensTime'],
+        ['closes', 'closesDate', 'closesTime'],
+      ].map(([end, dateKey, timeKey]) => (
+        <div key={end} className="space-y-1.5">
+          <span className="block text-xs font-bold text-slate-600">{t(`tasm.field.${end}`) + tz}</span>
+          <div className="grid grid-cols-[1fr_auto] gap-2 max-w-sm">
+            <input
+              type="date"
+              aria-label={t(`tasm.field.${end}Date`)}
+              value={value[dateKey]}
+              min={bounds?.min}
+              max={bounds?.max}
+              disabled={disabled}
+              aria-invalid={Boolean(errors[end])}
+              onChange={(e) => onChange(dateKey, e.target.value)}
+              className={smallInput}
+            />
+            <input
+              type="time"
+              aria-label={t(`tasm.field.${end}Time`)}
+              value={value[timeKey]}
+              disabled={disabled}
+              aria-invalid={Boolean(errors[end])}
+              onChange={(e) => onChange(timeKey, e.target.value)}
+              className={`${smallInput} w-28 sm:w-32`}
+            />
+          </div>
+          {errors[end] && <p className={errorText}>{t(errors[end])}</p>}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export const WindowChoice = ({ required, keep, onKeep, value, onChange, errors = {}, sourceText, bounds = null, zone, disabled = false, requiredKey = 'tasm.copy.windowRequired', t }) => {
   const showFields = required || !keep;
   return (
     <fieldset className="space-y-3">
@@ -42,41 +84,7 @@ export const WindowChoice = ({ required, keep, onKeep, value, onChange, errors =
           ))}
         </div>
       )}
-      {showFields && (
-        <div className="space-y-3">
-          {[
-            ['opens', 'opensDate', 'opensTime'],
-            ['closes', 'closesDate', 'closesTime'],
-          ].map(([end, dateKey, timeKey]) => (
-            <div key={end} className="space-y-1.5">
-              <span className="block text-xs font-bold text-slate-600">{t(`tasm.field.${end}`) + tz}</span>
-              <div className="grid grid-cols-[1fr_auto] gap-2 max-w-sm">
-                <input
-                  type="date"
-                  aria-label={t(`tasm.field.${end}Date`)}
-                  value={value[dateKey]}
-                  min={bounds?.min}
-                  max={bounds?.max}
-                  disabled={disabled}
-                  aria-invalid={Boolean(errors[end])}
-                  onChange={(e) => onChange(dateKey, e.target.value)}
-                  className={smallInput}
-                />
-                <input
-                  type="time"
-                  aria-label={t(`tasm.field.${end}Time`)}
-                  value={value[timeKey]}
-                  disabled={disabled}
-                  aria-invalid={Boolean(errors[end])}
-                  onChange={(e) => onChange(timeKey, e.target.value)}
-                  className={`${smallInput} w-32`}
-                />
-              </div>
-              {errors[end] && <p className={errorText}>{t(errors[end])}</p>}
-            </div>
-          ))}
-        </div>
-      )}
+      {showFields && <WindowFields value={value} onChange={onChange} errors={errors} bounds={bounds} zone={zone} disabled={disabled} t={t} />}
     </fieldset>
   );
 };

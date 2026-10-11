@@ -647,7 +647,7 @@ export const StudentScores = () => {
                     selectedCourse.assignments.map((assignment) => (
                       <div 
                         key={assignment.id}
-                        onClick={() => navigate(`/assignment/${assignment.id}`)}
+                        onClick={() => navigate(`/assessment/${assignment.id}`)}
                         className="p-3 bg-white border border-slate-100 hover:border-purple-200 rounded-xl flex items-center justify-between transition-colors cursor-pointer group shadow-xs"
                       >
                         <div className="min-w-0 pr-2">

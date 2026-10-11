@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, ChevronRight, ClipboardList, Copy, Plus, RefreshCw } from 'lucide-react';
+import { AlertCircle, ClipboardList, Copy, Plus, RefreshCw } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
 import { assessmentErrorMessage } from '../../i18n/apiError';
 import { assessmentService } from '../../services/assessmentService';
+import AssessmentList from './AssessmentList';
 import CopyFromDialog from './CopyFromDialog';
-import StateWord from './StateWord';
-import { windowText } from './teacherAssessment';
 
 /*
   The "Penilaian" tab of a teacher's subject page (backend 0bb4598; owner
   2026-10-08): the slot's Assessments, drafts included, earliest window first
-  (GET /assessments/class-subjects/:id). A row opens the assessment's own page;
+  (GET /assessments/class-subjects/:id), grouped by where they stand
+  (AssessmentList, owner 2026-10-11). A row opens the assessment's own page;
   "Buat penilaian" opens a new one, and "Ambil dari penilaian lain" copies one in
   (CopyFromDialog), opening the draft made. Read only in a closed year.
 
@@ -25,7 +25,7 @@ import { windowText } from './teacherAssessment';
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm';
 
 export const AssessmentsTab = ({ classSubjectId, semesterId, readOnly = false, zone = null }) => {
-  const { t, lang } = useT();
+  const { t } = useT();
   const navigate = useNavigate();
   /* undefined: reading · array · { error } */
   const [list, setList] = useState(undefined);
@@ -95,35 +95,7 @@ export const AssessmentsTab = ({ classSubjectId, semesterId, readOnly = false, z
           <p className="text-xs font-semibold text-slate-500 max-w-sm">{t(readOnly ? 'tasm.emptyReadOnly' : 'tasm.emptyHint')}</p>
         </div>
       ) : (
-        <ul className="bg-white border border-slate-100 rounded-2xl shadow-sm divide-y divide-slate-100">
-          {list.map((assessment) => {
-            return (
-              <li key={assessment.id}>
-                <button
-                  type="button"
-                  onClick={() => navigate(`${base}/${assessment.id}`)}
-                  className="w-full text-left px-4 sm:px-5 py-4 flex items-center gap-3 hover:bg-slate-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand first:rounded-t-2xl last:rounded-b-2xl"
-                >
-                  <span className="min-w-0 flex-1 space-y-1">
-                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="min-w-0 text-sm font-extrabold text-slate-900 break-words">{assessment.title}</span>
-                      <StateWord assessment={assessment} t={t} />
-                    </span>
-                    <span className="flex flex-wrap gap-x-2.5 gap-y-0.5 text-xs font-semibold text-slate-500">
-                      <span>{t(`tasm.type.${assessment.type}`)}</span>
-                      <span>{t(`tasm.mode.${assessment.mode}`)}</span>
-                      {assessment.mode === 'ONLINE' && (
-                        <span>{t('tasm.count', { n: assessment.questionCount, points: assessment.totalPoints })}</span>
-                      )}
-                    </span>
-                    <span className="block text-xs font-semibold text-slate-500 tabular-nums">{windowText(assessment, zone, lang)}</span>
-                  </span>
-                  <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        <AssessmentList assessments={list} zone={zone} onOpen={(assessment) => navigate(`${base}/${assessment.id}`)} />
       )}
 
       {copying && (

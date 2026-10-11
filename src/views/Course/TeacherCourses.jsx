@@ -29,6 +29,10 @@ import RequestSubjectDialog from './RequestSubjectDialog';
   "Ajukan mapel" opens RequestSubjectDialog. Everything comes from readMyTeaching
   (`?mine=true` + each live subject's meetings, kept a minute). The navbar's `?q=`
   narrows the cards. A Vice Principal teaching reads the same page.
+
+  `gradebook` (owner, 2026-10-11): the sidebar's "Buku Nilai" - the same cards and
+  semester dropdown under its own title, no requests; a card opens the subject's
+  "Nilai" tab (/teacher/courses/:id?tab=nilai).
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm';
@@ -139,14 +143,14 @@ const RequestRow = ({ entry, onWithdraw }) => {
   );
 };
 
-export const TeacherCourses = () => {
+export const TeacherCourses = ({ gradebook = false }) => {
   const { t } = useT();
   const navigate = useNavigate();
   const { showToast } = useOutletContext() ?? {};
   const { membership } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get('q') ?? '';
-  const tab = TABS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'taught';
+  const tab = !gradebook && TABS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'taught';
 
   const [data, setData] = useState(null);
   const [failed, setFailed] = useState(false);
@@ -232,43 +236,47 @@ export const TeacherCourses = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div className="space-y-1 min-w-0">
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('shell.myCourses')}</h1>
-          <p className="text-sm text-slate-500 font-medium">{t('teach.subtitle')}</p>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t(gradebook ? 'teacherGradebook.title' : 'shell.myCourses')}</h1>
+          <p className="text-sm text-slate-500 font-medium">{t(gradebook ? 'gradebook.pickIntro' : 'teach.subtitle')}</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setAsking(true)}
-          className="self-start sm:self-auto shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-white text-sm font-extrabold hover:bg-brand-deep cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-        >
-          <BookPlus className="w-4 h-4" aria-hidden="true" />
-          {t('teach.request.open')}
-        </button>
+        {!gradebook && (
+          <button
+            type="button"
+            onClick={() => setAsking(true)}
+            className="self-start sm:self-auto shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-white text-sm font-extrabold hover:bg-brand-deep cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+          >
+            <BookPlus className="w-4 h-4" aria-hidden="true" />
+            {t('teach.request.open')}
+          </button>
+        )}
       </div>
 
-      <div role="tablist" aria-label={t('shell.myCourses')} className="flex gap-6 border-b border-slate-200">
-        {TABS.map((key) => {
-          const count = key === 'taught' ? shownCount : groups.waiting.length;
-          return (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={tab === key}
-              onClick={() => setTab(key)}
-              className={`inline-flex items-center gap-2 px-1 pb-3 -mb-px text-sm font-extrabold border-b-2 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-t ${
-                tab === key ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              {t(`teach.tab.${key}`)}
-              {data && count > 0 && (
-                <span className={`px-1.5 py-0.5 rounded-md text-[10px] tabular-nums ${key === 'requests' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
-                  {count}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {!gradebook && (
+        <div role="tablist" aria-label={t('shell.myCourses')} className="flex gap-6 border-b border-slate-200">
+          {TABS.map((key) => {
+            const count = key === 'taught' ? shownCount : groups.waiting.length;
+            return (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={tab === key}
+                onClick={() => setTab(key)}
+                className={`inline-flex items-center gap-2 px-1 pb-3 -mb-px text-sm font-extrabold border-b-2 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-t ${
+                  tab === key ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {t(`teach.tab.${key}`)}
+                {data && count > 0 && (
+                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] tabular-nums ${key === 'requests' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {failed && !data ? (
         <div className={`${card} flex flex-col items-center text-center gap-3 py-10`} role="alert">
@@ -337,7 +345,7 @@ export const TeacherCourses = () => {
                     entry={entry}
                     sessions={data.sessionsById[entry.id]}
                     closed={shownClosed}
-                    onOpen={() => navigate(`/teacher/courses/${entry.id}`)}
+                    onOpen={() => navigate(gradebook ? `/teacher/courses/${entry.id}?tab=nilai` : `/teacher/courses/${entry.id}`)}
                   />
                 ))}
               </div>

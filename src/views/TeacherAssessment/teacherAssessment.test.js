@@ -11,9 +11,11 @@ import {
   emptyWindow,
   formErrors,
   formFrom,
+  groupAssessments,
   heldBankIds,
   instantOf,
   isReleased,
+  listGroupOf,
   moveRow,
   needsNewWindow,
   partsOf,
@@ -33,6 +35,7 @@ import {
   totalPoints,
   windowErrors,
   windowPhase,
+  whenLine,
   withBankVersion,
   withPicked,
 } from './teacherAssessment.js';
@@ -369,5 +372,39 @@ describe('dashboardAssessments - the dashboard card', () => {
     expect(out.items.map((item) => `${item.group}:${item.assessment.id}`)).toEqual(['review:openWaits', 'review:endedWaits', 'open:openNone']);
     expect(out.items[1].waiting).toEqual({ marking: 1, release: 2 });
     expect(out.counts.review).toBe(2);
+  });
+});
+
+describe('the list, grouped (owner, 2026-10-11)', () => {
+  const now = new Date('2026-10-15T03:00:00Z');
+  const row = (id, over = {}) => ({ id, status: 'PUBLISHED', opensAt: '2026-10-12T00:30:00Z', closesAt: '2026-10-20T16:59:00Z', ...over });
+  const open = row('open');
+  const upcoming = row('upcoming', { opensAt: '2026-10-20T00:00:00Z', closesAt: '2026-10-20T02:00:00Z' });
+  const ended = row('ended', { closesAt: '2026-10-14T16:59:00Z' });
+  const draft = row('draft', { status: 'DRAFT' });
+  const cancelled = row('cancelled', { status: 'CANCELLED', opensAt: '2026-10-01T00:00:00Z', closesAt: '2026-10-01T01:00:00Z' });
+
+  it('a group per state, "not closed yet" split in two', () => {
+    expect([open, upcoming, ended, draft, cancelled].map((a) => listGroupOf(a, now))).toEqual(['OPEN', 'UPCOMING', 'ENDED', 'DRAFT', 'CANCELLED']);
+  });
+
+  it('groups in their order, empty ones left out, the server order kept inside', () => {
+    const second = row('open2', { opensAt: '2026-10-13T00:00:00Z' });
+    expect(groupAssessments([cancelled, ended, open, second, draft], now).map((g) => [g.key, g.rows.map((a) => a.id)])).toEqual([
+      ['OPEN', ['open', 'open2']],
+      ['DRAFT', ['draft']],
+      ['ENDED', ['ended']],
+      ['CANCELLED', ['cancelled']],
+    ]);
+  });
+
+  it('the time a row says, in the school zone, the year only when it is another', () => {
+    expect(whenLine(open, 'WIB', 'id', now)).toEqual({ key: 'tasm.list.closes', vars: { when: '20 Okt 23:59' } });
+    expect(whenLine(upcoming, 'WIB', 'id', now)).toEqual({ key: 'tasm.list.opens', vars: { when: '20 Okt 07:00' } });
+    expect(whenLine(ended, 'WIB', 'id', now)).toEqual({ key: 'tasm.list.closed', vars: { when: '14 Okt 23:59' } });
+    expect(whenLine(cancelled, 'WIB', 'id', now)).toEqual({ key: 'tasm.list.window', vars: { opens: '1 Okt 07:00', closes: '08:00' } });
+    expect(whenLine(draft, 'WIB', 'en', now)).toEqual({ key: 'tasm.list.window', vars: { opens: '12 Oct 07:30', closes: '20 Oct 23:59' } });
+    const nextYear = row('later', { status: 'DRAFT', opensAt: '2027-01-05T00:00:00Z', closesAt: '2027-01-06T00:00:00Z' });
+    expect(whenLine(nextYear, 'WIB', 'id', now).vars).toEqual({ opens: '5 Jan 2027 07:00', closes: '6 Jan 2027 07:00' });
   });
 });

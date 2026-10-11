@@ -165,16 +165,16 @@ describe('offline marks - offlineMarksBody / enterOfflineMark', () => {
   const students = [
     { studentProfileId: 'p1', attempts: [] },
     { studentProfileId: 'p2', attempts: [{ id: 'x2', closedBy: 'TEACHER', status: 'WAITING_FOR_RELEASE', releasedAt: null, mark: { value: 70 } }] },
-    { studentProfileId: 'p3', attempts: [{ id: 'x3', closedBy: 'TEACHER', status: 'RELEASED', releasedAt: '2026-10-10T00:00:00Z', mark: { value: 85.5 } }] },
+    { studentProfileId: 'p3', attempts: [{ id: 'x3', closedBy: 'TEACHER', status: 'RELEASED', releasedAt: '2026-10-10T00:00:00Z', mark: { value: 85.5 }, comment: 'Rapi' }] },
   ];
 
   it('the saved mark is the teacher-entered attempt, not a void one', () => {
-    expect(offlineSavedOf(students[2])).toEqual({ submissionId: 'x3', value: 85.5, released: true });
+    expect(offlineSavedOf(students[2])).toEqual({ submissionId: 'x3', value: 85.5, released: true, comment: 'Rapi' });
     expect(offlineSavedOf({ attempts: [{ id: 'v', closedBy: 'TEACHER', status: 'VOID', mark: { value: 1 } }] })).toBeNull();
     expect(offlineDraftsFrom(students)).toEqual({
-      p1: { mark: '', comment: null, loadedComment: null },
-      p2: { mark: '70', comment: null, loadedComment: null },
-      p3: { mark: '85.5', comment: null, loadedComment: null },
+      p1: { mark: '', comment: '', loadedComment: null },
+      p2: { mark: '70', comment: '', loadedComment: null },
+      p3: { mark: '85.5', comment: 'Rapi', loadedComment: 'Rapi' },
     });
     expect(offlineDraftsFrom(students, 'id').p3.mark).toBe('85,5');
   });
@@ -192,10 +192,14 @@ describe('offline marks - offlineMarksBody / enterOfflineMark', () => {
     });
   });
 
-  it('a comment read back unchanged is not sent', () => {
+  it('a stored comment is filled from the results and not sent unchanged; a mark saved keeps it', () => {
     const drafts = offlineDraftsFrom(students);
-    drafts.p2 = { ...drafts.p2, comment: 'Lama', loadedComment: 'Lama' };
+    drafts.p3.comment = ' Rapi ';
     expect(offlineBody(drafts, students)).toBeNull();
+    drafts.p3.mark = '86';
+    expect(offlineBody(drafts, students, 'Salah input').marks).toEqual([{ studentProfileId: 'p3', value: 86 }]);
+    drafts.p3.comment = '';
+    expect(offlineBody(drafts, students, 'Salah input').marks).toEqual([{ studentProfileId: 'p3', value: 86, comment: null }]);
   });
 
   it('0 to 100, two decimals; a saved mark is never emptied; a comment needs a mark', () => {

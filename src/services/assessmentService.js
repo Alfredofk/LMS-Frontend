@@ -95,9 +95,11 @@ export const assessmentService = {
    * An image's bytes, with the token: a saved question's through that question,
    * the caller's own fresh upload by its id alone.
    */
-  imageBlob: ({ questionId = null, assessmentId = null, imageId }) =>
+  imageBlob: ({ questionId = null, assessmentId = null, submissionId = null, imageId }) =>
     requestBlob(
-      assessmentId
+      submissionId
+        ? `/assessments/submissions/${q(submissionId)}/images/${q(imageId)}`
+        : assessmentId
         ? `/assessments/${q(assessmentId)}/images/${q(imageId)}`
         : questionId
           ? `/assessments/questions/${q(questionId)}/images/${q(imageId)}`
@@ -223,6 +225,73 @@ export const assessmentService = {
   /** Records a score for every attempt ready: `{ assessment, released, waitingForMarking, inProgress }`. */
   async release(id) {
     return api.post(`/assessments/${q(id)}/release`, {});
+  },
+
+  // ---- A student answering (backend 6380e3e, ticket 03; owner 2026-10-11) ----
+
+  /**
+   * The outline on the student's own terms, never a question: `{ assessment,
+   * attemptsUsed, attemptsLeft, inProgressId, canStart, score, submissions }`.
+   */
+  async outline(id) {
+    return api.get(`/assessments/${q(id)}/mine`);
+  },
+
+  /** A new attempt: answers `{ submission, assessment, questions }` (201), the questions in their drawn order. */
+  async start(id) {
+    return api.post(`/assessments/${q(id)}/submissions`, {});
+  },
+
+  /** One of the student's own attempts: `{ submission, assessment, questions }`, marks and key once released. */
+  async attempt(submissionId) {
+    return api.get(`/assessments/submissions/${q(submissionId)}`);
+  },
+
+  /** One answer, `{ optionIds }`, `{ value }` or `{ text }` (null clears): answers the saved answer. */
+  async saveAnswer(submissionId, questionId, body) {
+    const data = await api.put(`/assessments/submissions/${q(submissionId)}/answers/${q(questionId)}`, body);
+    return data.answer;
+  },
+
+  /** An essay's file (field `file`: PDF, JPG, PNG, DOCX, PPTX, at most 10 MB): answers the saved answer. */
+  async saveEssayFile(submissionId, questionId, file) {
+    const form = new FormData();
+    form.append('file', file);
+    const data = await api.post(`/assessments/submissions/${q(submissionId)}/answers/${q(questionId)}/file`, form);
+    return data.answer;
+  },
+
+  /** The essay file the student sent, back to them. */
+  essayFile: (submissionId, questionId) => requestBlob(`/assessments/submissions/${q(submissionId)}/answers/${q(questionId)}/file`),
+
+  /** Hands it in: answers the attempt as `attempt` does, closed. */
+  async handIn(submissionId) {
+    return api.post(`/assessments/submissions/${q(submissionId)}/submit`, {});
+  },
+
+  // ---- Make-up and remedial (backend 1e6c749, ticket 05) ----
+
+  /**
+   * The live exceptions, by name: `[{ studentProfileId, fullName, makeUp, extraAttempts,
+   * remedial, used, setByUserId, createdAt, updatedAt }]`. Staff; readers read.
+   */
+  async exceptions(id) {
+    const data = await api.get(`/assessments/${q(id)}/exceptions`);
+    return data.exceptions ?? [];
+  },
+
+  /**
+   * Sets or changes one student's: `{ makeUp: { opensAt, closesAt } | null, extraAttempts,
+   * remedial, updatedAt? }`, the whole of it. The answering teacher only. Answers the exception.
+   */
+  async setException(id, studentProfileId, body) {
+    const data = await api.put(`/assessments/${q(id)}/exceptions/${q(studentProfileId)}`, body);
+    return data.exception;
+  },
+
+  /** Takes one back, while the student has started nothing under it. */
+  async removeException(id, studentProfileId) {
+    await api.del(`/assessments/${q(id)}/exceptions/${q(studentProfileId)}`);
   },
 };
 

@@ -390,6 +390,71 @@ export const STATE_TONE = {
 };
 
 // ---------------------------------------------------------------------------
+// The list, grouped (owner, 2026-10-11: one row of pills and two grey lines per
+// assessment read as a pile; a group's heading now says the state)
+// ---------------------------------------------------------------------------
+
+/** The groups in the order shown; an empty one is left out. */
+export const LIST_GROUPS = ['OPEN', 'UPCOMING', 'DRAFT', 'ENDED', 'CANCELLED'];
+
+/** Which group an assessment sits in: its state, with "not closed yet" split into open and upcoming. */
+export function listGroupOf(assessment, now = new Date()) {
+  if (assessment.status === 'CANCELLED') return 'CANCELLED';
+  if (assessment.status !== 'PUBLISHED') return 'DRAFT';
+  return { upcoming: 'UPCOMING', open: 'OPEN', closed: 'ENDED' }[windowPhase(assessment, now)];
+}
+
+/*
+  A row's badge, the word of its group (owner, 2026-10-11): "Belum dibuka" rather
+  than StateWord's "Aktif" for one not open yet, so a badge never contradicts the
+  heading above it.
+*/
+export const LIST_BADGE_TONE = {
+  OPEN: 'bg-emerald-50 text-emerald-700',
+  UPCOMING: 'bg-sky-50 text-sky-700',
+  DRAFT: 'bg-slate-100 text-slate-600',
+  ENDED: 'bg-slate-100 text-slate-600',
+  CANCELLED: 'bg-rose-50 text-rose-700',
+};
+
+/** `[{ key, rows }]` in LIST_GROUPS' order, each keeping the server's order (earliest window first). */
+export function groupAssessments(list, now = new Date()) {
+  const byGroup = new Map(LIST_GROUPS.map((key) => [key, []]));
+  for (const assessment of list ?? []) byGroup.get(listGroupOf(assessment, now)).push(assessment);
+  return LIST_GROUPS.map((key) => ({ key, rows: byGroup.get(key) })).filter((group) => group.rows.length > 0);
+}
+
+const shortDay = (date, lang, now) =>
+  new Date(`${date}T00:00:00Z`).toLocaleDateString(lang === 'en' ? 'en-GB' : 'id-ID', {
+    day: 'numeric',
+    month: 'short',
+    ...(Number(date.slice(0, 4)) !== now.getFullYear() ? { year: 'numeric' } : {}),
+    timeZone: 'UTC',
+  });
+
+/** "19 Des 23:59" in the school's zone; the year only when it is not this one. */
+export function shortWhen(instant, zone, lang, now = new Date()) {
+  const { date, time } = partsOf(instant, zone);
+  return date ? `${shortDay(date, lang, now)} ${time}` : '';
+}
+
+/**
+ * The time a row says, as `{ key, vars }`: when it closes while open, when it
+ * opens while upcoming, when it closed once ended; a draft or a cancelled one its
+ * window, the day said once when both ends share it ("12 Okt 07:00 - 09:00").
+ */
+export function whenLine(assessment, zone, lang, now = new Date()) {
+  const group = listGroupOf(assessment, now);
+  if (group === 'OPEN') return { key: 'tasm.list.closes', vars: { when: shortWhen(assessment.closesAt, zone, lang, now) } };
+  if (group === 'UPCOMING') return { key: 'tasm.list.opens', vars: { when: shortWhen(assessment.opensAt, zone, lang, now) } };
+  if (group === 'ENDED') return { key: 'tasm.list.closed', vars: { when: shortWhen(assessment.closesAt, zone, lang, now) } };
+  const opens = partsOf(assessment.opensAt, zone);
+  const closes = partsOf(assessment.closesAt, zone);
+  const closesText = opens.date && opens.date === closes.date ? closes.time : shortWhen(assessment.closesAt, zone, lang, now);
+  return { key: 'tasm.list.window', vars: { opens: shortWhen(assessment.opensAt, zone, lang, now), closes: closesText } };
+}
+
+// ---------------------------------------------------------------------------
 // Copying (assessment.service.js copy and listCopySources, 2026-10-07)
 // ---------------------------------------------------------------------------
 

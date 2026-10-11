@@ -10,8 +10,9 @@ import React, { Fragment } from 'react';
   @param name   its name
   @param facts  further facts, already translated; empty ones are left out
   @param size   'sm' under a page title, 'xs' under a dialog title
+  @param wrap   let a long part break across lines (a make-up window on a phone)
 */
-export const FactLine = ({ code, name, facts = [], size = 'sm', className = '' }) => {
+export const FactLine = ({ code, name, facts = [], size = 'sm', wrap = false, className = '' }) => {
   const text = size === 'xs' ? 'text-xs font-semibold' : 'text-sm font-medium';
   const parts = [[code, name].filter(Boolean).join(' - '), ...facts].filter(Boolean);
   return (
@@ -26,7 +27,7 @@ export const FactLine = ({ code, name, facts = [], size = 'sm', className = '' }
               </span>{' '}
             </>
           )}
-          <span className="whitespace-nowrap">{part}</span>
+          <span className={wrap ? '' : 'whitespace-nowrap'}>{part}</span>
         </Fragment>
       ))}
     </p>

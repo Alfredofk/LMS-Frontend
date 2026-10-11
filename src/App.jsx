@@ -37,7 +37,6 @@ const AssessmentQuestionEditPage = lazy(() => import('./views/TeacherAssessment/
 const MarkingPage = lazy(() => import('./views/TeacherAssessment/MarkingPage'));
 const ProfilePage = lazy(() => import('./views/Profile/ProfilePage'));
 const ClassroomPage = lazy(() => import('./views/Classroom/ClassroomPage'));
-const AssignmentDetailPage = lazy(() => import('./views/Assignment/AssignmentDetailPage'));
 const UnauthorizedPage = lazy(() => import('./views/Unauthorized/UnauthorizedPage'));
 const TeacherClassSubjectDetail = lazy(() => import('./views/Course/TeacherClassSubjectDetail'));
 const TeacherCourses = lazy(() => import('./views/Course/TeacherCourses'));
@@ -48,6 +47,8 @@ const StudentScores = lazy(() => import('./views/Scores/StudentScores'));
 const AnnouncementPage = lazy(() => import('./views/Announcement/AnnouncementPage'));
 const SchedulePage = lazy(() => import('./views/Schedule/SchedulePage'));
 const AssessmentPage = lazy(() => import('./views/Assessment/AssessmentPage'));
+const StudentAssessmentPage = lazy(() => import('./views/StudentAssessment/StudentAssessmentPage'));
+const StudentAttemptPage = lazy(() => import('./views/StudentAssessment/StudentAttemptPage'));
 const AttendancePage = lazy(() => import('./views/Attendance/AttendancePage'));
 const JoinRequestsPage = lazy(() => import('./views/Requests/JoinRequestsPage'));
 const ClassesPage = lazy(() => import('./views/Classes/ClassesPage'));
@@ -156,9 +157,10 @@ const router = createBrowserRouter(
             <Route path="/classroom" element={<ClassroomPage />} />
             <Route path="/classroom/:classSubjectId" element={<ClassroomPage />} />
             <Route path="/classroom/:classSubjectId/:sessionId" element={<ClassroomPage />} />
-            <Route path="/assignment/:assignmentId" element={<AssignmentDetailPage />} />
             <Route path="/scores" element={<StudentScores />} />
             <Route path="/assessment" element={<AssessmentPage />} />
+            <Route path="/assessment/:assessmentId" element={<StudentAssessmentPage />} />
+            <Route path="/assessment/:assessmentId/percobaan/:submissionId" element={<StudentAttemptPage />} />
             <Route path="/attendance" element={<AttendancePage />} />
           </Route>
 

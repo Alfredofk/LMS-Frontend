@@ -14,7 +14,9 @@ import { gradebookColumns, gradebookCsv, gradebookRows } from './gradebook';
 /*
   One class subject's gradebook: students down the side, its published
   assessments across, each cell the score that counts after release or a word for
-  why there is none, and "Unduh CSV" (gradebook.js). Used by the teacher's page
+  why there is none, and "Unduh CSV" (gradebook.js). A score reached only by a
+  remedial attempt says "Remedial" under it (backend 1e6c749); the CSV keeps the
+  bare number, so a spreadsheet still reads it as one. Used by the teacher's page
   (TeacherGradebook, cells open the assessment's "Hasil") and, read only, by the
   homeroom teacher and the leaders (GradebookReader: no `onOpen`, nothing opens).
 
@@ -157,9 +159,12 @@ export const GradebookTable = ({ classSubjectId, caption, fileName, onOpen = nul
                   return (
                     <td key={assessment.id} className="px-3 py-2.5">
                       {'score' in cell ? (
-                        <Opener onOpen={onOpen} assessment={assessment} className="text-base font-extrabold text-slate-900 tabular-nums">
-                          {formatNumber(cell.score, lang)}
-                        </Opener>
+                        <>
+                          <Opener onOpen={onOpen} assessment={assessment} className="text-base font-extrabold text-slate-900 tabular-nums">
+                            {formatNumber(cell.score, lang)}
+                          </Opener>
+                          {cell.remedial && <span className="block text-[11px] font-semibold text-brand">{t('tasm.results.remedial')}</span>}
+                        </>
                       ) : (
                         <span className={`text-[11px] font-semibold ${WORD_TONE[cell.word] ?? 'text-slate-500'}`}>{word(cell.word)}</span>
                       )}

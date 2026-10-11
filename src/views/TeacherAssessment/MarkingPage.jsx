@@ -291,6 +291,7 @@ export const Marking = ({ assessmentId, submissionId, onBack, onOpen, embedded =
           <span>{t(`tasm.results.attemptStatus.${submission.status}`)}</span>
           {submission.submittedAt && <span className="tabular-nums">{when(submission.submittedAt, zone, lang)}</span>}
           {submission.late && <span className="text-amber-700">{t('tasm.results.late')}</span>}
+          {submission.remedial && <span className="text-brand">{t('tasm.results.remedial')}</span>}
           {mark && (
             <span className="tabular-nums text-slate-700">
               {submission.score ? t('tasm.mark.score', { value: formatNumber(mark.value, lang) }) : t('tasm.results.draftMark', { value: formatNumber(mark.value, lang) })}

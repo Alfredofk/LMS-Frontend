@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useOutletContext, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
 import { AlertCircle, BookOpen, RefreshCw, Lock } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
@@ -14,6 +14,7 @@ import { openSemesterIds } from '../Dashboard/teacherHome';
 import { sessionPhase, unconfirmedCount } from './teaching';
 import TeacherMeeting from './TeacherMeeting';
 import AssessmentsTab from '../TeacherAssessment/AssessmentsTab';
+import GradebookTable from '../Gradebook/GradebookTable';
 import { useSchoolZone } from '../../hooks/useSchoolToday';
 
 /*
@@ -28,6 +29,9 @@ import { useSchoolZone } from '../../hooks/useSchoolToday';
   - "Penilaian" (`?tab=penilaian`, backend 0bb4598, owner 2026-10-08): the slot's
     assessments (AssessmentsTab); each opens its own page under
     /teacher/courses/:id/penilaian.
+  - "Nilai" (`?tab=nilai`, owner 2026-10-11): the class subject's gradebook
+    (GradebookTable), a column or score opening that assessment's "Hasil". The
+    sidebar's "Buku Nilai" lists the same cards as "Kelas Saya" and opens here.
   - "Progres" (`?tab=progres`): the class's learning progress, per student and per
     material (SubjectProgress, the panel the Principal opens from the timetable).
 
@@ -35,12 +39,13 @@ import { useSchoolZone } from '../../hooks/useSchoolToday';
   (confirmed, said not held) updates in place and drops that cache.
 */
 
-const SECTIONS = ['pertemuan', 'penilaian', 'progres'];
+const SECTIONS = ['pertemuan', 'penilaian', 'nilai', 'progres'];
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm';
 
 export const TeacherClassSubjectDetail = () => {
   const { classSubjectId } = useParams();
   const { t } = useT();
+  const navigate = useNavigate();
   const { showToast } = useOutletContext() ?? {};
   const { membership } = useAuth();
   const zone = useSchoolZone();
@@ -155,25 +160,38 @@ export const TeacherClassSubjectDetail = () => {
         </p>
       )}
 
-      <div role="tablist" aria-label={t('meeting.sections')} className="flex gap-6 border-b border-slate-200">
-        {SECTIONS.map((key) => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={section === key}
-            onClick={() => goSection(key)}
-            className={`px-1 pb-3 -mb-px text-sm font-extrabold border-b-2 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-t ${
-              section === key ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            {t(`teach.section.${key}`)}
-          </button>
-        ))}
+      {/* Four tabs outgrow a phone: the row scrolls by itself, the line under it stays put. */}
+      <div className="border-b border-slate-200">
+        <div role="tablist" aria-label={t('meeting.sections')} className="flex gap-5 sm:gap-6 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {SECTIONS.map((key) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={section === key}
+              onClick={() => goSection(key)}
+              className={`shrink-0 whitespace-nowrap px-1 pb-3 text-sm font-extrabold border-b-2 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-t ${
+                section === key ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              {t(`teach.section.${key}`)}
+            </button>
+          ))}
+        </div>
       </div>
 
       {section === 'penilaian' ? (
         <AssessmentsTab classSubjectId={entry.id} semesterId={entry.semester?.id} readOnly={readOnly} zone={zone} />
+      ) : section === 'nilai' ? (
+        <div className="space-y-3">
+          <p className="text-xs font-medium text-slate-500 leading-relaxed">{t('gradebook.intro')}</p>
+          <GradebookTable
+            classSubjectId={entry.id}
+            caption={t('gradebook.option', { code: entry.subject.code, className: entry.class.name, n: entry.semester.ordinal, year: entry.semester.academicYear })}
+            fileName={`nilai-${entry.subject.code}-${entry.class.name}.csv`.replace(/\s+/g, '-')}
+            onOpen={(assessment) => navigate(`/teacher/courses/${entry.id}/penilaian/${assessment.id}?tab=hasil`)}
+          />
+        </div>
       ) : section === 'progres' ? (
         <div className={`${card} sm:p-6`}>
           <SubjectProgress classSubjectId={entry.id} zone={membership?.school?.timeZone ?? null} />

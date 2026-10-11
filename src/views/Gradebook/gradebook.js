@@ -1,37 +1,16 @@
 import { formatNumber } from '../TeacherAssessment/results';
 
 /*
-  The teacher's gradebook (owner, 2026-10-10): one class subject at a time, its
-  students down the side and its published assessments across, each cell the
+  A class subject's gradebook (owner, 2026-10-10; a tab of the subject's page
+  since 2026-10-11): its students down the side and its published assessments across, each cell the
   score that counts - or a short word for why there is none. No average: the
   backend has no weights or report-card total yet, and a number made up here
-  would read as one. Pure: the screen is TeacherGradebook.
+  would read as one. Pure: the screen is GradebookTable.
 
   Read per class subject: GET /assessments/class-subjects/:id, then one
   GET /assessments/:id/submissions per published assessment already opened (one
   not opened yet has nothing in it, so its cells say so without a read).
 */
-
-/** The class subjects to choose from: every one taught, newest semester first, then subject and class. */
-export function gradebookChoices(rows) {
-  return (rows ?? [])
-    .filter((row) => row.status === 'ACTIVE')
-    .slice()
-    .sort(
-      (a, b) =>
-        String(b.semester?.academicYear ?? '').localeCompare(String(a.semester?.academicYear ?? '')) ||
-        (b.semester?.ordinal ?? 0) - (a.semester?.ordinal ?? 0) ||
-        String(a.subject?.code ?? '').localeCompare(String(b.subject?.code ?? '')) ||
-        String(a.class?.name ?? '').localeCompare(String(b.class?.name ?? ''))
-    );
-}
-
-/** The one shown: the one asked for when it is a choice, else the first live one, else the first. */
-export function shownChoice(choices, asked, liveIds = null) {
-  if (asked && choices.some((row) => row.id === asked)) return asked;
-  const live = liveIds ? choices.find((row) => liveIds.has(row.id) && !row.endedAt) : null;
-  return (live ?? choices[0])?.id ?? null;
-}
 
 /**
  * The columns: published assessments, earliest to open first. `opened` says
@@ -47,16 +26,31 @@ export function gradebookColumns(assessments, now = new Date()) {
 }
 
 /**
- * What one cell says: `{ score }` when a score counts, else `{ word }` - a key
- * under `gradebook.cell.` - or `{ word: 'failed' }` when that column's results
- * could not be read, `{ word: 'notOpen' }` before it opens.
+ * Whether the score that counts came from a remedial (backend 1e6c749): the
+ * highest released score of an attempt not void (countedScoreOf) is reached only
+ * by attempts started under a remedial. A tie with an ordinary attempt is not one -
+ * the student had that score without the remedial. Only a mark: the school's
+ * remedial rule (a KKTP cap, the highest, an average) is not in the backend yet.
+ */
+export function countedFromRemedial(entry) {
+  if (entry?.countedScore === null || entry?.countedScore === undefined) return false;
+  const reaching = (entry.attempts ?? []).filter(
+    (attempt) => attempt.releasedAt && attempt.status !== 'VOID' && attempt.score && Number(attempt.score.value) === Number(entry.countedScore)
+  );
+  return reaching.length > 0 && reaching.every((attempt) => attempt.remedial);
+}
+
+/**
+ * What one cell says: `{ score, remedial }` when a score counts, else `{ word }` -
+ * a key under `gradebook.cell.` - or `{ word: 'failed' }` when that column's
+ * results could not be read, `{ word: 'notOpen' }` before it opens.
  */
 export function cellOf(column, results, studentProfileId) {
   if (!column.opened) return { word: 'notOpen' };
   if (!results) return { word: 'failed' };
   const entry = results.students?.find((student) => student.studentProfileId === studentProfileId);
   if (!entry) return { word: 'NOT_STARTED' };
-  if (entry.countedScore !== null && entry.countedScore !== undefined) return { score: entry.countedScore };
+  if (entry.countedScore !== null && entry.countedScore !== undefined) return { score: entry.countedScore, remedial: countedFromRemedial(entry) };
   return { word: entry.status };
 }
 

@@ -432,7 +432,7 @@ const TeacherAssessment = () => {
       */}
       {resultsSeen && (
         <div hidden={tab !== 'hasil'}>
-          <ResultsTab key={saved.id} assessment={saved} zone={zone} onReleased={() => setAttempt((n) => n + 1)} onDirty={setResultsDirty} />
+          <ResultsTab key={saved.id} assessment={saved} zone={zone} span={span} onReleased={() => setAttempt((n) => n + 1)} onDirty={setResultsDirty} />
         </div>
       )}
       {tab !== 'hasil' && (

@@ -542,6 +542,21 @@ export function questionBankErrorMessage(err, t) {
   many submissions a change would void).
 */
 const ASSESSMENT_BY_MESSAGE = [
+  /* A student's exception (backend 1e6c749), first: some share words with the ones below. */
+  ['set exceptions once it is published', 'tasm.exc.error.draft'],
+  ['enter the make-up mark when there is one', 'tasm.exc.error.offline'],
+  ['Set exceptions only for students placed in', 'tasm.exc.error.notPlaced'],
+  ['A make-up window must close after now', 'tasm.exc.error.closesPast'],
+  ['set a remedial once it has closed', 'tasm.exc.error.remedialOpen'],
+  ['a remedial follows it', 'tasm.exc.error.remedialInProgress'],
+  ['This exception was changed meanwhile', 'tasm.exc.error.meanwhile'],
+  ['updatedAt you last read of this exception', 'tasm.exc.error.meanwhile'],
+  ['An exception was set for this student meanwhile', 'tasm.exc.error.meanwhile'],
+  ['has started an attempt under this exception', 'tasm.exc.error.inUse'],
+  ['Exception not found', 'tasm.exc.error.gone'],
+  ['A remedial gives its extra attempts alone', 'tasm.exc.error.remedialExtra'],
+  ['Give a make-up window or extra attempts', 'tasm.exc.error.empty'],
+  ['Extra attempts are 0 to 20', 'tasm.exc.error.extra'],
   ['The window must lie inside Semester', 'tasm.error.outsideSemester'],
   ['opensAt must come before closesAt', 'tasm.error.order'],
   ['its type is fixed', 'tasm.error.typeFixed'],
@@ -595,6 +610,59 @@ export function assessmentErrorMessage(err, t) {
   if (hit) return t(hit[1], hit[2]?.(message));
   return apiErrorMessage(err, t);
 }
+
+/*
+  A student answering (backend 6380e3e): refusals of start, a save, a file and a
+  hand-in, said in the student's words. Its own table, so a sentence shared with
+  the staff's ("is not open") is not read as theirs.
+*/
+const STUDENT_ASSESSMENT_BY_MESSAGE = [
+  ['You have an attempt in progress; continue it', 'sasm.error.inProgress'],
+  ['An attempt was started meanwhile; continue it', 'sasm.error.inProgress'],
+  ['is not open yet', 'sasm.error.notOpen'],
+  ['You have used every attempt at', 'sasm.error.noAttempts'],
+  ['has no questions', 'sasm.error.noQuestions'],
+  ['is offline: the teacher enters its marks', 'sasm.error.offline'],
+  ['Time is up: this attempt was closed', 'sasm.error.timeUp'],
+  ['This attempt is handed in already', 'sasm.error.handedIn'],
+  ['This attempt was closed meanwhile', 'sasm.error.timeUp'],
+  ['This attempt was voided', 'sasm.error.voided'],
+  ['You are no longer in', 'sasm.error.moved'],
+  ['was cancelled', 'sasm.error.cancelled'],
+  ['An option chosen does not belong', 'sasm.error.option'],
+  ['Choose one option for this question', 'sasm.error.option'],
+  ['A short answer is at most', 'sasm.error.shortLong'],
+  ['An answer is at most 20,000 characters', 'sasm.error.essayLong'],
+  ['The file file must be at most', 'sasm.error.fileSize'],
+  ['The file file must be one of', 'sasm.error.fileType'],
+  ['Submission not found', 'sasm.error.gone'],
+  ['Assessment not found', 'sasm.error.gone'],
+  ['Question not found', 'sasm.error.gone'],
+];
+
+export function studentAssessmentErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  if (/ is closed$/.test(message)) return t('sasm.error.closed');
+  const hit = STUDENT_ASSESSMENT_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  if (hit) return t(hit[1]);
+  return apiErrorMessage(err, t);
+}
+
+/** A student's refusal that means the attempt is over or gone: read it again. */
+export const isAttemptOver = (err) =>
+  ['Time is up', 'handed in already', 'closed meanwhile', 'was voided', 'You are no longer in', 'was cancelled', 'Submission not found'].some((needle) =>
+    String(err?.message ?? '').includes(needle)
+  );
+
+/** An exception's refusal that means the dialog is behind: read the results and the exception again. */
+export const isStaleException = (err) =>
+  [
+    'changed meanwhile',
+    'updatedAt you last read of this exception',
+    'set for this student meanwhile',
+    'has started an attempt under this exception',
+    'Exception not found',
+  ].some((needle) => String(err?.message ?? '').includes(needle));
 
 /** A refusal that means the page is behind: read the assessment again. */
 export const isStaleAssessment = (err) =>
