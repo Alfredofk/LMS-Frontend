@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   confirmStatuses,
+  attendanceCount,
   confirmTally,
   contentErrors,
   defaultStatusOf,
@@ -191,5 +192,22 @@ describe('moveContent - one step up or down', () => {
     expect(moveContent(['a', 'b', 'c'], 'b', -1)).toEqual(['b', 'a', 'c']);
     expect(moveContent(['a', 'b', 'c'], 'c', 1)).toEqual(['a', 'b', 'c']);
     expect(moveContent(['a', 'b', 'c'], 'x', 1)).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('attendanceCount', () => {
+  const students = [
+    { studentProfileId: 'a', checkedInAt: '2026-10-12T02:40:00Z', status: 'PRESENT' },
+    { studentProfileId: 'b', checkedInAt: null, status: 'SICK' },
+    { studentProfileId: 'c', checkedInAt: null, status: null },
+  ];
+
+  it('counts check-ins before the confirmation, the present after it', () => {
+    expect(attendanceCount(students, false)).toEqual({ n: 1, total: 3 });
+    expect(attendanceCount([{ checkedInAt: null, status: 'PRESENT' }, ...students], true)).toEqual({ n: 2, total: 4 });
+  });
+
+  it('answers null before the roster is read', () => {
+    expect(attendanceCount(undefined, false)).toBeNull();
   });
 });

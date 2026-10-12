@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   bodyText,
+  shownChanged,
   draftChanged,
   draftFrom,
   duplicateGrades,
@@ -330,5 +331,45 @@ describe('copyPayload - an assessment copy edited in place (backend 6380e3e)', (
     const saved = draftFrom(copy, '2026-10-09');
     expect(draftChanged(draftFrom(copy, '2026-10-09'), saved)).toBe(false);
     expect(draftChanged({ ...saved, body: '<p>2 + 3 = ...</p>' }, saved)).toBe(true);
+  });
+});
+
+describe('shownChanged (editQuestion: what voids, backend 6380e3e)', () => {
+  const mcq = {
+    kind: 'MCQ',
+    body: '<p>2 + 2?</p>',
+    imageId: null,
+    mcqScoring: 'SINGLE',
+    options: [
+      { key: 'k1', id: 'o1', text: '3', imageId: null, correct: false },
+      { key: 'k2', id: 'o2', text: '4', imageId: null, correct: true },
+    ],
+    value: null,
+    accepted: [''],
+  };
+
+  it('is false for the key alone: an option marked correct, TF value, SHORT answers', () => {
+    const rekeyed = { ...mcq, options: mcq.options.map((o) => ({ ...o, correct: !o.correct })) };
+    expect(shownChanged(rekeyed, mcq)).toBe(false);
+    const tf = { kind: 'TF', body: 'x', imageId: null, value: true };
+    expect(shownChanged({ ...tf, value: false }, tf)).toBe(false);
+    const short = { kind: 'SHORT', body: 'x', imageId: null, accepted: ['5'] };
+    expect(shownChanged({ ...short, accepted: ['5', 'lima'] }, short)).toBe(false);
+  });
+
+  it('is false for options only moved', () => {
+    expect(shownChanged({ ...mcq, options: [...mcq.options].reverse() }, mcq)).toBe(false);
+  });
+
+  it('is true for the body, an image, an option text, an option added, or the scoring', () => {
+    expect(shownChanged({ ...mcq, body: '<p>2 + 3?</p>' }, mcq)).toBe(true);
+    expect(shownChanged({ ...mcq, imageId: 'img-1' }, mcq)).toBe(true);
+    expect(shownChanged({ ...mcq, options: [mcq.options[0], { ...mcq.options[1], text: 'empat' }] }, mcq)).toBe(true);
+    expect(shownChanged({ ...mcq, options: [...mcq.options, { key: 'k3', text: '5', imageId: null, correct: false }] }, mcq)).toBe(true);
+    expect(shownChanged({ ...mcq, mcqScoring: 'PARTIAL' }, mcq)).toBe(true);
+  });
+
+  it('is false while either side is missing', () => {
+    expect(shownChanged(null, mcq)).toBe(false);
   });
 });

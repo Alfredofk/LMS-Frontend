@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { AlertCircle, BookOpen, CalendarClock, ChevronRight, RefreshCw, UserRound } from 'lucide-react';
+import { AlertCircle, BookOpen, CalendarClock, ChevronRight, ClipboardList, RefreshCw, UserRound } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import Select from '../../components/ui/Select';
 import ClassroomSubject from './ClassroomSubject';
 import { readMyClasses } from './readMyClasses';
+import { readMyMenu } from '../StudentAssessment/readMyMenu';
+import { todoCount } from '../StudentAssessment/studentMenu';
 import { defaultSemesterId, isCurrentClass, listedClassSubjects, matchesSearch, meetingWhen, progressOf, semestersOf } from './myClasses';
 
 /*
@@ -24,6 +26,10 @@ import { defaultSemesterId, isCurrentClass, listedClassSubjects, matchesSearch, 
   assignment shows as its own card, marked "Sudah berakhir", only when it has
   meetings (`listedClassSubjects`).
 
+  A card says how many of its assessments wait to be done (owner, 2026-10-12),
+  from the shown semester's GET /assessments/mine (readMyMenu); nothing when none
+  wait or the read fails.
+
   It replaced a page of sample components that rendered "not built yet": there
   was no route a student could read their subjects on until backend 1bd81ab.
 */
@@ -40,7 +46,7 @@ const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm';
 */
 const cardGrid = 'grid grid-cols-[repeat(auto-fill,minmax(max(17.5rem,calc((100%-2rem)/3)),1fr))] gap-4';
 
-const SubjectCard = ({ entry, sessions, onOpen }) => {
+const SubjectCard = ({ entry, sessions, todo, onOpen }) => {
   const { t, lang } = useT();
   const progress = progressOf(sessions);
   const percent = progress?.total ? Math.round((progress.held / progress.total) * 100) : 0;
@@ -103,6 +109,13 @@ const SubjectCard = ({ entry, sessions, onOpen }) => {
         </span>
       )}
 
+      {todo > 0 && (
+        <span className="flex items-center gap-1.5 text-xs font-bold text-brand">
+          <ClipboardList className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden="true" />
+          {t('classroom.assessmentsTodo', { n: todo })}
+        </span>
+      )}
+
       {/* mt-auto: on the card's floor whatever sits above it, so a row of cards lines up. */}
       <span className="mt-auto flex items-center gap-1.5 text-xs font-bold">
         <CalendarClock className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden="true" />
@@ -123,6 +136,8 @@ const SubjectList = () => {
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [semesterId, setSemesterId] = useState(null);
+  /* The shown semester's assessment menu, for each card's "to do" count: { semesterId, classes }. */
+  const [menu, setMenu] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -142,6 +157,18 @@ const SubjectList = () => {
   const semesters = useMemo(() => semestersOf(listed), [listed]);
   const fallback = useMemo(() => (data ? defaultSemesterId(listed, data.sessionsById) : null), [data, listed]);
   const shownSemester = semesterId ?? fallback;
+
+  useEffect(() => {
+    if (!shownSemester) return undefined;
+    let cancelled = false;
+    readMyMenu(membership?.id, shownSemester)
+      .then((answer) => !cancelled && setMenu({ semesterId: shownSemester, classes: answer.classes }))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [membership?.id, shownSemester]);
+  const menuClasses = menu?.semesterId === shownSemester ? menu.classes : null;
   const subjects = listed.filter((entry) => entry.semester?.id === shownSemester);
   const visible = subjects.filter((entry) => matchesSearch(entry, query));
 
@@ -221,6 +248,7 @@ const SubjectList = () => {
                   key={entry.id}
                   entry={entry}
                   sessions={data.sessionsById[entry.id]}
+                  todo={menuClasses ? todoCount(menuClasses, entry.id) : 0}
                   onOpen={() => navigate(`/classroom/${entry.id}`)}
                 />
               ))}

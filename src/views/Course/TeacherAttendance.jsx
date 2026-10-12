@@ -8,7 +8,7 @@ import { teachAttendanceErrorMessage } from '../../i18n/apiError';
 import { attendanceService } from '../../services/attendanceService';
 import { STATUSES, STATUS_TILE, localOf } from '../Attendance/attendance';
 import { formatDay } from '../Classes/format';
-import { confirmStatuses, confirmTally, defaultStatusOf } from './teaching';
+import { attendanceCount, confirmStatuses, confirmTally, defaultStatusOf } from './teaching';
 
 /*
   A meeting's attendance, for the teacher who answers for it (owner, 2026-10-04) -
@@ -50,7 +50,7 @@ const StatusPicker = ({ value, onPick, disabled, name, t }) => (
   </div>
 );
 
-export const TeacherAttendance = ({ session, phase, onConfirmed, showToast, readOnly = false }) => {
+export const TeacherAttendance = ({ session, phase, onConfirmed, onCount, showToast, readOnly = false }) => {
   const { t, lang } = useT();
   const { membership } = useAuth();
   const zone = membership?.school?.timeZone ?? null;
@@ -89,6 +89,11 @@ export const TeacherAttendance = ({ session, phase, onConfirmed, showToast, read
   const tally = confirmTally(students, picks);
   const changed = confirmStatuses(students, picks, notes);
   const timeOf = (instant) => (instant ? localOf(instant, zone)?.time ?? '' : '');
+
+  /* The count beside TeacherMeeting's "Kehadiran" sub-tab. */
+  useEffect(() => {
+    onCount?.(attendanceCount(roster?.students, confirmed));
+  }, [roster, confirmed, onCount]);
 
   const confirm = async () => {
     setBusy(true);
@@ -162,8 +167,9 @@ export const TeacherAttendance = ({ session, phase, onConfirmed, showToast, read
 
   return (
     <section className="space-y-3" aria-labelledby={`attendance-${session.id}`}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id={`attendance-${session.id}`} className="text-base font-extrabold text-slate-800">
+      {/* The sub-tab above says "Kehadiran"; the heading stays for screen readers. */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <h3 id={`attendance-${session.id}`} className="sr-only">
           {t('meeting.attendance')}
         </h3>
         {roster && (

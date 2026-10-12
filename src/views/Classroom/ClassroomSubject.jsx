@@ -13,11 +13,12 @@ import { meetingDone } from './materialProgress';
 import { defaultMeetingId, isCurrentClass, progressOf, shownSessions } from './myClasses';
 import MeetingStrip from '../../components/meetings/MeetingStrip';
 import SubjectHeader, { PersonFact } from '../../components/meetings/SubjectHeader';
+import SubjectAssessments from '../StudentAssessment/SubjectAssessments';
 
 /*
   One subject of the student's class (owner, 2026-10-04, after BINUSMAYA's
   course page - a reference, not a copy): who teaches it and how far it has come,
-  then two tabs.
+  then three tabs.
 
   - "Pertemuan": a row of meeting tabs (meetingWindow, the rest behind "N more"),
     each dotted with the student's own attendance and ticked when all its
@@ -25,10 +26,13 @@ import SubjectHeader, { PersonFact } from '../../components/meetings/SubjectHead
     chosen meeting below
     it (ClassroomMeeting: its materials and what to do). The page opens on the
     meeting running now, else the next (defaultMeetingId).
+  - "Penilaian": the subject's assessments (SubjectAssessments, backend 113ae37;
+    owner 2026-10-12), between the two, since both are the student's work.
+    /assessment's cards open it.
   - "Kehadiran": the student's numbers for this subject (summarize).
 
   The tabs live in the address - `?tab=kehadiran`, `?pertemuan=<session id>` - so
-  a link opens the right one and Back steps through them. A query change keeps
+  a link opens the right one (`?tab=penilaian` too) and Back steps through them. A query change keeps
   the scroll where it is (MainLayout resets it on a path change only). The older
   `/classroom/:id/:sessionId` links still open that meeting.
 
@@ -36,8 +40,8 @@ import SubjectHeader, { PersonFact } from '../../components/meetings/SubjectHead
   2026-10-07) is read only: a note says so, no check-in, nothing tracked - the
   materials keep the ticks earned back then. An ended assignment says it ended.
 
-  Only tabs with data behind them are shown: there is no syllabus, forum,
-  assignment, grade or roster route for a student yet.
+  Only tabs with data behind them are shown: there is no syllabus, forum, grade
+  or roster route for a student yet.
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm';
@@ -49,7 +53,7 @@ const DOT = {
   ABSENT: 'bg-rose-500',
 };
 
-const SECTIONS = ['pertemuan', 'kehadiran'];
+const SECTIONS = ['pertemuan', 'penilaian', 'kehadiran'];
 
 const AttendanceSummary = ({ rows, t }) => {
   if (rows === false) return <p className={`${card} text-sm font-semibold text-amber-700`}>{t('classroom.attFailed')}</p>;
@@ -215,6 +219,8 @@ export const ClassroomSubject = ({ classSubjectId, legacySessionId = null }) => 
 
       {section === 'kehadiran' ? (
         <AttendanceSummary rows={rows} t={t} />
+      ) : section === 'penilaian' ? (
+        <SubjectAssessments classSubjectId={classSubjectId} semesterId={entry.semester.id} />
       ) : sessions === null ? (
         <p className={`${card} text-sm font-semibold text-amber-700`}>{t('classroom.meetingsFailed')}</p>
       ) : sessions.length === 0 ? (

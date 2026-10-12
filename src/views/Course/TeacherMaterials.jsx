@@ -284,8 +284,9 @@ export const TeacherMaterials = ({ session, showToast, readOnly = false }) => {
 
   return (
     <section className="space-y-3" aria-labelledby={`materials-${session.id}`}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id={`materials-${session.id}`} className="text-base font-extrabold text-slate-800">
+      {/* The sub-tab above says "Materi"; the heading stays for screen readers. */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <h3 id={`materials-${session.id}`} className="sr-only">
           {t('classroom.materials')}
         </h3>
         {!readOnly && !form && !cancelled && list !== undefined && !error && (

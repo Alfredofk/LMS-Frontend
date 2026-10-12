@@ -11,7 +11,9 @@ import { assessmentService } from '../../services/assessmentService';
 import { localOf } from '../Attendance/attendance';
 import { formatSchoolDay } from '../QuestionBank/questionBank';
 import { formatNumber } from '../TeacherAssessment/results';
-import { windowText } from '../TeacherAssessment/teacherAssessment';
+import { typeModeText, windowText } from '../TeacherAssessment/teacherAssessment';
+import { noteAssessmentSubject } from './assessmentBack';
+import { forgetMyMenu } from './readMyMenu';
 import { STUDENT_STATE_TONE, attemptState, startState, studentStateOf } from './studentAssessment';
 
 /*
@@ -23,8 +25,8 @@ import { STUDENT_STATE_TONE, attemptState, startState, studentStateOf } from './
   StudentAttemptPage. "Mulai" asks first when a clock or the notice applies;
   "Lanjutkan" goes back to the attempt in progress.
 
-  Reached by its address only until the backend lists a student's assessments
-  (request #14); the list on /assessment will lead here.
+  Reached from a subject's "Penilaian" tab (SubjectAssessments; /assessment's
+  cards lead there), backend 113ae37.
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 sm:p-6 shadow-sm';
@@ -68,6 +70,10 @@ export const StudentAssessmentPage = () => {
     };
   }, [assessmentId, attempt, t]);
 
+  /* The navbar's back arrow leads to this assessment's subject tab once it is known. */
+  const classSubjectId = data?.assessment?.classSubject?.id ?? null;
+  useEffect(() => noteAssessmentSubject(assessmentId, classSubjectId), [assessmentId, classSubjectId]);
+
   const when = (instant) => {
     const local = instant ? localOf(instant, zone) : null;
     return local ? `${formatSchoolDay(local.date, lang)} ${local.time}` : '';
@@ -105,6 +111,7 @@ export const StudentAssessmentPage = () => {
     setFailure(null);
     try {
       const answer = await assessmentService.start(assessmentId);
+      forgetMyMenu();
       openAttempt(answer.submission.id);
     } catch (err) {
       setBusy(false);
@@ -130,7 +137,7 @@ export const StudentAssessmentPage = () => {
         <FactLine
           code={assessment.classSubject.subject.code}
           name={assessment.classSubject.subject.name}
-          facts={[assessment.classSubject.class.name, `${t(`tasm.type.${assessment.type}`)} ${t(`tasm.mode.${assessment.mode}`).toLowerCase()}`]}
+          facts={[assessment.classSubject.class.name, typeModeText(t, assessment)]}
         />
       </div>
 

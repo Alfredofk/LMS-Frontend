@@ -13,6 +13,8 @@ import { readMyClasses } from '../Classroom/readMyClasses';
 import { currentSubjects } from '../Classroom/myClasses';
 import { readMyProgress } from '../Classroom/readMyProgress';
 import { progressTotals } from '../Classroom/myProgress';
+import { readMyMenu } from '../StudentAssessment/readMyMenu';
+import { nextUpcoming, todoAcross } from '../StudentAssessment/studentMenu';
 import { ActiveAssessment, CourseProgress } from './components/Widgets';
 import PinnedAnnouncements from './components/PinnedAnnouncements';
 import ProgressBoard from './components/ProgressBoard';
@@ -28,10 +30,13 @@ import ProgressBoard from './components/ProgressBoard';
     last activity (`GET /tracking/me/progress`, backend 0dd8b44);
   - the attendance stat card (`GET /attendance/me`, backend deb95e8), counted over
     confirmed meetings as on /attendance, where it leads;
-  - the subjects stat card and "Mata Pelajaran & Kemajuan" (readMyClasses).
+  - the subjects stat card and "Mata Pelajaran & Kemajuan" (readMyClasses);
+  - the assessments to do, as a stat card and a widget (GET /assessments/mine
+    through readMyMenu, the server's default semester; backend 113ae37, owner
+    2026-10-12), both leading to /assessment.
 
-  Everything else - pinned announcements, active assignments, the assignments,
-  average and new-materials stat cards - has no backend route yet, so it renders
+  Everything else - pinned announcements, the average and new-materials stat
+  cards - has no backend route yet, so it renders
   `notBuilt` / "-", the same "not available yet" the pages behind it show. It used
   to be sample data under a banner, until the dashboard claimed three active
   assignments the Assessment page said did not exist. When a route lands, feed the
@@ -57,7 +62,6 @@ const greetingKeyFor = (hour) => {
 };
 
 const STATS = [
-  { key: 'dash.stat.todo', icon: ListTodo },
   { key: 'dash.stat.avgScore', icon: Star },
   { key: 'dash.stat.newMaterials', icon: FileText },
 ];
@@ -127,6 +131,19 @@ export const StudentDashboard = () => {
         ? null
         : progressTotals(progress, subjects ? subjects.map(({ entry }) => entry.id) : null);
 
+  /* The assessments to do across every subject: undefined while reading, null when it failed. */
+  const [menu, setMenu] = useState(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    readMyMenu(membership?.id)
+      .then((answer) => !cancelled && setMenu(answer))
+      .catch(() => !cancelled && setMenu(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [membership?.id]);
+  const todo = menu === undefined ? undefined : menu === null ? null : todoAcross(menu.classes);
+
   const name = user?.fullName || t('dash.greeting.fallback');
   const schoolName = membership?.school?.name ?? membership?.schoolName ?? '';
 
@@ -192,6 +209,13 @@ export const StudentDashboard = () => {
           icon={BookOpen}
           onClick={() => navigate('/classroom')}
         />
+        <StatCard
+          title={t('dash.stat.assessments')}
+          value={todo === null ? '-' : todo === undefined ? '…' : String(todo.length)}
+          subtext={todo === null ? t('dash.att.failed') : todo === undefined ? '' : t('dash.stat.assessmentsSub')}
+          icon={ListTodo}
+          onClick={() => navigate('/assessment')}
+        />
         {STATS.map((stat) => (
           <StatCard
             key={stat.key}
@@ -205,7 +229,7 @@ export const StudentDashboard = () => {
 
       {/* Two cards since the announcements moved to the top (owner, 2026-10-03). */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ActiveAssessment notBuilt />
+        <ActiveAssessment todo={todo} next={menu ? nextUpcoming(menu.classes) : null} zone={membership?.school?.timeZone ?? null} />
         <CourseProgress subjects={subjects} failed={subjectsFailed} />
       </div>
     </div>

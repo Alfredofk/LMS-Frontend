@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
+import id from '../../i18n/id.js';
+import en from '../../i18n/en.js';
+
 import {
   actionsOf,
+  typeModeText,
+  voidsSubmissions,
   cancelReasonError,
   copyBody,
   copyTargets,
@@ -406,5 +411,40 @@ describe('the list, grouped (owner, 2026-10-11)', () => {
     expect(whenLine(draft, 'WIB', 'en', now)).toEqual({ key: 'tasm.list.window', vars: { opens: '12 Oct 07:30', closes: '20 Oct 23:59' } });
     const nextYear = row('later', { status: 'DRAFT', opensAt: '2027-01-05T00:00:00Z', closesAt: '2027-01-06T00:00:00Z' });
     expect(whenLine(nextYear, 'WIB', 'id', now).vars).toEqual({ opens: '5 Jan 2027 07:00', closes: '6 Jan 2027 07:00' });
+  });
+});
+
+describe('voidsSubmissions (replaceQuestions: what voids, backend 6380e3e)', () => {
+  const saved = [
+    { id: 'c1', points: 5 },
+    { id: 'c2', points: 10 },
+  ];
+
+  it('is false for points and order only', () => {
+    expect(voidsSubmissions([{ id: 'c2', points: 3 }, { id: 'c1', points: 5 }], saved)).toBe(false);
+  });
+
+  it('is true for a question added from the bank, or a copy swapped for its bank version', () => {
+    expect(voidsSubmissions([{ id: 'c1' }, { id: 'c2' }, { questionId: 'q9' }], saved)).toBe(true);
+    expect(voidsSubmissions([{ id: 'c1' }, { questionId: 'q-of-c2' }], saved)).toBe(true);
+  });
+
+  it('is true for a question removed', () => {
+    expect(voidsSubmissions([{ id: 'c1' }], saved)).toBe(true);
+  });
+});
+
+describe('typeModeText (owner, 2026-10-12: "Quiz online" read wrong in English)', () => {
+  const tOf = (dict) => (key, vars = {}) => dict[key].replace(/\{(\w+)\}/g, (_, name) => vars[name]);
+
+  it('reads type then mode in Indonesian, as before', () => {
+    expect(typeModeText(tOf(id), { type: 'KUIS', mode: 'ONLINE' })).toBe('Kuis daring');
+    expect(typeModeText(tOf(id), { type: 'UTS', mode: 'OFFLINE' })).toBe('UTS luring');
+  });
+
+  it('reads mode then type in English, the type in lower case but its acronym kept', () => {
+    expect(typeModeText(tOf(en), { type: 'KUIS', mode: 'ONLINE' })).toBe('Online quiz');
+    expect(typeModeText(tOf(en), { type: 'TUGAS', mode: 'OFFLINE' })).toBe('Offline assignment');
+    expect(typeModeText(tOf(en), { type: 'UAS', mode: 'ONLINE' })).toBe('Online final (UAS)');
   });
 });

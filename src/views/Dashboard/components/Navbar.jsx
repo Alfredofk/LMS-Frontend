@@ -18,6 +18,7 @@ import { getAccessToken } from '../../../services/apiClient';
 import AccountMenu from '../../../components/AccountMenu';
 import { useAuth } from '../../../context/AuthContext';
 import { homeFor, isPrincipalDesk } from '../../../constants/roles';
+import { useAssessmentBack } from '../../StudentAssessment/assessmentBack';
 
 /*
   What the bar says on each route, and whether it carries a back arrow.
@@ -65,6 +66,7 @@ export const Navbar = ({ showToast, onOpenNav }) => {
   const navigate = useNavigate();
   const { activeRole } = useAuth();
   const location = useLocation();
+  const assessmentBack = useAssessmentBack(location.pathname);
   const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useT();
 
@@ -389,6 +391,25 @@ export const Navbar = ({ showToast, onOpenNav }) => {
       );
     }
 
+    /* A student's assessment leads back to its subject's "Penilaian" tab, an attempt to
+       its outline (owner, 2026-10-12; assessmentBack.js). */
+    if (assessmentBack) {
+      return (
+        <div className="flex min-w-0 items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate(assessmentBack.to)}
+            className="w-8 h-8 shrink-0 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            aria-label={t(assessmentBack.labelKey)}
+            title={t(assessmentBack.labelKey)}
+          >
+            <ChevronLeft className="w-4 h-4" aria-hidden="true" />
+          </button>
+          <span className="truncate text-xl font-bold text-slate-900 tracking-tight">{t('shell.assessment')}</span>
+        </div>
+      );
+    }
+
     /* One assessment, or an attempt at it, sits under "Penilaian" (owner, 2026-10-11). */
     const found = TITLES[location.pathname] ?? (location.pathname.startsWith('/assessment/') ? TITLES['/assessment'] : undefined);
     /* /schedule is "Calendar" at the Principal's desk (owner, 2026-10-03). */
@@ -443,8 +464,8 @@ export const Navbar = ({ showToast, onOpenNav }) => {
         <div className="min-w-0 truncate">{getNavbarTitle()}</div>
       </div>
 
-      {/* Middle Search Bar for My Courses & Scores */}
-      {(location.pathname === '/classroom' || location.pathname === '/scores') && (
+      {/* Middle Search Bar for My Courses */}
+      {location.pathname === '/classroom' && (
         <div className="flex-1 max-w-sm mx-6 hidden md:block">
           <div className="relative">
             <Search className="w-4 h-4 text-brand absolute left-3.5 top-1/2 -translate-y-1/2" />

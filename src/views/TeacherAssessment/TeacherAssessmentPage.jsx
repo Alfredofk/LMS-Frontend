@@ -49,6 +49,7 @@ import {
   totalPoints,
   windowText,
   withBankVersion,
+  voidsSubmissions,
   withPicked,
 } from './teacherAssessment';
 
@@ -252,11 +253,19 @@ const TeacherAssessment = () => {
     }
   };
 
-  const saveQuestions = async () => {
+  /* Answers not void (backend 5cabd3d, note #15): what a change students see would void. null for a copier. */
+  const live = saved?.liveSubmissions ?? null;
+
+  /* confirmed: asked first when the change voids answers in (owner, 2026-10-12). */
+  const saveQuestions = async (confirmed = false) => {
     const found = rowErrors(rows);
     setPointErrors(found);
     if (Object.keys(found).length) {
       setFailure((prev) => ({ ...prev, questions: { message: t(found.list ?? 'tasm.error.fix') } }));
+      return;
+    }
+    if (!confirmed && published && !released && live > 0 && voidsSubmissions(rows, saved.questions)) {
+      setDialog('voidQuestions');
       return;
     }
     setBusy('questions');
@@ -773,7 +782,11 @@ const TeacherAssessment = () => {
             )}
 
             {released && actions.edit && <p className="text-[11px] font-medium text-slate-500">{t('tasm.questionsReleased')}</p>}
-            {published && !released && actions.edit && <p className="text-[11px] font-medium text-slate-500">{t('tasm.questionsAfterPublish')}</p>}
+            {published && !released && actions.edit && (
+              <p className="text-[11px] font-medium text-slate-500">
+                {live === null ? t('tasm.questionsAfterPublish') : live > 0 ? t('tasm.questionsLive', { n: live }) : t('tasm.questionsNoAnswers')}
+              </p>
+            )}
 
             {failure.questions && <Failure message={failure.questions.message} onReload={failure.questions.stale ? () => setAttempt((n) => n + 1) : null} t={t} />}
 
@@ -788,7 +801,7 @@ const TeacherAssessment = () => {
                       {t('tasm.undo')}
                     </button>
                   )}
-                  <button type="button" onClick={saveQuestions} disabled={Boolean(busy) || !questionsDirty} className={`${tool} px-5 py-2.5 text-sm bg-brand text-white hover:bg-brand-deep`}>
+                  <button type="button" onClick={() => saveQuestions()} disabled={Boolean(busy) || !questionsDirty} className={`${tool} px-5 py-2.5 text-sm bg-brand text-white hover:bg-brand-deep`}>
                     {busy === 'questions' ? t('common.loading') : t('tasm.saveQuestions')}
                   </button>
                 </div>
@@ -827,6 +840,21 @@ const TeacherAssessment = () => {
           onClose={() => setDialog(null)}
         />
       )}
+      <ConfirmDialog
+        open={dialog === 'voidQuestions'}
+        tone="danger"
+        title={t('tasm.voidConfirm.title', { n: live ?? 0 })}
+        body={t('tasm.voidConfirm.listBody')}
+        confirmLabel={t('tasm.voidConfirm.confirm')}
+        cancelLabel={t('common.cancel')}
+        busy={busy === 'questions'}
+        busyLabel={t('common.loading')}
+        onConfirm={async () => {
+          await saveQuestions(true);
+          setDialog(null);
+        }}
+        onCancel={() => busy !== 'questions' && setDialog(null)}
+      />
       <ConfirmDialog
         open={dialog === 'publish'}
         tone="brand"

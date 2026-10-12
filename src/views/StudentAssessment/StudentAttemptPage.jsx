@@ -31,6 +31,7 @@ import {
   lettered,
   remainingMs,
 } from './studentAssessment';
+import { forgetMyMenu } from './readMyMenu';
 
 /*
   One of a student's attempts (/assessment/:id/percobaan/:submissionId; backend
@@ -288,6 +289,7 @@ const Answering = ({ view, zone, onClosed, onHandedIn }) => {
     await flushAll();
     try {
       const answer = await assessmentService.handIn(submissionId);
+      forgetMyMenu();
       guard.release();
       onHandedIn(answer);
     } catch (err) {

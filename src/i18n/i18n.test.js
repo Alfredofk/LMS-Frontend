@@ -174,6 +174,23 @@ describe('every expansion of a dynamic key exists', () => {
     expectEvery(states.map((s) => `selectRole.badge.${s}`));
   });
 
+  it("a student's assessments: a heading per section and a word per status (backend 113ae37)", () => {
+    const sections = quotedIn('views/StudentAssessment/studentMenu.js', /export const MENU_SECTIONS = \[([^\]]*)\]/);
+    const words = keysOf('views/StudentAssessment/SubjectAssessments.jsx', /const WORD_TONE = \{([\s\S]*?)\};/);
+    expect(sections).toEqual(['TODO', 'UPCOMING', 'DONE']);
+    expectEvery(sections.map((s) => `smenu.section.${s}`));
+    expectEvery(words.map((s) => `smenu.status.${s}`));
+    expectEvery(['opens', 'closes', 'closed'].map((s) => `smenu.when.${s}`));
+  });
+
+  it('an assessment\'s type and mode in one phrase: a word for each (2026-10-12)', () => {
+    const types = quotedIn('views/TeacherAssessment/teacherAssessment.js', /export const TYPES = \[([^\]]*)\]/);
+    const modes = quotedIn('views/TeacherAssessment/teacherAssessment.js', /export const MODES = \[([^\]]*)\]/);
+    expect(types).toEqual(['TUGAS', 'KUIS', 'UTS', 'UAS']);
+    expectEvery(types.map((s) => `tasm.typeWord.${s}`));
+    expectEvery(modes.map((s) => `tasm.modeWord.${s}`));
+  });
+
   it('classes: a label for every year and semester status that draws a badge', () => {
     /* The badge colour tables are the set: a status with a colour is a status
        that reaches the screen, so it needs words as well. */

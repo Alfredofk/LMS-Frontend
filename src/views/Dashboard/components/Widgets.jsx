@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, ListTodo, Calendar, UserRound, Wrench } from 'lucide-react';
+import { BookOpen, ChevronRight, ListTodo, UserRound, Wrench } from 'lucide-react';
 
 import { useT } from '../../../i18n/LanguageContext';
+import { localOf } from '../../Attendance/attendance';
+import { shortWhen, typeModeText } from '../../TeacherAssessment/teacherAssessment';
+import { pathOf, whenOf, wordOf } from '../../StudentAssessment/studentMenu';
 
 /*
-  Two cards on the student dashboard, still waiting for their endpoints. Today's
+  Two cards on the student dashboard. The assessments one is real since backend
+  113ae37 (2026-10-12). Today's
   activities became TodaySessionsCard on real data, and school announcements became
   PinnedAnnouncements at the top of the page (owner, 2026-10-03).
 
@@ -26,28 +30,6 @@ import { useT } from '../../../i18n/LanguageContext';
   tolerance but undecidedness, and they made a missing field render as a blank
   row instead of failing where somebody would notice.
 */
-
-const DAY = 24 * 60 * 60 * 1000;
-
-/** Which locale `toLocaleDateString` should use for the language on screen. */
-const localeOf = (lang) => (lang === 'id' ? 'id-ID' : 'en-GB');
-
-/*
-  Whole days from now until `iso`, counted midnight to midnight.
-
-  Dividing elapsed milliseconds by a day measured hours, not calendar days: at
-  01:00, something due at 23:00 the *same* day is 22 hours away, which rounded up
-  to 1 and read as "tomorrow". Zeroing the clock on both ends makes today mean
-  today. Returns null for a date that cannot be parsed.
-*/
-const daysUntil = (iso, now) => {
-  const then = new Date(iso);
-  if (Number.isNaN(then.getTime())) return null;
-
-  const from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const to = new Date(then.getFullYear(), then.getMonth(), then.getDate());
-  return Math.round((to - from) / DAY);
-};
 
 /* ---------------------------------------------------------------------- */
 /* Shared pieces                                                          */
@@ -114,126 +96,103 @@ const WidgetCard = ({ titleKey, seeAllTo, notBuilt, footer, children }) => {
 };
 
 /* ---------------------------------------------------------------------- */
-/* 1. Active assessment                                                   */
+/* 1. Assessments to do                                                   */
 /* ---------------------------------------------------------------------- */
 
-/**
- * @param {Array<{id, title, subjectName, dueAt}>} assessments  `dueAt` is ISO.
- */
-export const ActiveAssessment = ({ assessments = [], isLoading, notBuilt }) => {
+const MAX_TODO = 3;
+
+/* The word after a row's facts; a plain "not started" says nothing here. */
+const TODO_WORD_TONE = {
+  IN_PROGRESS: 'text-sky-700',
+  VOIDED: 'text-amber-700',
+  LATE: 'text-amber-700',
+};
+
+/*
+  What waits to be done across every subject (backend 113ae37; owner 2026-10-12),
+  from the default semester's menu (readMyMenu): soonest deadline first, at most
+  three and "+N more", each row as on a subject's "Penilaian" tab - the title, then
+  "Matematika / Kuis daring / ditutup 19 Des 23:59", the deadline in red when it is
+  today in the school's zone. A row opens the outline, or the attempt running.
+  Nothing to do says so, and names the next one to open when there is one.
+
+  @param todo   entries (todoAcross), undefined while reading, null when it failed
+  @param next   the next one to open (nextUpcoming), or null
+  @param zone   the school's zone
+*/
+export const ActiveAssessment = ({ todo, next = null, zone }) => {
   const navigate = useNavigate();
   const { t, lang } = useT();
 
-  if (isLoading) return <WidgetSkeleton rows={2} />;
+  if (todo === undefined) return <WidgetSkeleton rows={2} />;
 
-  const now = new Date();
-
-  /*
-    Slice first, then look for something urgent. Scanning the whole list and
-    rendering only three of it meant the banner could warn about a deadline that
-    was not on screen.
-  */
-  const shown = assessments.slice(0, 3).map((task) => {
-    const daysLeft = daysUntil(task.dueAt, now);
-    const due = new Date(task.dueAt);
-    const date = Number.isNaN(due.getTime())
-      ? null
-      : due.toLocaleDateString(localeOf(lang), { day: 'numeric', month: 'short' });
-
-    return { ...task, daysLeft, date };
-  });
-
-  const urgent = shown.find((task) => task.daysLeft !== null && task.daysLeft <= 1);
-
-  /*
-    Colour by the date and nothing else. It used to read
-    `daysLeft <= 1 || idx === 0`, which painted the first row red and the second
-    amber whatever their deadlines said — so an assignment three weeks out wore a
-    red badge showing its own distant date.
-  */
-  const toneOf = (daysLeft) => {
-    if (daysLeft === null) return 'far';
-    if (daysLeft <= 1) return 'soon';
-    if (daysLeft <= 3) return 'near';
-    return 'far';
+  const today = localOf(new Date().toISOString(), zone)?.date ?? null;
+  const factsOf = (entry) => {
+    const { assessment } = entry;
+    const when = whenOf(entry);
+    const closesToday = when.key === 'closes' && today && localOf(when.instant, zone)?.date === today;
+    return [
+      { text: assessment.classSubject.subject.name },
+      { text: typeModeText(t, assessment) },
+      { text: t(`smenu.when.${when.key}`, { when: shortWhen(when.instant, zone, lang) }), tone: closesToday ? 'text-rose-700' : '' },
+    ];
   };
-
-  const TONES = {
-    soon: { dot: 'bg-rose-500', badge: 'bg-[#FEECEC] text-[#EF4444]' },
-    near: { dot: 'bg-amber-500', badge: 'bg-[#FEF5E7] text-[#D97706]' },
-    far: { dot: 'bg-emerald-500', badge: 'bg-[#EBFBF2] text-[#059669]' },
-  };
-
-  const dueTextOf = ({ daysLeft, date }) => {
-    if (daysLeft === null) return t('dash.assessment.dueOn', { date: '-' });
-    if (daysLeft <= 0) return t('dash.assessment.dueToday');
-    if (daysLeft === 1) return t('dash.assessment.dueTomorrow');
-    return t('dash.assessment.dueOn', { date });
-  };
-
-  const footer = urgent ? (
-    <div className="bg-[#FFF0F0] border border-[#FFE0E0] rounded-xl p-3 mt-4 text-left">
-      <div className="text-xs font-semibold text-rose-600 leading-tight">
-        {t('dash.assessment.urgent', {
-          title: urgent.title,
-          when: t(urgent.daysLeft <= 0 ? 'dash.assessment.whenToday' : 'dash.assessment.whenTomorrow'),
-        })}
-      </div>
-      <div className="text-[11px] text-rose-500 font-normal mt-0.5">
-        {t('dash.assessment.urgentSub')}
-      </div>
-    </div>
-  ) : null;
 
   return (
-    <WidgetCard
-      titleKey="dash.assessment.title"
-      seeAllTo="/assessment"
-      notBuilt={notBuilt}
-      footer={footer}
-    >
-      {shown.length === 0 ? (
-        <EmptyState icon={ListTodo} messageKey="dash.assessment.empty" />
+    <WidgetCard titleKey="dash.assessment.title" seeAllTo="/assessment">
+      {todo === null ? (
+        <EmptyState icon={ListTodo} messageKey="dash.att.failed" />
+      ) : todo.length === 0 ? (
+        <div className="space-y-3">
+          <EmptyState icon={ListTodo} messageKey="dash.assessment.empty" />
+          {next && (
+            <p className="text-xs font-semibold text-slate-500">
+              {t('dash.assessment.next', {
+                title: next.assessment.title,
+                when: t(`smenu.when.${whenOf(next).key}`, { when: shortWhen(whenOf(next).instant, zone, lang) }),
+              })}
+            </p>
+          )}
+        </div>
       ) : (
-        <div className="space-y-3.5">
-          {shown.map((task) => {
-            const tone = TONES[toneOf(task.daysLeft)];
-            const badge =
-              task.daysLeft !== null && task.daysLeft <= 1
-                ? t('dash.assessment.badgeSoon')
-                : task.date ?? '-';
-
-            const open = () => navigate(`/assessment/${task.id}`);
-
-            return (
-              <div
-                key={task.id}
-                onClick={open}
-                role={open ? 'button' : undefined}
-                tabIndex={open ? 0 : undefined}
-                onKeyDown={open ? (e) => (e.key === 'Enter' || e.key === ' ') && open() : undefined}
-                className={`flex items-center justify-between gap-3 ${
-                  open ? 'cursor-pointer group hover:opacity-85 transition-opacity' : ''
-                }`}
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${tone.dot}`} />
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-800 truncate group-hover:text-brand transition-colors">
-                      {task.title}
-                    </div>
-                    <div className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
-                      {task.subjectName || t('dash.assessment.subjectFallback')}, {dueTextOf(task)}
-                    </div>
-                  </div>
-                </div>
-
-                <span className={`shrink-0 text-[10px] font-semibold px-2.5 py-0.5 rounded-full ${tone.badge}`}>
-                  {badge}
-                </span>
-              </div>
-            );
-          })}
+        <div className="space-y-1">
+          <ul className="divide-y divide-slate-100">
+            {todo.slice(0, MAX_TODO).map((entry) => {
+              const word = wordOf(entry);
+              return (
+                <li key={entry.assessment.id}>
+                  <button
+                    type="button"
+                    onClick={() => navigate(pathOf(entry))}
+                    className="group w-full text-left py-2.5 flex items-center gap-3 cursor-pointer rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                  >
+                    <span className="min-w-0 flex-1 space-y-0.5">
+                      <span className="block text-xs font-bold text-slate-800 break-words group-hover:text-brand transition-colors">{entry.assessment.title}</span>
+                      {/* FactLine's look - grey, light slashes - in spans: a button takes no <p>. */}
+                      <span className="block text-[11px] font-semibold text-slate-500">
+                        {factsOf(entry).map((part, i) => (
+                          <Fragment key={part.text}>
+                            {i > 0 && (
+                              <>
+                                {' '}
+                                <span className="mx-1 text-slate-300" aria-hidden="true">
+                                  /
+                                </span>{' '}
+                              </>
+                            )}
+                            <span className={`whitespace-nowrap ${part.tone ?? ''}`}>{part.text}</span>
+                          </Fragment>
+                        ))}
+                      </span>
+                    </span>
+                    {TODO_WORD_TONE[word] && <span className={`shrink-0 text-[11px] font-bold ${TODO_WORD_TONE[word]}`}>{t(`smenu.status.${word}`)}</span>}
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 group-hover:text-brand" aria-hidden="true" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          {todo.length > MAX_TODO && <p className="text-xs font-semibold text-slate-500">{t('dash.assessment.more', { n: todo.length - MAX_TODO })}</p>}
         </div>
       )}
     </WidgetCard>

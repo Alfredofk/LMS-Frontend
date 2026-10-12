@@ -127,6 +127,17 @@ export function confirmStatuses(students, picks = {}, notes = {}) {
   return out;
 }
 
+/**
+ * The count beside the meeting's "Kehadiran" sub-tab (owner, 2026-10-12):
+ * `{ n, total }` - checked in so far, or present once confirmed - or null before
+ * the roster is read.
+ */
+export function attendanceCount(students, confirmed) {
+  if (!Array.isArray(students)) return null;
+  const n = students.filter((student) => (confirmed ? student.status === 'PRESENT' : Boolean(student.checkedInAt))).length;
+  return { n, total: students.length };
+}
+
 /** How the roster will read once confirmed, picks applied: `{ PRESENT, SICK, EXCUSED, ABSENT }`. */
 export function confirmTally(students, picks = {}) {
   const out = { PRESENT: 0, SICK: 0, EXCUSED: 0, ABSENT: 0 };

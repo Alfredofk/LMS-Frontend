@@ -278,6 +278,32 @@ export function draftChanged(draft, saved = null) {
   return contentOf(draft, false) !== contentOf(emptyDraft(draft.kind), false);
 }
 
+/*
+  What a student is shown of a draft, its key left out: the body, its image, and an
+  MCQ's scoring and options (text and image, in any order - the server's
+  sameInAnyOrder). TF's value and SHORT's accepted answers are the key.
+*/
+const shownOf = (draft) =>
+  JSON.stringify({
+    body: draft.body ?? '',
+    imageId: draft.imageId ?? null,
+    ...(draft.kind === 'MCQ'
+      ? {
+          mcqScoring: draft.mcqScoring,
+          options: (draft.options ?? [])
+            .map((option) => [option.id ?? '', option.text ?? '', option.imageId ?? null])
+            .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+        }
+      : {}),
+  });
+
+/**
+ * Whether an edit of a copy changes what students are shown (editQuestion, backend
+ * 6380e3e): published with answers in, that voids them; a change to the key alone
+ * marks them again.
+ */
+export const shownChanged = (draft, saved) => Boolean(draft && saved) && shownOf(draft) !== shownOf(saved);
+
 /** A file picked for a question image: a key when it may not be sent, else null. */
 export function imageFileError(file) {
   if (!file) return null;

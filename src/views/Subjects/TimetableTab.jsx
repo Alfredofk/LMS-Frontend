@@ -203,7 +203,9 @@ export const TimetableTab = ({ years, showToast, activeRole }) => {
           </span>
         </div>
       )}
-      {semesterEntry && length?.short && (
+      {/* Only where the dates can still be fixed: a closed year or semester is read only,
+          its dates included (owner, 2026-10-12). */}
+      {semesterEntry && length?.short && writable && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800 leading-relaxed flex flex-col sm:flex-row sm:items-center gap-3">
           <AlertTriangle className="w-4 h-4 shrink-0 hidden sm:block" aria-hidden="true" />
           <span className="flex-1">{t('timetable.semester.short', { days: length.days, weeks: length.weeks })}</span>

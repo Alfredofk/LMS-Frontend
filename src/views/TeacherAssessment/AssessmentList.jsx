@@ -2,7 +2,7 @@ import React, { Fragment } from 'react';
 import { ChevronRight } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
-import { LIST_BADGE_TONE, groupAssessments, whenLine } from './teacherAssessment';
+import { LIST_BADGE_TONE, groupAssessments, typeModeText, whenLine } from './teacherAssessment';
 
 /*
   A class subject's assessments, grouped by where they stand (owner, 2026-10-11:
@@ -39,7 +39,7 @@ export const AssessmentList = ({ assessments, zone, onOpen, compact = false }) =
             {group.rows.map((assessment) => {
               const when = whenLine(assessment, zone, lang);
               const facts = [
-                `${t(`tasm.type.${assessment.type}`)} ${t(`tasm.mode.${assessment.mode}`).toLowerCase()}`,
+                typeModeText(t, assessment),
                 t(when.key, when.vars),
               ];
               return (

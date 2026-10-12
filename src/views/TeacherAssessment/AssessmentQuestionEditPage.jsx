@@ -2,6 +2,8 @@ import React, { useEffect, useId, useState } from 'react';
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { AlertCircle, Lock, RefreshCw } from 'lucide-react';
 
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
+
 import FactLine from '../../components/ui/FactLine';
 import { useSchoolToday } from '../../hooks/useSchoolToday';
 import { useUnsavedGuard } from '../../hooks/useUnsavedGuard';
@@ -10,7 +12,7 @@ import { assessmentErrorMessage, copyEditErrorMessage, isStaleCopy } from '../..
 import { academicsService } from '../../services/academicsService';
 import { assessmentService } from '../../services/assessmentService';
 import QuestionContentFields from '../QuestionBank/QuestionContentFields';
-import { copyPayload, draftChanged, draftFrom, questionErrors } from '../QuestionBank/questionBank';
+import { copyPayload, draftChanged, draftFrom, questionErrors, shownChanged } from '../QuestionBank/questionBank';
 import {
   MAX_POINTS,
   MAX_REASON,
@@ -33,7 +35,9 @@ import {
   - Saved over the assessment version read (`updatedAt`): anything saved since,
     here or on the list, answers 409 and the page offers to read it again.
   - Published with answers in: a change to what students see voids them, a change
-    to the key alone marks them again - said on the page before saving.
+    to the key alone marks them again - said on the page with the number of answers
+    in (`liveSubmissions`, backend 5cabd3d), and a save that voids asks first
+    (owner, 2026-10-12).
   - Released (backend 5255842; owner 2026-10-10): what students were shown is
     locked (`keyOnly`), and the key and the points - here, since the list is
     locked too - are fixed with a reason (1-500), asked on the page as soon as
@@ -65,6 +69,7 @@ const AssessmentQuestionEditor = () => {
   const [errors, setErrors] = useState({});
   const [failure, setFailure] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [askVoid, setAskVoid] = useState(false);
   const keyChanged = Boolean(baseline) && draftChanged(draft, baseline);
   const released = isReleased(state?.assessment);
   const fixChanged = released && releasedFixChanged({ keyChanged, points, savedPoints: state.copy.points });
@@ -104,11 +109,18 @@ const AssessmentQuestionEditor = () => {
     setFailure(null);
   };
 
-  const save = async () => {
+  const live = state?.assessment?.liveSubmissions ?? null;
+
+  /* confirmed: asked first when the change voids answers in (owner, 2026-10-12). */
+  const save = async (confirmed = false) => {
     const found = { ...questionErrors(draft, { editing: true, today }), ...(released ? releasedFixErrors({ points, reason }) : {}) };
     setErrors(found);
     if (Object.keys(found).length) {
       setFailure({ message: t('qbank.editor.fixErrors') });
+      return;
+    }
+    if (!confirmed && !released && state.assessment.status === 'PUBLISHED' && live > 0 && shownChanged(draft, baseline)) {
+      setAskVoid(true);
       return;
     }
     setBusy(true);
@@ -121,6 +133,7 @@ const AssessmentQuestionEditor = () => {
       navigate(back);
     } catch (err) {
       setBusy(false);
+      setAskVoid(false);
       setFailure({ message: copyEditErrorMessage(err, t), stale: isStaleCopy(err) });
     }
   };
@@ -155,7 +168,11 @@ const AssessmentQuestionEditor = () => {
         {released ? (
           <p className={note}>{t('tasm.editCopy.releasedNote')}</p>
         ) : (
-          assessment.status === 'PUBLISHED' && <p className={note}>{t('tasm.editCopy.publishedNote')}</p>
+          assessment.status === 'PUBLISHED' && (
+            <p className={note}>
+              {live === null ? t('tasm.editCopy.publishedNote') : live > 0 ? t('tasm.editCopy.liveNote', { n: live }) : t('tasm.editCopy.noAnswersNote')}
+            </p>
+          )
         )}
       </div>
 
@@ -247,10 +264,22 @@ const AssessmentQuestionEditor = () => {
         <button type="button" onClick={() => navigate(back)} disabled={busy} className={`${tool} px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100`}>
           {t('common.cancel')}
         </button>
-        <button type="button" onClick={save} disabled={busy || (released && !fixChanged)} className={`${tool} px-5 py-2.5 text-sm bg-brand text-white hover:bg-brand-deep`}>
+        <button type="button" onClick={() => save()} disabled={busy || (released && !fixChanged)} className={`${tool} px-5 py-2.5 text-sm bg-brand text-white hover:bg-brand-deep`}>
           {busy ? t('common.loading') : t('qbank.editor.saveChanges')}
         </button>
       </div>
+      <ConfirmDialog
+        open={askVoid}
+        tone="danger"
+        title={t('tasm.voidConfirm.title', { n: live ?? 0 })}
+        body={t('tasm.voidConfirm.copyBody')}
+        confirmLabel={t('tasm.voidConfirm.confirm')}
+        cancelLabel={t('common.cancel')}
+        busy={busy}
+        busyLabel={t('common.loading')}
+        onConfirm={() => save(true)}
+        onCancel={() => !busy && setAskVoid(false)}
+      />
       {guard.dialog}
     </div>
   );

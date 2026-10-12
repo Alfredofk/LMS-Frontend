@@ -230,6 +230,16 @@ export const assessmentService = {
   // ---- A student answering (backend 6380e3e, ticket 03; owner 2026-10-11) ----
 
   /**
+   * The student's menu for one semester (backend 113ae37, ticket 07): `{ semester |
+   * null, semesters, classes: [{ id, name, gradeLevel, academicYear, current,
+   * assessments: [{ assessment, status, score, attemptsUsed, attemptsLeft,
+   * inProgressId, canStart }] }] }`. Without `semesterId` the server picks it.
+   */
+  async menu(semesterId = null) {
+    return api.get('/assessments/mine', semesterId ? { query: { semesterId } } : undefined);
+  },
+
+  /**
    * The outline on the student's own terms, never a question: `{ assessment,
    * attemptsUsed, attemptsLeft, inProgressId, canStart, score, submissions }`.
    */

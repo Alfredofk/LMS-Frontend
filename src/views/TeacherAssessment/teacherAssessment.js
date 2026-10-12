@@ -16,6 +16,15 @@ import { bodyText, formatSchoolDay } from '../QuestionBank/questionBank';
 export const TYPES = ['TUGAS', 'KUIS', 'UTS', 'UAS'];
 export const MODES = ['ONLINE', 'OFFLINE'];
 
+/*
+  "Kuis daring" / "Online quiz" (owner, 2026-10-12): the type and the mode in one
+  phrase, in each language's own order - `tasm.typeMode` holds the order,
+  `tasm.typeWord.*` and `tasm.modeWord.*` the words as they stand inside it.
+  English read "Quiz online" when the two were simply joined.
+*/
+export const typeModeText = (t, assessment) =>
+  t('tasm.typeMode', { type: t(`tasm.typeWord.${assessment.type}`), mode: t(`tasm.modeWord.${assessment.mode}`) });
+
 export const MAX_TITLE = 200;
 export const MAX_INSTRUCTIONS = 20_000;
 export const MAX_ATTEMPTS = 20;
@@ -290,6 +299,16 @@ export function rowsChanged(rows, saved) {
   const before = (saved ?? []).map((question) => `${question.id}:${question.points}`);
   const now = rows.map((row) => (row.id ? `${row.id}:${Number(row.points)}` : `new:${row.questionId}`));
   return before.length !== now.length || before.some((value, i) => value !== now[i]);
+}
+
+/**
+ * Whether saving the list would void the submissions in (replaceQuestions, backend
+ * 6380e3e): a question added - from the bank, or a copy swapped for the bank's
+ * version - or one removed. Points re-mark and a new order changes nothing.
+ */
+export function voidsSubmissions(rows, saved) {
+  const kept = new Set(rows.filter((row) => row.id).map((row) => row.id));
+  return rows.some((row) => !row.id) || (saved ?? []).some((question) => !kept.has(question.id));
 }
 
 export const totalPoints = (rows) => rows.reduce((sum, row) => sum + (wholeIn(row.points, MIN_POINTS, MAX_POINTS) ? Number(row.points) : 0), 0);
