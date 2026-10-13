@@ -14,6 +14,7 @@ import { formatNumber } from '../TeacherAssessment/results';
 import { typeModeText, windowText } from '../TeacherAssessment/teacherAssessment';
 import { noteAssessmentSubject } from './assessmentBack';
 import { forgetMyMenu } from './readMyMenu';
+import { enterFullscreen, leaveFullscreen } from './useIntegritySignals';
 import { STUDENT_STATE_TONE, attemptState, startState, studentStateOf } from './studentAssessment';
 
 /*
@@ -106,7 +107,11 @@ export const StudentAssessmentPage = () => {
   /* A clock that starts, or the integrity notice: worth a question before the first click. */
   const asksFirst = Boolean(assessment.timeLimitMinutes) || assessment.integritySignals;
 
+  /* An attempt that records integrity signals is done in fullscreen: asked here, inside the click (owner 2026-10-13). */
+  const fullscreenFirst = () => assessment.integritySignals && enterFullscreen();
+
   const start = async () => {
+    fullscreenFirst();
     setBusy(true);
     setFailure(null);
     try {
@@ -118,6 +123,7 @@ export const StudentAssessmentPage = () => {
       setAsking(false);
       setFailure(studentAssessmentErrorMessage(err, t));
       setAttempt((n) => n + 1);
+      leaveFullscreen();
     }
   };
 
@@ -189,7 +195,10 @@ export const StudentAssessmentPage = () => {
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 border-t border-slate-100 pt-4">
           {state.action === 'continue' && (
-            <button type="button" onClick={() => openAttempt(data.inProgressId)} className={`${tool} px-5 py-2.5 text-sm bg-brand text-white hover:bg-brand-deep`}>
+            <button type="button" onClick={() => {
+                fullscreenFirst();
+                openAttempt(data.inProgressId);
+              }} className={`${tool} px-5 py-2.5 text-sm bg-brand text-white hover:bg-brand-deep`}>
               <Play className="w-4 h-4" aria-hidden="true" />
               {t('sasm.continue')}
             </button>

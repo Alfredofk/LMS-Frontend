@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { cellOf, countedFromRemedial, gradebookColumns, gradebookCsv, gradebookRows } from './gradebook';
+import { cellOf, gradebookColumns, gradebookCsv, gradebookRows } from './gradebook';
 
 const now = new Date('2026-10-20T00:00:00Z');
 const a = (id, status, opensAt, title = id) => ({ id, status, opensAt, title, type: 'KUIS' });
@@ -20,22 +20,35 @@ describe('gradebook - the table', () => {
     expect(offline.opened).toBe(true);
   });
 
-  it('a cell: the score that counts, else why not; a failed read and a column not open say so', () => {
-    const results = { students: [{ studentProfileId: 'p1', countedScore: 87.5, status: 'RELEASED' }, { studentProfileId: 'p2', countedScore: null, status: 'DID_NOT_SUBMIT' }] };
-    expect(cellOf(columns[0], results, 'p1')).toEqual({ score: 87.5, remedial: false });
-    expect(cellOf(columns[0], results, 'p2')).toEqual({ word: 'DID_NOT_SUBMIT' });
-    expect(cellOf(columns[0], results, 'p9')).toEqual({ word: 'NOT_STARTED' });
-    expect(cellOf(columns[0], null, 'p1')).toEqual({ word: 'failed' });
-    expect(cellOf(columns[1], results, 'p1')).toEqual({ word: 'notOpen' });
-    expect(cellOf(columns[0], { students: [{ studentProfileId: 'p3', countedScore: 0, status: 'RELEASED' }] }, 'p3')).toEqual({ score: 0, remedial: false });
+  it('a cell: the score that counts, else why not; a column not open says so', () => {
+    expect(cellOf(columns[0], { status: 'RELEASED', countedScore: 87.5, countedFromRemedial: false })).toEqual({ score: 87.5, remedial: false });
+    expect(cellOf(columns[0], { status: 'DID_NOT_SUBMIT', countedScore: null, countedFromRemedial: false })).toEqual({ word: 'DID_NOT_SUBMIT' });
+    expect(cellOf(columns[0], { status: null, countedScore: null, countedFromRemedial: false })).toEqual({ word: 'NOT_STARTED' });
+    expect(cellOf(columns[0], undefined)).toEqual({ word: 'NOT_STARTED' });
+    expect(cellOf(columns[1], { status: 'RELEASED', countedScore: 90 })).toEqual({ word: 'notOpen' });
+    expect(cellOf(columns[0], { status: 'RELEASED', countedScore: 0, countedFromRemedial: false })).toEqual({ score: 0, remedial: false });
   });
 
-  it('rows: every student named, by name, moved once moved anywhere', () => {
+  it('a score only a remedial reached carries the recap flag', () => {
+    expect(cellOf(columns[0], { status: 'RELEASED', countedScore: 80, countedFromRemedial: true })).toEqual({ score: 80, remedial: true });
+  });
+
+  it('rows: the recap students by name, cells matched by assessment id, cancelled columns skipped', () => {
+    const cell = (assessmentId, over) => ({ assessmentId, status: 'NOT_STARTED', countedScore: null, countedFromRemedial: false, ...over });
     const rows = gradebookRows(columns, {
-      first: { students: [{ studentProfileId: 'p2', fullName: 'Budi', placedNow: false, countedScore: null, status: 'DID_NOT_SUBMIT' }, { studentProfileId: 'p1', fullName: 'Ani', placedNow: true, countedScore: 90, status: 'RELEASED' }] },
+      students: [
+        { studentProfileId: 'p2', fullName: 'Budi', placedNow: false, cells: [cell('cancelled'), cell('first', { status: 'DID_NOT_SUBMIT' }), cell('later')] },
+        { studentProfileId: 'p1', fullName: 'Ani', placedNow: true, cells: [cell('cancelled'), cell('later'), cell('first', { status: 'RELEASED', countedScore: 90 })] },
+      ],
     });
     expect(rows.map((row) => `${row.fullName}:${row.placedNow}`)).toEqual(['Ani:true', 'Budi:false']);
     expect(rows[0].cells).toEqual([{ score: 90, remedial: false }, { word: 'notOpen' }]);
+    expect(rows[1].cells).toEqual([{ word: 'DID_NOT_SUBMIT' }, { word: 'notOpen' }]);
+  });
+
+  it('no recap students, no rows', () => {
+    expect(gradebookRows(columns, { students: [] })).toEqual([]);
+    expect(gradebookRows(columns, null)).toEqual([]);
   });
 
   it('CSV in the reader language: ; and 87,5 in Indonesian, , and 87.5 in English, a BOM first', () => {
@@ -45,24 +58,5 @@ describe('gradebook - the table', () => {
     expect(id.charCodeAt(0)).toBe(0xfeff);
     expect(id.slice(1)).toBe('Nama;first;later\r\n"Ani; ""A""";87,5;Belum dibuka\r\n');
     expect(gradebookCsv(columns, rows, { ...opts, lang: 'en' }).slice(1)).toBe('Nama,first,later\r\nAni; "A",87.5,Belum dibuka\r\n'.replace('Ani; "A"', '"Ani; ""A"""'));
-  });
-});
-
-describe('a score from a remedial (backend 1e6c749)', () => {
-  const attempt = (over) => ({ status: 'RELEASED', releasedAt: '2026-10-20T00:00:00Z', remedial: false, score: { value: 60 }, ...over });
-  it('marked only when the counted score is reached by remedial attempts alone', () => {
-    expect(countedFromRemedial({ countedScore: 80, attempts: [attempt({}), attempt({ remedial: true, score: { value: 80 } })] })).toBe(true);
-    expect(countedFromRemedial({ countedScore: 80, attempts: [attempt({ score: { value: 80 } }), attempt({ remedial: true, score: { value: 80 } })] })).toBe(false);
-    expect(countedFromRemedial({ countedScore: 60, attempts: [attempt({}), attempt({ remedial: true, score: { value: 50 } })] })).toBe(false);
-    expect(countedFromRemedial({ countedScore: null, attempts: [attempt({ remedial: true })] })).toBe(false);
-  });
-  it('a void or unreleased remedial attempt does not count', () => {
-    expect(countedFromRemedial({ countedScore: 80, attempts: [attempt({ remedial: true, status: 'VOID', score: { value: 80 } })] })).toBe(false);
-    expect(countedFromRemedial({ countedScore: 80, attempts: [attempt({ remedial: true, releasedAt: null, score: { value: 80 } })] })).toBe(false);
-  });
-  it('the cell carries it', () => {
-    const column = { assessment: { id: 'a' }, opened: true };
-    const results = { students: [{ studentProfileId: 'p1', countedScore: 80, status: 'RELEASED', attempts: [attempt({ remedial: true, score: { value: 80 } })] }] };
-    expect(cellOf(column, results, 'p1')).toEqual({ score: 80, remedial: true });
   });
 });

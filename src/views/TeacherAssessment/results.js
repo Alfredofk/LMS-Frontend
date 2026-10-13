@@ -224,3 +224,47 @@ export function offlineBody(drafts, students, reason = '') {
 
 /** The words a list row says of a student's attempts, newest first. */
 export const attemptsNewestFirst = (attempts) => [...(attempts ?? [])].sort((a, b) => b.attempt - a.attempt);
+
+/**
+ * One attempt's integrity counts as the staff read them (backend b5db324, ticket
+ * 06): null when the assessment records none (TUGAS, OFFLINE), `[]` when nothing
+ * was recorded, else the counts above zero in a fixed order, as `{ key, n }`
+ * under `tasm.signals.`.
+ */
+export const SIGNAL_KEYS = ['focusLost', 'fullscreenExited', 'copied', 'pasted'];
+export function signalParts(signals) {
+  if (!signals) return null;
+  return SIGNAL_KEYS.filter((key) => Number(signals[key]) > 0).map((key) => ({ key, n: Number(signals[key]) }));
+}
+
+/** All of one attempt's integrity counts together; null where the assessment records none. */
+export function signalTotal(signals) {
+  if (!signals) return null;
+  return SIGNAL_KEYS.reduce((sum, key) => sum + (Number(signals[key]) || 0), 0);
+}
+
+/** Whether any attempt of this student has something recorded. */
+export const hasSignals = (student) => (student.attempts ?? []).some((attempt) => signalTotal(attempt.signals) > 0);
+
+/** How many students have something recorded (the Hasil tab's summary, owner 2026-10-13). */
+export const flaggedCount = (students) => (students ?? []).filter(hasSignals).length;
+
+/**
+ * Which of a student's attempts the Hasil list shows, newest first (owner
+ * 2026-10-13: thirty students with every attempt open is too long): the newest,
+ * any still waiting for marking or release - so its "Beri nilai" is never hidden -
+ * and, while the "ada catatan" filter is on, any with something recorded. The rest
+ * wait behind "Tampilkan N percobaan lain". `expanded` shows every one.
+ */
+export function shownAttempts(attempts, { expanded = false, flaggedOnly = false } = {}) {
+  const all = attemptsNewestFirst(attempts);
+  if (expanded) return { shown: all, hidden: 0 };
+  const shown = all.filter(
+    (attempt, index) =>
+      index === 0 ||
+      attempt.status === 'WAITING_FOR_MARKING' ||
+      attempt.status === 'WAITING_FOR_RELEASE' ||
+      (flaggedOnly && signalTotal(attempt.signals) > 0)
+  );
+  return { shown, hidden: all.length - shown.length };
+}

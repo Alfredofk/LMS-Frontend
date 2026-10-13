@@ -7,15 +7,17 @@ import { formatNumber } from '../TeacherAssessment/results';
   backend has no weights or report-card total yet, and a number made up here
   would read as one. Pure: the screen is GradebookTable.
 
-  Read per class subject: GET /assessments/class-subjects/:id, then one
-  GET /assessments/:id/submissions per published assessment already opened (one
-  not opened yet has nothing in it, so its cells say so without a read).
+  Read in one request since 2026-10-13: GET /assessments/class-subjects/:id/recap
+  (backend 113ae37), whose cells say whether only a remedial reached the score
+  (`countedFromRemedial`, 96d2109 - request #19). It used to be one results read
+  per assessment, with the remedial worked out here from the attempts.
 */
 
 /**
- * The columns: published assessments, earliest to open first. `opened` says
- * whether its results are worth reading: once its window opened, or always for
- * an OFFLINE one, whose marks may be entered and released before it.
+ * The columns: published assessments, earliest to open first - the recap's
+ * cancelled ones are left out (owner's choice). `opened` says whether its cells
+ * mean anything yet: once its window opened, or always for an OFFLINE one, whose
+ * marks may be entered and released before it.
  */
 export function gradebookColumns(assessments, now = new Date()) {
   return (assessments ?? [])
@@ -26,57 +28,34 @@ export function gradebookColumns(assessments, now = new Date()) {
 }
 
 /**
- * Whether the score that counts came from a remedial (backend 1e6c749): the
- * highest released score of an attempt not void (countedScoreOf) is reached only
- * by attempts started under a remedial. A tie with an ordinary attempt is not one -
- * the student had that score without the remedial. Only a mark: the school's
- * remedial rule (a KKTP cap, the highest, an average) is not in the backend yet.
- */
-export function countedFromRemedial(entry) {
-  if (entry?.countedScore === null || entry?.countedScore === undefined) return false;
-  const reaching = (entry.attempts ?? []).filter(
-    (attempt) => attempt.releasedAt && attempt.status !== 'VOID' && attempt.score && Number(attempt.score.value) === Number(entry.countedScore)
-  );
-  return reaching.length > 0 && reaching.every((attempt) => attempt.remedial);
-}
-
-/**
  * What one cell says: `{ score, remedial }` when a score counts, else `{ word }` -
- * a key under `gradebook.cell.` - or `{ word: 'failed' }` when that column's
- * results could not be read, `{ word: 'notOpen' }` before it opens.
+ * a key under `gradebook.cell.` - or `{ word: 'notOpen' }` before it opens. A
+ * recap cell with no status (the student is not in that assessment's results)
+ * reads as not started.
  */
-export function cellOf(column, results, studentProfileId) {
+export function cellOf(column, cell) {
   if (!column.opened) return { word: 'notOpen' };
-  if (!results) return { word: 'failed' };
-  const entry = results.students?.find((student) => student.studentProfileId === studentProfileId);
-  if (!entry) return { word: 'NOT_STARTED' };
-  if (entry.countedScore !== null && entry.countedScore !== undefined) return { score: entry.countedScore, remedial: countedFromRemedial(entry) };
-  return { word: entry.status };
+  if (cell?.countedScore !== null && cell?.countedScore !== undefined) return { score: cell.countedScore, remedial: Boolean(cell.countedFromRemedial) };
+  return { word: cell?.status ?? 'NOT_STARTED' };
 }
 
 /**
- * The rows: every student any column's results name, by name, each with
- * `placedNow` false once they left in any of them. `resultsById` holds each
- * column's results (null where the read failed).
+ * The rows: the recap's students, by name, each with a cell per column - looked
+ * up by assessment id, since the recap also holds the cancelled ones.
  */
-export function gradebookRows(columns, resultsById) {
-  const byId = new Map();
-  for (const { assessment } of columns) {
-    for (const student of resultsById[assessment.id]?.students ?? []) {
-      const known = byId.get(student.studentProfileId);
-      byId.set(student.studentProfileId, {
-        studentProfileId: student.studentProfileId,
-        fullName: known?.fullName ?? student.fullName,
-        placedNow: (known?.placedNow ?? true) && student.placedNow !== false,
-      });
-    }
-  }
-  return [...byId.values()]
+export function gradebookRows(columns, recap) {
+  return (recap?.students ?? [])
+    .slice()
     .sort((a, b) => String(a.fullName ?? '').localeCompare(String(b.fullName ?? '')))
-    .map((student) => ({
-      ...student,
-      cells: columns.map((column) => cellOf(column, resultsById[column.assessment.id], student.studentProfileId)),
-    }));
+    .map((student) => {
+      const cellById = new Map((student.cells ?? []).map((cell) => [cell.assessmentId, cell]));
+      return {
+        studentProfileId: student.studentProfileId,
+        fullName: student.fullName,
+        placedNow: student.placedNow !== false,
+        cells: columns.map((column) => cellOf(column, cellById.get(column.assessment.id))),
+      };
+    });
 }
 
 /* Quoted only when it holds the separator, a quote or a line break: a quoted "87,5" is still a number to Excel, but plain is plainer. */

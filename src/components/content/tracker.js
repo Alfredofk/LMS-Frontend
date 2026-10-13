@@ -22,6 +22,10 @@
   (`completed`, backend b0f3307); `onProgress(contentId, { completed })` hears it,
   so a tick appears without reading the list again. A FILE is completed by the
   server when it is fetched, so `fileFetched` reports that one locally.
+
+  The same queue carries an attempt's integrity signals (backend b5db324,
+  assessment ticket 06): `signal(verb, submissionId)`, every occurrence, no
+  `once` - see views/StudentAssessment/integrity.js.
 */
 
 export const MAX_BATCH = 50;
@@ -75,7 +79,7 @@ export function createTracker({ send, now = () => new Date(), onProgress = null 
       /* An accepted event means the content has a progress row: opened at least. */
       for (const result of answer?.results ?? []) {
         const event = batch[result.index];
-        if (result.ok && event) notify(event.contentId, { completed: Boolean(result.completed) });
+        if (result.ok && event?.contentId) notify(event.contentId, { completed: Boolean(result.completed) });
       }
     }
   }
@@ -84,6 +88,9 @@ export function createTracker({ send, now = () => new Date(), onProgress = null 
     opened: (contentId) => pushOnce('content.opened', contentId),
     readToEnd: (contentId) => pushOnce('content.text_read_to_end', contentId),
     linkClicked: (contentId) => pushOnce('content.link_clicked', contentId),
+
+    /** An integrity signal during an attempt in progress: each one is sent. */
+    signal: (verb, submissionId) => push({ verb, submissionId }),
 
     /** A FILE fetched (opened, downloaded or previewed): the server completed it on the fetch. */
     fileFetched: (contentId) => notify(contentId, { completed: true }),

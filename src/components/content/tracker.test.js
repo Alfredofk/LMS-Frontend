@@ -24,6 +24,20 @@ describe('tenthOf - as tracking.record.js counts', () => {
 });
 
 describe('createTracker', () => {
+  it('queues every integrity signal, naming the submission, and tells no content listener', async () => {
+    const sent = [];
+    const heard = [];
+    const tracker = createTracker({ send: async (events) => (sent.push(events), { results: events.map((_, index) => ({ index, ok: true, recorded: true })) }), now: fixedNow, onProgress: (id) => heard.push(id) });
+    tracker.signal('assessment.pasted', 's1');
+    tracker.signal('assessment.pasted', 's1');
+    await tracker.flush();
+    expect(sent[0]).toEqual([
+      { verb: 'assessment.pasted', submissionId: 's1', occurredAt: '2026-10-04T05:00:00.000Z' },
+      { verb: 'assessment.pasted', submissionId: 's1', occurredAt: '2026-10-04T05:00:00.000Z' },
+    ]);
+    expect(heard).toEqual([]);
+  });
+
   it('queues each one-off verb once per content, with the device time', async () => {
     const sent = [];
     const tracker = createTracker({ send: async (events) => sent.push(events), now: fixedNow });

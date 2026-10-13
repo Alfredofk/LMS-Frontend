@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
-import { AlertCircle, ArrowDown, ArrowUp, Ban, Copy, Info, Library, Lock, RefreshCw, Send, Trash2 } from 'lucide-react';
+import { AlertCircle, ArrowDown, ArrowUp, Ban, Copy, Library, Lock, RefreshCw, Send, Trash2 } from 'lucide-react';
 
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import FactLine from '../../components/ui/FactLine';
@@ -457,13 +457,6 @@ const TeacherAssessment = () => {
           <p className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-600 leading-relaxed">
             <Lock className="w-3.5 h-3.5 mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
             {t(yearClosed ? 'tasm.readOnlyYear' : 'tasm.readOnlyNotYours')}
-          </p>
-        )}
-        {/* Not on a cancelled one: no student will ever take it, so "saved for this class" would mislead. */}
-        {saved?.status !== 'CANCELLED' && (
-          <p className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-600 leading-relaxed">
-            <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
-            {t('tasm.studentsNotYet')}
           </p>
         )}
 

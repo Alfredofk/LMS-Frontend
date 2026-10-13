@@ -32,6 +32,9 @@ import {
   remainingMs,
 } from './studentAssessment';
 import { forgetMyMenu } from './readMyMenu';
+import FullscreenLockDialog from './FullscreenLockDialog';
+import { questionsLocked } from './integrity';
+import { useIntegritySignals } from './useIntegritySignals';
 
 /*
   One of a student's attempts (/assessment/:id/percobaan/:submissionId; backend
@@ -44,6 +47,13 @@ import { forgetMyMenu } from './readMyMenu';
   question says "Menyimpan..." or "Tersimpan 10:42". The server holds the clock:
   at the deadline the attempt is read again and shows as closed with what was
   saved. Leaving with a save still pending asks first.
+
+  On a KUIS, UTS or UAS answered online (`integritySignals`) the attempt is done
+  in fullscreen - asked at the start; out of it the page is blurred behind a
+  popup back to fullscreen (FullscreenLockDialog), "Kumpulkan sekarang" in it -
+  and leaving the page, leaving fullscreen, copying and pasting are
+  reported (useIntegritySignals, integrity.js; backend b5db324, owner
+  2026-10-13). The outline told the student so before they started.
 
   Handed in, closed or void: the answers read back. Released: the score, the
   teacher's comment, each question's points and comment, and the key when the
@@ -87,7 +97,7 @@ const EssayFileLink = ({ submissionId, question, t }) => {
 // Answering one question
 // ---------------------------------------------------------------------------
 
-const AnswerInput = ({ question, draft, disabled, onDraft, onText, onFile, t }) => {
+const AnswerInput = ({ question, draft, disabled, onDraft, onText, onFile, onPicking, onPicked, t }) => {
   if (question.kind === 'MCQ') {
     const single = question.mcqScoring === 'SINGLE';
     return (
@@ -168,7 +178,15 @@ const AnswerInput = ({ question, draft, disabled, onDraft, onText, onFile, t }) 
             accept=".pdf,.jpg,.jpeg,.png,.docx,.pptx"
             disabled={disabled}
             className="sr-only"
+            onClick={onPicking}
+            /* The picker cancelled; React passes no onCancel to an <input>. */
+            ref={(el) => {
+              if (!el || !onPicked) return undefined;
+              el.addEventListener('cancel', onPicked);
+              return () => el.removeEventListener('cancel', onPicked);
+            }}
             onChange={(e) => {
+              onPicked?.();
               const file = e.target.files?.[0];
               e.target.value = '';
               if (file) onFile(file);
@@ -206,6 +224,8 @@ const Answering = ({ view, zone, onClosed, onHandedIn }) => {
   const left = remainingMs(view.submission.deadlineAt, now);
   const pending = Object.values(saves).some((save) => save.saving) || questions.some((question) => draftChanged(question, drafts[question.id]) && !draftError(question, drafts[question.id]));
   const guard = useUnsavedGuard(pending);
+  const signalled = Boolean(view.assessment.integritySignals);
+  const integrity = useIntegritySignals({ enabled: signalled, submissionId });
 
   useEffect(() => {
     const tick = setInterval(() => setNow(new Date()), 1000);
@@ -287,6 +307,7 @@ const Answering = ({ view, zone, onClosed, onHandedIn }) => {
     setBusy(true);
     setFailure(null);
     await flushAll();
+    await integrity.finish();
     try {
       const answer = await assessmentService.handIn(submissionId);
       forgetMyMenu();
@@ -297,6 +318,7 @@ const Answering = ({ view, zone, onClosed, onHandedIn }) => {
       setAsking(false);
       setFailure(studentAssessmentErrorMessage(err, t));
       if (isAttemptOver(err)) onClosed();
+      else integrity.resume();
     }
   };
 
@@ -310,6 +332,7 @@ const Answering = ({ view, zone, onClosed, onHandedIn }) => {
   const deadlineWords = local ? `${formatSchoolDay(local.date, lang)} ${local.time}` : '';
   const savedLocal = status.savedAt ? localOf(status.savedAt, zone) : question.answer?.savedAt ? localOf(question.answer.savedAt, zone) : null;
   const short = left < 5 * 60 * 1000;
+  const locked = questionsLocked({ signalled, supported: integrity.fullscreen.supported, fullscreen: integrity.fullscreen.active, timeLeftMs: left });
 
   let saveLine;
   if (status.saving) saveLine = <span className="text-slate-500">{t('sasm.saving')}</span>;
@@ -320,7 +343,8 @@ const Answering = ({ view, zone, onClosed, onHandedIn }) => {
   else saveLine = <span className="text-slate-500">{t('sasm.unanswered')}</span>;
 
   return (
-    <div className="space-y-4">
+    /* Out of fullscreen on a KUIS, UTS or UAS online, everything here sits blurred and inert behind FullscreenLockDialog. */
+    <div className="space-y-4" inert={locked}>
       <div className="sticky top-0 z-20 -mx-1 px-1 py-2 bg-canvas/95 backdrop-blur-sm">
         <div className="bg-white border border-slate-100 rounded-2xl p-3 sm:p-4 shadow-sm flex flex-wrap items-center gap-3">
           {/* The title is the page's h1 just above; the bar keeps what changes. */}
@@ -383,6 +407,8 @@ const Answering = ({ view, zone, onClosed, onHandedIn }) => {
           onDraft={(value) => setDraft(question.id, value, { now: true })}
           onText={(value) => setDraft(question.id, value)}
           onFile={(file) => sendFile(question, file)}
+          onPicking={integrity.picking}
+          onPicked={integrity.picked}
           t={t}
         />
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold" aria-live="polite">
@@ -436,6 +462,7 @@ const Answering = ({ view, zone, onClosed, onHandedIn }) => {
         onConfirm={handIn}
         onCancel={() => !busy && setAsking(false)}
       />
+      {locked && !asking && <FullscreenLockDialog onBack={integrity.fullscreen.enter} onHandIn={() => setAsking(true)} />}
       {guard.dialog}
     </div>
   );

@@ -195,6 +195,17 @@ export const assessmentService = {
     return api.get(`/assessments/${q(id)}/submissions`);
   },
 
+  /**
+   * A class subject's recap (backend 113ae37, ticket 07; remedial flag 96d2109, #19):
+   * `{ classSubject, assessments, students: [{ studentProfileId, fullName, placedNow,
+   * cells: [{ assessmentId, status | null, countedScore, countedFromRemedial }] }] }` -
+   * its published assessments (cancelled ones included) against its roster, each cell
+   * what that assessment's results say. Staff only; homeroom and leaders read.
+   */
+  async recap(classSubjectId) {
+    return api.get(`/assessments/class-subjects/${q(classSubjectId)}/recap`);
+  },
+
   /** One attempt for marking: `{ assessment, submission, scores, questions }`, keys included. */
   async marking(id, submissionId) {
     return api.get(`/assessments/${q(id)}/submissions/${q(submissionId)}`);

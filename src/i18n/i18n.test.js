@@ -191,6 +191,12 @@ describe('every expansion of a dynamic key exists', () => {
     expectEvery(modes.map((s) => `tasm.modeWord.${s}`));
   });
 
+  it('integrity counts on an attempt: a phrase for each (backend b5db324)', () => {
+    const keys = quotedIn('views/TeacherAssessment/results.js', /export const SIGNAL_KEYS = \[([^\]]*)\]/);
+    expect(keys).toEqual(['focusLost', 'fullscreenExited', 'copied', 'pasted']);
+    expectEvery(keys.map((s) => `tasm.signals.${s}`));
+  });
+
   it('classes: a label for every year and semester status that draws a badge', () => {
     /* The badge colour tables are the set: a status with a colour is a status
        that reaches the screen, so it needs words as well. */

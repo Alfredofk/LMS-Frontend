@@ -16,6 +16,11 @@ import {
   pointsChanged,
   pointsValue,
   releaseState,
+  flaggedCount,
+  hasSignals,
+  shownAttempts,
+  signalParts,
+  signalTotal,
 } from './results';
 
 /* Shapes from assessment.marking.js: markingViewOf, attemptView, results. */
@@ -229,5 +234,58 @@ describe('chosenOptions', () => {
       { id: 'o1', correct: true, letter: 'A', chosen: false },
       { id: 'o2', correct: false, letter: 'B', chosen: true },
     ]);
+  });
+});
+
+describe('integrity counts on an attempt (backend b5db324)', () => {
+  it('none recorded for a TUGAS or an OFFLINE one: null, not zeros', () => {
+    expect(signalParts(null)).toBeNull();
+    expect(signalParts(undefined)).toBeNull();
+  });
+  it('recorded but all zero: an empty list', () => {
+    expect(signalParts({ focusLost: 0, pasted: 0, copied: 0, fullscreenExited: 0 })).toEqual([]);
+  });
+  it('the counts above zero, leaving first, then fullscreen, copy, paste', () => {
+    expect(signalParts({ focusLost: 3, pasted: 1, copied: 0, fullscreenExited: 2 })).toEqual([
+      { key: 'focusLost', n: 3 },
+      { key: 'fullscreenExited', n: 2 },
+      { key: 'pasted', n: 1 },
+    ]);
+  });
+});
+
+describe('the Hasil list for many students (owner 2026-10-13)', () => {
+  const sig = (n) => ({ focusLost: n, pasted: 0, copied: 0, fullscreenExited: 0 });
+  const at = (attempt, status, signals = null) => ({ id: `a${attempt}`, attempt, status, signals });
+
+  it('one number per attempt; null where nothing is recorded by design', () => {
+    expect(signalTotal({ focusLost: 4, pasted: 1, copied: 0, fullscreenExited: 4 })).toBe(9);
+    expect(signalTotal(sig(0))).toBe(0);
+    expect(signalTotal(null)).toBeNull();
+  });
+
+  it('students with something recorded, counted for the summary', () => {
+    const students = [
+      { attempts: [at(1, 'RELEASED', sig(0)), at(2, 'RELEASED', sig(2))] },
+      { attempts: [at(1, 'RELEASED', sig(0))] },
+      { attempts: [at(1, 'RELEASED', null)] },
+      { attempts: [] },
+    ];
+    expect(students.map(hasSignals)).toEqual([true, false, false, false]);
+    expect(flaggedCount(students)).toBe(1);
+  });
+
+  it('the newest attempt and those waiting stay; the rest wait behind a count', () => {
+    const attempts = [at(1, 'WAITING_FOR_MARKING'), at(2, 'RELEASED'), at(3, 'VOID'), at(4, 'IN_PROGRESS')];
+    const { shown, hidden } = shownAttempts(attempts);
+    expect(shown.map((a) => a.attempt)).toEqual([4, 1]);
+    expect(hidden).toBe(2);
+    expect(shownAttempts(attempts, { expanded: true }).shown.map((a) => a.attempt)).toEqual([4, 3, 2, 1]);
+  });
+
+  it('under the filter, an older attempt with something recorded shows too', () => {
+    const attempts = [at(1, 'RELEASED', sig(3)), at(2, 'RELEASED', sig(0))];
+    expect(shownAttempts(attempts).shown.map((a) => a.attempt)).toEqual([2]);
+    expect(shownAttempts(attempts, { flaggedOnly: true }).shown.map((a) => a.attempt)).toEqual([2, 1]);
   });
 });

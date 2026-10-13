@@ -14,8 +14,9 @@ import { gradebookColumns, gradebookCsv, gradebookRows } from './gradebook';
 /*
   One class subject's gradebook: students down the side, its published
   assessments across, each cell the score that counts after release or a word for
-  why there is none, and "Unduh CSV" (gradebook.js). A score reached only by a
-  remedial attempt says "Remedial" under it (backend 1e6c749); the CSV keeps the
+  why there is none, and "Unduh CSV" (gradebook.js), all from one recap read. A
+  score reached only by a remedial attempt says "Remedial" under it (the recap's
+  `countedFromRemedial`, backend 96d2109); the CSV keeps the
   bare number, so a spreadsheet still reads it as one. Used by the teacher's page
   (TeacherGradebook, cells open the assessment's "Hasil") and, read only, by the
   homeroom teacher and the leaders (GradebookReader: no `onOpen`, nothing opens).
@@ -35,7 +36,6 @@ const WORD_TONE = {
   WAITING_FOR_MARKING: 'text-amber-700',
   WAITING_FOR_RELEASE: 'text-brand',
   DID_NOT_SUBMIT: 'text-rose-700',
-  failed: 'text-rose-700',
 };
 
 /* A header or a score opens the assessment when there is somewhere to open it (the teacher's page). */
@@ -58,19 +58,9 @@ export const GradebookTable = ({ classSubjectId, caption, fileName, onOpen = nul
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const assessments = await assessmentService.listFor(classSubjectId);
-      const columns = gradebookColumns(assessments, new Date());
-      const read = await Promise.all(
-        columns.map(({ assessment, opened }) =>
-          opened
-            ? assessmentService
-                .results(assessment.id)
-                .then((answer) => [assessment.id, answer])
-                .catch(() => [assessment.id, null])
-            : [assessment.id, null]
-        )
-      );
-      return { columns, rows: gradebookRows(columns, Object.fromEntries(read)) };
+      const recap = await assessmentService.recap(classSubjectId);
+      const columns = gradebookColumns(recap?.assessments, new Date());
+      return { columns, rows: gradebookRows(columns, recap) };
     })()
       .then((answer) => !cancelled && setTable(answer))
       .catch((err) => !cancelled && setTable({ error: assessmentErrorMessage(err, t) }));

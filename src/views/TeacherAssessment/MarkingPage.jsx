@@ -15,6 +15,7 @@ import { formatSchoolDay } from '../QuestionBank/questionBank';
 import { forgetMarkingQueue } from './markingQueue';
 import { notifyPendingChanged } from '../../hooks/usePendingCounts';
 import { cancelReasonError } from './teacherAssessment';
+import SignalLine from './SignalLine';
 import {
   canMark,
   chosenOptions,
@@ -299,6 +300,12 @@ export const Marking = ({ assessmentId, submissionId, onBack, onOpen, embedded =
             </span>
           )}
         </p>
+        {/* Integrity counts (backend b5db324): null on a TUGAS or an OFFLINE one, so nothing then. */}
+        {submission.signals && (
+          <p className="text-xs font-semibold">
+            <SignalLine signals={submission.signals} />
+          </p>
+        )}
       </div>
 
       {readOnlyWhy && (

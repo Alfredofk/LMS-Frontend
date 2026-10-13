@@ -16,14 +16,17 @@ import ExceptionDialog from './ExceptionDialog';
 import { canSetException, exceptionFacts } from './exceptions';
 import {
   MAX_OFFLINE_MARK,
-  attemptsNewestFirst,
+  flaggedCount,
   formatNumber,
+  hasSignals,
   offlineBody,
   offlineDraftsFrom,
   offlineErrors,
   offlineNeedsReason,
   offlineSavedOf,
   releaseState,
+  shownAttempts,
+  signalTotal,
 } from './results';
 
 /*
@@ -46,6 +49,13 @@ import {
   exception is one grey line under its status (FactLine), and an attempt started
   under a remedial says "Remedial". On an ONLINE one published, the answering
   teacher has "Susulan / remedial" per student placed now (ExceptionDialog).
+
+  Integrity counts (backend b5db324, ticket 06; owner 2026-10-13), kept short for
+  a class of thirty: an attempt with something recorded says "8 catatan" in its
+  own row (the breakdown is on the attempt's page, SignalLine); the head says how
+  many students have any, with "Tampilkan yang ada catatan saja". Each student
+  shows only the newest attempt and those waiting for marking or release; the
+  rest open with "Tampilkan N percobaan lain" (shownAttempts).
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 sm:p-6 shadow-sm';
@@ -144,6 +154,16 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
   const [errors, setErrors] = useState({});
   /* The student whose make-up/remedial dialog is open. */
   const [excFor, setExcFor] = useState(null);
+  /* Only students with recorded activity; students whose every attempt is open. */
+  const [flaggedOnly, setFlaggedOnly] = useState(false);
+  const [expanded, setExpanded] = useState(() => new Set());
+  const toggleExpanded = (id) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const adoptResults = useCallback((answer) => {
     const students = answer.students ?? [];
@@ -199,6 +219,9 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
   }
 
   const { waiting, students } = data;
+  const flagged = flaggedCount(students);
+  /* The filter is let go once nobody has anything recorded (a re-read after a void, say). */
+  const listed = flaggedOnly && flagged > 0 ? students.filter(hasSignals) : students;
   /* The results carry the assessment as read now: its window or state may have moved since the page read it. */
   const current = { ...(data.assessment ?? assessment), canManage: manages };
   /* Unsaved marks would be left out of a release: save them first. */
@@ -266,6 +289,58 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
     }
   };
 
+  /* A student's attempts in the list: the ones worth seeing now, and a way to the rest (shownAttempts). */
+  const renderAttempts = (student) => {
+    const isOpen = expanded.has(student.studentProfileId);
+    const { shown: visible, hidden } = shownAttempts(student.attempts, { expanded: isOpen, flaggedOnly });
+    return (
+      <>
+        <ul className="space-y-1.5">
+          {visible.map((item) => {
+            const recorded = signalTotal(item.signals);
+            const shown = item.score ?? (item.mark && item.status !== 'VOID' ? item.mark : null);
+            const isDraft = !item.score && Boolean(shown);
+            const markable = item.status === 'WAITING_FOR_MARKING' || item.status === 'WAITING_FOR_RELEASE' || item.status === 'RELEASED';
+            const label = manages && current.status === 'PUBLISHED' && markable ? 'tasm.results.mark' : 'tasm.results.view';
+            return (
+              <li key={item.id} className="flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+                {!offline && <span className="font-bold text-slate-700">{t('tasm.results.attempt', { n: item.attempt })}</span>}
+                <span className={STATUS_TONE[item.status]}>{t(`tasm.results.attemptStatus.${item.status}`)}</span>
+                {item.submittedAt && <span className="tabular-nums">{when(item.submittedAt, zone, lang)}</span>}
+                {item.late && <span className="text-amber-700">{t('tasm.results.late')}</span>}
+                {item.remedial && <span className="text-brand">{t('tasm.results.remedial')}</span>}
+                {item.status === 'WAITING_FOR_MARKING' && item.waitingForMarking > 0 && <span>{t('tasm.results.essaysLeft', { n: item.waitingForMarking })}</span>}
+                {shown && (
+                  <span className="tabular-nums text-slate-700">
+                    {isDraft ? t('tasm.results.draftMark', { value: formatNumber(shown.value, lang) }) : formatNumber(shown.value, lang)}
+                    {shown.pointsTotal !== null && ` (${t('tasm.results.points', { earned: formatNumber(shown.pointsEarned, lang), total: shown.pointsTotal })})`}
+                  </span>
+                )}
+                {item.score?.reason && <span className="text-slate-500">{t('tasm.results.corrected')}</span>}
+                {recorded > 0 && <span className="text-slate-700">{t('tasm.signals.count', { n: recorded })}</span>}
+                {item.closedBy !== 'TEACHER' && (
+                  <button type="button" onClick={() => open(item.id)} className={`${tool} ml-auto bg-white border border-slate-200 text-slate-700 hover:bg-slate-100`}>
+                    {t(label)}
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        {(hidden > 0 || isOpen) && (
+          <button
+            type="button"
+            onClick={() => toggleExpanded(student.studentProfileId)}
+            aria-expanded={isOpen}
+            className="text-xs font-bold text-slate-600 hover:text-brand hover:underline cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+          >
+            {isOpen ? t('tasm.results.fewerAttempts') : t('tasm.results.moreAttempts', { n: hidden })}
+          </button>
+        )}
+      </>
+    );
+  };
+
   return (
     <section className={`${frame} space-y-4`} aria-label={t('tasm.tab.results')}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -275,7 +350,18 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
             <span>{t('tasm.results.waitingMarking', { n: waiting.marking })}</span>
             <span>{t('tasm.results.waitingRelease', { n: waiting.release })}</span>
             {!offline && <span>{t('tasm.results.inProgress', { n: waiting.inProgress })}</span>}
+            {flagged > 0 && <span className="text-slate-700">{t('tasm.results.flagged', { n: flagged })}</span>}
           </p>
+          {flagged > 0 && (
+            <button
+              type="button"
+              onClick={() => setFlaggedOnly((on) => !on)}
+              aria-pressed={flaggedOnly}
+              className="text-xs font-bold text-brand hover:text-brand-deep hover:underline cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+            >
+              {flaggedOnly ? t('tasm.results.showAll') : t('tasm.results.onlyFlagged')}
+            </button>
+          )}
         </div>
         {release.show && (
           <div className="flex flex-col items-start sm:items-end gap-1">
@@ -310,7 +396,7 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
         <p className="rounded-xl bg-slate-50 px-4 py-6 text-center text-sm font-semibold text-slate-600">{t('tasm.results.empty')}</p>
       ) : (
         <ul className="divide-y divide-slate-100">
-          {students.map((student) => (
+          {listed.map((student) => (
             <li key={student.studentProfileId} className="py-3 space-y-2">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 space-y-0.5">
@@ -353,38 +439,7 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
                 />
               )}
 
-              {!entering && student.attempts.length > 0 && (
-                <ul className="space-y-1.5">
-                  {attemptsNewestFirst(student.attempts).map((item) => {
-                    const shown = item.score ?? (item.mark && item.status !== 'VOID' ? item.mark : null);
-                    const isDraft = !item.score && Boolean(shown);
-                    const markable = item.status === 'WAITING_FOR_MARKING' || item.status === 'WAITING_FOR_RELEASE' || item.status === 'RELEASED';
-                    const label = manages && current.status === 'PUBLISHED' && markable ? 'tasm.results.mark' : 'tasm.results.view';
-                    return (
-                      <li key={item.id} className="flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
-                        {!offline && <span className="font-bold text-slate-700">{t('tasm.results.attempt', { n: item.attempt })}</span>}
-                        <span className={STATUS_TONE[item.status]}>{t(`tasm.results.attemptStatus.${item.status}`)}</span>
-                        {item.submittedAt && <span className="tabular-nums">{when(item.submittedAt, zone, lang)}</span>}
-                        {item.late && <span className="text-amber-700">{t('tasm.results.late')}</span>}
-                        {item.remedial && <span className="text-brand">{t('tasm.results.remedial')}</span>}
-                        {item.status === 'WAITING_FOR_MARKING' && item.waitingForMarking > 0 && <span>{t('tasm.results.essaysLeft', { n: item.waitingForMarking })}</span>}
-                        {shown && (
-                          <span className="tabular-nums text-slate-700">
-                            {isDraft ? t('tasm.results.draftMark', { value: formatNumber(shown.value, lang) }) : formatNumber(shown.value, lang)}
-                            {shown.pointsTotal !== null && ` (${t('tasm.results.points', { earned: formatNumber(shown.pointsEarned, lang), total: shown.pointsTotal })})`}
-                          </span>
-                        )}
-                        {item.score?.reason && <span className="text-slate-500">{t('tasm.results.corrected')}</span>}
-                        {item.closedBy !== 'TEACHER' && (
-                          <button type="button" onClick={() => open(item.id)} className={`${tool} ml-auto bg-white border border-slate-200 text-slate-700 hover:bg-slate-100`}>
-                            {t(label)}
-                          </button>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+              {!entering && student.attempts.length > 0 && renderAttempts(student)}
             </li>
           ))}
         </ul>
