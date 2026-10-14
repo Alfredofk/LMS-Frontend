@@ -14,6 +14,7 @@ import { defaultMeetingId, isCurrentClass, progressOf, shownSessions } from './m
 import MeetingStrip from '../../components/meetings/MeetingStrip';
 import SubjectHeader, { PersonFact } from '../../components/meetings/SubjectHeader';
 import SubjectAssessments from '../StudentAssessment/SubjectAssessments';
+import SubjectScores from '../Scores/SubjectScores';
 
 /*
   One subject of the student's class (owner, 2026-10-04, after BINUSMAYA's
@@ -29,6 +30,9 @@ import SubjectAssessments from '../StudentAssessment/SubjectAssessments';
   - "Penilaian": the subject's assessments (SubjectAssessments, backend 113ae37;
     owner 2026-10-12), between the two, since both are the student's work.
     /assessment's cards open it.
+  - "Nilai" (`?tab=nilai`, owner 2026-10-14, like the teacher's): the subject's
+    scores (SubjectScores). The sidebar's "Nilai" (/scores) lists the subjects as
+    cards that open it.
   - "Kehadiran": the student's numbers for this subject (summarize).
 
   The tabs live in the address - `?tab=kehadiran`, `?pertemuan=<session id>` - so
@@ -40,8 +44,8 @@ import SubjectAssessments from '../StudentAssessment/SubjectAssessments';
   2026-10-07) is read only: a note says so, no check-in, nothing tracked - the
   materials keep the ticks earned back then. An ended assignment says it ended.
 
-  Only tabs with data behind them are shown: there is no syllabus, forum, grade
-  or roster route for a student yet.
+  Only tabs with data behind them are shown: there is no syllabus, forum or
+  roster route for a student yet.
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm';
@@ -53,7 +57,7 @@ const DOT = {
   ABSENT: 'bg-rose-500',
 };
 
-const SECTIONS = ['pertemuan', 'penilaian', 'kehadiran'];
+const SECTIONS = ['pertemuan', 'penilaian', 'nilai', 'kehadiran'];
 
 const AttendanceSummary = ({ rows, t }) => {
   if (rows === false) return <p className={`${card} text-sm font-semibold text-amber-700`}>{t('classroom.attFailed')}</p>;
@@ -200,7 +204,9 @@ export const ClassroomSubject = ({ classSubjectId, legacySessionId = null }) => 
         </p>
       )}
 
-      <div role="tablist" aria-label={t('meeting.sections')} className="flex gap-6 border-b border-slate-200">
+      {/* Four tabs outgrow a phone: the row scrolls by itself, the line under it stays put (as the teacher's). */}
+      <div className="border-b border-slate-200">
+      <div role="tablist" aria-label={t('meeting.sections')} className="flex gap-5 sm:gap-6 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {SECTIONS.map((key) => (
           <button
             key={key}
@@ -208,7 +214,7 @@ export const ClassroomSubject = ({ classSubjectId, legacySessionId = null }) => 
             role="tab"
             aria-selected={section === key}
             onClick={() => goSection(key)}
-            className={`px-1 pb-3 -mb-px text-sm font-extrabold border-b-2 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-t ${
+            className={`shrink-0 whitespace-nowrap px-1 pb-3 text-sm font-extrabold border-b-2 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-t ${
               section === key ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -216,11 +222,14 @@ export const ClassroomSubject = ({ classSubjectId, legacySessionId = null }) => 
           </button>
         ))}
       </div>
+      </div>
 
       {section === 'kehadiran' ? (
         <AttendanceSummary rows={rows} t={t} />
       ) : section === 'penilaian' ? (
         <SubjectAssessments classSubjectId={classSubjectId} semesterId={entry.semester.id} />
+      ) : section === 'nilai' ? (
+        <SubjectScores classSubjectId={classSubjectId} semesterId={entry.semester.id} />
       ) : sessions === null ? (
         <p className={`${card} text-sm font-semibold text-amber-700`}>{t('classroom.meetingsFailed')}</p>
       ) : sessions.length === 0 ? (

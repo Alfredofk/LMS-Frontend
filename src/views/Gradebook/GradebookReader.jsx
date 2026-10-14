@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { ArrowLeft, Lock } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
 import GradebookTable from './GradebookTable';
+import SlotGradeSettings from '../Grading/SlotGradeSettings';
 
 /*
   One class subject's gradebook, read only, opened in place (owner, 2026-10-11):
@@ -10,6 +11,7 @@ import GradebookTable from './GradebookTable';
   ScheduleDialog, and for the homeroom teacher from HomeroomAttendance, beside
   "Lihat penilaian". The same table as the teacher's (GradebookTable) with its CSV;
   nothing in it opens or changes - the teacher of the subject marks and releases.
+  Above it the slot's grade settings, read only (SlotGradeSettings, backend 5d42af6).
 
   @param classSubjectId  the class subject
   @param name            how it is called there ("MTK Matematika - XI IPS"), for the caption and the file
@@ -18,6 +20,8 @@ import GradebookTable from './GradebookTable';
 */
 export const GradebookReader = ({ classSubjectId, name, onBack, showTitle = true }) => {
   const { t } = useT();
+  const [kktp, setKktp] = useState(null);
+  const onSettings = useCallback((settings) => setKktp(settings?.kktp?.value ?? null), []);
   return (
     <div className="space-y-3">
       <button
@@ -35,11 +39,13 @@ export const GradebookReader = ({ classSubjectId, name, onBack, showTitle = true
           {t('gradebook.readerNote')}
         </p>
       </div>
+      <SlotGradeSettings classSubjectId={classSubjectId} onSettings={onSettings} />
       <GradebookTable
         classSubjectId={classSubjectId}
         caption={name}
         fileName={`nilai-${name ?? ''}.csv`.replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, '-')}
         framed={false}
+        kktp={kktp}
       />
     </div>
   );

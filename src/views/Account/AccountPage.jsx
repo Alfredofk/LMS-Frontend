@@ -13,6 +13,7 @@ import { useT } from '../../i18n/LanguageContext';
 import { homeFor, ROLES } from '../../constants/roles';
 import LeaveCard from './LeaveCard';
 import SchoolPlaceCard from './SchoolPlaceCard';
+import SchoolGradeSettingsCard from '../Grading/SchoolGradeSettingsCard';
 import HandoverCard from './HandoverCard';
 import DeleteAccountCard from './DeleteAccountCard';
 
@@ -178,6 +179,12 @@ export const AccountPage = () => {
           {/* The school's point and time zone — the Principal's to set (SchoolPlaceCard). */}
           {activeRole === ROLES.PRINCIPAL && (
             <SchoolPlaceCard onToast={(message, type) => setToast({ message, type })} />
+          )}
+
+          {/* The school's grade weights, KKTP and remedial rule - the Principal's and a
+              Vice Principal's to set (backend 5d42af6, SchoolGradeSettingsCard). */}
+          {(activeRole === ROLES.PRINCIPAL || activeRole === ROLES.VICE_PRINCIPAL) && (
+            <SchoolGradeSettingsCard onToast={(message, type) => setToast({ message, type })} />
           )}
 
           {/* Handing the school to a new Principal — the only way a Principal leaves. */}

@@ -7,6 +7,8 @@ import FactLine from '../../components/ui/FactLine';
 import { useT } from '../../i18n/LanguageContext';
 import { assessmentErrorMessage } from '../../i18n/apiError';
 import { assessmentService } from '../../services/assessmentService';
+import { gradingService } from '../../services/gradingService';
+import { belowKktp } from '../Gradebook/gradebook';
 import { localOf } from '../Attendance/attendance';
 import { formatSchoolDay } from '../QuestionBank/questionBank';
 import { forgetMarkingQueue } from './markingQueue';
@@ -183,6 +185,20 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
       cancelled = true;
     };
   }, [assessment.id, attempt, t, adoptResults]);
+
+  /* The KKTP that applies to the slot (backend 5d42af6), for the score under it in red
+     (owner, 2026-10-14, as in the gradebook); null when it cannot be read. */
+  const [kktp, setKktp] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    gradingService
+      .slotSettings(assessment.classSubject.id)
+      .then((settings) => !cancelled && setKktp(settings?.kktp?.value ?? null))
+      .catch(() => !cancelled && setKktp(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [assessment.classSubject.id]);
 
   const ready = Boolean(data && !data.error);
   const manages = !readOnly && Boolean((ready && data.assessment ? data.assessment : assessment).canManage);
@@ -383,6 +399,11 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
         )}
       </div>
 
+      {typeof kktp === 'number' && students.length > 0 && (
+        <p className="text-xs font-semibold text-slate-500">
+          <span className="text-rose-700">{t('gradebook.kktp.red')}</span> {t('gradebook.kktp.legend', { kktp })}
+        </p>
+      )}
       {entering && <p className="text-[11px] font-medium text-slate-500">{t('tasm.offline.hint')}</p>}
       {current.releasedAt && <p className="text-[11px] font-medium text-slate-500">{t('tasm.results.releasedNote')}</p>}
 
@@ -418,7 +439,10 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
                   )}
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-lg font-extrabold text-slate-900 tabular-nums leading-tight">{formatNumber(student.countedScore, lang)}</p>
+                  <p className={`text-lg font-extrabold tabular-nums leading-tight ${belowKktp({ score: student.countedScore }, kktp) ? 'text-rose-700' : 'text-slate-900'}`}>
+                    {formatNumber(student.countedScore, lang)}
+                    {belowKktp({ score: student.countedScore }, kktp) && <span className="sr-only"> ({t('gradebook.kktp.below')})</span>}
+                  </p>
                   {student.countedScore !== null && <p className="text-[11px] font-medium text-slate-500">{t('tasm.results.scoreLabel')}</p>}
                 </div>
               </div>

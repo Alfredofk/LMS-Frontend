@@ -154,23 +154,38 @@ export const nextUpcoming = (classes, now = new Date()) =>
     .sort(ORDER.UPCOMING)[0] ?? null;
 
 /*
-  What the "Nilai" page lists (owner, 2026-10-12): what is marked or can no longer
-  be answered - a released score, one waiting for release, did not submit. Not
-  what is still to come or running, and not a cancelled one: those have, or will
-  have, no score, and the subject's "Penilaian" tab shows them.
+  What a subject's "Nilai" tab lists (owner, 2026-10-12; a tab of the subject's
+  page since 2026-10-14): what is marked or can no longer be answered - a released
+  score, one waiting for release, did not submit. Not what is still to come or
+  running, and not a cancelled one: those have, or will have, no score, and the
+  subject's "Penilaian" tab shows them.
 */
 const SCORED = new Set(['RELEASED', 'WAITING_FOR_RELEASE', 'DID_NOT_SUBMIT']);
 
-/**
- * The "Nilai" page's cards: every class subject of the menu (byClassSubject's
- * order), each with its scored entries, latest closed first - empty when none is
- * scored yet, which the card says.
- */
-export const scoreCardsOf = (classes) =>
-  byClassSubject(classes).map((group) => ({
-    ...group,
-    entries: group.entries.filter((entry) => SCORED.has(entry.status)).sort(ORDER.DONE),
-  }));
+/** One class subject's scored entries, latest closed first - [] when none is scored yet. */
+export const scoredEntriesOf = (classes, classSubjectId) =>
+  entriesOf(classes, classSubjectId)
+    .filter((entry) => SCORED.has(entry.status))
+    .sort(ORDER.DONE);
+
+/*
+  The student dashboard's "Penilaian dikumpulkan" (owner, 2026-10-14): of the
+  semester's ONLINE assessments whose outcome is known, how many were handed in -
+  marked or waiting for release - against "did not submit". An OFFLINE one is a
+  paper the teacher marks, not handed in here; a cancelled, voided, running or
+  still-to-do one says nothing yet. Not "on time": the menu does not carry a
+  hand-in's `late` flag (only the outline does).
+*/
+const HANDED_IN = new Set(['RELEASED', 'WAITING_FOR_RELEASE']);
+
+/** `{ handedIn, total, rate }` over every class of the menu; rate null when total is 0. */
+export function handedInOf(classes) {
+  const known = allEntries(classes).filter(
+    (entry) => entry.assessment?.mode === 'ONLINE' && (HANDED_IN.has(entry.status) || entry.status === 'DID_NOT_SUBMIT')
+  );
+  const handedIn = known.filter((entry) => HANDED_IN.has(entry.status)).length;
+  return { handedIn, total: known.length, rate: known.length ? Math.round((handedIn / known.length) * 100) : null };
+}
 
 /** Where a row leads: straight into the attempt running, else the outline. */
 export const pathOf = (entry) =>

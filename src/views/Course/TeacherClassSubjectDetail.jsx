@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
 import { AlertCircle, BookOpen, RefreshCw, Lock } from 'lucide-react';
 
@@ -15,6 +15,7 @@ import { sessionPhase, unconfirmedCount } from './teaching';
 import TeacherMeeting from './TeacherMeeting';
 import AssessmentsTab from '../TeacherAssessment/AssessmentsTab';
 import GradebookTable from '../Gradebook/GradebookTable';
+import SlotGradeSettings from '../Grading/SlotGradeSettings';
 import { useSchoolZone } from '../../hooks/useSchoolToday';
 
 /*
@@ -30,7 +31,9 @@ import { useSchoolZone } from '../../hooks/useSchoolToday';
     assessments (AssessmentsTab); each opens its own page under
     /teacher/courses/:id/penilaian.
   - "Nilai" (`?tab=nilai`, owner 2026-10-11): the class subject's gradebook
-    (GradebookTable), a column or score opening that assessment's "Hasil". The
+    (GradebookTable), a column or score opening that assessment's "Hasil"; above
+    it the slot's grade settings (SlotGradeSettings, backend 5d42af6), which the
+    teacher may change while the year is open. The
     sidebar's "Buku Nilai" lists the same cards as "Kelas Saya" and opens here.
   - "Progres" (`?tab=progres`): the class's learning progress, per student and per
     material (SubjectProgress, the panel the Principal opens from the timetable).
@@ -53,6 +56,9 @@ export const TeacherClassSubjectDetail = () => {
   const [data, setData] = useState(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  /* The KKTP that applies, from the grade settings panel, for the gradebook's marks. */
+  const [kktp, setKktp] = useState(null);
+  const onGradeSettings = useCallback((settings) => setKktp(settings?.kktp?.value ?? null), []);
   /* Meetings changed on this page, by id, over what was read. */
   const [changedById, setChangedById] = useState({});
 
@@ -183,13 +189,15 @@ export const TeacherClassSubjectDetail = () => {
       {section === 'penilaian' ? (
         <AssessmentsTab classSubjectId={entry.id} semesterId={entry.semester?.id} readOnly={readOnly} zone={zone} />
       ) : section === 'nilai' ? (
-        <div className="space-y-3">
+        <div className="space-y-4">
+          <SlotGradeSettings classSubjectId={entry.id} canEdit={!readOnly} onToast={showToast} onSettings={onGradeSettings} />
           <p className="text-xs font-medium text-slate-500 leading-relaxed">{t('gradebook.intro')}</p>
           <GradebookTable
             classSubjectId={entry.id}
             caption={t('gradebook.option', { code: entry.subject.code, className: entry.class.name, n: entry.semester.ordinal, year: entry.semester.academicYear })}
             fileName={`nilai-${entry.subject.code}-${entry.class.name}.csv`.replace(/\s+/g, '-')}
             onOpen={(assessment) => navigate(`/teacher/courses/${entry.id}/penilaian/${assessment.id}?tab=hasil`)}
+            kktp={kktp}
           />
         </div>
       ) : section === 'progres' ? (

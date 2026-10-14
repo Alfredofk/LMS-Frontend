@@ -10,8 +10,8 @@ import TeacherCourses from '../Course/TeacherCourses';
   with `gradebook`), each opening that subject's "Nilai" tab, where the table is
   (GradebookTable, in TeacherClassSubjectDetail).
 
-  No average and no total (owner, 2026-10-10): the backend has no weights for
-  Tugas, Kuis, UTS and UAS nor a report-card score yet.
+  No average and no total (owner, 2026-10-10): the backend computes no Final
+  Grade nor a report-card score yet (weights and KKTP exist since 5d42af6).
 
   An old link `?cs=<classSubjectId>` goes straight to that subject's tab. The
   homeroom teacher and the leaders read the same table through GradebookReader.

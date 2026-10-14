@@ -702,6 +702,45 @@ export const isStaleQuestion = (err) =>
   );
 
 /*
+  Grade settings (backend 5d42af6, grading.service.js): told apart on their
+  sentences. A shape the browser let through (grading.schema.js) arrives as
+  "Invalid request body" with the rule in `details`, read the same way.
+*/
+const GRADING_BY_MESSAGE = [
+  ['The grade settings were changed meanwhile', 'grading.error.meanwhile'],
+  ['updatedAt you last read of these grade settings', 'grading.error.meanwhile'],
+  ['Only the teacher of this class subject sets its weights and KKTP', 'grading.error.notYours'],
+  ['its grade settings stay as they are', 'grading.error.semesterClosed'],
+  ['Only the Principal or a Vice Principal', 'grading.error.leadersOnly'],
+  ['Class subject not found', 'grading.error.gone'],
+  ['The four weights must add up to 100', 'grading.error.sum'],
+  ['A weight is', 'grading.error.weight'],
+  ['The KKTP is', 'grading.error.kktp'],
+];
+
+export function gradingErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  if (/^Academic year .+ is closed$/.test(message)) return t('grading.error.yearClosed');
+  const said = [message, ...(Array.isArray(err?.details) ? err.details.map((issue) => String(issue?.message ?? '')) : [])];
+  const hit = GRADING_BY_MESSAGE.find(([needle]) => said.some((text) => text.includes(needle)));
+  if (hit) return t(hit[1]);
+  return apiErrorMessage(err, t);
+}
+
+/** A grade-settings refusal that means the form is behind: read the settings again. */
+export const isStaleGrading = (err) =>
+  ['The grade settings were changed meanwhile', 'updatedAt you last read of these grade settings'].some((needle) =>
+    String(err?.message ?? '').includes(needle)
+  );
+
+/** A refusal that means this slot's settings take no change any more (closed semester or year, not the reader's). */
+export const isGradingLocked = (err) =>
+  /^Academic year .+ is closed$/.test(String(err?.message ?? '')) ||
+  ['its grade settings stay as they are', 'Only the teacher of this class subject sets its weights and KKTP'].some((needle) =>
+    String(err?.message ?? '').includes(needle)
+  );
+
+/*
   A student's check-in — attendance.service.js `checkIn` (backend deb95e8,
   87f2670; the window opens 30 minutes early since 0fb6cb9). Six CONFLICTs told apart on their sentences, as above. NOT_FOUND is a
   meeting of a Class the student is no longer in (moved since the card read).

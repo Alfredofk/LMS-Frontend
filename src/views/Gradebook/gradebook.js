@@ -4,8 +4,8 @@ import { formatNumber } from '../TeacherAssessment/results';
   A class subject's gradebook (owner, 2026-10-10; a tab of the subject's page
   since 2026-10-11): its students down the side and its published assessments across, each cell the
   score that counts - or a short word for why there is none. No average: the
-  backend has no weights or report-card total yet, and a number made up here
-  would read as one. Pure: the screen is GradebookTable.
+  backend computes no Final Grade yet (weights and KKTP exist since 5d42af6;
+  the grade is ticket 02), and a number made up here would read as one. Pure: the screen is GradebookTable.
 
   Read in one request since 2026-10-13: GET /assessments/class-subjects/:id/recap
   (backend 113ae37), whose cells say whether only a remedial reached the score
@@ -77,3 +77,11 @@ export function gradebookCsv(columns, rows, { lang, nameHeader, columnHeader, wo
   const body = rows.map((row) => [row.fullName ?? '', ...row.cells.map((cell) => ('score' in cell ? formatNumber(cell.score, lang) : words(cell.word)))]);
   return String.fromCharCode(0xfeff) + [head, ...body].map((line) => line.map((value) => quote(value, sep)).join(sep)).join('\r\n') + '\r\n';
 }
+
+/**
+ * Whether a cell's score is under the KKTP that applies to the class subject
+ * (grade settings, backend 5d42af6) - marked in the table, not in the CSV. The
+ * score as it counts, raw: the remedial rule is applied only in the Final Grade.
+ * No KKTP read (null) marks nothing.
+ */
+export const belowKktp = (cell, kktp) => typeof kktp === 'number' && typeof cell?.score === 'number' && cell.score < kktp;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { cellOf, gradebookColumns, gradebookCsv, gradebookRows } from './gradebook';
+import { belowKktp, cellOf, gradebookColumns, gradebookCsv, gradebookRows } from './gradebook';
 
 const now = new Date('2026-10-20T00:00:00Z');
 const a = (id, status, opensAt, title = id) => ({ id, status, opensAt, title, type: 'KUIS' });
@@ -58,5 +58,18 @@ describe('gradebook - the table', () => {
     expect(id.charCodeAt(0)).toBe(0xfeff);
     expect(id.slice(1)).toBe('Nama;first;later\r\n"Ani; ""A""";87,5;Belum dibuka\r\n');
     expect(gradebookCsv(columns, rows, { ...opts, lang: 'en' }).slice(1)).toBe('Nama,first,later\r\nAni; "A",87.5,Belum dibuka\r\n'.replace('Ani; "A"', '"Ani; ""A"""'));
+  });
+});
+
+describe('gradebook - under the KKTP', () => {
+  it('a score under it is marked; at it, a word, or no KKTP read is not', () => {
+    expect(belowKktp({ score: 69.5, remedial: false }, 70)).toBe(true);
+    expect(belowKktp({ score: 70, remedial: false }, 70)).toBe(false);
+    expect(belowKktp({ score: 0, remedial: false }, 70)).toBe(true);
+    expect(belowKktp({ word: 'DID_NOT_SUBMIT' }, 70)).toBe(false);
+    expect(belowKktp({ score: 10, remedial: false }, null)).toBe(false);
+    expect(belowKktp({ score: 10, remedial: false }, 0)).toBe(false);
+    expect(belowKktp({ score: null }, 70)).toBe(false);
+    expect(belowKktp(undefined, 70)).toBe(false);
   });
 });

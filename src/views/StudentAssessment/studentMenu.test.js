@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { byClassSubject, canRetry, cardOf, entriesOf, nextUpcoming, pathOf, scoreCardsOf, sectionOf, sectionsOf, todoAcross, todoCount, whenOf, wordOf } from './studentMenu';
+import { byClassSubject, canRetry, cardOf, entriesOf, handedInOf, nextUpcoming, pathOf, scoredEntriesOf, sectionOf, sectionsOf, todoAcross, todoCount, whenOf, wordOf } from './studentMenu';
 
 /*
   Shapes from assessment.menu.js menuOf (backend 113ae37): each entry is
@@ -251,7 +251,7 @@ describe('todoAcross and nextUpcoming', () => {
   });
 });
 
-describe('scoreCardsOf', () => {
+describe('scoredEntriesOf', () => {
   const at = (classSubjectId, subject, extra) => {
     const made = entry({ subject, ...extra });
     made.assessment.classSubject = { ...made.assessment.classSubject, id: classSubjectId };
@@ -267,13 +267,37 @@ describe('scoreCardsOf', () => {
   const classes = [{ id: 'now', name: 'XI IPS', current: true, assessments: [released, open, waiting, cancelled, missed, running, bioOpen] }];
 
   it('keeps the released, the waiting and the missed, latest closed first', () => {
-    const cards = scoreCardsOf(classes);
-    expect(cards.find((c) => c.classSubject.id === 'cs-mtk').entries).toEqual([waiting, released, missed]);
+    expect(scoredEntriesOf(classes, 'cs-mtk')).toEqual([waiting, released, missed]);
   });
 
-  it('keeps a subject with nothing scored yet, empty', () => {
-    const cards = scoreCardsOf(classes);
-    expect(cards.map((c) => c.classSubject.id)).toEqual(['cs-bio', 'cs-mtk']);
-    expect(cards[0].entries).toEqual([]);
+  it('a subject with nothing scored yet, or not in the menu, is empty', () => {
+    expect(scoredEntriesOf(classes, 'cs-bio')).toEqual([]);
+    expect(scoredEntriesOf(classes, 'cs-none')).toEqual([]);
+  });
+});
+
+describe('handedInOf', () => {
+  it('online ones with a known outcome: handed in (marked or waiting) against did not submit', () => {
+    const classes = [
+      {
+        id: 'now',
+        current: true,
+        assessments: [
+          entry({ status: 'RELEASED', score: 80 }),
+          entry({ status: 'WAITING_FOR_RELEASE' }),
+          entry({ status: 'DID_NOT_SUBMIT' }),
+          entry({ status: 'NOT_STARTED', canStart: true }),
+          entry({ status: 'IN_PROGRESS', inProgressId: 's' }),
+          entry({ mode: 'OFFLINE', status: 'RELEASED', score: 90 }),
+          entry({ cancelled: true, status: 'CANCELLED' }),
+        ],
+      },
+    ];
+    expect(handedInOf(classes)).toEqual({ handedIn: 2, total: 3, rate: 67 });
+  });
+
+  it('nothing known yet: no rate, never a 0 nobody counted', () => {
+    expect(handedInOf([{ id: 'now', current: true, assessments: [entry({ canStart: true })] }])).toEqual({ handedIn: 0, total: 0, rate: null });
+    expect(handedInOf(undefined)).toEqual({ handedIn: 0, total: 0, rate: null });
   });
 });

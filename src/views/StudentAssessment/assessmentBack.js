@@ -6,9 +6,15 @@ import { useSyncExternalStore } from 'react';
   under its outline. The address names the assessment only, so the outline and
   the attempt page note its class subject here once read; until then (an address
   opened cold) the arrow leads to /assessment.
+
+  Since 2026-10-14 the subject page has a "Nilai" tab whose rows open the outline
+  too: the tab a row was picked on is noted (noteAssessmentTab) and the arrow goes
+  back to it; "penilaian" when none was noted.
 */
 
 const subjectOf = new Map();
+const tabOf = new Map();
+const TABS = new Set(['penilaian', 'nilai']);
 const listeners = new Set();
 let version = 0;
 
@@ -16,6 +22,14 @@ let version = 0;
 export function noteAssessmentSubject(assessmentId, classSubjectId) {
   if (!assessmentId || !classSubjectId || subjectOf.get(assessmentId) === classSubjectId) return;
   subjectOf.set(assessmentId, classSubjectId);
+  version += 1;
+  listeners.forEach((listener) => listener());
+}
+
+/** A row on the subject page's "penilaian" or "nilai" tab opened this assessment. */
+export function noteAssessmentTab(assessmentId, tab) {
+  if (!assessmentId || !TABS.has(tab) || tabOf.get(assessmentId) === tab) return;
+  tabOf.set(assessmentId, tab);
   version += 1;
   listeners.forEach((listener) => listener());
 }
@@ -34,8 +48,9 @@ export function assessmentBackOf(pathname) {
   if (!match) return null;
   if (match[2]) return { to: `/assessment/${match[1]}`, labelKey: 'sasm.backToOutline' };
   const classSubjectId = subjectOf.get(match[1]);
+  const tab = tabOf.get(match[1]) ?? 'penilaian';
   return classSubjectId
-    ? { to: `/classroom/${classSubjectId}?tab=penilaian`, labelKey: 'smenu.backToSubject' }
+    ? { to: `/classroom/${classSubjectId}?tab=${tab}`, labelKey: tab === 'nilai' ? 'smenu.backToScores' : 'smenu.backToSubject' }
     : { to: '/assessment', labelKey: 'smenu.backToList' };
 }
 

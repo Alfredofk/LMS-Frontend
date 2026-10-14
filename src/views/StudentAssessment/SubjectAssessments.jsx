@@ -9,6 +9,7 @@ import { studentAssessmentErrorMessage } from '../../i18n/apiError';
 import { formatNumber } from '../TeacherAssessment/results';
 import { shortWhen, typeModeText } from '../TeacherAssessment/teacherAssessment';
 import { readMyMenu } from './readMyMenu';
+import { noteAssessmentTab } from './assessmentBack';
 import { canRetry, entriesOf, pathOf, sectionsOf, whenOf, wordOf } from './studentMenu';
 
 /*
@@ -148,7 +149,11 @@ export const SubjectAssessments = ({ classSubjectId, semesterId }) => {
           </h3>
           <ul className={`${card} divide-y divide-slate-100`}>
             {section.entries.map((entry) => (
-              <Row key={entry.assessment.id} entry={entry} zone={zone} onOpen={(picked) => navigate(pathOf(picked))} />
+              <Row key={entry.assessment.id} entry={entry} zone={zone} onOpen={(picked) => {
+                  noteAssessmentTab(picked.assessment.id, 'penilaian');
+                  navigate(pathOf(picked));
+                }}
+              />
             ))}
           </ul>
         </section>

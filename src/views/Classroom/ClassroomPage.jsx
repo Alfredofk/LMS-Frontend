@@ -32,6 +32,10 @@ import { defaultSemesterId, isCurrentClass, listedClassSubjects, matchesSearch, 
 
   It replaced a page of sample components that rendered "not built yet": there
   was no route a student could read their subjects on until backend 1bd81ab.
+
+  `scores` (owner, 2026-10-14, as the teacher's "Buku Nilai"): the sidebar's
+  "Nilai" (/scores, StudentScores) - the same cards and dropdown under its own
+  title, each opening that subject's "Nilai" tab.
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm';
@@ -125,7 +129,7 @@ const SubjectCard = ({ entry, sessions, todo, onOpen }) => {
   );
 };
 
-const SubjectList = () => {
+export const SubjectList = ({ scores = false }) => {
   const { t } = useT();
   const navigate = useNavigate();
   const { membership } = useAuth();
@@ -183,8 +187,12 @@ const SubjectList = () => {
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('shell.myCourses')}</h1>
-        {subtitle && <p className="text-sm text-slate-500 font-medium">{subtitle}</p>}
+        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t(scores ? 'shell.scores' : 'shell.myCourses')}</h1>
+        {scores ? (
+          <p className="text-sm text-slate-500 font-medium">{t('scores.pick')}</p>
+        ) : (
+          subtitle && <p className="text-sm text-slate-500 font-medium">{subtitle}</p>
+        )}
       </div>
 
       {failed && !data ? (
@@ -249,7 +257,7 @@ const SubjectList = () => {
                   entry={entry}
                   sessions={data.sessionsById[entry.id]}
                   todo={menuClasses ? todoCount(menuClasses, entry.id) : 0}
-                  onOpen={() => navigate(`/classroom/${entry.id}`)}
+                  onOpen={() => navigate(scores ? `/classroom/${entry.id}?tab=nilai` : `/classroom/${entry.id}`)}
                 />
               ))}
             </div>

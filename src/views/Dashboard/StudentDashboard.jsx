@@ -14,7 +14,7 @@ import { currentSubjects } from '../Classroom/myClasses';
 import { readMyProgress } from '../Classroom/readMyProgress';
 import { progressTotals } from '../Classroom/myProgress';
 import { readMyMenu } from '../StudentAssessment/readMyMenu';
-import { nextUpcoming, todoAcross } from '../StudentAssessment/studentMenu';
+import { handedInOf, nextUpcoming, todoAcross } from '../StudentAssessment/studentMenu';
 import { ActiveAssessment, CourseProgress } from './components/Widgets';
 import PinnedAnnouncements from './components/PinnedAnnouncements';
 import ProgressBoard from './components/ProgressBoard';
@@ -61,10 +61,8 @@ const greetingKeyFor = (hour) => {
   return 'dash.greeting.evening';
 };
 
-const STATS = [
-  { key: 'dash.stat.avgScore', icon: Star },
-  { key: 'dash.stat.newMaterials', icon: FileText },
-];
+/* The average stays "-" until the backend computes a Final Grade (owner, 2026-10-14). */
+const STATS = [{ key: 'dash.stat.avgScore', icon: Star }];
 
 export const StudentDashboard = () => {
   const { user, membership } = useAuth();
@@ -143,6 +141,9 @@ export const StudentDashboard = () => {
     };
   }, [membership?.id]);
   const todo = menu === undefined ? undefined : menu === null ? null : todoAcross(menu.classes);
+  const handedIn = menu === undefined ? undefined : menu === null ? null : handedInOf(menu.classes);
+  /* Materials not opened yet, of those published in this semester's subjects (owner, 2026-10-14). */
+  const unopened = totals ? Math.max(0, totals.published - totals.opened) : totals;
 
   const name = user?.fullName || t('dash.greeting.fallback');
   const schoolName = membership?.school?.name ?? membership?.schoolName ?? '';
@@ -177,7 +178,7 @@ export const StudentDashboard = () => {
         {/* Check-in is the one thing here bound to the clock. It shows one meeting
             (on now, else next), and a day with none, or already over, folds to one line. */}
         <TodaySessionsCard focus onCheckedIn={() => setRecorded((n) => n + 1)} />
-        <ProgressBoard totals={totals} zone={membership?.school?.timeZone ?? null} />
+        <ProgressBoard totals={totals} zone={membership?.school?.timeZone ?? null} handedIn={handedIn} />
       </div>
 
       {/* The attendance card leads to /attendance and the subjects card to /classroom
@@ -215,6 +216,21 @@ export const StudentDashboard = () => {
           subtext={todo === null ? t('dash.att.failed') : todo === undefined ? '' : t('dash.stat.assessmentsSub')}
           icon={ListTodo}
           onClick={() => navigate('/assessment')}
+        />
+        <StatCard
+          title={t('dash.stat.unopened')}
+          value={unopened === null ? '-' : unopened === undefined ? '…' : String(unopened)}
+          subtext={
+            unopened === null
+              ? t('dash.att.failed')
+              : unopened === undefined
+                ? ''
+                : totals.published === 0
+                  ? t('dash.board.noMaterials')
+                  : t('dash.stat.unopenedSub', { total: totals.published })
+          }
+          icon={FileText}
+          onClick={() => navigate('/classroom')}
         />
         {STATS.map((stat) => (
           <StatCard

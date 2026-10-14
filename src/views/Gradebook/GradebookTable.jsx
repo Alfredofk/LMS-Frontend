@@ -9,7 +9,7 @@ import { downloadFile } from '../../utils/openFile';
 import { localOf } from '../Attendance/attendance';
 import { formatSchoolDay } from '../QuestionBank/questionBank';
 import { formatNumber } from '../TeacherAssessment/results';
-import { gradebookColumns, gradebookCsv, gradebookRows } from './gradebook';
+import { belowKktp, gradebookColumns, gradebookCsv, gradebookRows } from './gradebook';
 
 /*
   One class subject's gradebook: students down the side, its published
@@ -26,6 +26,9 @@ import { gradebookColumns, gradebookCsv, gradebookRows } from './gradebook';
   @param fileName        the CSV's name
   @param onOpen          (assessment) => void, or null for a reader
   @param framed          false inside a dialog or a host card: no card of its own
+  @param kktp            the KKTP that applies (SlotGradeSettings' read), or null: a
+                         score under it is red, with a line above the table saying so
+                         (owner, 2026-10-14). The CSV keeps the bare number.
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 sm:p-6 shadow-sm';
@@ -48,7 +51,7 @@ const Opener = ({ onOpen, assessment, className, children }) =>
     <span className={className}>{children}</span>
   );
 
-export const GradebookTable = ({ classSubjectId, caption, fileName, onOpen = null, framed = true }) => {
+export const GradebookTable = ({ classSubjectId, caption, fileName, onOpen = null, framed = true, kktp = null }) => {
   const { t, lang } = useT();
   const { zone } = useSchoolZoneState();
   /* undefined reading · { columns, rows } · { error } */
@@ -110,7 +113,14 @@ export const GradebookTable = ({ classSubjectId, caption, fileName, onOpen = nul
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {typeof kktp === 'number' ? (
+          <p className="text-xs font-semibold text-slate-500">
+            <span className="text-rose-700">{t('gradebook.kktp.red')}</span> {t('gradebook.kktp.legend', { kktp })}
+          </p>
+        ) : (
+          <span />
+        )}
         <button type="button" onClick={download} className={`${tool} border border-slate-200 text-slate-700 hover:bg-slate-50`}>
           <Download className="w-4 h-4" aria-hidden="true" />
           {t('gradebook.csv')}
@@ -150,8 +160,13 @@ export const GradebookTable = ({ classSubjectId, caption, fileName, onOpen = nul
                     <td key={assessment.id} className="px-3 py-2.5">
                       {'score' in cell ? (
                         <>
-                          <Opener onOpen={onOpen} assessment={assessment} className="text-base font-extrabold text-slate-900 tabular-nums">
+                          <Opener
+                            onOpen={onOpen}
+                            assessment={assessment}
+                            className={`text-base font-extrabold tabular-nums ${belowKktp(cell, kktp) ? 'text-rose-700' : 'text-slate-900'}`}
+                          >
                             {formatNumber(cell.score, lang)}
+                            {belowKktp(cell, kktp) && <span className="sr-only"> ({t('gradebook.kktp.below')})</span>}
                           </Opener>
                           {cell.remedial && <span className="block text-[11px] font-semibold text-brand">{t('tasm.results.remedial')}</span>}
                         </>

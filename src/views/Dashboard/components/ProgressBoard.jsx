@@ -12,29 +12,41 @@ import { formatDay } from '../../Classes/format';
   - Materials opened and completed, out of those published in this semester's
     subjects, from `GET /tracking/me/progress` (backend 0dd8b44) added up by
     progressTotals (views/Classroom/myProgress.js), and the last activity.
-  - Assignments on time and the average score have no backend yet, so their rows
-    say "not available yet" instead of drawing an empty bar.
+  - Assessments handed in (owner, 2026-10-14): of the semester's online ones whose
+    outcome is known, how many were handed in (handedInOf, from GET /assessments/mine).
+    It replaced "on time", which the menu cannot tell (no `late` flag there).
+  - The average score stays "not available yet" (owner's choice: no average until
+    the backend computes a Final Grade).
   - The "Top 3 in class" tab is gone (owner, 2026-10-04): the backend shows a
     student their own row only - no peer, no average, no rank (tracking.service.js,
     spec invariant 7) - so it could never have had data.
 
   @param totals  progressTotals(...); undefined while reading, null when the read failed
   @param zone    the school's time zone (WIB/WITA/WIT), for the last activity
+  @param handedIn  handedInOf(...); undefined while reading, null when the read failed
 */
 
-const NOT_BUILT = [
-  { key: 'onTime', icon: CheckCircle2, labelKey: 'dash.board.metric.onTime' },
-  { key: 'average', icon: Award, labelKey: 'dash.board.metric.average' },
-];
+const NOT_BUILT = [{ key: 'average', icon: Award, labelKey: 'dash.board.metric.average' }];
 
-export const ProgressBoard = ({ totals, zone = null }) => {
+export const ProgressBoard = ({ totals, zone = null, handedIn }) => {
   const { t, lang } = useT();
   const loading = totals === undefined;
   const failed = totals === null;
 
   const metrics = [
-    { key: 'completed', icon: BookOpenCheck, labelKey: 'dash.board.metric.completed', bar: 'bg-emerald-500', done: totals?.completed, rate: totals?.completedRate },
-    { key: 'opened', icon: Eye, labelKey: 'dash.board.metric.opened', bar: 'bg-brand', done: totals?.opened, rate: totals?.openedRate },
+    { key: 'completed', icon: BookOpenCheck, labelKey: 'dash.board.metric.completed', bar: 'bg-emerald-500', done: totals?.completed, total: totals?.published, rate: totals?.completedRate, loading, failed },
+    { key: 'opened', icon: Eye, labelKey: 'dash.board.metric.opened', bar: 'bg-brand', done: totals?.opened, total: totals?.published, rate: totals?.openedRate, loading, failed },
+    {
+      key: 'handedIn',
+      icon: CheckCircle2,
+      labelKey: 'dash.board.metric.handedIn',
+      bar: 'bg-sky-500',
+      done: handedIn?.handedIn,
+      total: handedIn?.total,
+      rate: handedIn?.rate,
+      loading: handedIn === undefined,
+      failed: handedIn === null,
+    },
   ];
 
   let note = null;
@@ -58,9 +70,9 @@ export const ProgressBoard = ({ totals, zone = null }) => {
       </div>
 
       <ul className="space-y-4">
-        {metrics.map(({ key, icon, labelKey, bar, done, rate }) => {
+        {metrics.map(({ key, icon, labelKey, bar, done, total, rate, loading: reading, failed: broken }) => {
           const Icon = icon;
-          const shown = !loading && !failed && rate !== null && rate !== undefined;
+          const shown = !reading && !broken && rate !== null && rate !== undefined;
           return (
             <li key={key} className="space-y-1.5">
               <div className="flex items-center justify-between gap-2 text-xs font-bold text-slate-700">
@@ -68,11 +80,11 @@ export const ProgressBoard = ({ totals, zone = null }) => {
                   <Icon className="w-4 h-4 text-slate-500 shrink-0" aria-hidden="true" />
                   <span className="truncate">{t(labelKey)}</span>
                 </span>
-                {loading ? (
+                {reading ? (
                   <span className="block h-3 w-16 rounded bg-slate-100 animate-pulse" />
                 ) : (
                   <span className="tabular-nums text-slate-800 whitespace-nowrap">
-                    {shown ? t('dash.board.of', { done, total: totals.published }) : '-'}
+                    {shown ? t('dash.board.of', { done, total }) : '-'}
                   </span>
                 )}
               </div>
