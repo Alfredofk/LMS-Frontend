@@ -144,7 +144,7 @@ describe('teachingDay', () => {
   });
 
   it('passes over a cancelled meeting when naming the next', () => {
-    const day = teachingDay([on('bx', '2026-10-13', { status: 'CANCELLED' }), on('b9', '2026-10-15')], '2026-10-12');
+    const day = teachingDay([on('bx', '2026-10-13', { status: 'CANCELLED' }), on('b9', '2026-10-15')], '2026-10-12', new Date('2026-10-12T00:00:00Z'));
     expect(day.next.id).toBe('b9');
   });
 

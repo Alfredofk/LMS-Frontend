@@ -22,6 +22,10 @@ import { attendanceCount, confirmStatuses, confirmTally, defaultStatusOf } from 
     the roster will read first; the server marks the rest.
   - Confirmed: each status, with "Change" for a correction (a note of 3+ characters
     required, kept with the record) and the record's history.
+  - Begun, not confirmed, nobody in the class: "Confirm" still shows - the
+    server takes an empty confirmation as "the meeting happened" and clears its
+    needs-completion mark; without it the Principal's waiting card never empties
+    (owner, 2026-10-17).
   - Cancelled: nothing to take.
 */
 
@@ -163,7 +167,23 @@ export const TeacherAttendance = ({ session, phase, onConfirmed, onCount, showTo
   let intro = null;
   if (phase === 'upcoming') intro = t('teach.att.upcoming');
   else if (phase === 'cancelled') intro = t('teach.att.cancelled');
-  else if (editable) intro = t('teach.att.editable');
+  else if (editable) intro = roster && students.length === 0 ? t('teach.att.editableEmpty') : t('teach.att.editable');
+
+  const tallyText = STATUSES.map((status) => `${t(`att.status.${status}`)} ${tally[status]}`).join(', ');
+  const confirmBar = editable && (
+    <div className={`flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl bg-brand-tint/60 px-4 py-3 ${students.length > 0 ? 'justify-between' : 'sm:justify-end'}`}>
+      {students.length > 0 && <p className="text-xs font-semibold text-slate-700 tabular-nums">{tallyText}</p>}
+      <button
+        type="button"
+        onClick={() => setAsking(true)}
+        disabled={busy}
+        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-white text-sm font-extrabold hover:bg-brand-deep cursor-pointer disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+      >
+        <ClipboardCheck className="w-4 h-4" aria-hidden="true" />
+        {t('teach.att.confirm')}
+      </button>
+    </div>
+  );
 
   return (
     <section className="space-y-3" aria-labelledby={`attendance-${session.id}`}>
@@ -196,7 +216,10 @@ export const TeacherAttendance = ({ session, phase, onConfirmed, onCount, showTo
       ) : roster === undefined ? (
         <div className="h-28 rounded-2xl bg-slate-100 animate-pulse" aria-label={t('common.loading')} />
       ) : students.length === 0 ? (
-        <p className="text-xs font-semibold text-slate-500">{t('roster.empty')}</p>
+        <>
+          <p className="text-xs font-semibold text-slate-500">{t('roster.empty')}</p>
+          {confirmBar}
+        </>
       ) : (
         <>
           <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-100">
@@ -345,22 +368,7 @@ export const TeacherAttendance = ({ session, phase, onConfirmed, onCount, showTo
             })}
           </ul>
 
-          {editable && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl bg-brand-tint/60 px-4 py-3">
-              <p className="text-xs font-semibold text-slate-700 tabular-nums">
-                {STATUSES.map((status) => `${t(`att.status.${status}`)} ${tally[status]}`).join(', ')}
-              </p>
-              <button
-                type="button"
-                onClick={() => setAsking(true)}
-                disabled={busy}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-white text-sm font-extrabold hover:bg-brand-deep cursor-pointer disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-              >
-                <ClipboardCheck className="w-4 h-4" aria-hidden="true" />
-                {t('teach.att.confirm')}
-              </button>
-            </div>
-          )}
+          {confirmBar}
         </>
       )}
 
@@ -369,9 +377,7 @@ export const TeacherAttendance = ({ session, phase, onConfirmed, onCount, showTo
         tone="brand"
         icon={ClipboardCheck}
         title={t('teach.att.confirmTitle', { n: session.number })}
-        body={t('teach.att.confirmBody', {
-          tally: STATUSES.map((status) => `${t(`att.status.${status}`)} ${tally[status]}`).join(', '),
-        })}
+        body={students.length > 0 ? t('teach.att.confirmBody', { tally: tallyText }) : t('teach.att.confirmBodyEmpty')}
         confirmLabel={t('teach.att.confirm')}
         cancelLabel={t('common.cancel')}
         busy={busy}

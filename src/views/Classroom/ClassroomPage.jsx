@@ -22,7 +22,10 @@ import { defaultSemesterId, isCurrentClass, listedClassSubjects, matchesSearch, 
 
   Since backend 4bdd397 (request #11; owner, 2026-10-07) it looks back too: the
   dropdown holds every class the student sat in, an earlier class's semester
-  named with that class, and its cards marked "Kelas sebelumnya". An ended
+  named with that class. Its cards sit below the current class's, under
+  "Dari kelas sebelumnya: <class>", one section per earlier class (owner,
+  2026-10-17: mixed into one grid they read as subjects of the class in the
+  subtitle; a section heading replaced the per-card label). An ended
   assignment shows as its own card, marked "Sudah berakhir", only when it has
   meetings (`listedClassSubjects`).
 
@@ -88,16 +91,9 @@ const SubjectCard = ({ entry, sessions, todo, onOpen }) => {
         <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-brand shrink-0" aria-hidden="true" />
       </span>
 
-      {(!isCurrentClass(entry) || entry.ended) && (
+      {entry.ended && (
         <span className="flex flex-wrap gap-1.5">
-          {!isCurrentClass(entry) && (
-            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[11px] font-bold">
-              {t('classroom.pastClass', { class: entry.class.name })}
-            </span>
-          )}
-          {entry.ended && (
-            <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[11px] font-bold">{t('classroom.ended')}</span>
-          )}
+          <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[11px] font-bold">{t('classroom.ended')}</span>
         </span>
       )}
 
@@ -175,6 +171,25 @@ export const SubjectList = ({ scores = false }) => {
   const menuClasses = menu?.semesterId === shownSemester ? menu.classes : null;
   const subjects = listed.filter((entry) => entry.semester?.id === shownSemester);
   const visible = subjects.filter((entry) => matchesSearch(entry, query));
+  /* The current class's cards, then each earlier class's under its own heading,
+     in the order the backend gives them (the latest left first). */
+  const currentCards = visible.filter(isCurrentClass);
+  const pastGroups = [];
+  for (const entry of visible) {
+    if (isCurrentClass(entry)) continue;
+    const group = pastGroups.find((g) => g.classId === entry.class.id);
+    if (group) group.entries.push(entry);
+    else pastGroups.push({ classId: entry.class.id, name: entry.class.name, entries: [entry] });
+  }
+  const renderCard = (entry) => (
+    <SubjectCard
+      key={entry.id}
+      entry={entry}
+      sessions={data.sessionsById[entry.id]}
+      todo={menuClasses ? todoCount(menuClasses, entry.id) : 0}
+      onOpen={() => navigate(scores ? `/classroom/${entry.id}?tab=nilai` : `/classroom/${entry.id}`)}
+    />
+  );
 
   const placed = membership?.student?.class ?? null;
   const first = listed.find(isCurrentClass);
@@ -250,17 +265,17 @@ export const SubjectList = ({ scores = false }) => {
               {t('classroom.empty.search', { q: query.trim() })}
             </p>
           ) : (
-            <div className={cardGrid}>
-              {visible.map((entry) => (
-                <SubjectCard
-                  key={entry.id}
-                  entry={entry}
-                  sessions={data.sessionsById[entry.id]}
-                  todo={menuClasses ? todoCount(menuClasses, entry.id) : 0}
-                  onOpen={() => navigate(scores ? `/classroom/${entry.id}?tab=nilai` : `/classroom/${entry.id}`)}
-                />
+            <>
+              {currentCards.length > 0 && <div className={cardGrid}>{currentCards.map(renderCard)}</div>}
+              {pastGroups.map((group) => (
+                <section key={group.classId} className="space-y-3" aria-labelledby={`past-class-${group.classId}`}>
+                  <h2 id={`past-class-${group.classId}`} className="text-sm font-extrabold text-slate-700">
+                    {t('classroom.pastSection', { class: group.name })}
+                  </h2>
+                  <div className={cardGrid}>{group.entries.map(renderCard)}</div>
+                </section>
               ))}
-            </div>
+            </>
           )}
         </>
       )}
