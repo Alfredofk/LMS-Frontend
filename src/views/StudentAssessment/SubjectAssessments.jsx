@@ -10,7 +10,7 @@ import { formatNumber } from '../TeacherAssessment/results';
 import { shortWhen, typeModeText } from '../TeacherAssessment/teacherAssessment';
 import { readMyMenu } from './readMyMenu';
 import { noteAssessmentTab } from './assessmentBack';
-import { canRetry, entriesOf, pathOf, sectionsOf, whenOf, wordOf } from './studentMenu';
+import { afterRuleOf, canRetry, entriesOf, pathOf, sectionsOf, whenOf, wordOf } from './studentMenu';
 
 /*
   A subject's "Penilaian" tab on the student's subject page (/classroom/:id?tab=penilaian;
@@ -78,6 +78,11 @@ const Row = ({ entry, zone, onOpen }) => {
         <span className="shrink-0 text-right">
           {entry.status === 'RELEASED' && entry.score !== null && (
             <span className="block text-base font-extrabold text-slate-900 tabular-nums leading-tight">{formatNumber(entry.score, lang)}</span>
+          )}
+          {afterRuleOf(entry) && (
+            <span className="block text-[11px] font-semibold text-slate-500 tabular-nums">
+              {t('smenu.afterRule', { score: formatNumber(afterRuleOf(entry).score, lang) })}
+            </span>
           )}
           {word && <span className={`block text-xs font-bold ${WORD_TONE[word]}`}>{t(`smenu.status.${word}`)}</span>}
           {canRetry(entry) && <span className="block text-[11px] font-semibold text-brand">{t('smenu.retry')}</span>}

@@ -5,13 +5,27 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import Select from '../../components/ui/Select';
+import SelectField from '../../components/ui/SelectField';
 import { DateChip, Legend, SummaryCards, ViewToggle, YearCalendar } from '../../components/holidays/HolidayParts';
 import { KIND_STYLE } from '../../components/holidays/kindStyle';
 import { holidaysService } from '../../services/holidaysService';
+import { academicsService } from '../../services/academicsService';
+import { useAuth } from '../../context/AuthContext';
+import { gradesFor } from '../../constants/schoolTypes';
 import { useT } from '../../i18n/LanguageContext';
-import { apiErrorMessage } from '../../i18n/apiError';
+import { apiErrorMessage, examWeekErrorMessage } from '../../i18n/apiError';
 import { calendarItems, daysBetween, daysIndex, nextHoliday, offDaysOf, todayIso } from '../../utils/holidays';
 import { validateHolidayName, validateHolidayRange } from '../../utils/validation';
+import { formatDay } from '../Classes/format';
+import {
+  EXAM_TYPES,
+  defaultExamSemester,
+  examWeekBody,
+  examWeekErrors,
+  examWeekItems,
+  examWeekSemesters,
+  toggleGrade,
+} from './examWeeks';
 
 /*
   The school's holiday calendar — backend 9dee2e2, on /schedule, above the
@@ -31,6 +45,12 @@ import { validateHolidayName, validateHolidayRange } from '../../utils/validatio
   choice per joint-leave day, and the school's own holidays — a day or a run of
   fewer than 90 (`validateHolidayRange`), withdrawn when made by mistake. The
   server re-reads PRINCIPAL; this only decides what to offer.
+
+  **Exam Weeks** (backend cbec3b6, ticket 13; owner 2026-10-18) sit on the same
+  calendar in their own colour, set and withdrawn by the Principal or a Vice
+  Principal (`canManage`) for a semester and some grade levels (examWeeks.js). Not
+  a holiday: never counted as a day off or "next", and on a day that is both the
+  holiday paints the cell, as the server reads it.
 */
 
 const JOINT_CHOICES = [
@@ -41,9 +61,21 @@ const JOINT_CHOICES = [
 
 const EMPTY_FORM = { name: '', startDate: '', endDate: '' };
 
+const emptyExamForm = (semesterId, grades) => ({
+  semesterId: semesterId ?? '',
+  type: 'UTS',
+  name: '',
+  startDate: '',
+  endDate: '',
+  gradeLevels: grades,
+  touchedGrades: false,
+});
+
 const HolidayCalendar = ({ canManage = false, showToast }) => {
   const { t, lang } = useT();
+  const { membership, refreshMe } = useAuth();
   const today = todayIso();
+  const grades = gradesFor(membership?.school?.schoolType, membership?.school?.durationYears);
 
   const [year, setYear] = useState(() => new Date().getFullYear());
   const [data, setData] = useState(null);
@@ -53,12 +85,18 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
   const [selected, setSelected] = useState(null);
   const listRef = useRef(null);
 
-  const [adding, setAdding] = useState(false);
+  /* Which form is open: 'holiday', 'exam' or null. */
+  const [adding, setAdding] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [withdrawing, setWithdrawing] = useState(null);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
+
+  const [semesters, setSemesters] = useState(null);
+  const [semestersError, setSemestersError] = useState(null);
+  const [examForm, setExamForm] = useState(() => emptyExamForm(null, []));
+  const [examErrors, setExamErrors] = useState({});
 
   const load = useCallback(async () => {
     setError(null);
@@ -77,8 +115,11 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
 
   /* One shape for all three sources: { id, kind, name, start, end, … }. */
   const items = useMemo(() => calendarItems(data), [data]);
+  const exams = useMemo(() => examWeekItems(data), [data]);
+  const shown = useMemo(() => [...items, ...exams].sort((a, b) => a.start.localeCompare(b.start)), [items, exams]);
 
-  const index = useMemo(() => daysIndex(items), [items]);
+  /* Holidays first, so a day both a holiday and an Exam Week is painted a holiday. */
+  const index = useMemo(() => daysIndex([...items, ...exams]), [items, exams]);
   const offDays = offDaysOf(items);
   const next = year === Number(today.slice(0, 4)) ? nextHoliday(offDays, today) : null;
   /* Two counts beside the next day off — the summary row holds four columns. */
@@ -89,13 +130,13 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
 
   const months = useMemo(() => {
     const byMonth = new Map();
-    for (const item of items) {
+    for (const item of shown) {
       const month = item.start.slice(0, 7);
       if (!byMonth.has(month)) byMonth.set(month, []);
       byMonth.get(month).push(item);
     }
     return [...byMonth.entries()];
-  }, [items]);
+  }, [shown]);
 
   const pick = (day) => {
     setSelected((prev) => (prev === day ? null : day));
@@ -159,7 +200,7 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
         startDate: form.startDate,
         endDate: form.endDate,
       });
-      setAdding(false);
+      setAdding(null);
       setForm(EMPTY_FORM);
       const landed = Number(String(holiday?.startDate ?? form.startDate).slice(0, 4));
       if (landed && landed !== year) setYear(landed);
@@ -174,16 +215,83 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
 
   const handleWithdraw = async () => {
     if (!withdrawing) return;
+    const exam = withdrawing.source === 'EXAM_WEEK';
     setIsWithdrawing(true);
     try {
-      await holidaysService.withdrawSchoolHoliday(withdrawing.id);
-      showToast?.(t('holiday.school.withdrawn', { name: withdrawing.name }), 'success');
+      if (exam) await holidaysService.withdrawExamWeek(withdrawing.id);
+      else await holidaysService.withdrawSchoolHoliday(withdrawing.id);
+      showToast?.(t(exam ? 'exam.withdrawn' : 'holiday.school.withdrawn', { name: withdrawing.name }), 'success');
     } catch (err) {
-      showToast?.(apiErrorMessage(err, t), 'error');
+      showToast?.(exam ? examWeekErrorMessage(err, t, lang) : apiErrorMessage(err, t), 'error');
     } finally {
       await load();
       setIsWithdrawing(false);
       setWithdrawing(null);
+    }
+  };
+
+  /* The semesters are read once, when the form first opens. A thin cached
+     membership has no school type, so /users/me is read for the grade levels. */
+  const openExamForm = async () => {
+    setAdding('exam');
+    setExamErrors({});
+    if (grades.length === 0) refreshMe?.().catch(() => {});
+    let list = semesters;
+    if (list === null) {
+      setSemestersError(null);
+      try {
+        list = examWeekSemesters(await academicsService.academicYears());
+        setSemesters(list);
+      } catch (err) {
+        setSemestersError(apiErrorMessage(err, t));
+        return;
+      }
+    }
+    setExamForm(emptyExamForm(defaultExamSemester(list, today), grades));
+  };
+
+  /* Grade levels that arrive late, from that /users/me read, are all ticked. */
+  const gradeCount = grades.length;
+  useEffect(() => {
+    if (adding !== 'exam' || gradeCount === 0) return;
+    setExamForm((prev) => (prev.gradeLevels.length || prev.touchedGrades ? prev : { ...prev, gradeLevels: grades }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `grades` is a new array each render; its length says it arrived
+  }, [adding, gradeCount]);
+
+  const examSemester = (semesters ?? []).find((semester) => semester.id === examForm.semesterId) ?? null;
+
+  const changeExam = (name, value) => {
+    setExamForm((prev) => ({ ...prev, [name]: value }));
+    setExamErrors((prev) => ({ ...prev, [name]: null, global: null }));
+  };
+
+  const sayFail = (fail) => {
+    if (fail.key === 'exam.error.outside') {
+      return t(fail.key, { start: formatDay(fail.vars.start, lang), end: formatDay(fail.vars.end, lang) });
+    }
+    return t(fail.key, fail.vars);
+  };
+
+  const handleAddExam = async (e) => {
+    e.preventDefault();
+    if (isSaving) return;
+    const fails = examWeekErrors(examForm, examSemester);
+    const said = Object.fromEntries(Object.entries(fails).map(([field, fail]) => [field, sayFail(fail)]));
+    setExamErrors(said);
+    if (Object.keys(said).length) return;
+
+    setIsSaving(true);
+    try {
+      const examWeek = await holidaysService.addExamWeek(examWeekBody(examForm));
+      setAdding(null);
+      const landed = Number(String(examWeek?.startDate ?? examForm.startDate).slice(0, 4));
+      if (landed && landed !== year) setYear(landed);
+      else await load();
+      showToast?.(t('exam.added', { name: examWeek?.name ?? examForm.name.trim() }), 'success');
+    } catch (err) {
+      setExamErrors({ global: examWeekErrorMessage(err, t, lang) });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -265,10 +373,137 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
               </div>
 
               {!adding ? (
-                <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
-                  <Plus className="w-4 h-4 mr-1" aria-hidden="true" />
-                  {t('holiday.school.add')}
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setAdding('holiday')}>
+                    <Plus className="w-4 h-4 mr-1" aria-hidden="true" />
+                    {t('holiday.school.add')}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={openExamForm}>
+                    <Plus className="w-4 h-4 mr-1" aria-hidden="true" />
+                    {t('exam.add')}
+                  </Button>
+                </div>
+              ) : adding === 'exam' ? (
+                semestersError || semesters?.length === 0 ? (
+                  <div className="space-y-3 pt-1">
+                    {semestersError ? (
+                      <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+                        {semestersError}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500 font-medium leading-relaxed">{t('exam.noSemester')}</p>
+                    )}
+                    <Button type="button" size="sm" variant="outline" onClick={() => setAdding(null)}>
+                      {t('common.cancel')}
+                    </Button>
+                  </div>
+                ) : semesters === null ? (
+                  <div className="h-40 rounded-xl bg-slate-50 animate-pulse" aria-label={t('common.loading')} />
+                ) : (
+                  <form onSubmit={handleAddExam} noValidate className="space-y-3 pt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <SelectField
+                        id="examSemester"
+                        label={t('exam.semester')}
+                        value={examForm.semesterId}
+                        error={examErrors.semesterId || undefined}
+                        onChange={(e) => changeExam('semesterId', e.target.value)}
+                      >
+                        {semesters.map((semester) => (
+                          <option key={semester.id} value={semester.id}>
+                            {t('exam.semesterOption', { n: semester.ordinal, year: semester.yearLabel })}
+                          </option>
+                        ))}
+                      </SelectField>
+                      <SelectField
+                        id="examType"
+                        label={t('exam.type')}
+                        value={examForm.type}
+                        error={examErrors.type || undefined}
+                        onChange={(e) => changeExam('type', e.target.value)}
+                      >
+                        {EXAM_TYPES.map((type) => (
+                          <option key={type} value={type}>
+                            {t(`exam.typeName.${type}`)}
+                          </option>
+                        ))}
+                      </SelectField>
+                    </div>
+                    <Input
+                      id="examName"
+                      name="name"
+                      label={t('exam.name')}
+                      placeholder={t('exam.namePlaceholder')}
+                      type="text"
+                      autoComplete="off"
+                      value={examForm.name}
+                      error={examErrors.name || undefined}
+                      onChange={(e) => changeExam('name', e.target.value)}
+                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <Input
+                        id="examStart"
+                        name="startDate"
+                        label={t('classes.field.startDate')}
+                        type="date"
+                        min={examSemester?.startDate}
+                        max={examSemester?.endDate}
+                        value={examForm.startDate}
+                        error={examErrors.startDate || undefined}
+                        onChange={(e) => changeExam('startDate', e.target.value)}
+                      />
+                      <Input
+                        id="examEnd"
+                        name="endDate"
+                        label={t('classes.field.endDate')}
+                        type="date"
+                        min={examForm.startDate || examSemester?.startDate}
+                        max={examSemester?.endDate}
+                        value={examForm.endDate}
+                        error={examErrors.endDate || undefined}
+                        onChange={(e) => changeExam('endDate', e.target.value)}
+                      />
+                    </div>
+                    <fieldset className="space-y-2">
+                      <legend className="text-sm font-semibold text-slate-700 select-none">{t('exam.grades')}</legend>
+                      <div className="flex flex-wrap gap-x-4 gap-y-2">
+                        {grades.map((grade) => (
+                          <label key={grade} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="accent-brand"
+                              checked={examForm.gradeLevels.includes(grade)}
+                              onChange={() => {
+                                setExamForm((prev) => ({ ...prev, touchedGrades: true, gradeLevels: toggleGrade(prev.gradeLevels, grade) }));
+                                setExamErrors((prev) => ({ ...prev, gradeLevels: null, global: null }));
+                              }}
+                            />
+                            {t('exam.grade', { n: grade })}
+                          </label>
+                        ))}
+                      </div>
+                      {examErrors.gradeLevels && (
+                        <p className="text-xs font-semibold text-red-600" role="alert">
+                          {examErrors.gradeLevels}
+                        </p>
+                      )}
+                    </fieldset>
+                    <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{t('exam.hint')}</p>
+                    {examErrors.global && (
+                      <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+                        {examErrors.global}
+                      </div>
+                    )}
+                    <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+                      <Button type="button" size="sm" variant="outline" onClick={() => setAdding(null)} isDisabled={isSaving}>
+                        {t('common.cancel')}
+                      </Button>
+                      <Button type="submit" size="sm" isLoading={isSaving}>
+                        {t('exam.save')}
+                      </Button>
+                    </div>
+                  </form>
+                )
               ) : (
                 <form onSubmit={handleAdd} noValidate className="space-y-3 pt-1">
                   <Input
@@ -314,7 +549,7 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
                       size="sm"
                       variant="outline"
                       onClick={() => {
-                        setAdding(false);
+                        setAdding(null);
                         setForm(EMPTY_FORM);
                         setFormErrors({});
                       }}
@@ -331,7 +566,7 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
             </div>
           )}
 
-          {items.length === 0 ? (
+          {shown.length === 0 ? (
             <div className="py-10 text-center border border-dashed border-slate-200 rounded-2xl bg-white select-none">
               <CalendarOff className="w-7 h-7 text-slate-300 mx-auto" aria-hidden="true" />
               <p className="mt-2 text-xs font-extrabold text-slate-500">{t('holiday.empty', { year })}</p>
@@ -340,7 +575,7 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
           ) : (
             <>
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <Legend kinds={['NATIONAL', 'JOINT_LEAVE', 'IN_SCHOOL', 'SCHOOL']} />
+                <Legend kinds={['NATIONAL', 'JOINT_LEAVE', 'IN_SCHOOL', 'SCHOOL', 'EXAM_WEEK']} />
                 <ViewToggle view={view} onChange={setView} />
               </div>
 
@@ -382,6 +617,13 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
                                     {t(`holiday.kind.${entry.kind}`)}
                                   </span>
                                   <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600">{when(entry)}</span>
+                                  {entry.source === 'EXAM_WEEK' && (
+                                    <span>
+                                      {entry.type}
+                                      <span className="text-slate-300 font-normal" aria-hidden="true"> / </span>
+                                      {t('exam.forGrades', { grades: entry.gradeLevels.join(', ') })}
+                                    </span>
+                                  )}
                                   {entry.source === 'JOINT_LEAVE' && entry.choice !== null && entry.choice !== undefined && (
                                     <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600">{t('holiday.joint.chosen')}</span>
                                   )}
@@ -406,11 +648,11 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
                               </Select>
                             )}
 
-                            {canManage && entry.source === 'SCHOOL' && (
+                            {canManage && (entry.source === 'SCHOOL' || entry.source === 'EXAM_WEEK') && (
                               <button
                                 type="button"
                                 onClick={() => setWithdrawing(entry)}
-                                aria-label={t('holiday.school.withdrawNamed', { name: entry.name })}
+                                aria-label={t(entry.source === 'EXAM_WEEK' ? 'exam.withdrawNamed' : 'holiday.school.withdrawNamed', { name: entry.name })}
                                 title={t('holiday.school.withdraw')}
                                 className="shrink-0 inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
                               >
@@ -433,8 +675,8 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
       <ConfirmDialog
         open={Boolean(withdrawing)}
         tone="danger"
-        title={t('holiday.school.withdraw.title', { name: withdrawing?.name ?? '' })}
-        body={t('holiday.school.withdraw.body')}
+        title={t(withdrawing?.source === 'EXAM_WEEK' ? 'exam.withdraw.title' : 'holiday.school.withdraw.title', { name: withdrawing?.name ?? '' })}
+        body={t(withdrawing?.source === 'EXAM_WEEK' ? 'exam.withdraw.body' : 'holiday.school.withdraw.body')}
         confirmLabel={t('holiday.school.withdraw')}
         cancelLabel={t('common.cancel')}
         busy={isWithdrawing}

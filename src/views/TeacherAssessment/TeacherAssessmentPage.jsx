@@ -14,6 +14,7 @@ import { useT } from '../../i18n/LanguageContext';
 import { assessmentErrorMessage, isStaleAssessment, questionBankErrorMessage } from '../../i18n/apiError';
 import { academicsService } from '../../services/academicsService';
 import { assessmentService } from '../../services/assessmentService';
+import { holidaysService } from '../../services/holidaysService';
 import { localOf } from '../Attendance/attendance';
 import TextEditor from '../Course/TextEditor';
 import { readMyTeaching } from '../Course/readMyTeaching';
@@ -23,6 +24,7 @@ import BankPickerDialog from './BankPickerDialog';
 import ResultsTab from './ResultsTab';
 import StateWord from './StateWord';
 import CopyToClassesDialog from './CopyToClassesDialog';
+import { useSlotFinalised } from '../Grading/useSlotFinalised';
 import {
   MAX_ATTEMPTS,
   MAX_POINTS,
@@ -33,7 +35,11 @@ import {
   cancelReasonError,
   createBody,
   emptyForm,
+  examPublishBlock,
+  examWeeksOf,
   formErrors,
+  insideExamWeek,
+  windowBounds,
   formFrom,
   heldBankIds,
   isReleased,
@@ -69,7 +75,9 @@ import {
   - A draft is published (asked first; "Terbitkan" waits while either part has
     unsaved changes) or deleted; a published one is cancelled with a reason the
     students see (1-500). Cancelled, nothing changes.
-  - Read only when the year is closed or it is not this teacher's (`canManage`).
+  - Read only when the year is closed, it is not this teacher's (`canManage`), or its
+    slot is finalised (backend eadf680, owner 2026-10-18: useSlotFinalised) - results
+    too, until the teacher undoes the finalising on the "Nilai" tab.
   - "Salin ke kelas lain" (CopyToClassesDialog) on any one the teacher can open,
     read-only ones included: last year's, or a colleague's from a semester over.
     One copy opens its draft; several stay here, named in a toast.
@@ -121,6 +129,8 @@ const Toggle = ({ checked, onChange, disabled, label, hint }) => (
 const TeacherAssessment = () => {
   const { classSubjectId, assessmentId } = useParams();
   const creating = !assessmentId;
+  /* Its slot finalised (ticket 04): the page reads only, results too. Not asked while creating. */
+  const slotFinalised = useSlotFinalised(creating ? null : classSubjectId);
   const { t, lang } = useT();
   const navigate = useNavigate();
   const baseId = useId();
@@ -144,6 +154,8 @@ const TeacherAssessment = () => {
   const [resultsDirty, setResultsDirty] = useState(false);
   const [resultsSeen, setResultsSeen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+  /* The semester's Exam Weeks (backend cbec3b6), for a UTS or UAS; null until read or when the read failed. */
+  const [semesterWeeks, setSemesterWeeks] = useState(null);
 
   const adopt = useCallback(
     (assessment) => {
@@ -198,12 +210,33 @@ const TeacherAssessment = () => {
   }, [creating, assessmentId, classSubjectId, membership?.id, attempt, zoneKnown, adopt, t]);
 
   const span = useMemo(() => (ctx?.semester ? semesterSpan(ctx.semester, zone) : null), [ctx, zone]);
+
+  /* Read once per semester; a failed read leaves null, and the server judges at publish. */
+  const weeksSemesterId = ctx?.semesterId ?? null;
+  useEffect(() => {
+    if (!weeksSemesterId) return undefined;
+    let cancelled = false;
+    holidaysService
+      .examWeeks(weeksSemesterId)
+      .then((list) => !cancelled && setSemesterWeeks(list))
+      .catch(() => !cancelled && setSemesterWeeks(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [weeksSemesterId, attempt]);
+  /* The weeks the form's type must lie in, and those the saved one must (its type may differ while typed). */
+  const formWeeks = useMemo(() => examWeeksOf(semesterWeeks, form?.type, ctx?.gradeLevel, zone), [semesterWeeks, form?.type, ctx?.gradeLevel, zone]);
+  const savedWeeks = useMemo(() => examWeeksOf(semesterWeeks, saved?.type, ctx?.gradeLevel, zone), [semesterWeeks, saved?.type, ctx?.gradeLevel, zone]);
+  const bounds = windowBounds(span, formWeeks);
   const yearClosed = Boolean(ctx?.semester) && ctx.semester.academicYear.status !== 'ACTIVE';
-  const readOnly = yearClosed || (saved ? !saved.canManage : false);
+  const finalised = Boolean(slotFinalised);
+  const readOnly = yearClosed || finalised || (saved ? !saved.canManage : false);
   const actions = actionsOf(saved, { readOnly });
   const editable = creating ? !readOnly : actions.edit;
   const published = saved?.status === 'PUBLISHED';
   const released = isReleased(saved);
+  const publishBlock = examPublishBlock(saved, savedWeeks);
+  const outsideNow = published && savedWeeks !== null && !insideExamWeek(saved.opensAt, saved.closesAt, savedWeeks);
   /* Results exist once it was published; a cancelled one keeps its scores. */
   const hasResults = Boolean(saved) && saved.status !== 'DRAFT';
   const tab = hasResults && searchParams.get('tab') === 'hasil' ? 'hasil' : 'pengaturan';
@@ -224,7 +257,7 @@ const TeacherAssessment = () => {
   const fail = (part, err) => setFailure((prev) => ({ ...prev, [part]: { message: assessmentErrorMessage(err, t), stale: isStaleAssessment(err) } }));
 
   const saveDetails = async () => {
-    const found = formErrors(form, { zone, span, published, savedClosesAt: saved?.closesAt });
+    const found = formErrors(form, { zone, span, published, savedOpensAt: saved?.opensAt, savedClosesAt: saved?.closesAt, examWeeks: savedWeeks });
     setErrors(found);
     if (Object.keys(found).length) {
       setFailure((prev) => ({ ...prev, details: { message: t('tasm.error.fix') } }));
@@ -381,7 +414,7 @@ const TeacherAssessment = () => {
             <button
               type="button"
               onClick={() => setDialog('publish')}
-              disabled={!actions.publish || detailsDirty || questionsDirty || Boolean(busy)}
+              disabled={!actions.publish || detailsDirty || questionsDirty || Boolean(publishBlock) || Boolean(busy)}
               className={`${tool} px-4 py-2.5 text-sm bg-brand text-white hover:bg-brand-deep`}
             >
               <Send className="w-4 h-4" aria-hidden="true" />
@@ -410,6 +443,12 @@ const TeacherAssessment = () => {
           {actions.edit && saved.status === 'DRAFT' && !detailsDirty && !questionsDirty && !actions.publish && (
             <span className="text-xs font-semibold text-slate-500">{t('tasm.publishNeedsQuestion')}</span>
           )}
+          {actions.edit && publishBlock && !detailsDirty && !questionsDirty && (
+            <span className="text-xs font-semibold text-amber-700">
+              {t(`tasm.exam.block.${publishBlock}`, { type: saved.type, grade: ctx.gradeLevel })}
+            </span>
+          )}
+          {outsideNow && <span className="text-xs font-semibold text-amber-700">{t('tasm.exam.publishedOutside', { type: saved.type })}</span>}
         </div>
       )}
 
@@ -441,7 +480,7 @@ const TeacherAssessment = () => {
       */}
       {resultsSeen && (
         <div hidden={tab !== 'hasil'}>
-          <ResultsTab key={saved.id} assessment={saved} zone={zone} span={span} onReleased={() => setAttempt((n) => n + 1)} onDirty={setResultsDirty} />
+          <ResultsTab key={saved.id} assessment={saved} zone={zone} span={span} readOnly={finalised} onReleased={() => setAttempt((n) => n + 1)} onDirty={setResultsDirty} />
         </div>
       )}
       {tab !== 'hasil' && (
@@ -456,7 +495,7 @@ const TeacherAssessment = () => {
         {readOnly && saved?.status !== 'CANCELLED' && (
           <p className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-600 leading-relaxed">
             <Lock className="w-3.5 h-3.5 mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
-            {t(yearClosed ? 'tasm.readOnlyYear' : 'tasm.readOnlyNotYours')}
+            {t(finalised ? 'tasm.readOnlyFinalised' : yearClosed ? 'tasm.readOnlyYear' : 'tasm.readOnlyNotYours')}
           </p>
         )}
 
@@ -566,8 +605,8 @@ const TeacherAssessment = () => {
                     type="date"
                     aria-label={t(`tasm.field.${end}Date`)}
                     value={form[dateKey]}
-                    min={span?.first}
-                    max={span?.last}
+                    min={bounds.min}
+                    max={bounds.max}
                     disabled={disabled}
                     aria-invalid={Boolean(errors[end])}
                     onChange={(e) => setField(dateKey, e.target.value)}
@@ -591,6 +630,17 @@ const TeacherAssessment = () => {
                 ? t('tasm.windowHint', { n: ctx.semesterOrdinal, from: formatSchoolDay(span.first, lang), to: formatSchoolDay(span.last, lang) })
                 : t('tasm.windowHintNoSemester')}
             </p>
+            {formWeeks && (formWeeks.length > 0 || !published) && (
+              <p className="text-[11px] font-medium text-slate-500">
+                {formWeeks.length
+                  ? t('tasm.exam.weeks', {
+                      type: form.type,
+                      grade: ctx.gradeLevel,
+                      days: formWeeks.map((week) => `${formatSchoolDay(week.span.first, lang)} - ${formatSchoolDay(week.span.last, lang)}`).join(', '),
+                    })
+                  : t('tasm.exam.none', { type: form.type, grade: ctx.gradeLevel })}
+              </p>
+            )}
           </div>
 
           {form.mode === 'ONLINE' && (

@@ -1,15 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Download, RefreshCw } from 'lucide-react';
 
 import { useSchoolZoneState } from '../../hooks/useSchoolToday';
 import { useT } from '../../i18n/LanguageContext';
 import { assessmentErrorMessage } from '../../i18n/apiError';
 import { assessmentService } from '../../services/assessmentService';
+import { gradingService } from '../../services/gradingService';
 import { downloadFile } from '../../utils/openFile';
 import { localOf } from '../Attendance/attendance';
 import { formatSchoolDay } from '../QuestionBank/questionBank';
 import { formatNumber } from '../TeacherAssessment/results';
-import { belowKktp, gradebookColumns, gradebookCsv, gradebookRows } from './gradebook';
+import { belowKktp, finalFlags, gradebookColumns, gradebookCsv, gradebookRows } from './gradebook';
+import FinalGradeDetails from './FinalGradeDetails';
 
 /*
   One class subject's gradebook: students down the side, its published
@@ -21,6 +23,14 @@ import { belowKktp, gradebookColumns, gradebookCsv, gradebookRows } from './grad
   (TeacherGradebook, cells open the assessment's "Hasil") and, read only, by the
   homeroom teacher and the leaders (GradebookReader: no `onOpen`, nothing opens).
 
+  The last column, kept in view as the names are (owner, 2026-10-18), is the
+  final grade from GET /grading/class-subjects/:id/grades (backend 79b319f),
+  read beside the recap: the number, red under the KKTP, with "2 menunggu" /
+  "1 tidak mengumpulkan" under it (finalFlags); a click opens its details
+  (FinalGradeDetails). A student another class's slot reports reads "Dilaporkan
+  oleh XI IPA 1". The grade read failing leaves the scores standing, the column
+  "-" and a line saying so. The CSV carries the whole number.
+
   @param classSubjectId  the class subject
   @param caption         its name for the table's caption ("MTK - XI IPS / ...")
   @param fileName        the CSV's name
@@ -29,6 +39,13 @@ import { belowKktp, gradebookColumns, gradebookCsv, gradebookRows } from './grad
   @param kktp            the KKTP that applies (SlotGradeSettings' read), or null: a
                          score under it is red, with a line above the table saying so
                          (owner, 2026-10-14). The CSV keeps the bare number.
+  @param settingsStamp   the slot settings' `updatedAt` as the panel last read it
+                         (undefined before its first read): a change after that,
+                         a save there, reads the grades again.
+  @param onGrades        (grades) => void - each grade read (undefined reading, the
+                         answer, or { failed: true }), for SlotDescriptions
+  @param reloadKey       a change reads the grades again (the descriptions card's
+                         stale row)
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 sm:p-6 shadow-sm';
@@ -51,19 +68,67 @@ const Opener = ({ onOpen, assessment, className, children }) =>
     <span className={className}>{children}</span>
   );
 
-export const GradebookTable = ({ classSubjectId, caption, fileName, onOpen = null, framed = true, kktp = null }) => {
+/* Kept in view at the right as the names are at the left, a rule on its left edge. */
+const FINAL_CELL = 'sticky right-0 z-10 bg-white px-4 min-w-[7rem] border-l border-slate-100';
+
+/* One student's final grade: the number (a button opening its details), red under the KKTP, with the counts under it. */
+const FinalCell = ({ final, reading, kktp, open, label, onToggle }) => {
+  const { t, lang } = useT();
+  if (reading) return <span className="block h-4 w-8 rounded bg-slate-100 animate-pulse" aria-hidden="true" />;
+  if (!final) return <span className="text-base font-extrabold text-slate-900">-</span>;
+  if (!('value' in final)) {
+    return (
+      <span className="block text-[11px] font-semibold text-slate-500 break-words">
+        {final.reportedBy ? t('gradebook.final.reportedBy', { name: final.reportedBy }) : t('gradebook.final.reportedElsewhere')}
+      </span>
+    );
+  }
+  const below = belowKktp({ score: final.value }, kktp);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(event) => onToggle(event.currentTarget)}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        className={`text-base font-extrabold tabular-nums cursor-pointer rounded underline decoration-dotted decoration-slate-300 underline-offset-4 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${below ? 'text-rose-700' : 'text-slate-900'}`}
+      >
+        {formatNumber(final.value, lang)}
+        {below && <span className="sr-only"> ({t('gradebook.kktp.below')})</span>}
+        <span className="sr-only">, {label}</span>
+      </button>
+      {finalFlags(final).map(({ key, n }) => (
+        <span key={key} className={`block text-[11px] font-semibold ${key === 'waiting' ? 'text-amber-700' : 'text-rose-700'}`}>
+          {t(`gradebook.final.flag.${key}`, { n })}
+        </span>
+      ))}
+    </>
+  );
+};
+
+export const GradebookTable = ({ classSubjectId, caption, fileName, onOpen = null, framed = true, kktp = null, settingsStamp = undefined, onGrades = null, reloadKey = 0 }) => {
   const { t, lang } = useT();
   const { zone } = useSchoolZoneState();
-  /* undefined reading · { columns, rows } · { error } */
+  /* undefined reading · { columns, recap } · { error } */
   const [table, setTable] = useState(undefined);
   const [attempt, setAttempt] = useState(0);
+  /* The grade read, apart from the recap: undefined reading · the answer · { failed: true } */
+  const [grades, setGrades] = useState(undefined);
+  const [gradesAttempt, setGradesAttempt] = useState(0);
+  /* The open details: { studentProfileId, anchor } */
+  const [details, setDetails] = useState(null);
+  /* A settings save changes the stamp: the grades are read again (adjusted while rendering, not in an effect). Its first arrival is the panel's first read, not a save. */
+  const [seenStamp, setSeenStamp] = useState(settingsStamp);
+  if (settingsStamp !== seenStamp) {
+    setSeenStamp(settingsStamp);
+    if (seenStamp !== undefined) setGradesAttempt((n) => n + 1);
+  }
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const recap = await assessmentService.recap(classSubjectId);
-      const columns = gradebookColumns(recap?.assessments, new Date());
-      return { columns, rows: gradebookRows(columns, recap) };
+      return { columns: gradebookColumns(recap?.assessments, new Date()), recap };
     })()
       .then((answer) => !cancelled && setTable(answer))
       .catch((err) => !cancelled && setTable({ error: assessmentErrorMessage(err, t) }));
@@ -71,6 +136,25 @@ export const GradebookTable = ({ classSubjectId, caption, fileName, onOpen = nul
       cancelled = true;
     };
   }, [classSubjectId, attempt, t]);
+
+  useEffect(() => {
+    let cancelled = false;
+    gradingService
+      .slotGrades(classSubjectId)
+      .then((answer) => !cancelled && setGrades(answer ?? { failed: true }))
+      .catch(() => !cancelled && setGrades({ failed: true }));
+    return () => {
+      cancelled = true;
+    };
+  }, [classSubjectId, attempt, gradesAttempt, reloadKey]);
+
+  /* The host hears every grade read (the descriptions card below the table reads the same one). */
+  useEffect(() => {
+    onGrades?.(grades);
+  }, [grades, onGrades]);
+
+  const rows = useMemo(() => (table?.columns ? gradebookRows(table.columns, table.recap, grades && !grades.failed ? grades : null) : []), [table, grades]);
+  const closeDetails = useCallback(() => setDetails(null), []);
 
   const frame = framed ? card : '';
   const columnDay = (assessment) => formatSchoolDay(localOf(assessment.opensAt, zone)?.date, lang);
@@ -92,18 +176,21 @@ export const GradebookTable = ({ classSubjectId, caption, fileName, onOpen = nul
     );
   }
   if (table.columns.length === 0) return <p className={`${frame} text-sm font-semibold text-slate-600`}>{t('gradebook.noAssessments')}</p>;
-  if (table.rows.length === 0) return <p className={`${frame} text-sm font-semibold text-slate-600`}>{t('gradebook.noStudents')}</p>;
+  if (rows.length === 0) return <p className={`${frame} text-sm font-semibold text-slate-600`}>{t('gradebook.noStudents')}</p>;
+
+  const detailsRow = details && rows.find((row) => row.studentProfileId === details.studentProfileId);
 
   const download = () =>
     downloadFile(
       async () =>
         new Blob(
           [
-            gradebookCsv(table.columns, table.rows, {
+            gradebookCsv(table.columns, rows, {
               lang,
               nameHeader: t('gradebook.student'),
               columnHeader: (assessment) => `${assessment.title} (${t(`tasm.type.${assessment.type}`)}, ${columnDay(assessment)})`,
               words: word,
+              finalHeader: t('gradebook.final.header'),
             }),
           ],
           { type: 'text/csv;charset=utf-8' }
@@ -114,19 +201,35 @@ export const GradebookTable = ({ classSubjectId, caption, fileName, onOpen = nul
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {typeof kktp === 'number' ? (
-          <p className="text-xs font-semibold text-slate-500">
-            <span className="text-rose-700">{t('gradebook.kktp.red')}</span> {t('gradebook.kktp.legend', { kktp })}
-          </p>
-        ) : (
-          <span />
-        )}
+        <div className="space-y-1">
+          {typeof kktp === 'number' && (
+            <p className="text-xs font-semibold text-slate-500">
+              <span className="text-rose-700">{t('gradebook.kktp.red')}</span> {t('gradebook.kktp.legend', { kktp })}
+            </p>
+          )}
+          {grades?.failed && (
+            <p className="flex flex-wrap items-center gap-x-2 text-xs font-semibold text-amber-700" role="status">
+              {t('gradebook.final.failed')}
+              <button
+                type="button"
+                onClick={() => {
+                  setGrades(undefined);
+                  setGradesAttempt((n) => n + 1);
+                }}
+                className="font-extrabold text-brand hover:underline cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              >
+                {t('att.error.retry')}
+              </button>
+            </p>
+          )}
+        </div>
         <button type="button" onClick={download} className={`${tool} border border-slate-200 text-slate-700 hover:bg-slate-50`}>
           <Download className="w-4 h-4" aria-hidden="true" />
           {t('gradebook.csv')}
         </button>
       </div>
-      <div className={`overflow-x-auto ${framed ? 'bg-white border border-slate-100 rounded-2xl shadow-sm' : 'border border-slate-100 rounded-xl'}`}>
+      {/* relative: a score's sr-only words are absolute, and would otherwise widen the page past this scroll box. */}
+      <div className={`relative overflow-x-auto ${framed ? 'bg-white border border-slate-100 rounded-2xl shadow-sm' : 'border border-slate-100 rounded-xl'}`}>
         <table className="min-w-full text-sm">
           <caption className="sr-only">{t('gradebook.caption', { name: caption ?? '' })}</caption>
           <thead>
@@ -145,10 +248,13 @@ export const GradebookTable = ({ classSubjectId, caption, fileName, onOpen = nul
                   </Opener>
                 </th>
               ))}
+              <th scope="col" className={`${FINAL_CELL} py-3 text-left align-bottom text-xs font-bold text-slate-800`}>
+                {t('gradebook.final.header')}
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {table.rows.map((row) => (
+            {rows.map((row) => (
               <tr key={row.studentProfileId}>
                 <th scope="row" className="sticky left-0 z-10 bg-white px-4 py-2.5 text-left">
                   <span className="block text-sm font-bold text-slate-900 break-words">{row.fullName ?? t('tasm.results.unnamed')}</span>
@@ -176,11 +282,32 @@ export const GradebookTable = ({ classSubjectId, caption, fileName, onOpen = nul
                     </td>
                   );
                 })}
+                <td className={`${FINAL_CELL} py-2.5`}>
+                  <FinalCell
+                    final={row.final}
+                    reading={grades === undefined}
+                    kktp={kktp}
+                    open={details?.studentProfileId === row.studentProfileId}
+                    label={t('gradebook.final.open', { name: row.fullName ?? t('tasm.results.unnamed') })}
+                    onToggle={(anchor) =>
+                      setDetails((now) => (now?.studentProfileId === row.studentProfileId ? null : { studentProfileId: row.studentProfileId, anchor }))
+                    }
+                  />
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {detailsRow?.final && 'value' in detailsRow.final && (
+        <FinalGradeDetails
+          anchor={details.anchor}
+          final={detailsRow.final}
+          name={detailsRow.fullName ?? t('tasm.results.unnamed')}
+          rule={grades?.settings?.remedialRule?.value ?? null}
+          onClose={closeDetails}
+        />
+      )}
     </div>
   );
 };

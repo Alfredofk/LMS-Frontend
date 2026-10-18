@@ -11,6 +11,7 @@ import { assessmentService } from '../../services/assessmentService';
 import { localOf } from '../Attendance/attendance';
 import { formatSchoolDay } from '../QuestionBank/questionBank';
 import { formatNumber } from '../TeacherAssessment/results';
+import { afterRuleOf } from './studentMenu';
 import { typeModeText, windowText } from '../TeacherAssessment/teacherAssessment';
 import { noteAssessmentSubject } from './assessmentBack';
 import { forgetMyMenu } from './readMyMenu';
@@ -229,6 +230,15 @@ export const StudentAssessmentPage = () => {
               <p className="text-[11px] font-medium text-slate-500">{data.score !== null ? t('sasm.scoreCounts') : t('sasm.noScoreYet')}</p>
             </div>
           </div>
+          {/* The score a remedial counts for, where the school's rule moves it (backend 79b319f, owner 2026-10-18): the raw score stays above. */}
+          {afterRuleOf(data) && (
+            <div className="space-y-1">
+              <p className="text-right text-xs font-semibold text-slate-700 tabular-nums">
+                {t('sasm.afterRule', { score: formatNumber(afterRuleOf(data).score, lang), rule: afterRuleOf(data).rule ? t(`grading.rule.${afterRuleOf(data).rule}`) : '-' })}
+              </p>
+              {afterRuleOf(data).rule && <p className="text-[11px] font-medium text-slate-500 leading-relaxed">{t(`grading.rule.${afterRuleOf(data).rule}.hint`)}</p>}
+            </div>
+          )}
           {submissions.length > 0 ? (
             <ul className="space-y-2">
               {[...submissions].reverse().map((submission) => {

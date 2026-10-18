@@ -5,6 +5,10 @@ import en from '../../i18n/en.js';
 
 import {
   actionsOf,
+  examPublishBlock,
+  examWeeksOf,
+  insideExamWeek,
+  windowBounds,
   typeModeText,
   voidsSubmissions,
   cancelReasonError,
@@ -446,5 +450,59 @@ describe('typeModeText (owner, 2026-10-12: "Quiz online" read wrong in English)'
     expect(typeModeText(tOf(en), { type: 'KUIS', mode: 'ONLINE' })).toBe('Online quiz');
     expect(typeModeText(tOf(en), { type: 'TUGAS', mode: 'OFFLINE' })).toBe('Offline assignment');
     expect(typeModeText(tOf(en), { type: 'UAS', mode: 'ONLINE' })).toBe('Online final (UAS)');
+  });
+});
+
+/* Exam Weeks: holidays.examWeeks.js examWeekView and assessment.service.js assertInExamWeek (backend cbec3b6). */
+describe('Exam Weeks for a UTS or UAS', () => {
+  const week = (over = {}) => ({ id: 'w1', semesterId: 'sem1', type: 'UTS', name: 'UTS', startDate: '2026-10-26', endDate: '2026-10-31', gradeLevels: [10, 11], withdrawnAt: null, ...over });
+  const weeks = [week(), week({ id: 'w2', type: 'UAS', startDate: '2026-12-07', endDate: '2026-12-12' }), week({ id: 'w3', gradeLevels: [12] }), week({ id: 'w4', startDate: '2026-11-16', endDate: '2026-11-20' })];
+  const uts11 = examWeeksOf(weeks, 'UTS', 11, 'WIB');
+
+  it('keeps its type and grade level, oldest first, each with its span in the school zone', () => {
+    expect(uts11.map((w) => w.id)).toEqual(['w1', 'w4']);
+    expect(uts11[0].span.start.toISOString()).toBe('2026-10-25T17:00:00.000Z');
+    expect(uts11[0].span.end.toISOString()).toBe('2026-10-31T17:00:00.000Z');
+  });
+
+  it('is null for a TUGAS or KUIS, and when the weeks were not read', () => {
+    expect(examWeeksOf(weeks, 'KUIS', 11, 'WIB')).toBeNull();
+    expect(examWeeksOf(null, 'UTS', 11, 'WIB')).toBeNull();
+    expect(examWeeksOf(weeks, 'UAS', 12, 'WIB')).toEqual([]);
+  });
+
+  it('a window lies whole inside one week, its first 00:00 to 00:00 after its last', () => {
+    expect(insideExamWeek('2026-10-26T00:00:00+07:00', '2026-11-01T00:00:00+07:00', uts11)).toBe(true);
+    expect(insideExamWeek('2026-10-25T23:59:00+07:00', '2026-10-26T09:00:00+07:00', uts11)).toBe(false);
+    expect(insideExamWeek('2026-10-31T07:00:00+07:00', '2026-11-01T00:01:00+07:00', uts11)).toBe(false);
+    /* Across two weeks is in neither. */
+    expect(insideExamWeek('2026-10-30T07:00:00+07:00', '2026-11-16T09:00:00+07:00', uts11)).toBe(false);
+  });
+
+  it('a draft is held back from publishing with no week, or outside one; null when unknown or published', () => {
+    const draft = { ...saved, type: 'UTS', opensAt: '2026-10-27T00:00:00.000Z', closesAt: '2026-10-27T02:00:00.000Z' };
+    expect(examPublishBlock(draft, uts11)).toBeNull();
+    expect(examPublishBlock(draft, [])).toBe('none');
+    expect(examPublishBlock({ ...draft, opensAt: '2026-10-20T00:00:00.000Z' }, uts11)).toBe('outside');
+    expect(examPublishBlock(draft, null)).toBeNull();
+    expect(examPublishBlock({ ...draft, status: 'PUBLISHED', opensAt: '2026-10-20T00:00:00.000Z' }, uts11)).toBeNull();
+  });
+
+  it('the date pickers keep to the one week, else to the semester', () => {
+    expect(windowBounds(span, uts11.slice(0, 1))).toEqual({ min: '2026-10-26', max: '2026-10-31' });
+    expect(windowBounds(span, uts11)).toEqual({ min: span.first, max: span.last });
+    expect(windowBounds(span, null)).toEqual({ min: span.first, max: span.last });
+  });
+
+  it("a published one's moved window must stay inside a week; unchanged, or a draft, is free", () => {
+    const form = filled({ type: 'UTS', opensDate: '2026-10-20', closesDate: '2026-10-20' });
+    const savedAt = { savedOpensAt: '2026-10-20T00:00:00.000Z', savedClosesAt: '2026-10-20T02:00:00.000Z' };
+    const now = new Date('2026-10-18T00:00:00Z');
+    expect(formErrors(form, { zone: 'WIB', span, published: true, examWeeks: uts11, now, ...savedAt })).toEqual({});
+    const moved = filled({ type: 'UTS', opensDate: '2026-10-21', closesDate: '2026-10-21' });
+    expect(formErrors(moved, { zone: 'WIB', span, published: true, examWeeks: uts11, now, ...savedAt }).closes).toBe('tasm.error.outsideExamWeek');
+    expect(formErrors(moved, { zone: 'WIB', span, published: false, examWeeks: uts11, now, ...savedAt })).toEqual({});
+    const inside = filled({ type: 'UTS', opensDate: '2026-10-27', closesDate: '2026-10-27' });
+    expect(formErrors(inside, { zone: 'WIB', span, published: true, examWeeks: uts11, now, ...savedAt })).toEqual({});
   });
 });

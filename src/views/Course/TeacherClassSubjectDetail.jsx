@@ -16,6 +16,10 @@ import TeacherMeeting from './TeacherMeeting';
 import AssessmentsTab from '../TeacherAssessment/AssessmentsTab';
 import GradebookTable from '../Gradebook/GradebookTable';
 import SlotGradeSettings from '../Grading/SlotGradeSettings';
+import SlotDescriptions from '../Grading/SlotDescriptions';
+import FinalisingCard from '../Grading/FinalisingCard';
+import { descriptionRows, isChanged } from '../Grading/descriptions';
+import { useUnsavedGuard } from '../../hooks/useUnsavedGuard';
 import { useSchoolZone } from '../../hooks/useSchoolToday';
 
 /*
@@ -56,11 +60,29 @@ export const TeacherClassSubjectDetail = () => {
   const [data, setData] = useState(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  /* The KKTP that applies, from the grade settings panel, for the gradebook's marks. */
-  const [kktp, setKktp] = useState(null);
-  const onGradeSettings = useCallback((settings) => setKktp(settings?.kktp?.value ?? null), []);
+  /* The grade settings panel's last read, for the gradebook's KKTP marks and to re-read its final grades after a save. */
+  const [gradeSettings, setGradeSettings] = useState(undefined);
+  const onGradeSettings = useCallback((settings) => setGradeSettings(settings), []);
   /* Meetings changed on this page, by id, over what was read. */
   const [changedById, setChangedById] = useState({});
+  /* The gradebook's grade read, shared with the descriptions card, and that card's
+     unsaved typing - kept here so switching tab (a query change the guard lets
+     through) loses nothing; a move off the page asks first. */
+  const [grades, setGrades] = useState(undefined);
+  const onGrades = useCallback((read) => setGrades(read), []);
+  const [gradesKey, setGradesKey] = useState(0);
+  const [descDrafts, setDescDrafts] = useState({});
+  const [draftsFor, setDraftsFor] = useState(classSubjectId);
+  if (draftsFor !== classSubjectId) {
+    setDraftsFor(classSubjectId);
+    setDescDrafts({});
+    setGrades(undefined);
+  }
+  const descDirty = useMemo(
+    () => descriptionRows(grades && !grades.failed ? grades : null).some((row) => isChanged(row, descDrafts)),
+    [grades, descDrafts]
+  );
+  const guard = useUnsavedGuard(descDirty);
 
   useEffect(() => {
     let cancelled = false;
@@ -144,6 +166,7 @@ export const TeacherClassSubjectDetail = () => {
 
   return (
     <div className="space-y-6">
+      {guard.dialog}
       <SubjectHeader
         code={entry.subject.code}
         name={entry.subject.name}
@@ -190,14 +213,40 @@ export const TeacherClassSubjectDetail = () => {
         <AssessmentsTab classSubjectId={entry.id} semesterId={entry.semester?.id} readOnly={readOnly} zone={zone} />
       ) : section === 'nilai' ? (
         <div className="space-y-4">
-          <SlotGradeSettings classSubjectId={entry.id} canEdit={!readOnly} onToast={showToast} onSettings={onGradeSettings} />
+          {/* Finalising (ticket 04, owner 2026-10-18): shown only while the semester is being finalised or once this slot is. */}
+          <FinalisingCard
+            classSubjectId={entry.id}
+            subjectName={entry.subject.name}
+            grades={grades}
+            canEdit={!readOnly}
+            zone={zone}
+            onChanged={() => setGradesKey((n) => n + 1)}
+            onOpenSessions={() => goSection('pertemuan')}
+            onOpenAssessment={(assessmentId) => navigate(`/teacher/courses/${entry.id}/penilaian/${assessmentId}?tab=hasil`)}
+            onToast={showToast}
+          />
+          {/* A finalised slot (ticket 04, the grade read's `finalised`) takes no settings change until its teacher undoes it. */}
+          <SlotGradeSettings classSubjectId={entry.id} canEdit={!readOnly && !grades?.finalised} onToast={showToast} onSettings={onGradeSettings} />
           <p className="text-xs font-medium text-slate-500 leading-relaxed">{t('gradebook.intro')}</p>
           <GradebookTable
             classSubjectId={entry.id}
             caption={t('gradebook.option', { code: entry.subject.code, className: entry.class.name, n: entry.semester.ordinal, year: entry.semester.academicYear })}
             fileName={`nilai-${entry.subject.code}-${entry.class.name}.csv`.replace(/\s+/g, '-')}
             onOpen={(assessment) => navigate(`/teacher/courses/${entry.id}/penilaian/${assessment.id}?tab=hasil`)}
-            kktp={kktp}
+            kktp={gradeSettings?.kktp?.value ?? null}
+            settingsStamp={gradeSettings === undefined ? undefined : (gradeSettings.updatedAt ?? null)}
+            onGrades={onGrades}
+            reloadKey={gradesKey}
+          />
+          <SlotDescriptions
+            classSubjectId={entry.id}
+            grades={grades}
+            kktp={gradeSettings?.kktp?.value ?? null}
+            canEdit={!readOnly}
+            drafts={descDrafts}
+            onDrafts={setDescDrafts}
+            onReload={() => setGradesKey((n) => n + 1)}
+            onToast={showToast}
           />
         </div>
       ) : section === 'progres' ? (

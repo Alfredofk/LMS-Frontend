@@ -6,6 +6,8 @@ import {
   subjectsInUse,
   selectionChanges,
   boardWritable,
+  boardAssignable,
+  replaceOnly,
   deadlinePassed,
   bulkOutcome,
   isOwnRequest,
@@ -236,5 +238,20 @@ describe('changeErrors — endBody / replaceBody and assertRejectionReason(END)'
     expect(changeErrors({ mode: 'END', subjectStops: true, reason: 'abc' })).toEqual({});
     expect(changeErrors({ mode: 'REPLACE', teacherId: 'm-b', reason: 'x'.repeat(500) })).toEqual({});
     expect(changeErrors({ mode: 'REPLACE', teacherId: 'm-b', reason: 'x'.repeat(501) }).reason).toBe('validation.leaveReason.long');
+  });
+});
+
+describe('boardAssignable / replaceOnly - a FINALIZING semester (backend eadf680)', () => {
+  it('the leaders still assign and hand over while finalising; never in a closed semester or year', () => {
+    expect(boardAssignable('ACTIVE', 'OPEN')).toBe(true);
+    expect(boardAssignable('ACTIVE', 'FINALIZING')).toBe(true);
+    expect(boardAssignable('ACTIVE', 'CLOSED')).toBe(false);
+    expect(boardAssignable('CLOSED', 'FINALIZING')).toBe(false);
+    expect(boardWritable('ACTIVE', 'FINALIZING')).toBe(false);
+  });
+
+  it('while finalising, a change can only hand over, not end', () => {
+    expect(replaceOnly('FINALIZING')).toBe(true);
+    expect(replaceOnly('OPEN')).toBe(false);
   });
 });

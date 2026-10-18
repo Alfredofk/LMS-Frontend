@@ -140,9 +140,10 @@ const instructionsOf = (html) => (bodyText(html) ? html : null);
  * `span` is semesterSpan's answer (null when the semester is not known: the
  * server is then the judge); `published` and `now` hold a published one's
  * closing time to the server's rule - brought forward, never to before now - when
- * it is moved.
+ * it is moved. `examWeeks` (examWeeksOf, null when unknown or not a UTS/UAS) holds
+ * a published one's moved window inside an Exam Week; a draft's is free.
  */
-export function formErrors(form, { zone, span = null, published = false, savedClosesAt = null, now = new Date() } = {}) {
+export function formErrors(form, { zone, span = null, published = false, savedOpensAt = null, savedClosesAt = null, examWeeks = null, now = new Date() } = {}) {
   const errors = {};
   const title = form.title.trim();
   if (!title) errors.title = 'tasm.error.titleEmpty';
@@ -161,6 +162,13 @@ export function formErrors(form, { zone, span = null, published = false, savedCl
     else if (span && closesAt > span.end) errors.closes = 'tasm.error.outsideSemester';
     else if (published && closesAt < now && closesAt.getTime() !== new Date(savedClosesAt ?? 0).getTime()) {
       errors.closes = 'tasm.error.closedBeforeNow';
+    } else if (
+      published &&
+      examWeeks &&
+      (opensAt.getTime() !== new Date(savedOpensAt ?? 0).getTime() || closesAt.getTime() !== new Date(savedClosesAt ?? 0).getTime()) &&
+      !insideExamWeek(opensAt, closesAt, examWeeks)
+    ) {
+      errors.closes = 'tasm.error.outsideExamWeek';
     }
   }
 
@@ -603,4 +611,50 @@ export function dashboardAssessments(lists, { now = new Date(), limit = DASHBOAR
   all.sort((a, b) => DASHBOARD_GROUPS.indexOf(a.group) - DASHBOARD_GROUPS.indexOf(b.group) || toMark(a) - toMark(b) || at(a) - at(b));
   const counts = Object.fromEntries(DASHBOARD_GROUPS.map((group) => [group, all.filter((item) => item.group === group).length]));
   return { items: all.slice(0, limit), more: Math.max(0, all.length - limit), counts };
+}
+
+/* ---- Exam Weeks (backend cbec3b6, teaching-and-learning ticket 13; owner 2026-10-18) ----
+   A UTS or a UAS is published only with its whole window inside one Exam Week of
+   its type for its class's grade level - from 00:00 of the week's first day to
+   00:00 after its last, in the school's zone - and a published one's window moves
+   only within one (assessment.service.js assertInExamWeek). A draft is free, and so
+   are a make-up's and a remedial's windows. */
+
+export const EXAM_TYPES = ['UTS', 'UAS'];
+
+/**
+ * The Exam Weeks a UTS or UAS of this grade level must lie in, each with its
+ * span (`semesterSpan`'s shape). `weeks` is `GET /holidays/exam-weeks`; null
+ * when not read (or failed), and then null back: the server is the judge.
+ * Answers null for a TUGAS or a KUIS too.
+ */
+export function examWeeksOf(weeks, type, gradeLevel, zone) {
+  if (!EXAM_TYPES.includes(type) || !Array.isArray(weeks)) return null;
+  return weeks
+    .filter((week) => week.type === type && !week.withdrawnAt && (week.gradeLevels ?? []).includes(gradeLevel))
+    .sort((a, b) => a.startDate.localeCompare(b.startDate))
+    .map((week) => ({ ...week, span: semesterSpan(week, zone) }));
+}
+
+/** Whether a window lies whole inside one of `weeks` (from examWeeksOf). */
+export function insideExamWeek(opensAt, closesAt, weeks) {
+  const opens = new Date(opensAt);
+  const closes = new Date(closesAt);
+  return (weeks ?? []).some(({ span }) => span && opens >= span.start && closes <= span.end);
+}
+
+/**
+ * Why a saved draft UTS/UAS cannot be published yet: 'none' (no Exam Week of its
+ * type for its grade), 'outside' (its window is not inside one), or null.
+ */
+export function examPublishBlock(saved, weeks) {
+  if (!saved || saved.status !== 'DRAFT' || weeks === null) return null;
+  if (weeks.length === 0) return 'none';
+  return insideExamWeek(saved.opensAt, saved.closesAt, weeks) ? null : 'outside';
+}
+
+/** The date pickers' bounds: the one Exam Week when there is exactly one, else the semester's. */
+export function windowBounds(span, weeks) {
+  if (weeks?.length === 1 && weeks[0].span) return { min: weeks[0].span.first, max: weeks[0].span.last };
+  return { min: span?.first, max: span?.last };
 }

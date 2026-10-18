@@ -92,6 +92,19 @@ export function selectionChanges(catalog, ticked) {
  */
 export const boardWritable = (yearStatus, semesterStatus) => yearStatus === 'ACTIVE' && semesterStatus === 'OPEN';
 
+/**
+ * Whether the leaders may still name a teacher on the board - "Assign a teacher"
+ * (override) and "Change" handing a slot over (replace): an OPEN semester, and since
+ * backend eadf680 (grading-and-report-card 04, owner 2026-10-18) a FINALIZING one too,
+ * so a slot whose teacher left gets someone to finalise it. Ending without a
+ * successor stays OPEN only (`replaceOnly`), and so do the timetable and approvals.
+ */
+export const boardAssignable = (yearStatus, semesterStatus) =>
+  yearStatus === 'ACTIVE' && (semesterStatus === 'OPEN' || semesterStatus === 'FINALIZING');
+
+/** While finalising, "Change" offers handing over only: ending would leave the slot with nobody. */
+export const replaceOnly = (semesterStatus) => semesterStatus === 'FINALIZING';
+
 /** Whether teachers may still ask for this semester (assertWithinRegistrationDeadline). */
 export function deadlinePassed(semester, now = new Date()) {
   const deadline = semester?.classSubjectRegistrationDeadline;

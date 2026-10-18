@@ -105,3 +105,19 @@ export function teachingDay(meetings, today, now = new Date()) {
       : all.find((session) => session.status === 'SCHEDULED' && new Date(session.endsAt) > now) ?? null;
   return { meetings: onToday, next };
 }
+
+/**
+ * The semester a teacher has subjects to finalise in (backend eadf680, ticket 04;
+ * owner 2026-10-18): one being finalised (FINALIZING) in an ACTIVE year that one of
+ * their live assignments sits in, for the dashboard's line - `{ ordinal, year }`, or
+ * null. Read from the years the dashboard already reads.
+ */
+export function finalisingSemesterOf(years, live) {
+  const taught = new Set((live ?? []).map((row) => row.semester?.id).filter(Boolean));
+  for (const year of years ?? []) {
+    if (year.status !== 'ACTIVE') continue;
+    const found = (year.semesters ?? []).find((semester) => semester.status === 'FINALIZING' && taught.has(semester.id));
+    if (found) return { ordinal: found.ordinal, year: year.label };
+  }
+  return null;
+}

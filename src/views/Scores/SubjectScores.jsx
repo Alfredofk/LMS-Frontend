@@ -9,7 +9,7 @@ import { studentAssessmentErrorMessage } from '../../i18n/apiError';
 import { formatNumber } from '../TeacherAssessment/results';
 import { shortWhen, typeModeText } from '../TeacherAssessment/teacherAssessment';
 import { readMyMenu } from '../StudentAssessment/readMyMenu';
-import { scoredEntriesOf, whenOf } from '../StudentAssessment/studentMenu';
+import { afterRuleOf, scoredEntriesOf, whenOf } from '../StudentAssessment/studentMenu';
 import { noteAssessmentTab } from '../StudentAssessment/assessmentBack';
 
 /*
@@ -67,7 +67,14 @@ const ScoreRow = ({ entry, zone, onOpen }) => {
           </span>
         </span>
         {entry.status === 'RELEASED' && entry.score !== null ? (
-          <span className="shrink-0 text-lg font-extrabold text-slate-900 tabular-nums">{formatNumber(entry.score, lang)}</span>
+          <span className="shrink-0 text-right">
+            <span className="block text-lg font-extrabold text-slate-900 tabular-nums leading-tight">{formatNumber(entry.score, lang)}</span>
+            {afterRuleOf(entry) && (
+              <span className="block text-[11px] font-semibold text-slate-500 tabular-nums">
+                {t('smenu.afterRule', { score: formatNumber(afterRuleOf(entry).score, lang) })}
+              </span>
+            )}
+          </span>
         ) : (
           <span className={`shrink-0 text-xs font-bold ${WORD_TONE[entry.status] ?? 'text-slate-600'}`}>{t(`smenu.status.${entry.status}`)}</span>
         )}

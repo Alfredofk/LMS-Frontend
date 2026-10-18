@@ -12,6 +12,10 @@ import { api } from './apiClient';
                 day; `choice` is this school's pick for a joint-leave day —
                 true / false, or null for "the school's default".
       school    { id, startDate, endDate, name, withdrawnAt } — standing ones.
+      examWeeks { id, semesterId, type: UTS|UAS, name, startDate, endDate,
+                  gradeLevels: number[], withdrawnAt } — standing ones (backend
+                  `cbec3b6`, ticket 13). No holiday: only those grade levels stop
+                  teaching, and a UTS/UAS of theirs is published inside one.
   The Principal adds and withdraws the school's own days, and says whether joint
   leave is observed — by default, and day by day.
 
@@ -47,6 +51,28 @@ export const holidaysService = {
   async setJointLeaveDay(id, observed) {
     const answer = await api.put(`/holidays/joint-leave/${encodeURIComponent(id)}`, { observed });
     return answer?.day ?? null;
+  },
+
+  /* ---- Exam Weeks (backend cbec3b6, ticket 13) ----
+     Set and withdrawn by the Principal or a Vice Principal, never edited. Set in an
+     OPEN or FINALIZING semester of an ACTIVE year, its days inside the semester, at
+     most 31, and never overlapping another standing on a shared grade level (409). */
+
+  /** A semester's standing ones, oldest first. */
+  async examWeeks(semesterId) {
+    const answer = await api.get('/holidays/exam-weeks', { query: { semesterId } });
+    return answer?.examWeeks ?? [];
+  },
+
+  /** @param {{ semesterId: string, type: 'UTS'|'UAS', name: string, startDate: string, endDate: string, gradeLevels: number[] }} body */
+  async addExamWeek(body) {
+    const answer = await api.post('/holidays/exam-weeks', body);
+    return answer?.examWeek ?? null;
+  },
+
+  async withdrawExamWeek(id) {
+    const answer = await api.post(`/holidays/exam-weeks/${encodeURIComponent(id)}/withdraw`);
+    return answer?.examWeek ?? null;
   },
 
   /* ---- the Platform Admin's national calendar ---- */

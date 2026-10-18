@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { agendaOf, agendaStart, byDay, dayMarks, monthOf, monthRange, shiftMonth } from './lessonCalendar';
+import { agendaOf, agendaStart, byDay, dayMarks, examsByDay, monthOf, monthRange, shiftMonth, teacherExamClasses, withoutExamWeekCancelled } from './lessonCalendar';
 
 /* A session as sessions.service.js `listMine` answers it — the fields this file reads. */
 const session = (id, date, start, over = {}) => ({
@@ -75,13 +75,88 @@ describe('agendaOf — lessons and holidays together, by day', () => {
 
   it('from the start to the month\'s end, days with something only, both kinds on one day', () => {
     expect(agendaOf({ year: 2026, month: 9 }, '2026-10-03', days, holidays)).toEqual([
-      { date: '2026-10-05', holidays: [{ id: 'h1', kind: 'SCHOOL', name: 'Libur' }], sessions: days.get('2026-10-05') },
-      { date: '2026-10-20', holidays: [{ id: 'h2', kind: 'NATIONAL', name: 'Maulid' }], sessions: [] },
+      { date: '2026-10-05', holidays: [{ id: 'h1', kind: 'SCHOOL', name: 'Libur' }], sessions: days.get('2026-10-05'), exams: [] },
+      { date: '2026-10-20', holidays: [{ id: 'h2', kind: 'NATIONAL', name: 'Maulid' }], sessions: [], exams: [] },
     ]);
   });
 
   it('nothing to show is an empty list', () => {
     expect(agendaOf({ year: 2026, month: 9 }, '2026-10-21', days, holidays)).toEqual([]);
     expect(agendaOf({ year: 2026, month: 9 }, '2026-10-01', null, null)).toEqual([]);
+  });
+});
+
+/* The menu's shape: assessment.menu.js menuOf, each entry's assessment from studentAssessmentView. */
+describe("a student's exams by day (examsByDay)", () => {
+  const entry = (id, type, opensAt, closesAt, over = {}) => ({
+    assessment: { id, type, status: 'PUBLISHED', opensAt, closesAt, ...over },
+    status: 'NOT_STARTED',
+  });
+  const classes = [
+    {
+      id: 'c1',
+      assessments: [
+        entry('uts-mtk', 'UTS', '2026-10-27T00:00:00.000Z', '2026-10-27T02:00:00.000Z'), // 07:00-09:00 WIB
+        entry('kuis', 'KUIS', '2026-10-27T00:00:00.000Z', '2026-10-27T02:00:00.000Z'),
+        entry('uts-gone', 'UTS', '2026-10-27T00:00:00.000Z', '2026-10-27T02:00:00.000Z', { status: 'CANCELLED' }),
+        entry('uts-bio', 'UTS', '2026-10-26T23:30:00.000Z', '2026-10-27T01:00:00.000Z'), // 06:30-08:00 WIB
+      ],
+    },
+    {
+      id: 'c0',
+      /* 13:00 on the 7th to 00:00 after the 9th, WIB. */
+      assessments: [entry('uas-long', 'UAS', '2026-12-07T06:00:00.000Z', '2026-12-09T17:00:00.000Z')],
+    },
+  ];
+  const exams = examsByDay(classes, 'WIB');
+
+  it('keeps UTS and UAS not cancelled, by the school day, in opening order', () => {
+    expect(exams.get('2026-10-27').map((row) => [row.entry.assessment.id, row.from, row.to])).toEqual([
+      ['uts-bio', '06:30', '08:00'],
+      ['uts-mtk', '07:00', '09:00'],
+    ]);
+  });
+
+  it('shows a window of several days on each, a closing at midnight ending the day before', () => {
+    const shown = ['2026-12-07', '2026-12-08', '2026-12-09', '2026-12-10'].map((date) => exams.get(date)?.map((row) => [row.from, row.to]));
+    expect(shown).toEqual([[['13:00', '24:00']], [['00:00', '24:00']], [['00:00', '24:00']], undefined]);
+  });
+
+  it('reads in another zone, and nothing from nothing', () => {
+    expect(examsByDay(classes, 'WIT').get('2026-10-27')[0]).toMatchObject({ from: '08:30', to: '10:00' });
+    expect(examsByDay(null, 'WIB').size).toBe(0);
+  });
+
+  it('agendaOf lists an exam day and carries its exams', () => {
+    const agenda = agendaOf({ year: 2026, month: 9 }, '2026-10-01', new Map(), new Map(), exams);
+    expect(agenda.map((day) => [day.date, day.exams.length])).toEqual([['2026-10-27', 2]]);
+  });
+
+  it('drops the meetings cancelled for an Exam Week, and keeps every other', () => {
+    const list = [
+      session('a', '2026-10-27', '07:00', { status: 'CANCELLED', cancelReason: 'EXAM_WEEK' }),
+      session('b', '2026-10-27', '07:00', { status: 'CANCELLED', cancelReason: 'HOLIDAY' }),
+      session('c', '2026-10-27', '07:00'),
+    ];
+    expect(withoutExamWeekCancelled(list).map((row) => row.id)).toEqual(['b', 'c']);
+  });
+});
+
+/* The marking queue's lists: markingQueue.js readMarkingQueue, each assessment from GET /assessments/class-subjects/:id. */
+describe("a teacher's exams (teacherExamClasses)", () => {
+  const row = { id: 'cs1', subject: { code: 'MTK', name: 'Matematika' }, class: { name: 'XI IPS', gradeLevel: 11 } };
+  const a = (id, type, status) => ({ id, type, status, opensAt: '2026-10-27T00:00:00.000Z', closesAt: '2026-10-27T02:00:00.000Z' });
+  const lists = [{ row, assessments: [a('uts', 'UTS', 'PUBLISHED'), a('draft', 'UAS', 'DRAFT'), a('gone', 'UTS', 'CANCELLED'), a('kuis', 'KUIS', 'PUBLISHED')] }];
+
+  it("keeps published ones, with the row's subject and class, for examsByDay", () => {
+    const [group] = teacherExamClasses(lists);
+    expect(group.assessments.map((entry) => entry.assessment.id)).toEqual(['uts', 'kuis']);
+    expect(group.assessments[0].assessment.classSubject).toEqual({ id: 'cs1', subject: row.subject, class: row.class });
+    expect(group.assessments[0].row).toBe(row);
+    expect(examsByDay(teacherExamClasses(lists), 'WIB').get('2026-10-27').map((item) => item.entry.assessment.id)).toEqual(['uts']);
+  });
+
+  it('answers an empty group for nothing', () => {
+    expect(teacherExamClasses(null)).toEqual([{ assessments: [] }]);
   });
 });

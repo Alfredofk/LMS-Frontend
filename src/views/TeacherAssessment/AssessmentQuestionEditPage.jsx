@@ -11,6 +11,7 @@ import { useT } from '../../i18n/LanguageContext';
 import { assessmentErrorMessage, copyEditErrorMessage, isStaleCopy } from '../../i18n/apiError';
 import { academicsService } from '../../services/academicsService';
 import { assessmentService } from '../../services/assessmentService';
+import { useSlotFinalised } from '../Grading/useSlotFinalised';
 import QuestionContentFields from '../QuestionBank/QuestionContentFields';
 import { copyPayload, draftChanged, draftFrom, questionErrors, shownChanged } from '../QuestionBank/questionBank';
 import {
@@ -53,6 +54,8 @@ const AssessmentQuestionEditor = () => {
   const { t } = useT();
   const navigate = useNavigate();
   const { classSubjectId, assessmentId, questionId } = useParams();
+  /* Its slot finalised (backend eadf680, ticket 04): the copy cannot be edited until undone. */
+  const finalised = Boolean(useSlotFinalised(classSubjectId));
   const today = useSchoolToday();
   const baseId = useId();
   const { showToast } = useOutletContext() ?? {};
@@ -141,11 +144,11 @@ const AssessmentQuestionEditor = () => {
   if (state === undefined) {
     return <div className="h-96 rounded-2xl bg-white border border-slate-100 animate-pulse" aria-busy="true" aria-label={t('common.loading')} />;
   }
-  if (state.error || !state.editable) {
+  if (state.error || !state.editable || finalised) {
     return (
       <div className={`${card} flex flex-col items-center text-center gap-3 py-10`} role={state.error ? 'alert' : undefined}>
         {state.error ? <AlertCircle className="w-8 h-8 text-rose-500" aria-hidden="true" /> : <Lock className="w-8 h-8 text-slate-400" aria-hidden="true" />}
-        <p className="text-sm font-bold text-slate-700 max-w-sm">{state.error ?? t('tasm.editCopy.readOnly')}</p>
+        <p className="text-sm font-bold text-slate-700 max-w-sm">{state.error ?? t(finalised ? 'tasm.readOnlyFinalised' : 'tasm.editCopy.readOnly')}</p>
         <button type="button" onClick={() => navigate(back)} className={`${tool} bg-slate-100 text-slate-700 hover:bg-slate-200`}>
           {t('tasm.editCopy.back')}
         </button>

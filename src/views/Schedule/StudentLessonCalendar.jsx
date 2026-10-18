@@ -4,6 +4,7 @@ import { AlertCircle, BookOpen, CalendarClock, ChevronLeft, ChevronRight, Refres
 
 import { useT } from '../../i18n/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { useSchoolZoneState } from '../../hooks/useSchoolToday';
 import { sessionsService } from '../../services/sessionsService';
 import { academicsService } from '../../services/academicsService';
 import { sessionState } from '../Subjects/timetable';
@@ -15,7 +16,22 @@ import { Legend } from '../../components/holidays/HolidayParts';
 import { localOf } from '../Attendance/attendance';
 import { rowState } from '../Attendance/checkIn';
 import { SessionStatusLine } from '../Attendance/TodaySessionsCard';
-import { agendaOf, agendaStart, byDay, dayMarks, monthOf, monthRange, shiftMonth } from './lessonCalendar';
+import {
+  agendaOf,
+  agendaStart,
+  byDay,
+  dayMarks,
+  examsByDay,
+  monthOf,
+  monthRange,
+  shiftMonth,
+  teacherExamClasses,
+  withoutExamWeekCancelled,
+} from './lessonCalendar';
+import { readMyMenu } from '../StudentAssessment/readMyMenu';
+import { readMarkingQueue } from '../TeacherAssessment/markingQueue';
+import ExamRows from './ExamRows';
+import { examWeekItems, examWeeksForGrades, taughtGrades } from './examWeeks';
 
 /*
   A student's month on /schedule (owner, 2026-10-03, after BINUSMAYA's "My
@@ -50,7 +66,7 @@ const readTeaching = (cache) => {
       const teaching = rows.filter(
         (row) => row.status === 'ACTIVE' && !row.endedAt && openLabels.has(row.semester?.academicYear)
       ).length;
-      return { openLabels, teaching };
+      return { openLabels, teaching, grades: taughtGrades(rows, openLabels) };
     })().catch((err) => {
       cache.current = null;
       throw err;
@@ -70,12 +86,61 @@ const STATUS_PILL = {
 
 const LEGEND_KINDS = ['NATIONAL', 'JOINT_LEAVE', 'SCHOOL'];
 
+/* Exam Weeks (backend cbec3b6; owner 2026-10-18) are told apart from a holiday by
+   their own colour and word, and only a reader's own grade levels' are shown:
+   the student's class now (/users/me, read once when the cached membership is
+   the thin one), the teacher's live assignments. Never a day off; on a day that
+   is both, the holiday comes first and paints the cell.
+
+   A student's days show their UTS and UAS (owner 2026-10-18: during an Exam Week
+   there is no teaching, so the day is its exams), from their menu for the current
+   semester (readMyMenu, kept a minute), on every day of each one's window. A
+   teacher's show the published UTS and UAS of the subjects they teach now, from the
+   marking queue's lists (readMarkingQueue, shared with the dashboard), naming the
+   class. Meetings cancelled for an Exam Week are left out; an exam day with none
+   says so. */
+
 export const StudentLessonCalendar = ({ teacher = false }) => {
   const teachingCache = useRef(null);
   const { t, lang } = useT();
   const navigate = useNavigate();
   const { membership } = useAuth();
+  useSchoolZoneState();
   const zone = membership?.school?.timeZone ?? null;
+  const studentGrade = membership?.student?.class?.gradeLevel ?? null;
+  /* A teacher's grades, from the class subjects readTeaching reads anyway; null until then. */
+  const [teacherGrades, setTeacherGrades] = useState(null);
+  useEffect(() => {
+    if (!teacher) return undefined;
+    let cancelled = false;
+    readTeaching(teachingCache)
+      .then(({ grades }) => !cancelled && setTeacherGrades(grades))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [teacher]);
+  /* The exams' source, false when the read failed: a student's menu (its classes), or
+     a teacher's published assessments from the marking queue's lists (owner 2026-10-18). */
+  const [menuClasses, setMenuClasses] = useState(null);
+  const membershipId = membership?.id ?? null;
+  useEffect(() => {
+    if (!membershipId) return undefined;
+    let cancelled = false;
+    const reading = teacher
+      ? readMarkingQueue(membershipId).then((queue) => teacherExamClasses(queue?.lists))
+      : readMyMenu(membershipId).then((menu) => menu?.classes ?? []);
+    reading
+      .then((classes) => !cancelled && setMenuClasses(classes))
+      .catch(() => !cancelled && setMenuClasses(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [teacher, membershipId]);
+  const myGrades = useMemo(
+    () => (teacher ? teacherGrades : studentGrade ? [studentGrade] : null),
+    [teacher, teacherGrades, studentGrade]
+  );
   const hasLocation = membership?.school?.hasLocation;
   const locale = lang === 'en' ? 'en-GB' : 'id-ID';
 
@@ -93,7 +158,7 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
   const [attempt, setAttempt] = useState(0);
   const key = `${shown.year}-${shown.month}`;
 
-  /* Holidays by year: `{ [year]: items }`, or `false` for a year whose read failed. */
+  /* The calendar read by year: `{ [year]: data }`, or `false` for a year whose read failed. */
   const [holidayYears, setHolidayYears] = useState({});
 
   useEffect(() => {
@@ -130,7 +195,7 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
     let cancelled = false;
     holidaysService
       .calendar(year)
-      .then((data) => !cancelled && setHolidayYears((prev) => ({ ...prev, [year]: calendarItems(data) })))
+      .then((data) => !cancelled && setHolidayYears((prev) => ({ ...prev, [year]: data ?? {} })))
       .catch(() => !cancelled && setHolidayYears((prev) => ({ ...prev, [year]: false })));
     return () => {
       cancelled = true;
@@ -139,19 +204,25 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
 
   const current = read?.key === key ? read.answer : null;
   const failed = failedKey === key;
-  const holidayItems = holidayYears[year];
-  const days = useMemo(() => byDay(current?.sessions), [current]);
-  const holidays = useMemo(() => daysIndex(holidayItems || []), [holidayItems]);
+  const yearData = holidayYears[year];
+  /* undefined while read, false when the read failed, else the items. */
+  const holidayItems = useMemo(() => (yearData ? calendarItems(yearData) : yearData), [yearData]);
+  const examItems = useMemo(() => (yearData ? examWeeksForGrades(examWeekItems(yearData), myGrades) : []), [yearData, myGrades]);
+  const days = useMemo(() => byDay(withoutExamWeekCancelled(current?.sessions)), [current]);
+  const exams = useMemo(() => (menuClasses ? examsByDay(menuClasses, zone) : new Map()), [menuClasses, zone]);
+  /* Holidays first: on a day that is both, the holiday paints the cell. */
+  const holidays = useMemo(() => daysIndex([...(holidayItems || []), ...examItems]), [holidayItems, examItems]);
+  const legendKinds = examItems.length ? [...LEGEND_KINDS, 'EXAM_WEEK'] : LEGEND_KINDS;
   const weeks = useMemo(() => monthGrid(shown.year, shown.month), [shown]);
 
   const start = agendaStart(shown, today, picked);
   const { from: monthFirst } = monthRange(shown.year, shown.month);
   const agendaFrom = wholeMonth ? monthFirst : start;
-  const agenda = useMemo(() => agendaOf(shown, agendaFrom, days, holidays), [shown, agendaFrom, days, holidays]);
+  const agenda = useMemo(() => agendaOf(shown, agendaFrom, days, holidays, exams), [shown, agendaFrom, days, holidays, exams]);
 
   /* The day view (owner, 2026-10-05): the chosen day alone - today unless one was
      picked - and a centred "no activity" when it holds nothing. */
-  const focusEntry = { date: start, holidays: holidays.get(start) ?? [], sessions: days.get(start) ?? [] };
+  const focusEntry = { date: start, holidays: holidays.get(start) ?? [], sessions: days.get(start) ?? [], exams: exams.get(start) ?? [] };
 
   /* The agenda sits above the month on a phone: picking a day down there brings it into view. */
   const agendaRef = useRef(null);
@@ -224,9 +295,18 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
             className={`rounded-xl px-3 py-2 text-xs font-bold ${KIND_STYLE[holiday.kind]?.soft ?? 'bg-slate-100 text-slate-600'}`}
           >
             <span className="block break-words">{holiday.name}</span>
-            <span className="block text-[10px] font-semibold opacity-80">{t(`holiday.kind.${holiday.kind}`)}</span>
+            <span className="block text-[10px] font-semibold opacity-80">
+              {t(`holiday.kind.${holiday.kind}`)}
+              {teacher && holiday.kind === 'EXAM_WEEK' && ` - ${t('exam.forGrades', { grades: holiday.shownGrades.join(', ') })}`}
+            </span>
           </li>
         ))}
+        <ExamRows rows={entry.exams} />
+        {entry.holidays[0]?.kind === 'EXAM_WEEK' &&
+          entry.exams.length === 0 &&
+          entry.sessions.length === 0 && (
+            <li className="px-1 text-[11px] font-semibold text-slate-500">{t('lessons.exam.none')}</li>
+          )}
         {entry.sessions.map((session) => {
           /* A teacher reads the meeting's own state; a student, their check-in. */
           const state = teacher ? null : rowState(session, context);
@@ -338,6 +418,9 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
           {holidayItems === false && (
             <p className="mb-3 text-[11px] font-semibold text-amber-700">{t('lessons.holidayError')}</p>
           )}
+          {menuClasses === false && (
+            <p className="mb-3 text-[11px] font-semibold text-amber-700">{t('lessons.exam.error')}</p>
+          )}
 
           {failed && (
             <div className="flex flex-wrap items-center gap-3" role="alert">
@@ -376,7 +459,7 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
 
           {/* One day (owner, 2026-10-05): the chosen day, or a centred "no activity". */}
           {current && !wholeMonth && !(emptyKey && agenda.length === 0) && (
-            focusEntry.holidays.length + focusEntry.sessions.length > 0 ? (
+            focusEntry.holidays.length + focusEntry.sessions.length + focusEntry.exams.length > 0 ? (
               <ol>{renderDay(focusEntry)}</ol>
             ) : (
               /* Fills the card, which the month beside it makes tall on a desktop, so
@@ -415,6 +498,8 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
             {weeks.flat().map((date, i) => {
               if (!date) return <div key={`pad-${i}`} aria-hidden="true" />;
               const marks = dayMarks(days.get(date));
+              /* An exam is a dot too: on an exam day it is what is on. */
+              const examCount = exams.get(date)?.length ?? 0;
               const off = holidays.get(date)?.[0];
               const isStart = date === start;
               const isToday = date === today;
@@ -422,6 +507,7 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
                 dayLabel(date),
                 off && off.name,
                 marks.held > 0 && t('lessons.count', { n: marks.held }),
+                exams.get(date)?.length > 0 && t('lessons.exam.count', { n: exams.get(date).length }),
                 marks.cancelled > 0 && t('lessons.cancelledCount', { n: marks.cancelled }),
               ]
                 .filter(Boolean)
@@ -454,7 +540,7 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
                   {/* One dot for "there are meetings", however many (owner, 2026-10-07);
                       the count is in the day's label and its list. */}
                   <span className="flex items-center h-1" aria-hidden="true">
-                    {marks.held > 0 && <span className="w-1 h-1 rounded-full bg-brand" />}
+                    {(marks.held > 0 || examCount > 0) && <span className="w-1 h-1 rounded-full bg-brand" />}
                   </span>
                 </button>
               );
@@ -469,7 +555,7 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
               </span>
               {t('lessons.legend.lesson')}
             </p>
-            <Legend kinds={LEGEND_KINDS} />
+            <Legend kinds={legendKinds} />
           </div>
         </section>
       </div>

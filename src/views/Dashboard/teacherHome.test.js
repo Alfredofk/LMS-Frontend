@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  addDays, classCount, currentSemester, dayMeetings, liveAssignments, openSemesterIds, teachingDay, uniqueStudentCount,
+  addDays, classCount, currentSemester, dayMeetings, finalisingSemesterOf, liveAssignments, openSemesterIds, teachingDay, uniqueStudentCount,
 } from './teacherHome.js';
 
 const row = (id, over = {}) => ({
@@ -151,5 +151,22 @@ describe('teachingDay', () => {
   it('answers no next when nothing is still to come, and survives nothing read', () => {
     expect(teachingDay(meetings, '2026-12-01', new Date('2026-12-01T00:00:00Z')).next).toBeNull();
     expect(teachingDay(undefined, '2026-10-12')).toEqual({ meetings: [], next: null });
+  });
+});
+
+describe('teacherHome - a semester being finalised (backend eadf680)', () => {
+  const years = [
+    { id: 'y1', label: '2026/2027', status: 'ACTIVE', semesters: [{ id: 's1', ordinal: 1, status: 'FINALIZING' }, { id: 's2', ordinal: 2, status: 'OPEN' }] },
+    { id: 'y0', label: '2025/2026', status: 'CLOSED', semesters: [{ id: 's0', ordinal: 2, status: 'FINALIZING' }] },
+  ];
+
+  it('names the one being finalised that the teacher teaches in, in an active year', () => {
+    expect(finalisingSemesterOf(years, [{ semester: { id: 's1' } }])).toEqual({ ordinal: 1, year: '2026/2027' });
+  });
+
+  it('nothing when they teach none of it, or the year is closed', () => {
+    expect(finalisingSemesterOf(years, [{ semester: { id: 's2' } }])).toBeNull();
+    expect(finalisingSemesterOf(years, [{ semester: { id: 's0' } }])).toBeNull();
+    expect(finalisingSemesterOf(null, null)).toBeNull();
   });
 });

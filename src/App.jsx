@@ -56,6 +56,7 @@ const MembersPage = lazy(() => import('./views/Members/MembersPage'));
 const QuestionBankPage = lazy(() => import('./views/QuestionBank/QuestionBankPage'));
 const QuestionEditorPage = lazy(() => import('./views/QuestionBank/QuestionEditorPage'));
 const SubjectsPage = lazy(() => import('./views/Subjects/SubjectsPage'));
+const FinalisingPage = lazy(() => import('./views/Grading/FinalisingPage'));
 
 /*
   The root of every route: the pages with no layout, and a layout that throws
@@ -220,6 +221,7 @@ const router = createBrowserRouter(
             <Route path="/headmaster/classes" element={<ClassesPage />} />
             <Route path="/headmaster/members" element={<MembersPage />} />
             <Route path="/headmaster/subjects" element={<SubjectsPage />} />
+            <Route path="/headmaster/finalising" element={<FinalisingPage />} />
           </Route>
 
           {/*

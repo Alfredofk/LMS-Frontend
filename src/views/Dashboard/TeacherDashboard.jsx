@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarDays, ClipboardCheck, GraduationCap, School, Users } from 'lucide-react';
+import { CalendarDays, ChevronRight, ClipboardCheck, GraduationCap, School, Users } from 'lucide-react';
 
 import InfoChips from '../../components/ui/InfoChips';
 import { useAuth } from '../../context/AuthContext';
@@ -15,8 +15,11 @@ import AssessmentsCard from './components/AssessmentsCard';
 import { readMarkingQueue } from '../TeacherAssessment/markingQueue';
 import { dashboardAssessments } from '../TeacherAssessment/teacherAssessment';
 import { openYearLabels } from '../Schedule/teacherLessons';
+import { useMyExamWeek } from '../Schedule/useMyExamWeek';
+import ExamWeekLine from '../Schedule/ExamWeekLine';
+import { examsByDay, teacherExamClasses } from '../Schedule/lessonCalendar';
 import {
-  DAYS_AHEAD, addDays, classCount, currentSemester, dayMeetings, liveAssignments, openSemesterIds, uniqueStudentCount,
+  DAYS_AHEAD, addDays, classCount, currentSemester, dayMeetings, finalisingSemesterOf, liveAssignments, openSemesterIds, uniqueStudentCount,
 } from './teacherHome';
 
 /*
@@ -121,6 +124,21 @@ export const TeacherDashboard = () => {
   const schoolName = membership?.school?.name ?? membership?.schoolName ?? '';
   const name = user?.fullName || t('teacherDash.greeting.fallback');
   const semester = currentSemester(live);
+  /* A semester being finalised (backend eadf680, owner 2026-10-18): one line, leading to the subjects' Nilai tabs. */
+  const finalising = teaching ? finalisingSemesterOf(teaching.years, live) : null;
+  /* The Exam Week of a grade taught now (owner 2026-10-18): a line from 14 days before, and
+     while it runs the day card leaves out the meetings it cancelled. */
+  const myGrades = useMemo(
+    () => (live ? [...new Set(live.map((row) => row.class?.gradeLevel).filter(Number.isInteger))] : null),
+    [live]
+  );
+  const examReminder = useMyExamWeek(myGrades, todayLocal);
+  const examWeekToday = examReminder?.kind === 'running' ? examReminder.week : null;
+  /* Today's published UTS and UAS of the subjects taught, from the queue's lists. */
+  const examsToday = useMemo(
+    () => (examWeekToday && queue ? examsByDay(teacherExamClasses(queue.lists), zone).get(todayLocal) ?? [] : []),
+    [examWeekToday, queue, zone, todayLocal]
+  );
 
   const loading = teaching === undefined;
   const failed = teaching === null;
@@ -143,6 +161,19 @@ export const TeacherDashboard = () => {
           ]}
         />
       </header>
+
+      {finalising && (
+        <button
+          type="button"
+          onClick={() => navigate('/teacher/gradebook')}
+          className="w-full flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:border-brand cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        >
+          <span>{t('grading.fin.dashLine', { n: finalising.ordinal, year: finalising.year })}</span>
+          <ChevronRight className="w-4 h-4 shrink-0 text-slate-400" aria-hidden="true" />
+        </button>
+      )}
+
+      <ExamWeekLine reminder={examReminder} staff />
 
       <section aria-label={t('teacherDash.stats.label')} className="grid grid-cols-1 gap-5 sm:grid-cols-3">
         <StatCard
@@ -172,6 +203,8 @@ export const TeacherDashboard = () => {
           live={teaching === undefined ? undefined : live}
           meetings={meetings}
           today={todayLocal}
+          examWeek={examWeekToday}
+          exams={examsToday}
           className="lg:col-span-7"
         />
 

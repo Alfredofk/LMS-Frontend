@@ -359,8 +359,9 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
 
   return (
     <section className={`${frame} space-y-4`} aria-label={t('tasm.tab.results')}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
+      {/* Two columns from sm up, never wrapping: a long stats line once threw the release block onto its own line, where it floated mid-left (owner, 2026-10-18). */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1 min-w-0 sm:flex-1">
           <h2 className="text-base font-extrabold text-slate-900">{t('tasm.results.title', { n: students.length })}</h2>
           <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-slate-500">
             <span>{t('tasm.results.waitingMarking', { n: waiting.marking })}</span>
@@ -380,7 +381,7 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
           )}
         </div>
         {release.show && (
-          <div className="flex flex-col items-start sm:items-end gap-1">
+          <div className="flex flex-col items-start sm:items-end gap-1 sm:shrink-0 sm:max-w-xs">
             <button
               type="button"
               onClick={() => setConfirming(true)}

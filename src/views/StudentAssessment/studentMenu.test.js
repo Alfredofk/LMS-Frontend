@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { byClassSubject, canRetry, cardOf, entriesOf, handedInOf, nextUpcoming, pathOf, scoredEntriesOf, sectionOf, sectionsOf, todoAcross, todoCount, whenOf, wordOf } from './studentMenu';
+import { afterRuleOf, byClassSubject, canRetry, cardOf, entriesOf, handedInOf, nextUpcoming, pathOf, scoredEntriesOf, sectionOf, sectionsOf, todoAcross, todoCount, whenOf, wordOf } from './studentMenu';
 
 /*
   Shapes from assessment.menu.js menuOf (backend 113ae37): each entry is
@@ -299,5 +299,23 @@ describe('handedInOf', () => {
   it('nothing known yet: no rate, never a 0 nobody counted', () => {
     expect(handedInOf([{ id: 'now', current: true, assessments: [entry({ canStart: true })] }])).toEqual({ handedIn: 0, total: 0, rate: null });
     expect(handedInOf(undefined)).toEqual({ handedIn: 0, total: 0, rate: null });
+  });
+});
+
+describe('student menu - the score after the remedial rule (backend 79b319f)', () => {
+  // A menu entry and an outline, as assessment.menu.js / outlineForStudent answer them.
+  const entry = (over = {}) => ({ status: 'RELEASED', score: 95, afterRule: { score: 70, rule: 'CAP_AT_KKTP' }, ...over });
+
+  it('a released score the rule moved: the score it counts for, and the rule', () => {
+    expect(afterRuleOf(entry())).toEqual({ score: 70, rule: 'CAP_AT_KKTP' });
+    expect(afterRuleOf({ score: 95, afterRule: { score: 87.5, rule: 'AVERAGE' } })).toEqual({ score: 87.5, rule: 'AVERAGE' });
+  });
+
+  it('nothing when the rule moved nothing, or there is no released score to sit under', () => {
+    expect(afterRuleOf(entry({ afterRule: null }))).toBeNull();
+    expect(afterRuleOf(entry({ score: null }))).toBeNull();
+    expect(afterRuleOf(entry({ status: 'WAITING_FOR_RELEASE' }))).toBeNull();
+    expect(afterRuleOf({ score: 95 })).toBeNull();
+    expect(afterRuleOf(null)).toBeNull();
   });
 });

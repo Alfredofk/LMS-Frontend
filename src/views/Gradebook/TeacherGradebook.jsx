@@ -10,8 +10,8 @@ import TeacherCourses from '../Course/TeacherCourses';
   with `gradebook`), each opening that subject's "Nilai" tab, where the table is
   (GradebookTable, in TeacherClassSubjectDetail).
 
-  No average and no total (owner, 2026-10-10): the backend computes no Final
-  Grade nor a report-card score yet (weights and KKTP exist since 5d42af6).
+  The final grade is the table's last column since 2026-10-18 (backend
+  79b319f computes it); there is still no report card.
 
   An old link `?cs=<classSubjectId>` goes straight to that subject's tab. The
   homeroom teacher and the leaders read the same table through GradebookReader.

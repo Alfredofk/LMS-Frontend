@@ -12,6 +12,8 @@ import { localOf } from './attendance';
 import { readMyClasses } from '../Classroom/readMyClasses';
 import { meetingWhen, nextMeetingAcross } from '../Classroom/myClasses';
 import { PositionError, checkInOpensClock, focusOf, nextReadIn, readPosition, rowState, withCheckIn } from './checkIn';
+import { withoutExamWeekCancelled } from '../Schedule/lessonCalendar';
+import ExamRows from '../Schedule/ExamRows';
 
 /*
   Today's meetings, with the check-in button (owner, 2026-10-03) — on the
@@ -29,6 +31,9 @@ import { PositionError, checkInOpensClock, focusOf, nextReadIn, readPosition, ro
     (`focusOf`) — with "N more today · See all" to open the day in place. A
     day that is over or wholly cancelled folds to one line. /attendance shows
     the whole day.
+  - `examWeek` and `exams` (the dashboard, owner 2026-10-18): on a day of the
+    student's Exam Week the meetings cancelled for it are left out and today's
+    UTS and UAS (`examsByDay`) are the day, or "no exam today".
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm text-left';
@@ -54,7 +59,7 @@ const headingDate = (iso, lang) =>
       })
     : '';
 
-export const TodaySessionsCard = ({ onCheckedIn, focus = false }) => {
+export const TodaySessionsCard = ({ onCheckedIn, focus = false, examWeek = null, exams = null }) => {
   const { t, lang } = useT();
   const navigate = useNavigate();
   const { membership } = useAuth();
@@ -203,7 +208,8 @@ export const TodaySessionsCard = ({ onCheckedIn, focus = false }) => {
     );
   }
 
-  const sessions = day.sessions ?? [];
+  const sessions = examWeek ? withoutExamWeekCancelled(day.sessions) : day.sessions ?? [];
+  const todayExams = exams ?? [];
   const context = { hasLocation, className: day.class?.name };
   const view = focus && !expanded && sessions.length > 0 ? focusOf(sessions, context) : null;
 
@@ -282,6 +288,24 @@ export const TodaySessionsCard = ({ onCheckedIn, focus = false }) => {
       </button>
     ) : null;
 
+  /* A day of the Exam Week: its exams, else "no exam today". */
+  const examNote = examWeek && (
+    <p className="mb-3 text-[11px] font-semibold text-sky-700">{t('exam.today.week', { type: examWeek.type, name: examWeek.name })}</p>
+  );
+  if (sessions.length === 0 && examWeek && todayExams.length > 0) {
+    return (
+      <section className={`${card} h-full`} aria-labelledby="today-sessions">
+        {heading}
+        {examNote}
+        <ul className="space-y-2">
+          <ExamRows rows={todayExams} />
+        </ul>
+      </section>
+    );
+  }
+  if (sessions.length === 0 && examWeek) {
+    return idle(t('lessons.exam.none'), t('exam.today.noneBody', { type: examWeek.type, name: examWeek.name }), nextLine);
+  }
   if (sessions.length === 0) {
     const emptyKey = !day.timeZone ? 'checkin.empty.noZone' : !day.class ? 'checkin.empty.noClass' : 'checkin.empty.none';
     if (!focus) return slim(t(emptyKey), nextLine);
@@ -312,6 +336,11 @@ export const TodaySessionsCard = ({ onCheckedIn, focus = false }) => {
   return (
     <section className={card} aria-labelledby="today-sessions">
       {heading}
+      {todayExams.length > 0 && (
+        <ul className="space-y-2 mb-3">
+          <ExamRows rows={todayExams} />
+        </ul>
+      )}
       {view && (
         <p className="text-[10px] font-extrabold uppercase tracking-wider text-brand mb-2">
           {t(`checkin.focus.${view.kind}`)}

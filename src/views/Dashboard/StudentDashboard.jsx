@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, CalendarCheck, CalendarDays, ListTodo, School, Star, FileText } from 'lucide-react';
 import InfoChips from '../../components/ui/InfoChips';
@@ -18,6 +18,10 @@ import { handedInOf, nextUpcoming, todoAcross } from '../StudentAssessment/stude
 import { ActiveAssessment, CourseProgress } from './components/Widgets';
 import PinnedAnnouncements from './components/PinnedAnnouncements';
 import ProgressBoard from './components/ProgressBoard';
+import { useSchoolToday } from '../../hooks/useSchoolToday';
+import { useMyExamWeek } from '../Schedule/useMyExamWeek';
+import ExamWeekLine from '../Schedule/ExamWeekLine';
+import { examsByDay } from '../Schedule/lessonCalendar';
 
 /*
   A student's home screen: the full layout, with nothing invented in it.
@@ -142,6 +146,18 @@ export const StudentDashboard = () => {
   }, [membership?.id]);
   const todo = menu === undefined ? undefined : menu === null ? null : todoAcross(menu.classes);
   const handedIn = menu === undefined ? undefined : menu === null ? null : handedInOf(menu.classes);
+  /* The Exam Week of the student's grade (owner 2026-10-18): a line from 14 days
+     before, and while it runs the today card holds that day's UTS and UAS. */
+  const schoolToday = useSchoolToday();
+  const grade = membership?.student?.class?.gradeLevel ?? null;
+  const myGrades = useMemo(() => (grade ? [grade] : membership?.student ? [] : null), [grade, membership?.student]);
+  const examReminder = useMyExamWeek(myGrades, schoolToday);
+  const examWeekToday = examReminder?.kind === 'running' ? examReminder.week : null;
+  const examsToday = useMemo(
+    () => (examWeekToday && menu ? examsByDay(menu.classes, membership?.school?.timeZone ?? null).get(schoolToday) ?? [] : []),
+    [examWeekToday, menu, membership?.school?.timeZone, schoolToday]
+  );
+
   /* Materials not opened yet, of those published in this semester's subjects (owner, 2026-10-14). */
   const unopened = totals ? Math.max(0, totals.published - totals.opened) : totals;
 
@@ -170,6 +186,9 @@ export const StudentDashboard = () => {
       {/* Pinned announcements first, then today's schedule beside the progress
           board, half and half (owner, 2026-10-03). The next-holiday card and the
           school-announcements widget at the foot of the page went the same day. */}
+      {/* The Exam Week line first: it is about the next days, the announcements are not built yet. */}
+      <ExamWeekLine reminder={examReminder} />
+
       <PinnedAnnouncements notBuilt />
 
       {/* Both cards share the row's height (owner, 2026-10-04): a day with nothing on
@@ -177,7 +196,7 @@ export const StudentDashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Check-in is the one thing here bound to the clock. It shows one meeting
             (on now, else next), and a day with none, or already over, folds to one line. */}
-        <TodaySessionsCard focus onCheckedIn={() => setRecorded((n) => n + 1)} />
+        <TodaySessionsCard focus examWeek={examWeekToday} exams={examsToday} onCheckedIn={() => setRecorded((n) => n + 1)} />
         <ProgressBoard totals={totals} zone={membership?.school?.timeZone ?? null} handedIn={handedIn} />
       </div>
 

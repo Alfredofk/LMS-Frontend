@@ -16,6 +16,7 @@ import { forgetMarkingQueue } from './markingQueue';
 import { notifyPendingChanged } from '../../hooks/usePendingCounts';
 import { cancelReasonError } from './teacherAssessment';
 import SignalLine from './SignalLine';
+import { useSlotFinalised } from '../Grading/useSlotFinalised';
 import {
   canMark,
   chosenOptions,
@@ -27,6 +28,8 @@ import {
   pointsChanged,
   takesComment,
   takesPoints,
+  verdictOf,
+  VERDICT_TONE,
 } from './results';
 
 /*
@@ -84,14 +87,8 @@ const StudentAnswer = ({ question, assessmentId, submissionId, t }) => {
             </span>
             <span className="flex flex-col items-end gap-0.5 shrink-0 text-[11px] font-extrabold">
               {option.chosen && <span className={option.correct ? 'text-emerald-700' : 'text-rose-700'}>{t('tasm.mark.chosen')}</span>}
-              {option.correct ? (
-                <span className="inline-flex items-center gap-1 text-emerald-700">
-                  <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
-                  {t('qbank.correct')}
-                </span>
-              ) : (
-                <Circle className="w-3.5 h-3.5 text-slate-300" aria-hidden="true" />
-              )}
+              {/* The key in plain words, no check (owner, 2026-10-18): a tick beside the answer read as a verdict. */}
+              {option.correct && <span className="text-slate-600">{t('tasm.mark.keyOption')}</span>}
             </span>
           </li>
         ))}
@@ -103,10 +100,7 @@ const StudentAnswer = ({ question, assessmentId, submissionId, t }) => {
     return (
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm font-semibold text-slate-700">
         <span>{t('tasm.mark.studentSaid', { answer: question.answer.value === null ? '-' : t(question.answer.value ? 'qbank.tf.true' : 'qbank.tf.false') })}</span>
-        <span className="inline-flex items-center gap-1 text-emerald-700">
-          <Check className="w-4 h-4" aria-hidden="true" />
-          {t('tasm.mark.keySaid', { answer: t(question.value ? 'qbank.tf.true' : 'qbank.tf.false') })}
-        </span>
+        <span className="text-slate-600">{t('tasm.mark.keySaid', { answer: t(question.value ? 'qbank.tf.true' : 'qbank.tf.false') })}</span>
       </div>
     );
   }
@@ -115,7 +109,7 @@ const StudentAnswer = ({ question, assessmentId, submissionId, t }) => {
     return (
       <div className="space-y-1.5">
         <p className="rounded-xl bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-800 break-words whitespace-pre-wrap">{question.answer.text || '-'}</p>
-        <p className="text-xs font-semibold text-emerald-700 break-words">{t('tasm.mark.accepted', { list: (question.accepted ?? []).join(', ') })}</p>
+        <p className="text-xs font-semibold text-slate-600 break-words">{t('tasm.mark.accepted', { list: (question.accepted ?? []).join(', ') })}</p>
       </div>
     );
   }
@@ -157,7 +151,7 @@ const StudentAnswer = ({ question, assessmentId, submissionId, t }) => {
  * @param onOpen    (submissionId) => void - another attempt (the next to mark)
  * @param embedded  opened in place inside a reader: no page heading
  */
-export const Marking = ({ assessmentId, submissionId, onBack, onOpen, embedded = false }) => {
+export const Marking = ({ assessmentId, submissionId, onBack, onOpen, embedded = false, finalised = false }) => {
   const { t, lang } = useT();
   const baseId = useId();
   const { showToast } = useOutletContext() ?? {};
@@ -197,7 +191,7 @@ export const Marking = ({ assessmentId, submissionId, onBack, onOpen, embedded =
   }, [assessmentId, submissionId, attempt, t, embedded]);
 
   /* Embedded in a reader, nothing is changed whatever canManage says (see ResultsTab). */
-  const editable = !embedded && Boolean(view && !view.error && canMark(view));
+  const editable = !embedded && !finalised && Boolean(view && !view.error && canMark(view));
   const body = editable && draft ? markBody(draft, view, reason) : null;
   const released = view?.submission?.status === 'RELEASED';
   const needsReason = editable && released && draft && pointsChanged(draft, view);
@@ -260,6 +254,8 @@ export const Marking = ({ assessmentId, submissionId, onBack, onOpen, embedded =
 
   const readOnlyWhy = embedded
     ? 'tasm.reader.readOnly'
+    : finalised
+    ? 'tasm.readOnlyFinalised'
     : !assessment.canManage
     ? 'tasm.mark.readOnly.notYours'
     : assessment.status !== 'PUBLISHED'
@@ -321,6 +317,14 @@ export const Marking = ({ assessmentId, submissionId, onBack, onOpen, embedded =
           const entry = draft.answers[question.id];
           const error = errors[question.id];
           const commentError = errors[`${question.id}:comment`];
+          /* Right or wrong from the points saved (owner, 2026-10-18); none for an essay or one waiting. */
+          const verdict = verdictOf({
+            kind: question.kind,
+            points: question.points,
+            earned: question.earned,
+            answered: question.answer !== null,
+            waiting: question.needsMarking,
+          });
           return (
             <li key={question.id} className={`${embedded ? 'rounded-xl border border-slate-200 p-3.5' : card} space-y-3`}>
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
@@ -328,8 +332,9 @@ export const Marking = ({ assessmentId, submissionId, onBack, onOpen, embedded =
                 <span className="text-xs font-bold text-slate-600">{t(`qbank.kind.${question.kind}`)}</span>
                 <span className="text-xs font-semibold text-slate-500">{t('tasm.mark.worth', { n: question.points })}</span>
                 {question.needsMarking && <span className="text-xs font-bold text-amber-700">{t('tasm.results.status.WAITING_FOR_MARKING')}</span>}
-                <span className="ml-auto text-xs font-bold text-slate-700 tabular-nums">
-                  {t('tasm.mark.earned', { earned: formatNumber(question.earned, lang), total: question.points })}
+                <span className="ml-auto flex items-baseline gap-2.5 text-xs font-bold tabular-nums">
+                  {verdict && <span className={VERDICT_TONE[verdict]}>{t(`tasm.verdict.${verdict}`)}</span>}
+                  <span className="text-slate-700">{t('tasm.mark.earned', { earned: formatNumber(question.earned, lang), total: question.points })}</span>
                 </span>
               </div>
               <div className="content-html text-sm text-slate-800 break-words" dangerouslySetInnerHTML={{ __html: question.body ?? '' }} />
@@ -502,6 +507,8 @@ export const Marking = ({ assessmentId, submissionId, onBack, onOpen, embedded =
 export const MarkingPage = () => {
   const { classSubjectId, assessmentId, submissionId } = useParams();
   const navigate = useNavigate();
+  /* Its slot finalised (backend eadf680, ticket 04): marking reads only until undone. */
+  const finalised = useSlotFinalised(classSubjectId);
   const base = `/teacher/courses/${classSubjectId}/penilaian/${assessmentId}`;
   return (
     <Marking
@@ -510,6 +517,7 @@ export const MarkingPage = () => {
       submissionId={submissionId}
       onBack={() => navigate(`${base}?tab=hasil`)}
       onOpen={(id) => navigate(`${base}/hasil/${id}`)}
+      finalised={Boolean(finalised)}
     />
   );
 };

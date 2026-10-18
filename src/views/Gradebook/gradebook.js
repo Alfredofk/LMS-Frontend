@@ -3,9 +3,13 @@ import { formatNumber } from '../TeacherAssessment/results';
 /*
   A class subject's gradebook (owner, 2026-10-10; a tab of the subject's page
   since 2026-10-11): its students down the side and its published assessments across, each cell the
-  score that counts - or a short word for why there is none. No average: the
-  backend computes no Final Grade yet (weights and KKTP exist since 5d42af6;
-  the grade is ticket 02), and a number made up here would read as one. Pure: the screen is GradebookTable.
+  score that counts - or a short word for why there is none. Pure: the screen is GradebookTable.
+
+  The final grade on the right (owner, 2026-10-18) is the backend's, never
+  worked out here: GET /grading/class-subjects/:id/grades (backend 79b319f,
+  ticket 02), computed live with the slot's weights, KKTP and the school's
+  remedial rule. It is a running grade - "did not submit" counts 0, what waits
+  counts nothing yet - so the cell says how many of each under the number.
 
   Read in one request since 2026-10-13: GET /assessments/class-subjects/:id/recap
   (backend 113ae37), whose cells say whether only a remedial reached the score
@@ -39,11 +43,52 @@ export function cellOf(column, cell) {
   return { word: cell?.status ?? 'NOT_STARTED' };
 }
 
+/** The four types in the order the grade read lists them (grading.compute.js TYPES). */
+export const GRADE_TYPES = ['TUGAS', 'KUIS', 'UTS', 'UAS'];
+
+/**
+ * One student's final-grade cell, from their row of the grade read: null with
+ * no row (the read failed, or does not list them); `{ reportedBy }` - a class
+ * name, or null - when another class's slot reports them (they moved on);
+ * else `{ value, unrounded, types, didNotSubmit, waiting, remedialRuleMoved,
+ * pooled }`, value null while nothing weighted counts yet.
+ */
+export function finalOf(student) {
+  if (!student) return null;
+  if (!student.reportedHere) return { reportedBy: student.reportedBy?.name ?? null };
+  const grade = student.grade ?? {};
+  return {
+    value: grade.finalGrade?.value ?? null,
+    unrounded: grade.finalGrade?.unrounded ?? null,
+    types: grade.types ?? {},
+    didNotSubmit: grade.didNotSubmit ?? 0,
+    waiting: grade.waiting ?? 0,
+    remedialRuleMoved: grade.remedialRuleMoved ?? 0,
+    pooled: grade.pooled ?? 0,
+  };
+}
+
+/** The counts said under the number (`gradebook.final.flag.*`), and all four in the details (`gradebook.final.note.*`). */
+export const FINAL_FLAGS = ['waiting', 'didNotSubmit'];
+export const FINAL_NOTES = ['waiting', 'didNotSubmit', 'remedialRuleMoved', 'pooled'];
+
+/**
+ * The counts said under the number (owner, 2026-10-18), only those above 0:
+ * `[{ key, n }]`. Moved by the remedial rule and pooled from an earlier class
+ * are said in the details only (`finalNotes`).
+ */
+const countsOf = (keys) => (final) => keys.filter((key) => final?.[key] > 0).map((key) => ({ key, n: final[key] }));
+export const finalFlags = countsOf(FINAL_FLAGS);
+export const finalNotes = countsOf(FINAL_NOTES);
+
 /**
  * The rows: the recap's students, by name, each with a cell per column - looked
- * up by assessment id, since the recap also holds the cancelled ones.
+ * up by assessment id, since the recap also holds the cancelled ones - and
+ * their final grade from the grade read (`final`, see finalOf; null for all
+ * when `grades` is null).
  */
-export function gradebookRows(columns, recap) {
+export function gradebookRows(columns, recap, grades = null) {
+  const gradeById = new Map((grades?.students ?? []).map((student) => [student.studentProfileId, student]));
   return (recap?.students ?? [])
     .slice()
     .sort((a, b) => String(a.fullName ?? '').localeCompare(String(b.fullName ?? '')))
@@ -54,6 +99,7 @@ export function gradebookRows(columns, recap) {
         fullName: student.fullName,
         placedNow: student.placedNow !== false,
         cells: columns.map((column) => cellOf(column, cellById.get(column.assessment.id))),
+        final: finalOf(gradeById.get(student.studentProfileId)),
       };
     });
 }
@@ -69,12 +115,18 @@ const quote = (value, sep) => {
  * writes "87,5" and separates with ";" (what Excel set to Indonesian opens),
  * English "87.5" and ",". A BOM leads, so Excel reads the names as UTF-8.
  *
- * @param words  (key) => the cell word, already translated
+ * @param words        (key) => the cell word, already translated
+ * @param finalHeader  the final grade's column header; none, no column. Its
+ *                     cells hold the whole number, "-" where there is none.
  */
-export function gradebookCsv(columns, rows, { lang, nameHeader, columnHeader, words }) {
+export function gradebookCsv(columns, rows, { lang, nameHeader, columnHeader, words, finalHeader = null }) {
   const sep = lang === 'en' ? ',' : ';';
-  const head = [nameHeader, ...columns.map((column) => columnHeader(column.assessment))];
-  const body = rows.map((row) => [row.fullName ?? '', ...row.cells.map((cell) => ('score' in cell ? formatNumber(cell.score, lang) : words(cell.word)))]);
+  const head = [nameHeader, ...columns.map((column) => columnHeader(column.assessment)), ...(finalHeader ? [finalHeader] : [])];
+  const body = rows.map((row) => [
+    row.fullName ?? '',
+    ...row.cells.map((cell) => ('score' in cell ? formatNumber(cell.score, lang) : words(cell.word))),
+    ...(finalHeader ? [formatNumber(row.final?.value ?? null, lang)] : []),
+  ]);
   return String.fromCharCode(0xfeff) + [head, ...body].map((line) => line.map((value) => quote(value, sep)).join(sep)).join('\r\n') + '\r\n';
 }
 
@@ -82,6 +134,7 @@ export function gradebookCsv(columns, rows, { lang, nameHeader, columnHeader, wo
  * Whether a cell's score is under the KKTP that applies to the class subject
  * (grade settings, backend 5d42af6) - marked in the table, not in the CSV. The
  * score as it counts, raw: the remedial rule is applied only in the Final Grade.
- * No KKTP read (null) marks nothing.
+ * No KKTP read (null) marks nothing. The final grade is marked the same way,
+ * as `{ score: final.value }`.
  */
 export const belowKktp = (cell, kktp) => typeof kktp === 'number' && typeof cell?.score === 'number' && cell.score < kktp;

@@ -12,4 +12,6 @@ export const KIND_STYLE = {
   JOINT_LEAVE: { solid: 'bg-amber-400 text-amber-950', soft: 'bg-amber-50 text-amber-700', dot: 'bg-amber-400' },
   SCHOOL: { solid: 'bg-brand text-white', soft: 'bg-brand-tint text-brand', dot: 'bg-brand' },
   IN_SCHOOL: { solid: 'bg-slate-200 text-slate-600', soft: 'bg-slate-100 text-slate-600', dot: 'bg-slate-300' },
+  /* An Exam Week (backend cbec3b6): no holiday, the school's own leaders' calendar only. */
+  EXAM_WEEK: { solid: 'bg-sky-700 text-white', soft: 'bg-sky-50 text-sky-700', dot: 'bg-sky-700' },
 };

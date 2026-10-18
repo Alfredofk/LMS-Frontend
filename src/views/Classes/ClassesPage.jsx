@@ -16,6 +16,7 @@ import { academicsErrorMessage } from '../../i18n/apiError';
 import { gradesFor } from '../../constants/schoolTypes';
 import { ROLES } from '../../constants/roles';
 import { formatDay } from './format';
+import HomeroomNotes from '../Homeroom/HomeroomNotes';
 import {
   YEAR_TABS,
   yearsInTab,
@@ -348,6 +349,12 @@ export const ClassesPage = () => {
           grades={grades}
           showToast={showToast}
           canRemove={activeRole === ROLES.PRINCIPAL}
+        />
+        {/* The homeroom teacher's notes, read only at the leaders' desk (backend 483be5a, owner 2026-10-18). */}
+        <HomeroomNotes
+          key={`notes-${selectedClassId}`}
+          classId={selectedClassId}
+          academicYearId={(classes ?? []).find((entry) => entry.id === selectedClassId)?.academicYear?.id ?? yearId}
         />
       </div>
     );

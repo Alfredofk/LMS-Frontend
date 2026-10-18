@@ -169,6 +169,22 @@ export const scoredEntriesOf = (classes, classSubjectId) =>
     .sort(ORDER.DONE);
 
 /*
+  The score a remedial counts for (backend 79b319f, owner 2026-10-18): where the
+  school's Remedial Rule moves the score that counts - a remedial 95 capped at the
+  KKTP of 70 - the menu and the outline carry `afterRule: { score, rule }` beside
+  the raw score, which stays. Shown under it ("dihitung 70"); null when the rule
+  moved nothing, or there is no released score to sit under.
+*/
+
+/** `{ score, rule }` when the rule moves a released score, else null. Works on a menu entry and on the outline. */
+export function afterRuleOf(entry) {
+  const after = entry?.afterRule;
+  if (!after || typeof after.score !== 'number' || entry.score === null || entry.score === undefined) return null;
+  if (entry.status !== undefined && entry.status !== 'RELEASED') return null;
+  return { score: after.score, rule: after.rule ?? null };
+}
+
+/*
   The student dashboard's "Penilaian dikumpulkan" (owner, 2026-10-14): of the
   semester's ONLINE assessments whose outcome is known, how many were handed in -
   marked or waiting for release - against "did not submit". An OFFLINE one is a

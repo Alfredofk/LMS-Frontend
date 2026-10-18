@@ -268,3 +268,30 @@ export function shownAttempts(attempts, { expanded = false, flaggedOnly = false 
   );
   return { shown, hidden: all.length - shown.length };
 }
+
+/*
+  Whether an answer was right (owner, 2026-10-18), said beside its points on the
+  marking page and on a student's released attempt: from the points saved - a
+  teacher's change counts - so full points are "Benar", none "Salah", some "Sebagian
+  benar"; an unanswered one "Tidak dijawab". An ESSAY gets none (its points say it),
+  nor does one still waiting to be marked.
+*/
+export const VERDICTS = ['CORRECT', 'PARTIAL', 'WRONG', 'UNANSWERED'];
+
+/** `'CORRECT' | 'PARTIAL' | 'WRONG' | 'UNANSWERED' | null` for one question. */
+export function verdictOf({ kind, points, earned, answered, waiting = false }) {
+  if (kind === 'ESSAY' || waiting) return null;
+  if (!answered) return 'UNANSWERED';
+  if (typeof earned !== 'number' || typeof points !== 'number') return null;
+  if (earned >= points) return 'CORRECT';
+  if (earned <= 0) return 'WRONG';
+  return 'PARTIAL';
+}
+
+/** Its colour: green, amber, red, grey. */
+export const VERDICT_TONE = {
+  CORRECT: 'text-emerald-700',
+  PARTIAL: 'text-amber-700',
+  WRONG: 'text-rose-700',
+  UNANSWERED: 'text-slate-500',
+};

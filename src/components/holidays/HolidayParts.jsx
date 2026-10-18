@@ -139,8 +139,9 @@ export const YearCalendar = ({ year, index, today, selected, onPick, lang }) => 
     <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
       {Array.from({ length: 12 }, (_, month) => {
         const weeks = monthGrid(year, month);
+        /* "N libur": an Exam Week is no holiday, so it is painted but not counted. */
         const count = new Set(
-          weeks.flat().filter((day) => day && index.has(day)).flatMap((day) => index.get(day))
+          weeks.flat().filter((day) => day && index.has(day)).flatMap((day) => index.get(day)).filter((item) => item.kind !== 'EXAM_WEEK')
         ).size;
         return (
           <section key={month} className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm" aria-label={monthLabel(year, month, lang)}>

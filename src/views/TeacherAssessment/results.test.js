@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  verdictOf,
   canMark,
   chosenOptions,
   formatNumber,
@@ -287,5 +288,22 @@ describe('the Hasil list for many students (owner 2026-10-13)', () => {
     const attempts = [at(1, 'RELEASED', sig(3)), at(2, 'RELEASED', sig(0))];
     expect(shownAttempts(attempts).shown.map((a) => a.attempt)).toEqual([2]);
     expect(shownAttempts(attempts, { flaggedOnly: true }).shown.map((a) => a.attempt)).toEqual([2, 1]);
+  });
+});
+
+describe('results - right or wrong, per question (owner, 2026-10-18)', () => {
+  // The marking view's question (assessment.marking.js): earned after a teacher's change, needsMarking.
+  it('full points right, none wrong, some partly; from the points saved', () => {
+    expect(verdictOf({ kind: 'TF', points: 1, earned: 1, answered: true })).toBe('CORRECT');
+    expect(verdictOf({ kind: 'TF', points: 1, earned: 0, answered: true })).toBe('WRONG');
+    expect(verdictOf({ kind: 'MCQ', points: 4, earned: 2.5, answered: true })).toBe('PARTIAL');
+    expect(verdictOf({ kind: 'SHORT', points: 2, earned: 2, answered: true })).toBe('CORRECT');
+  });
+
+  it('not answered says so; an essay, one waiting to be marked, or no points read say nothing', () => {
+    expect(verdictOf({ kind: 'SHORT', points: 1, earned: 0, answered: false })).toBe('UNANSWERED');
+    expect(verdictOf({ kind: 'ESSAY', points: 10, earned: 10, answered: true })).toBeNull();
+    expect(verdictOf({ kind: 'SHORT', points: 1, earned: 0, answered: true, waiting: true })).toBeNull();
+    expect(verdictOf({ kind: 'TF', points: 1, earned: null, answered: true })).toBeNull();
   });
 });

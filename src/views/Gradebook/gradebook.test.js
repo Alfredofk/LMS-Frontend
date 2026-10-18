@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { belowKktp, cellOf, gradebookColumns, gradebookCsv, gradebookRows } from './gradebook';
+import { belowKktp, cellOf, finalFlags, finalNotes, finalOf, gradebookColumns, gradebookCsv, gradebookRows } from './gradebook';
 
 const now = new Date('2026-10-20T00:00:00Z');
 const a = (id, status, opensAt, title = id) => ({ id, status, opensAt, title, type: 'KUIS' });
@@ -71,5 +71,97 @@ describe('gradebook - under the KKTP', () => {
     expect(belowKktp({ score: 10, remedial: false }, 0)).toBe(false);
     expect(belowKktp({ score: null }, 70)).toBe(false);
     expect(belowKktp(undefined, 70)).toBe(false);
+  });
+});
+
+describe('gradebook - the final grade', () => {
+  // A row of GET /grading/class-subjects/:id/grades (grading.grades.js slotGrades).
+  const graded = (over = {}) => ({
+    studentProfileId: 'p1',
+    fullName: 'Ani',
+    placedNow: true,
+    reportedHere: true,
+    reportedBy: { id: 'c1', name: 'XI IPS' },
+    grade: {
+      types: { TUGAS: { average: 82.5, weight: 26.67, count: 2 }, KUIS: null, UTS: { average: 75, weight: 46.67, count: 1 }, UAS: null },
+      finalGrade: { unrounded: 78.4, value: 78 },
+      didNotSubmit: 1,
+      waiting: 2,
+      remedialRuleMoved: 1,
+      pooled: 0,
+    },
+    describedHere: true,
+    description: null,
+    ...over,
+  });
+
+  it('a student this slot reports: the grade, its types and the counts', () => {
+    expect(finalOf(graded())).toEqual({
+      value: 78,
+      unrounded: 78.4,
+      types: graded().grade.types,
+      didNotSubmit: 1,
+      waiting: 2,
+      remedialRuleMoved: 1,
+      pooled: 0,
+    });
+  });
+
+  it('nothing weighted counts yet: no value, the counts still said', () => {
+    const final = finalOf(graded({ grade: { types: {}, finalGrade: null, didNotSubmit: 0, waiting: 3, remedialRuleMoved: 0, pooled: 0 } }));
+    expect(final.value).toBeNull();
+    expect(final.unrounded).toBeNull();
+    expect(final.waiting).toBe(3);
+  });
+
+  it('reported by another class: that class, no grade; no row at all: null', () => {
+    expect(finalOf(graded({ reportedHere: false, reportedBy: { id: 'c2', name: 'XI IPA 1' }, grade: null }))).toEqual({ reportedBy: 'XI IPA 1' });
+    expect(finalOf(graded({ reportedHere: false, reportedBy: null, grade: null }))).toEqual({ reportedBy: null });
+    expect(finalOf(undefined)).toBeNull();
+  });
+
+  it('under the number: waiting, then did not submit, only above 0', () => {
+    expect(finalFlags(finalOf(graded()))).toEqual([
+      { key: 'waiting', n: 2 },
+      { key: 'didNotSubmit', n: 1 },
+    ]);
+    expect(finalFlags(finalOf(graded({ grade: { ...graded().grade, waiting: 0, didNotSubmit: 0 } })))).toEqual([]);
+    expect(finalFlags({ reportedBy: 'XI IPA 1' })).toEqual([]);
+    expect(finalFlags(null)).toEqual([]);
+  });
+
+  it('in the details: all four counts above 0', () => {
+    expect(finalNotes(finalOf(graded()))).toEqual([
+      { key: 'waiting', n: 2 },
+      { key: 'didNotSubmit', n: 1 },
+      { key: 'remedialRuleMoved', n: 1 },
+    ]);
+    expect(finalNotes({ reportedBy: null })).toEqual([]);
+  });
+
+  it('rows carry it by student id; no grade read, null for every row', () => {
+    const columns = gradebookColumns([a('q', 'PUBLISHED', '2026-10-12T00:00:00Z')], now);
+    const recap = { students: [{ studentProfileId: 'p1', fullName: 'Ani', cells: [] }, { studentProfileId: 'p9', fullName: 'Zed', cells: [] }] };
+    const rows = gradebookRows(columns, recap, { students: [graded()] });
+    expect(rows[0].final.value).toBe(78);
+    expect(rows[1].final).toBeNull();
+    expect(gradebookRows(columns, recap).map((row) => row.final)).toEqual([null, null]);
+  });
+
+  it('under the KKTP like a score', () => {
+    expect(belowKktp({ score: finalOf(graded()).value }, 80)).toBe(true);
+    expect(belowKktp({ score: finalOf(graded()).value }, 78)).toBe(false);
+    expect(belowKktp({ score: null }, 80)).toBe(false);
+  });
+
+  it('CSV: a last column with the whole number, "-" where none', () => {
+    const columns = gradebookColumns([a('q', 'PUBLISHED', '2026-10-12T00:00:00Z')], now);
+    const rows = [
+      { fullName: 'Ani', cells: [{ score: 87.5 }], final: { value: 78 } },
+      { fullName: 'Budi', cells: [{ score: 60 }], final: { reportedBy: 'XI IPA 1' } },
+      { fullName: 'Cici', cells: [{ score: 70 }], final: null },
+    ];
+    const csv = gradebookCsv(columns, rows, { lang: 'id', nameHeader: 'Nama', columnHeader: (x) => x.title, words: (key) => key, finalHeader: 'Nilai akhir' });
+    expect(csv.slice(1)).toBe('Nama;q;Nilai akhir\r\nAni;87,5;78\r\nBudi;60;-\r\nCici;70;-\r\n');
   });
 });

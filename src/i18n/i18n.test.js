@@ -28,7 +28,7 @@ import id from './id.js';
 import en from './en.js';
 import { LANGUAGES } from './languages.js';
 import { ROLES, ROLE_LABEL_KEY, ROLE_TAGLINE_KEY } from '../constants/roles.js';
-import { decisionErrorMessage, isAlreadyDecided, academicsErrorMessage, assessmentErrorMessage, isStaleAssessment, copyEditErrorMessage, isStaleCopy } from './apiError.js';
+import { decisionErrorMessage, isAlreadyDecided, academicsErrorMessage, assessmentErrorMessage, isStaleAssessment, copyEditErrorMessage, isStaleCopy, gradingErrorMessage, isGradingLocked, descriptionsErrorMessage, isDescriptionsLocked, isFinalisedRefusal, finalisingErrorMessage, isStaleFinalising } from './apiError.js';
 import { SESSION_STATE_KEYS, sessionState } from '../views/Subjects/timetable.js';
 
 const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -197,6 +197,29 @@ describe('every expansion of a dynamic key exists', () => {
     expectEvery(keys.map((s) => `tasm.signals.${s}`));
   });
 
+  it('the gradebook\'s final grade: a phrase for each count (backend 79b319f)', () => {
+    const flags = quotedIn('views/Gradebook/gradebook.js', /export const FINAL_FLAGS = \[([^\]]*)\]/);
+    const notes = quotedIn('views/Gradebook/gradebook.js', /export const FINAL_NOTES = \[([^\]]*)\]/);
+    expect(notes).toEqual(['waiting', 'didNotSubmit', 'remedialRuleMoved', 'pooled']);
+    expectEvery(flags.map((s) => `gradebook.final.flag.${s}`));
+    expectEvery(notes.map((s) => `gradebook.final.note.${s}`));
+    expectEvery(['TUGAS', 'KUIS', 'UTS', 'UAS'].map((s) => `tasm.type.${s}`));
+  });
+
+  it('a description box refused before sending: a sentence for each (descriptionErrors)', () => {
+    expectEvery(['tooLong'].map((s) => `grading.desc.error.${s}`));
+  });
+
+  it('right or wrong per question: a word for each verdict (owner, 2026-10-18)', () => {
+    const verdicts = quotedIn('views/TeacherAssessment/results.js', /export const VERDICTS = \[([^\]]*)\]/);
+    expect(verdicts).toEqual(['CORRECT', 'PARTIAL', 'WRONG', 'UNANSWERED']);
+    expectEvery(verdicts.map((s) => `tasm.verdict.${s}`));
+  });
+
+  it('a homeroom note box refused before sending: a sentence for each (noteErrors)', () => {
+    expectEvery(['tooLong'].map((s) => `homeroom.notes.error.${s}`));
+  });
+
   it('classes: a label for every year and semester status that draws a badge', () => {
     /* The badge colour tables are the set: a status with a colour is a status
        that reaches the screen, so it needs words as well. */
@@ -309,7 +332,7 @@ describe('every expansion of a dynamic key exists', () => {
     /* sessionState builds the cancelled key from the reason; SESSION_STATE_KEYS is
        the set, and each reason in schema.prisma's SessionCancelReason must land in it. */
     expectEvery(SESSION_STATE_KEYS);
-    for (const cancelReason of ['HOLIDAY', 'SCHEDULE_CHANGED', 'NOT_HELD', 'ASSIGNMENT_ENDED', null]) {
+    for (const cancelReason of ['HOLIDAY', 'SCHEDULE_CHANGED', 'NOT_HELD', 'ASSIGNMENT_ENDED', 'EXAM_WEEK', null]) {
       expect(SESSION_STATE_KEYS).toContain(sessionState({ status: 'CANCELLED', cancelReason }));
     }
   });
@@ -447,5 +470,50 @@ describe('an assessment copy edited in place: its refusals (backend 6380e3e edit
   it('reloads when the copy itself moved on', () => {
     expect(isStaleCopy(refused('NOT_FOUND', 'Question not found'))).toBe(true);
     expect(isStaleCopy(refused('BAD_REQUEST', 'An option id does not belong to this question'))).toBe(true);
+  });
+});
+
+describe('a finalised slot refuses every staff write the same way (backend eadf680)', () => {
+  /* The server's own sentence, copied from grading.lock.js assertNotFinalised. */
+  const t = (key) => key;
+  const err = { status: 409, code: 'CONFLICT', message: 'MTK in XI IPS, Semester 1 is finalised; its teacher undoes the finalising to change it' };
+
+  it('assessments, a copy, the grade settings and the descriptions all say it in one sentence', () => {
+    expect(isFinalisedRefusal(err)).toBe(true);
+    expect(assessmentErrorMessage(err, t)).toBe('grading.finalised.refused');
+    expect(copyEditErrorMessage(err, t)).toBe('grading.finalised.refused');
+    expect(gradingErrorMessage(err, t)).toBe('grading.finalised.refused');
+    expect(descriptionsErrorMessage(err, t)).toBe('grading.finalised.refused');
+  });
+
+  it('locks the settings panel and the descriptions card', () => {
+    expect(isGradingLocked(err)).toBe(true);
+    expect(isDescriptionsLocked(err)).toBe(true);
+    expect(isFinalisedRefusal({ message: 'Semester 1 is not open' })).toBe(false);
+  });
+});
+
+describe('finalising refusals (backend eadf680, grading.finalising.js)', () => {
+  /* The server's own sentences, copied from grading.finalising.js. */
+  const t = (key, vars) => (vars?.n !== '' && vars?.n !== undefined ? `${key} ${vars.n}` : key);
+  const said = (message, details) => ({ status: 409, code: 'CONFLICT', message, details });
+
+  it('too early to finalise a slot is not read as stopping a semester that is not being finalised', () => {
+    expect(finalisingErrorMessage(said('Semester 1 is not being finalised yet; the Principal starts it'), t)).toBe('grading.fin.error.notStarted');
+    expect(finalisingErrorMessage(said('Semester 1 of 2026/2027 is not being finalised'), t)).toBe('grading.fin.error.notFinalising');
+  });
+
+  it('blocked, already, stop blocked with the count, closed', () => {
+    expect(finalisingErrorMessage(said('MTK in XI IPS, Semester 1 cannot be finalised yet: 2 Session(s) need completion'), t)).toBe('grading.fin.error.blocked');
+    expect(finalisingErrorMessage(said('MTK in XI IPS, Semester 1 is finalised already'), t)).toBe('grading.fin.error.already');
+    expect(finalisingErrorMessage(said('MTK in XI IPS, Semester 1 is not finalised'), t)).toBe('grading.fin.error.notFinalised');
+    expect(finalisingErrorMessage(said('3 class subject(s) of Semester 1 of 2026/2027 are finalised; their teachers undo it first', { finalised: 3 }), t)).toBe('grading.fin.error.stopBlocked 3');
+    expect(finalisingErrorMessage(said('Semester 1 is closed'), t)).toBe('grading.fin.error.closed');
+    expect(finalisingErrorMessage(said('Only the Principal starts finalising a semester'), t)).toBe('grading.fin.error.principalOnly');
+  });
+
+  it('reads the screen again when it is behind', () => {
+    expect(isStaleFinalising(said('MTK in XI IPS, Semester 1 cannot be finalised yet: x'))).toBe(true);
+    expect(isStaleFinalising(said('Only the Principal starts finalising a semester'))).toBe(false);
   });
 });

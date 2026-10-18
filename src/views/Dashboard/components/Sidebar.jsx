@@ -20,6 +20,7 @@ import {
   School,
   Library,
   FileQuestion,
+  ClipboardCheck,
   X
 } from 'lucide-react';
 import { usePendingCounts } from '../../../hooks/usePendingCounts';
@@ -329,6 +330,17 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
                   <Library className={`w-4 h-4 shrink-0 transition-colors ${isActive('/headmaster/subjects') ? 'text-white' : 'text-brand'}`} />
                   {t('shell.subjects')}
                   <PendingBadge n={pending.teachingRequests} />
+                </button>
+              )}
+
+              {/* Finalising the semester's grades and its readiness board (backend eadf680, ticket 04). */}
+              {isPrincipalDesk(role) && (
+                <button
+                  onClick={() => handleLinkClick('shell.finalising', '/headmaster/finalising')}
+                  className={isActive('/headmaster/finalising') ? activeBtnClass : inactiveBtnClass}
+                >
+                  <ClipboardCheck className={`w-4 h-4 shrink-0 transition-colors ${isActive('/headmaster/finalising') ? 'text-white' : 'text-brand'}`} />
+                  {t('shell.finalising')}
                 </button>
               )}
 

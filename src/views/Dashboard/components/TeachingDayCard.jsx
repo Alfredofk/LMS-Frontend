@@ -8,6 +8,8 @@ import { useT } from '../../../i18n/LanguageContext';
 import { meetingWhen } from '../../Classroom/myClasses';
 import { sessionPhase } from '../../Course/teaching';
 import { teachingDay } from '../teacherHome';
+import { withoutExamWeekCancelled } from '../../Schedule/lessonCalendar';
+import ExamRows from '../../Schedule/ExamRows';
 
 /*
   The teacher's meetings today on the dashboard (owner, 2026-10-05: today only, not
@@ -19,6 +21,10 @@ import { teachingDay } from '../teacherHome';
   @param live      liveAssignments(...), null when the read failed, undefined while reading
   @param meetings  dayMeetings(...) - the teacher's meetings from today on
   @param today     the school's day, YYYY-MM-DD
+  @param examWeek  the Exam Week running today for a grade taught (owner 2026-10-18), or
+                   null: its cancelled meetings are left out, and an empty day says why
+  @param exams     that day's published UTS and UAS of the subjects taught (examsByDay over
+                   teacherExamClasses), shown above the meetings
 */
 
 const PHASE_TONE = { running: 'emerald', awaiting: 'amber', confirmed: 'slate', cancelled: 'rose' };
@@ -31,13 +37,14 @@ const meetingPath = (meeting) => `/teacher/courses/${meeting.classSubjectId}?per
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm text-left';
 
-export const TeachingDayCard = ({ live, meetings, today, className = '' }) => {
+export const TeachingDayCard = ({ live, meetings, today, examWeek = null, exams = null, className = '' }) => {
   const { t, lang } = useT();
   const locale = lang === 'id' ? 'id-ID' : 'en-GB';
   const now = new Date();
   const loading = live === undefined;
   const failed = live === null;
-  const day = live ? teachingDay(meetings, today, now) : null;
+  const day = live ? teachingDay(examWeek ? withoutExamWeekCancelled(meetings) : meetings, today, now) : null;
+  const todayExams = live ? exams ?? [] : [];
 
   /* As TodaySessionsCard's idle state: no dashed box. */
   const empty = (title, extra) => (
@@ -71,10 +78,13 @@ export const TeachingDayCard = ({ live, meetings, today, className = '' }) => {
         {t('teacherDash.schedule.toCourses')}
       </Link>
     );
+  } else if (day.meetings.length === 0 && todayExams.length > 0) {
+    /* An exam day: its exams, above, are the day. */
+    body = null;
   } else if (day.meetings.length === 0) {
     const { next } = day;
     body = empty(
-      t('teacherDash.schedule.noneToday'),
+      examWeek ? t('exam.today.teacherNone', { type: examWeek.type, name: examWeek.name }) : t('teacherDash.schedule.noneToday'),
       next && (
         <Link to={meetingPath(next)} className="block text-center text-[11px] font-bold text-brand hover:underline">
           {t('teacherDash.schedule.nextLine', {
@@ -151,6 +161,17 @@ export const TeachingDayCard = ({ live, meetings, today, className = '' }) => {
           {t('common.seeAll')}
         </Link>
       </div>
+      {todayExams.length > 0 && (
+        <>
+          {/* "No meetings" only when there are none: a grade the week leaves alone is taught. */}
+          {examWeek && !body && (
+            <p className="mb-3 text-[11px] font-semibold text-sky-700">{t('exam.today.week', { type: examWeek.type, name: examWeek.name })}</p>
+          )}
+          <ul className={`space-y-2 ${body ? 'mb-3' : ''}`}>
+            <ExamRows rows={todayExams} />
+          </ul>
+        </>
+      )}
       {body}
     </section>
   );

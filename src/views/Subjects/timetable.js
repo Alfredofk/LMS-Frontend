@@ -194,6 +194,7 @@ export const SESSION_STATE_KEYS = [
   'timetable.session.cancelled.SCHEDULE_CHANGED',
   'timetable.session.cancelled.NOT_HELD',
   'timetable.session.cancelled.ASSIGNMENT_ENDED',
+  'timetable.session.cancelled.EXAM_WEEK',
   'timetable.session.cancelled.OTHER',
   'timetable.session.needsCompletion',
   'timetable.session.completed',

@@ -541,7 +541,22 @@ export function questionBankErrorMessage(err, t) {
   reads values out of the sentence for the words (backend 6380e3e names how
   many submissions a change would void).
 */
+/*
+  A finalised slot (backend eadf680, grading.lock.js assertNotFinalised) refuses every
+  staff write on its assessments, its grade settings and its descriptions with one
+  sentence: "MTK in XI IPS, Semester 1 is finalised; its teacher undoes the
+  finalising to change it". Said the same way everywhere.
+*/
+const FINALISED = 'is finalised; its teacher undoes the finalising';
+
+/** A refusal because the slot is finalised (ticket 04): undone by its teacher first. */
+export const isFinalisedRefusal = (err) => String(err?.message ?? '').includes(FINALISED);
+
 const ASSESSMENT_BY_MESSAGE = [
+  [FINALISED, 'grading.finalised.refused'],
+  /* A UTS or UAS outside an Exam Week (backend cbec3b6, assertInExamWeek). */
+  ['Exam Week is set for grade', 'tasm.error.noExamWeek'],
+  ['Exam Week of grade', 'tasm.error.outsideExamWeek'],
   /* A student's exception (backend 1e6c749), first: some share words with the ones below. */
   ['set exceptions once it is published', 'tasm.exc.error.draft'],
   ['enter the make-up mark when there is one', 'tasm.exc.error.offline'],
@@ -707,6 +722,7 @@ export const isStaleQuestion = (err) =>
   "Invalid request body" with the rule in `details`, read the same way.
 */
 const GRADING_BY_MESSAGE = [
+  [FINALISED, 'grading.finalised.refused'],
   ['The grade settings were changed meanwhile', 'grading.error.meanwhile'],
   ['updatedAt you last read of these grade settings', 'grading.error.meanwhile'],
   ['Only the teacher of this class subject sets its weights and KKTP', 'grading.error.notYours'],
@@ -736,9 +752,112 @@ export const isStaleGrading = (err) =>
 /** A refusal that means this slot's settings take no change any more (closed semester or year, not the reader's). */
 export const isGradingLocked = (err) =>
   /^Academic year .+ is closed$/.test(String(err?.message ?? '')) ||
-  ['its grade settings stay as they are', 'Only the teacher of this class subject sets its weights and KKTP'].some((needle) =>
+  [FINALISED, 'its grade settings stay as they are', 'Only the teacher of this class subject sets its weights and KKTP'].some((needle) =>
     String(err?.message ?? '').includes(needle)
   );
+
+/*
+  A slot's Descriptions (backend 483be5a, grading.texts.js writeDescriptions), told
+  apart on their sentences. A stale row and a student the slot does not describe
+  both name the students in `details.studentProfileIds`; the card names them.
+*/
+const DESCRIPTIONS_BY_MESSAGE = [
+  ['changed meanwhile. Reload and try again', 'grading.desc.error.meanwhile'],
+  ['writes its descriptions', 'grading.desc.error.notYours'],
+  ['its descriptions stay as they are', 'grading.desc.error.semesterClosed'],
+  ['does not describe', 'grading.desc.error.notDescribed'],
+  ['Class subject not found', 'grading.error.gone'],
+  [FINALISED, 'grading.finalised.refused'],
+  ['At most 1,000 characters', 'grading.desc.error.tooLong'],
+];
+
+/** @param names  the students `details.studentProfileIds` names, already looked up, for {names} */
+export function descriptionsErrorMessage(err, t, names = '') {
+  const message = String(err?.message ?? '');
+  if (/^Academic year .+ is closed$/.test(message)) return t('grading.desc.error.yearClosed');
+  const said = [message, ...(Array.isArray(err?.details) ? err.details.map((issue) => String(issue?.message ?? '')) : [])];
+  const hit = DESCRIPTIONS_BY_MESSAGE.find(([needle]) => said.some((text) => text.includes(needle)));
+  if (hit) return t(hit[1], { names });
+  return apiErrorMessage(err, t);
+}
+
+/** A Descriptions refusal that means a row is behind: read the grades again. */
+export const isStaleDescriptions = (err) => String(err?.message ?? '').includes('changed meanwhile. Reload and try again');
+
+/** A refusal that means this slot's Descriptions take no change any more (closed semester or year, not the reader's). */
+export const isDescriptionsLocked = (err) =>
+  /^Academic year .+ is closed$/.test(String(err?.message ?? '')) ||
+  [FINALISED, 'its descriptions stay as they are', 'writes its descriptions'].some((needle) => String(err?.message ?? '').includes(needle));
+
+/*
+  Finalising (backend eadf680, grading.finalising.js), told apart on its sentences.
+  Order matters: "is not being finalised yet" (finalising a slot too early) holds
+  "is not being finalised" (stopping a semester that is not), so it comes first.
+*/
+const FINALISING_BY_MESSAGE = [
+  ['cannot be finalised yet', 'grading.fin.error.blocked'],
+  ['is not being finalised yet; the Principal starts it', 'grading.fin.error.notStarted'],
+  ['is no longer being finalised', 'grading.fin.error.notStarted'],
+  ['is finalised already', 'grading.fin.error.already'],
+  ['are finalised; their teachers undo it first', 'grading.fin.error.stopBlocked'],
+  ['is not finalised', 'grading.fin.error.notFinalised'],
+  ['Only the teacher of this class subject', 'grading.fin.error.notYours'],
+  ['Only the Principal', 'grading.fin.error.principalOnly'],
+  ['is not being finalised', 'grading.fin.error.notFinalising'],
+  ['is not open', 'grading.fin.error.notOpen'],
+  ['its class subjects stay finalised', 'grading.fin.error.closed'],
+  ['Semester not found', 'grading.fin.error.gone'],
+  ['Class subject not found', 'grading.error.gone'],
+];
+
+export function finalisingErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  if (/^Academic year .+ is closed$/.test(message)) return t('grading.fin.error.yearClosed');
+  if (/^Semester \d+ is closed$/.test(message)) return t('grading.fin.error.closed');
+  const hit = FINALISING_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  if (hit) return t(hit[1], { n: err?.details?.finalised ?? '' });
+  return apiErrorMessage(err, t);
+}
+
+/** A finalising refusal that means the screen is behind (blockers, the slot or the semester changed): read it again. */
+export const isStaleFinalising = (err) =>
+  ['cannot be finalised yet', 'is finalised already', 'is not finalised', 'is not being finalised', 'is no longer being finalised', 'is not open'].some((needle) =>
+    String(err?.message ?? '').includes(needle)
+  );
+
+/*
+  A Class's Homeroom Notes (backend 483be5a, grading.texts.js readNotes/writeNotes),
+  told apart on their sentences. A stale row and a student not placed there now
+  name the students in `details.studentProfileIds`; the card names them.
+*/
+const NOTES_BY_MESSAGE = [
+  ['changed meanwhile. Reload and try again', 'homeroom.notes.error.meanwhile'],
+  ['writes its notes', 'homeroom.notes.error.notYours'],
+  ['its notes stay as they are', 'homeroom.notes.error.semesterClosed'],
+  ['Not placed in', 'homeroom.notes.error.notPlaced'],
+  ['Class not found', 'homeroom.notes.error.gone'],
+  ['Semester not found', 'homeroom.notes.error.gone'],
+  ['At most 1,000 characters', 'homeroom.notes.error.tooLong'],
+];
+
+/** @param names  the students `details.studentProfileIds` names, already looked up, for {names} */
+export function notesErrorMessage(err, t, names = '') {
+  const message = String(err?.message ?? '');
+  if (/^Academic year .+ is closed$/.test(message)) return t('homeroom.notes.error.yearClosed');
+  const said = [message, ...(Array.isArray(err?.details) ? err.details.map((issue) => String(issue?.message ?? '')) : [])];
+  const hit = NOTES_BY_MESSAGE.find(([needle]) => said.some((text) => text.includes(needle)));
+  if (hit) return t(hit[1], { names });
+  return apiErrorMessage(err, t);
+}
+
+/** A Notes refusal that means the list is behind: read it again (a stale row, a student moved out). */
+export const isStaleNotes = (err) =>
+  ['changed meanwhile. Reload and try again', 'Not placed in'].some((needle) => String(err?.message ?? '').includes(needle));
+
+/** A refusal that means these Notes take no change any more (closed semester or year, not the reader's). */
+export const isNotesLocked = (err) =>
+  /^Academic year .+ is closed$/.test(String(err?.message ?? '')) ||
+  ['its notes stay as they are', 'writes its notes'].some((needle) => String(err?.message ?? '').includes(needle));
 
 /*
   A student's check-in — attendance.service.js `checkIn` (backend deb95e8,
@@ -784,3 +903,40 @@ export const isStaleMove = (err) =>
   err?.code === 'NOT_FOUND' || String(err?.message ?? '').includes('has already been decided');
 
 export default apiErrorMessage;
+
+/*
+  Exam Weeks - holidays.examWeeks.js (backend cbec3b6, ticket 13). An overlap on a
+  shared grade level names the week in the way, which is worth repeating with its
+  days; the rest are told apart on their sentences. NOT_FOUND on a withdraw means
+  it was withdrawn elsewhere (one answer for every miss).
+*/
+const EXAM_WEEK_OVERLAP = /overlaps (UTS|UAS) "(.*)" \((\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2})\) on grade ([\d, ]+)/;
+const EXAM_WEEK_OUTSIDE = /lies inside Semester (\d+): (\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2})/;
+const EXAM_WEEK_BY_MESSAGE = [
+  ['set at the same moment', 'exam.error.atOnce'],
+  ['Academic year', 'exam.error.yearClosed'],
+  ['is closed', 'exam.error.semesterClosed'],
+  ['has no grade', 'exam.error.gradeMissing'],
+  ['No Exam Week of yours', 'exam.error.gone'],
+];
+
+export function examWeekErrorMessage(err, t, lang) {
+  const message = err?.message ?? '';
+  const overlap = EXAM_WEEK_OVERLAP.exec(message);
+  if (overlap) {
+    return t('exam.error.overlap', {
+      type: overlap[1],
+      name: overlap[2],
+      start: formatDay(overlap[3], lang),
+      end: formatDay(overlap[4], lang),
+      grades: overlap[5],
+    });
+  }
+  const outside = EXAM_WEEK_OUTSIDE.exec(message);
+  if (outside) {
+    return t('exam.error.outside', { start: formatDay(outside[2], lang), end: formatDay(outside[3], lang) });
+  }
+  const hit = EXAM_WEEK_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  if (hit) return t(hit[1]);
+  return apiErrorMessage(err, t);
+}

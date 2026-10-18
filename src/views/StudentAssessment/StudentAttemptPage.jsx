@@ -13,7 +13,7 @@ import { assessmentService } from '../../services/assessmentService';
 import { downloadFile, openFileInNewTab } from '../../utils/openFile';
 import { localOf } from '../Attendance/attendance';
 import { formatSchoolDay } from '../QuestionBank/questionBank';
-import { formatNumber } from '../TeacherAssessment/results';
+import { formatNumber, verdictOf, VERDICT_TONE } from '../TeacherAssessment/results';
 import {
   TEXT_SAVE_DELAY_MS,
   answerBody,
@@ -493,7 +493,10 @@ const AnswerReadBack = ({ question, submissionId, t }) => {
                 {option.text && <span className="block text-sm font-semibold text-slate-800 break-words">{option.text}</span>}
                 {option.imageId && <QuestionImage imageId={option.imageId} submissionId={submissionId} className="max-h-40" />}
               </span>
-              {chosen && <span className="text-[11px] font-bold text-brand shrink-0">{t('sasm.yourChoice')}</span>}
+              <span className="flex flex-col items-end gap-0.5 shrink-0 text-[11px] font-bold">
+                {chosen && <span className="text-brand">{t('sasm.yourChoice')}</span>}
+                {correct && <span className="text-slate-600">{t('tasm.mark.keyOption')}</span>}
+              </span>
             </li>
           );
         })}
@@ -512,6 +515,8 @@ const AnswerReadBack = ({ question, submissionId, t }) => {
   );
 };
 
+const VerdictWord = ({ verdict, t }) => (verdict ? <span className={VERDICT_TONE[verdict]}>{t(`tasm.verdict.${verdict}`)}</span> : null);
+
 const KeyLine = ({ question, t }) => {
   const key = keyOf(question);
   if (!key) return null;
@@ -520,7 +525,7 @@ const KeyLine = ({ question, t }) => {
   else if (key.kind === 'TF') text = t(`qbank.tf.${key.value}`);
   else text = key.accepted.join(' / ');
   return (
-    <p className="text-xs font-semibold text-emerald-700">
+    <p className="text-xs font-semibold text-slate-600">
       {t('sasm.key')}: <span className="font-bold">{text}</span>
     </p>
   );
@@ -584,10 +589,17 @@ const ReadBack = ({ view, zone, notice }) => {
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
               <span className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 text-xs font-extrabold flex items-center justify-center shrink-0">{index + 1}</span>
               <span className="text-xs font-bold text-slate-600">{t(`qbank.kind.${question.kind}`)}</span>
-              <span className="ml-auto text-xs font-bold text-slate-700 tabular-nums">
-                {question.marks
-                  ? t('sasm.pointsOf', { earned: formatNumber(question.marks.points, lang), total: question.points })
-                  : t('sasm.points', { n: question.points })}
+              <span className="ml-auto flex items-baseline gap-2.5 text-xs font-bold tabular-nums">
+                {/* Right or wrong once released (owner, 2026-10-18), as the teacher's marking page says it. */}
+                <VerdictWord
+                  verdict={question.marks ? verdictOf({ kind: question.kind, points: question.points, earned: question.marks.points, answered: Boolean(question.answer) }) : null}
+                  t={t}
+                />
+                <span className="text-slate-700">
+                  {question.marks
+                    ? t('sasm.pointsOf', { earned: formatNumber(question.marks.points, lang), total: question.points })
+                    : t('sasm.points', { n: question.points })}
+                </span>
               </span>
             </div>
             <QuestionBody question={question} submissionId={submission.id} />

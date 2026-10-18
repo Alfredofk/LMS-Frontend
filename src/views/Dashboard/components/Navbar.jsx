@@ -57,6 +57,7 @@ const TITLES = {
   '/headmaster/classes': { key: 'shell.classes', back: true },
   '/headmaster/members': { key: 'shell.members', back: true },
   '/headmaster/subjects': { key: 'shell.subjects', back: true },
+  '/headmaster/finalising': { key: 'shell.finalising', back: true },
   '/join-requests': { key: 'shell.joinRequests', back: true },
   '/question-bank': { key: 'qbank.title', back: true },
   '/guardian': { key: 'shell.myChildren' },

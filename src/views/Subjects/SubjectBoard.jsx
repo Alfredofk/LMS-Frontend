@@ -10,7 +10,7 @@ import { useT } from '../../i18n/LanguageContext';
 import { subjectsErrorMessage } from '../../i18n/apiError';
 import { formatDay } from '../Classes/format';
 import SubjectLabel from '../../components/ui/SubjectLabel';
-import { defaultSlot, defaultSemesterOf, freeSubjects, boardWritable, deadlinePassed, canChangeAssignment } from './subjects';
+import { defaultSlot, defaultSemesterOf, freeSubjects, boardWritable, boardAssignable, replaceOnly, deadlinePassed, canChangeAssignment } from './subjects';
 
 /*
   Who teaches what, class by class, in one semester —
@@ -92,6 +92,9 @@ export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast
 
   const semester = board?.semester;
   const writable = semester && boardWritable(year?.status, semester.status);
+  /* A FINALIZING semester still takes the leaders' override and replace (backend eadf680). */
+  const assignable = semester && boardAssignable(year?.status, semester.status);
+  const finalizing = Boolean(assignable && !writable);
   const deadline = semester?.classSubjectRegistrationDeadline;
 
   const openAssign = (boardClass) => {
@@ -163,7 +166,9 @@ export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast
           {/* A closed year or semester takes nothing, so its deadline says
               nothing useful — "teachers can ask any time" beside "closed" read
               as a contradiction. Only the read-only line is shown then. */}
-          {writable ? (
+          {finalizing ? (
+            <p>{t('subjects.board.finalizing')}</p>
+          ) : writable ? (
             <p>
               {deadline
                 ? t(deadlinePassed(semester) ? 'subjects.board.deadlinePassed' : 'subjects.board.deadline', {
@@ -204,7 +209,7 @@ export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast
                     {t('subjects.board.homeroom', { name: entry.homeroomTeacher?.fullName ?? t('classes.detail.noHomeroom') })}
                   </p>
                 </div>
-                {writable && (
+                {assignable && (
                   <button
                     type="button"
                     onClick={() => openAssign(entry)}
@@ -233,7 +238,7 @@ export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast
                           {t('subjects.status.PENDING')}
                         </span>
                       )}
-                      {writable && canChangeAssignment(row, selfId) && (
+                      {assignable && canChangeAssignment(row, selfId) && (
                         <button
                           type="button"
                           onClick={() => openChange(row, entry)}
@@ -283,6 +288,7 @@ export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast
           boardClass={changing.boardClass}
           semester={semester}
           teachers={teachers}
+          replaceOnly={replaceOnly(semester.status)}
           onClose={() => setChanging(null)}
           onChanged={(message) => {
             setChanging(null);

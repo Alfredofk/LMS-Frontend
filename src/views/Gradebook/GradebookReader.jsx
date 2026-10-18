@@ -4,6 +4,7 @@ import { ArrowLeft, Lock } from 'lucide-react';
 import { useT } from '../../i18n/LanguageContext';
 import GradebookTable from './GradebookTable';
 import SlotGradeSettings from '../Grading/SlotGradeSettings';
+import SlotDescriptions from '../Grading/SlotDescriptions';
 
 /*
   One class subject's gradebook, read only, opened in place (owner, 2026-10-11):
@@ -11,7 +12,8 @@ import SlotGradeSettings from '../Grading/SlotGradeSettings';
   ScheduleDialog, and for the homeroom teacher from HomeroomAttendance, beside
   "Lihat penilaian". The same table as the teacher's (GradebookTable) with its CSV;
   nothing in it opens or changes - the teacher of the subject marks and releases.
-  Above it the slot's grade settings, read only (SlotGradeSettings, backend 5d42af6).
+  Above it the slot's grade settings, read only (SlotGradeSettings, backend 5d42af6);
+  under it the report card's descriptions, read only (SlotDescriptions, 483be5a).
 
   @param classSubjectId  the class subject
   @param name            how it is called there ("MTK Matematika - XI IPS"), for the caption and the file
@@ -20,8 +22,10 @@ import SlotGradeSettings from '../Grading/SlotGradeSettings';
 */
 export const GradebookReader = ({ classSubjectId, name, onBack, showTitle = true }) => {
   const { t } = useT();
-  const [kktp, setKktp] = useState(null);
-  const onSettings = useCallback((settings) => setKktp(settings?.kktp?.value ?? null), []);
+  const [settings, setSettings] = useState(undefined);
+  const onSettings = useCallback((read) => setSettings(read), []);
+  const [grades, setGrades] = useState(undefined);
+  const onGrades = useCallback((read) => setGrades(read), []);
   return (
     <div className="space-y-3">
       <button
@@ -45,8 +49,11 @@ export const GradebookReader = ({ classSubjectId, name, onBack, showTitle = true
         caption={name}
         fileName={`nilai-${name ?? ''}.csv`.replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, '-')}
         framed={false}
-        kktp={kktp}
+        kktp={settings?.kktp?.value ?? null}
+        settingsStamp={settings === undefined ? undefined : (settings.updatedAt ?? null)}
+        onGrades={onGrades}
       />
+      <SlotDescriptions classSubjectId={classSubjectId} grades={grades} kktp={settings?.kktp?.value ?? null} />
     </div>
   );
 };

@@ -26,10 +26,11 @@ import { changeErrors, replacementTeachers } from './subjects';
   no second confirmation: the summary and the button say what will happen
   (owner, 2026-09-30). A row ended or replaced elsewhere goes to `onStale`.
 */
-export const ChangeAssignmentDialog = ({ row, boardClass, semester, teachers, onClose, onChanged, onStale }) => {
+export const ChangeAssignmentDialog = ({ row, boardClass, semester, teachers, replaceOnly = false, onClose, onChanged, onStale }) => {
   const { t } = useT();
   const baseId = useId();
-  const [mode, setMode] = useState(null);
+  /* While the semester is finalised (backend eadf680) only handing over is offered: ending would leave the slot with nobody. */
+  const [mode, setMode] = useState(replaceOnly ? 'REPLACE' : null);
   const [teacherId, setTeacherId] = useState('');
   const [subjectStops, setSubjectStops] = useState(null);
   const [reason, setReason] = useState('');
@@ -170,16 +171,20 @@ export const ChangeAssignmentDialog = ({ row, boardClass, semester, teachers, on
             t('subjects.change.mode.replace'),
             t('subjects.change.mode.replaceBody')
           )}
-          {choice(
-            'mode',
-            'END',
-            mode === 'END',
-            () => {
-              setMode('END');
-              clear('mode');
-            },
-            t('subjects.change.mode.end'),
-            t('subjects.change.mode.endBody')
+          {replaceOnly ? (
+            <p className="text-xs font-semibold text-slate-500 leading-relaxed">{t('subjects.change.replaceOnly')}</p>
+          ) : (
+            choice(
+              'mode',
+              'END',
+              mode === 'END',
+              () => {
+                setMode('END');
+                clear('mode');
+              },
+              t('subjects.change.mode.end'),
+              t('subjects.change.mode.endBody')
+            )
           )}
           {errors.mode && (
             <p id={`${ids.mode}-error`} className="text-xs text-red-600 font-semibold" role="alert">

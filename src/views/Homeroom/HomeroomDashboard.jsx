@@ -6,6 +6,8 @@ import Button from '../../components/ui/Button';
 import ClassDetail from '../Classes/components/ClassDetail';
 import ClassMovesSection from './ClassMovesSection';
 import HomeroomAttendance from './HomeroomAttendance.jsx';
+import HomeroomNotes from './HomeroomNotes';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { pendingMoveByStudent } from './moves';
 import { academicsService } from '../../services/academicsService';
 import { useAuth } from '../../context/AuthContext';
@@ -39,8 +41,10 @@ import { notifyPendingChanged } from '../../hooks/usePendingCounts';
 
   **Attendance is read here** (backend deb95e8; owner, 2026-10-02): below the
   opened class, HomeroomAttendance — its subjects, their meetings, each meeting's
-  roster. Read only; confirming is the subject teacher's. Reports and grades are
-  not here: no model for either exists in the backend. The old page carried a whole report modal built on a guessed
+  roster. Read only; confirming is the subject teacher's. Under it the report
+  card's Notes per semester (HomeroomNotes, backend 483be5a; owner 2026-10-18),
+  which this teacher writes; "back to the class list" asks first while one is
+  unsaved. Report cards themselves are not here yet (ticket 05). The old page carried a whole report modal built on a guessed
   contract; it went with the guess. The notice says it is coming rather than
   leaving a gap nobody explains.
 */
@@ -55,6 +59,14 @@ export const HomeroomDashboard = () => {
   const [selectedId, setSelectedId] = useState(null);
   const [moves, setMoves] = useState(null);
   const [movesError, setMovesError] = useState(null);
+  /* The notes card's unsaved typing, and "back" asked for while it waits. */
+  const [notesDirty, setNotesDirty] = useState(false);
+  const [askBack, setAskBack] = useState(false);
+  const leaveClass = () => {
+    setAskBack(false);
+    setNotesDirty(false);
+    setSelectedId(null);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -129,7 +141,7 @@ export const HomeroomDashboard = () => {
           canMove
           pendingMoves={pendingMoves}
           onMoveRequested={reloadAfterMove}
-          onBack={() => setSelectedId(null)}
+          onBack={() => (notesDirty ? setAskBack(true) : leaveClass())}
           onChanged={(updated) =>
             setClasses((prev) =>
               (prev ?? []).map((entry) =>
@@ -140,6 +152,19 @@ export const HomeroomDashboard = () => {
           showToast={showToast}
         />
         {selectedYearId && <HomeroomAttendance key={selectedId} classId={selectedId} academicYearId={selectedYearId} />}
+        {selectedYearId && (
+          <HomeroomNotes key={`notes-${selectedId}`} classId={selectedId} academicYearId={selectedYearId} canEdit onDirty={setNotesDirty} onToast={showToast} />
+        )}
+        <ConfirmDialog
+          open={askBack}
+          tone="danger"
+          title={t('unsaved.title')}
+          body={t('unsaved.body')}
+          confirmLabel={t('unsaved.leave')}
+          cancelLabel={t('unsaved.stay')}
+          onConfirm={leaveClass}
+          onCancel={() => setAskBack(false)}
+        />
       </div>
     );
   }
