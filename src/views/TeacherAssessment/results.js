@@ -10,10 +10,16 @@
     two decimals, 0 to the question's points (markBody: `decimal`, assertMarkable).
   - Release records a score for each attempt closed and fully marked; an ONLINE
     one only once it has closed. After that points change only with a reason.
+  - A LATIHAN (backend 026e4f9) is never released and takes comments only, no
+    points: a student there is NOT_STARTED, IN_PROGRESS or DONE, with their best
+    and latest attempt (`practice`); an attempt handed in is SUBMITTED, or
+    WAITING_FOR_MARKING while an answered essay waits for its comment.
 */
 
-export const STUDENT_STATUSES = ['NOT_STARTED', 'IN_PROGRESS', 'WAITING_FOR_MARKING', 'WAITING_FOR_RELEASE', 'RELEASED', 'DID_NOT_SUBMIT'];
-export const ATTEMPT_STATUSES = ['IN_PROGRESS', 'WAITING_FOR_MARKING', 'WAITING_FOR_RELEASE', 'RELEASED', 'VOID'];
+import { isPractice } from './teacherAssessment';
+
+export const STUDENT_STATUSES = ['NOT_STARTED', 'IN_PROGRESS', 'WAITING_FOR_MARKING', 'WAITING_FOR_RELEASE', 'RELEASED', 'DID_NOT_SUBMIT', 'DONE'];
+export const ATTEMPT_STATUSES = ['IN_PROGRESS', 'WAITING_FOR_MARKING', 'WAITING_FOR_RELEASE', 'RELEASED', 'VOID', 'SUBMITTED'];
 
 const localeOf = (lang) => (lang === 'en' ? 'en-GB' : 'id-ID');
 
@@ -30,7 +36,7 @@ export function formatNumber(value, lang) {
  * and only with something ready.
  */
 export function releaseState(assessment, waiting, now = new Date()) {
-  if (!assessment?.canManage || assessment.status !== 'PUBLISHED') return { show: false, enabled: false, why: null };
+  if (!assessment?.canManage || assessment.status !== 'PUBLISHED' || isPractice(assessment)) return { show: false, enabled: false, why: null };
   if (assessment.mode === 'ONLINE' && now < new Date(assessment.closesAt)) return { show: true, enabled: false, why: 'tasm.results.releaseAfterClose' };
   if (!waiting?.release) return { show: true, enabled: false, why: 'tasm.results.nothingToRelease' };
   return { show: true, enabled: true, why: null };
@@ -48,15 +54,23 @@ export function nextToMark(students, currentId) {
   return ordered.find((attempt) => attempt.status === 'WAITING_FOR_MARKING' && attempt.id !== currentId) ?? null;
 }
 
+/** The attempt statuses the answering teacher marks or comments on: handed in, not void. */
+export const MARKABLE = ['WAITING_FOR_MARKING', 'WAITING_FOR_RELEASE', 'RELEASED', 'SUBMITTED'];
+
 /** Whether this attempt can be marked here: the answering teacher, published, closed, not void, online. */
 export function canMark(view) {
   if (!view?.assessment?.canManage || view.assessment.status !== 'PUBLISHED') return false;
   if (view.submission.closedBy === 'TEACHER') return false;
-  return ['WAITING_FOR_MARKING', 'WAITING_FOR_RELEASE', 'RELEASED'].includes(view.submission.status);
+  return MARKABLE.includes(view.submission.status);
 }
 
-/** Whether the teacher gives points on this question: a SHORT or an ESSAY that was answered. */
-export const takesPoints = (question) => (question.kind === 'SHORT' || question.kind === 'ESSAY') && question.answer !== null;
+/**
+ * Whether the teacher gives points on this question: a SHORT or an ESSAY that was
+ * answered - never on a LATIHAN, whose answers take comments only (backend 026e4f9:
+ * any points there are a 400).
+ */
+export const takesPoints = (question, assessment = null) =>
+  !isPractice(assessment) && (question.kind === 'SHORT' || question.kind === 'ESSAY') && question.answer !== null;
 
 /** A comment goes only on an answer that exists (assertMarkable). */
 export const takesComment = (question) => question.answer !== null;
@@ -91,7 +105,7 @@ export function markErrors(draft, view) {
   for (const question of view?.questions ?? []) {
     const entry = draft.answers[question.id];
     if (!entry) continue;
-    if (takesPoints(question)) {
+    if (takesPoints(question, view.assessment)) {
       const value = pointsValue(entry.points);
       if (value === null) {
         if (released && question.kind === 'ESSAY' && question.teacherPoints !== null) errors[question.id] = 'tasm.mark.error.keepEssay';
@@ -108,7 +122,7 @@ const commentOf = (typed) => typed.trim() || null;
 
 /** Whether the teacher's points on any answer differ from the saved ones: after release, a reason is due. */
 export function pointsChanged(draft, view) {
-  return (view?.questions ?? []).some((question) => takesPoints(question) && pointsValue(draft.answers[question.id]?.points) !== question.teacherPoints);
+  return (view?.questions ?? []).some((question) => takesPoints(question, view.assessment) && pointsValue(draft.answers[question.id]?.points) !== question.teacherPoints);
 }
 
 /**
@@ -121,7 +135,7 @@ export function markBody(draft, view, reason = '') {
     const entry = draft.answers[question.id];
     if (!entry) continue;
     const item = { questionId: question.id };
-    if (takesPoints(question)) {
+    if (takesPoints(question, view.assessment)) {
       const value = pointsValue(entry.points);
       if (value !== question.teacherPoints) item.points = value;
     }
@@ -148,12 +162,22 @@ export function chosenOptions(question) {
 
 export const MAX_OFFLINE_MARK = 100;
 
+/*
+  A remedial mark beside the original (backend dfa2545, assessment ticket 09; owner
+  2026-10-19: a second column): a second teacher-entered attempt flagged remedial,
+  which a release gives its own Score while the original's stays, and the school's
+  Remedial Rule then counts. Entered once the window has closed, for a student
+  placed in the class now, in its own PUT (`remedial: true`); taken back (DELETE,
+  voided softly) only before its release. Only the mark, no comment.
+*/
+
 /**
  * A student's offline mark as saved: the attempt the teacher entered (closedBy
  * TEACHER, not void) - `{ submissionId, value, released, comment }` - or null.
+ * `remedial` reads the remedial mark beside it instead.
  */
-export function offlineSavedOf(student) {
-  const attempt = (student?.attempts ?? []).find((item) => item.closedBy === 'TEACHER' && item.status !== 'VOID');
+export function offlineSavedOf(student, remedial = false) {
+  const attempt = (student?.attempts ?? []).find((item) => item.closedBy === 'TEACHER' && item.status !== 'VOID' && Boolean(item.remedial) === remedial);
   if (!attempt) return null;
   return { submissionId: attempt.id, value: attempt.mark?.value ?? null, released: Boolean(attempt.releasedAt), comment: attempt.comment ?? null };
 }
@@ -170,7 +194,13 @@ export function offlineDraftsFrom(students, lang = 'en') {
     /* Written as the reader writes it ("85,5"); pointsValue reads either. A mark is at most 100, so no grouping. */
     const mark = saved?.value === null || saved?.value === undefined ? '' : formatNumber(saved.value, lang);
     const stored = saved?.comment ?? null;
-    drafts[student.studentProfileId] = { mark, comment: stored ?? '', loadedComment: stored };
+    const remedial = offlineSavedOf(student, true);
+    drafts[student.studentProfileId] = {
+      mark,
+      comment: stored ?? '',
+      loadedComment: stored,
+      remedial: remedial?.value === null || remedial?.value === undefined ? '' : formatNumber(remedial.value, lang),
+    };
   }
   return drafts;
 }
@@ -207,8 +237,51 @@ export function offlineErrors(drafts, students) {
   return errors;
 }
 
-/** Whether a released mark is among those changed: then a reason goes with them. */
-export const offlineNeedsReason = (drafts, students) => offlineChanges(drafts, students).some((change) => change.markChanged && change.saved?.released);
+/** Per student whose remedial box changed: `{ student, saved, value }`. */
+function remedialChanges(drafts, students) {
+  const changes = [];
+  for (const student of students ?? []) {
+    const draft = drafts[student.studentProfileId];
+    if (!draft) continue;
+    const saved = offlineSavedOf(student, true);
+    const value = pointsValue(draft.remedial);
+    if (value !== (saved?.value ?? null)) changes.push({ student, saved, value });
+  }
+  return changes;
+}
+
+/** Whether a remedial mark may be entered now: the window has closed (409 before). */
+export const remedialMarksOpen = (assessment, now = new Date()) => Boolean(assessment?.closesAt) && now >= new Date(assessment.closesAt);
+
+/** Whether a student's remedial box is offered: placed in the class now, or a remedial mark already there. */
+export const takesRemedialMark = (student) => Boolean(student?.placedNow) || Boolean(offlineSavedOf(student, true));
+
+/**
+ * Keys `${id}:remedial`: a mark 0 to 100, two decimals at most; a saved one is
+ * changed, never emptied - "Tarik" takes it back before release.
+ */
+export function remedialErrors(drafts, students) {
+  const errors = {};
+  for (const { student, saved, value } of remedialChanges(drafts, students)) {
+    const key = `${student.studentProfileId}:remedial`;
+    if (value === null) errors[key] = saved?.released ? 'tasm.offline.error.keep' : 'tasm.offline.error.keepRemedial';
+    else if (Number.isNaN(value) || !twoDecimals(value) || value > MAX_OFFLINE_MARK) errors[key] = 'tasm.offline.error.mark';
+  }
+  return errors;
+}
+
+/** Whether a released mark is among those changed, an original or a remedial: then a reason goes with them. */
+export const offlineNeedsReason = (drafts, students) =>
+  offlineChanges(drafts, students).some((change) => change.markChanged && change.saved?.released) ||
+  remedialChanges(drafts, students).some((change) => change.saved?.released);
+
+/** The remedial PUT's body, `{ remedial: true, marks: [{ studentProfileId, value }], reason? }`, or null when nothing changed. */
+export function remedialBody(drafts, students, reason = '') {
+  const changes = remedialChanges(drafts, students);
+  if (!changes.length) return null;
+  const marks = changes.map(({ student, value }) => ({ studentProfileId: student.studentProfileId, value }));
+  return changes.some((change) => change.saved?.released) ? { remedial: true, marks, reason: String(reason).trim() } : { remedial: true, marks };
+}
 
 /** PUT's body, `{ marks: [{ studentProfileId, value, comment? }], reason? }`, or null when nothing changed. */
 export function offlineBody(drafts, students, reason = '') {
@@ -219,7 +292,7 @@ export function offlineBody(drafts, students, reason = '') {
     value,
     ...(withComment ? { comment: String(draft.comment ?? '').trim() || null } : {}),
   }));
-  return offlineNeedsReason(drafts, students) ? { marks, reason: String(reason).trim() } : { marks };
+  return changes.some((change) => change.markChanged && change.saved?.released) ? { marks, reason: String(reason).trim() } : { marks };
 }
 
 /** The words a list row says of a student's attempts, newest first. */

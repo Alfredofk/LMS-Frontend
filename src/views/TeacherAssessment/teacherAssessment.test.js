@@ -17,6 +17,7 @@ import {
   createBody,
   dashboardAssessments,
   emptyForm,
+  isPractice,
   emptyWindow,
   formErrors,
   formFrom,
@@ -165,6 +166,10 @@ describe('the question list', () => {
     expect(questionsBody(rows)).toEqual([{ id: 'c1', points: 2 }, { id: 'c2', points: 3 }]);
     expect(rowsChanged(rows, saved.questions)).toBe(false);
     expect(totalPoints(rows)).toBe(5);
+    // A LATIHAN's essays count in no total (backend 026e4f9).
+    const withEssay = [...rows, { points: '10', content: { kind: 'ESSAY' } }];
+    expect(totalPoints(withEssay)).toBe(15);
+    expect(totalPoints(withEssay, true)).toBe(2);
   });
 
   it('picked bank questions are new rows of 1 point, named by questionId', () => {
@@ -504,5 +509,44 @@ describe('Exam Weeks for a UTS or UAS', () => {
     expect(formErrors(moved, { zone: 'WIB', span, published: false, examWeeks: uts11, now, ...savedAt })).toEqual({});
     const inside = filled({ type: 'UTS', opensDate: '2026-10-27', closesDate: '2026-10-27' });
     expect(formErrors(inside, { zone: 'WIB', span, published: true, examWeeks: uts11, now, ...savedAt })).toEqual({});
+  });
+});
+
+describe('LATIHAN - backend 026e4f9 assertFitsType', () => {
+  const practice = (over = {}) => filled({ type: 'LATIHAN', ...over });
+
+  it('is told by its type', () => {
+    expect(isPractice({ type: 'LATIHAN' })).toBe(true);
+    expect(isPractice({ type: 'KUIS' })).toBe(false);
+    expect(isPractice(null)).toBe(false);
+  });
+
+  it('unlimited attempts send null and skip the 1-20 check; on another type they are not sent', () => {
+    expect(formErrors(practice({ unlimited: true, maxAttempts: '' }), { zone: 'WIB' })).toEqual({});
+    expect(createBody(practice({ unlimited: true }), 'WIB').maxAttempts).toBeNull();
+    expect(createBody(practice({ unlimited: false, maxAttempts: '5' }), 'WIB').maxAttempts).toBe(5);
+    expect(createBody(filled({ unlimited: true, maxAttempts: '2' }), 'WIB').maxAttempts).toBe(2);
+    expect(formErrors(filled({ unlimited: true, maxAttempts: '' }), { zone: 'WIB' }).maxAttempts).toBe('tasm.error.attempts');
+  });
+
+  it('is answered online', () => {
+    expect(formErrors(practice({ mode: 'OFFLINE' }), { zone: 'WIB' }).mode).toBe('tasm.error.practiceOffline');
+  });
+
+  it('reads a saved unlimited one back, and a PATCH sends null only when it changed', () => {
+    const saved = {
+      type: 'LATIHAN',
+      mode: 'ONLINE',
+      title: 'Latihan',
+      instructions: null,
+      opensAt: '2026-10-12T00:00:00.000Z',
+      closesAt: '2026-10-12T02:00:00.000Z',
+      settings: { maxAttempts: null, acceptLate: false, timeLimitMinutes: null, shuffleQuestions: false, shuffleOptions: false, showKeyOnRelease: true },
+    };
+    const form = formFrom(saved, 'WIB');
+    expect(form.unlimited).toBe(true);
+    expect(patchBody(form, saved, 'WIB')).toEqual({});
+    expect(patchBody({ ...form, unlimited: false, maxAttempts: '3' }, saved, 'WIB')).toEqual({ maxAttempts: 3 });
+    expect(patchBody({ ...formFrom({ ...saved, settings: { ...saved.settings, maxAttempts: 2 } }, 'WIB'), unlimited: true }, { ...saved, settings: { ...saved.settings, maxAttempts: 2 } }, 'WIB')).toEqual({ maxAttempts: null });
   });
 });

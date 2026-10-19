@@ -48,7 +48,8 @@ const loading = (t) => <div className="h-20 bg-slate-50 rounded-xl animate-pulse
 const settingsFacts = (settings, t) =>
   settings
     ? [
-        t('tasm.reader.attempts', { n: settings.maxAttempts }),
+        /* Null is unlimited, a LATIHAN's (backend 026e4f9). */
+        settings.maxAttempts === null ? t('tasm.reader.attemptsUnlimited') : t('tasm.reader.attempts', { n: settings.maxAttempts }),
         settings.timeLimitMinutes ? t('tasm.reader.limit', { n: settings.timeLimitMinutes }) : t('tasm.reader.noLimit'),
         settings.acceptLate && t('tasm.reader.late'),
         settings.shuffleQuestions && t('tasm.reader.shuffleQuestions'),

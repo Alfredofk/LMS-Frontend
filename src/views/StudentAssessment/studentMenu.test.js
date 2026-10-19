@@ -1,6 +1,25 @@
 import { describe, expect, it } from 'vitest';
 
-import { afterRuleOf, byClassSubject, canRetry, cardOf, entriesOf, handedInOf, nextUpcoming, pathOf, scoredEntriesOf, sectionOf, sectionsOf, todoAcross, todoCount, whenOf, wordOf } from './studentMenu';
+import {
+  afterRuleOf,
+  belowKktpOf,
+  byClassSubject,
+  canRetry,
+  cardOf,
+  entriesOf,
+  handedInOf,
+  nextUpcoming,
+  onTimeOf,
+  pathOf,
+  practiceBestOf,
+  scoredEntriesOf,
+  sectionOf,
+  sectionsOf,
+  todoAcross,
+  todoCount,
+  whenOf,
+  wordOf,
+} from './studentMenu';
 
 /*
   Shapes from assessment.menu.js menuOf (backend 113ae37): each entry is
@@ -317,5 +336,56 @@ describe('student menu - the score after the remedial rule (backend 79b319f)', (
     expect(afterRuleOf(entry({ status: 'WAITING_FOR_RELEASE' }))).toBeNull();
     expect(afterRuleOf({ score: 95 })).toBeNull();
     expect(afterRuleOf(null)).toBeNull();
+  });
+});
+
+describe('LATIHAN in the menu - backend 026e4f9', () => {
+  const practice = (over = {}, practiceSummary = null) => {
+    const base = entry(over);
+    return { ...base, assessment: { ...base.assessment, type: 'LATIHAN' }, practice: practiceSummary };
+  };
+  const best = { attempt: 2, value: 90, pointsEarned: 9, pointsTotal: 10 };
+
+  it('done shows its best attempt in place of a word; with no total, "Sudah dikerjakan"', () => {
+    const done = practice({ status: 'DONE' }, { best, latest: best });
+    expect(practiceBestOf(done)).toBe(90);
+    expect(wordOf(done, NOW)).toBeNull();
+    expect(wordOf(practice({ status: 'DONE' }, { best: null, latest: null }), NOW)).toBe('DONE');
+    expect(practiceBestOf(entry({ status: 'RELEASED', score: 80 }))).toBeNull();
+  });
+
+  it('done and still startable stays under DONE with "Bisa dicoba lagi"', () => {
+    const again = practice({ status: 'DONE', canStart: true }, { best, latest: best });
+    expect(sectionOf(again, NOW)).toBe('DONE');
+    expect(canRetry(again, NOW)).toBe(true);
+  });
+
+  it('never on the "Nilai" tab and never counted as handed in or on time', () => {
+    const classes = [{ id: 'now', current: true, assessments: [practice({ status: 'DONE' }, { best, latest: best })] }];
+    classes[0].assessments[0].late = false;
+    expect(scoredEntriesOf(classes, 'cs-1')).toEqual([]);
+    expect(handedInOf(classes)).toEqual({ handedIn: 0, total: 0, rate: null });
+    expect(onTimeOf(classes)).toEqual({ onTime: 0, total: 0, rate: null });
+  });
+});
+
+describe('late and kktp in the menu - backend 3814cf9', () => {
+  it('on time: of the graded ones handed in, how many were not late', () => {
+    const late = (value, over = {}) => ({ ...entry({ status: 'RELEASED', score: 80, ...over }), late: value });
+    const classes = [
+      { id: 'now', current: true, assessments: [late(false), late(false), late(true), late(null, { status: 'DID_NOT_SUBMIT' }), late(null, { mode: 'OFFLINE' })] },
+      { id: 'before', current: false, assessments: [late(true, { cancelled: true })] },
+    ];
+    expect(onTimeOf(classes)).toEqual({ onTime: 2, total: 3, rate: 67 });
+    expect(onTimeOf([])).toEqual({ onTime: 0, total: 0, rate: null });
+  });
+
+  it('a released score under the KKTP is red; at it, not released, or no KKTP, it is not', () => {
+    expect(belowKktpOf({ status: 'RELEASED', score: 74.5, kktp: 75 })).toBe(true);
+    expect(belowKktpOf({ status: 'RELEASED', score: 75, kktp: 75 })).toBe(false);
+    expect(belowKktpOf({ status: 'WAITING_FOR_RELEASE', score: 10, kktp: 75 })).toBe(false);
+    expect(belowKktpOf({ status: 'RELEASED', score: 10, kktp: null })).toBe(false);
+    // The outline carries no status: its counted score is compared as it is.
+    expect(belowKktpOf({ score: 60, kktp: 75 })).toBe(true);
   });
 });

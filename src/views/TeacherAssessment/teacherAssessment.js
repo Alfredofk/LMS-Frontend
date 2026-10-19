@@ -13,8 +13,20 @@
 import { localOf } from '../Attendance/attendance';
 import { bodyText, formatSchoolDay } from '../QuestionBank/questionBank';
 
-export const TYPES = ['TUGAS', 'KUIS', 'UTS', 'UAS'];
+export const TYPES = ['TUGAS', 'KUIS', 'UTS', 'UAS', 'LATIHAN'];
 export const MODES = ['ONLINE', 'OFFLINE'];
+
+/*
+  LATIHAN (backend 026e4f9, assessment ticket 08; owner 2026-10-18): practice that is
+  never graded. ONLINE only; it alone may take unlimited attempts (maxAttempts
+  null). Each attempt's result, comments and - with showKeyOnRelease - key show at
+  hand-in: no release, no Score. An ESSAY in it takes a comment and no points, and
+  its total counts the automatically marked questions alone. No make-up or remedial,
+  no integrity signal, no Exam Week; left out of the recap, the grade book, the
+  readiness and the finalising lock.
+*/
+export const PRACTICE = 'LATIHAN';
+export const isPractice = (assessment) => assessment?.type === PRACTICE;
 
 /*
   "Kuis daring" / "Online quiz" (owner, 2026-10-12): the type and the mode in one
@@ -98,6 +110,7 @@ export function emptyForm() {
     closesDate: '',
     closesTime: '23:59',
     maxAttempts: '1',
+    unlimited: false,
     acceptLate: false,
     timeLimit: '',
     shuffleQuestions: false,
@@ -120,7 +133,9 @@ export function formFrom(assessment, zone) {
     opensTime: opens.time,
     closesDate: closes.date,
     closesTime: closes.time,
-    maxAttempts: String(settings.maxAttempts ?? 1),
+    // Null is unlimited, a LATIHAN's alone (backend 026e4f9).
+    maxAttempts: settings.maxAttempts === null ? '1' : String(settings.maxAttempts ?? 1),
+    unlimited: assessment.mode === 'ONLINE' && settings.maxAttempts === null,
     acceptLate: Boolean(settings.acceptLate),
     timeLimit: settings.timeLimitMinutes ? String(settings.timeLimitMinutes) : '',
     shuffleQuestions: Boolean(settings.shuffleQuestions),
@@ -172,16 +187,20 @@ export function formErrors(form, { zone, span = null, published = false, savedOp
     }
   }
 
+  if (form.type === PRACTICE && form.mode !== 'ONLINE') errors.mode = 'tasm.error.practiceOffline';
   if (form.mode === 'ONLINE') {
-    if (!wholeIn(form.maxAttempts, 1, MAX_ATTEMPTS)) errors.maxAttempts = 'tasm.error.attempts';
+    if (!unlimitedOf(form) && !wholeIn(form.maxAttempts, 1, MAX_ATTEMPTS)) errors.maxAttempts = 'tasm.error.attempts';
     if (String(form.timeLimit).trim() && !wholeIn(form.timeLimit, 1, MAX_TIME_LIMIT)) errors.timeLimit = 'tasm.error.timeLimit';
   }
   return errors;
 }
 
+/* Unlimited attempts hold for a LATIHAN only: ticked, then the type changed, they are not sent. */
+const unlimitedOf = (form) => form.type === PRACTICE && Boolean(form.unlimited);
+
 /* The ONLINE settings as the server names them. */
 const settingsOf = (form) => ({
-  maxAttempts: Number(form.maxAttempts),
+  maxAttempts: unlimitedOf(form) ? null : Number(form.maxAttempts),
   acceptLate: Boolean(form.acceptLate),
   timeLimitMinutes: String(form.timeLimit).trim() ? Number(form.timeLimit) : null,
   shuffleQuestions: Boolean(form.shuffleQuestions),
@@ -319,7 +338,11 @@ export function voidsSubmissions(rows, saved) {
   return rows.some((row) => !row.id) || (saved ?? []).some((question) => !kept.has(question.id));
 }
 
-export const totalPoints = (rows) => rows.reduce((sum, row) => sum + (wholeIn(row.points, MIN_POINTS, MAX_POINTS) ? Number(row.points) : 0), 0);
+/* A LATIHAN's essays count in no total (backend 026e4f9 isInTotal): its total is the automatically marked questions'. */
+const inTotal = (row, practice) => !practice || row.content?.kind !== 'ESSAY';
+
+export const totalPoints = (rows, practice = false) =>
+  rows.reduce((sum, row) => sum + (inTotal(row, practice) && wholeIn(row.points, MIN_POINTS, MAX_POINTS) ? Number(row.points) : 0), 0);
 
 // ---------------------------------------------------------------------------
 // What may be done

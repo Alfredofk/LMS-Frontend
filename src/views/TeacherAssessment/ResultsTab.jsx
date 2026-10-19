@@ -13,10 +13,11 @@ import { localOf } from '../Attendance/attendance';
 import { formatSchoolDay } from '../QuestionBank/questionBank';
 import { forgetMarkingQueue } from './markingQueue';
 import { notifyPendingChanged } from '../../hooks/usePendingCounts';
-import { cancelReasonError } from './teacherAssessment';
+import { cancelReasonError, isPractice } from './teacherAssessment';
 import ExceptionDialog from './ExceptionDialog';
 import { canSetException, exceptionFacts } from './exceptions';
 import {
+  MARKABLE,
   MAX_OFFLINE_MARK,
   flaggedCount,
   formatNumber,
@@ -27,8 +28,12 @@ import {
   offlineNeedsReason,
   offlineSavedOf,
   releaseState,
+  remedialBody,
+  remedialErrors,
+  remedialMarksOpen,
   shownAttempts,
   signalTotal,
+  takesRemedialMark,
 } from './results';
 
 /*
@@ -47,6 +52,11 @@ import {
   (PUT offline-marks, all or none). Released, a changed mark asks a reason. Release
   waits while marks are unsaved; the page's leave guard hears `onDirty`.
 
+  A remedial mark sits beside it (backend dfa2545, owner 2026-10-19: a second
+  column), once the window has closed, for a student placed in the class now: one
+  "Simpan nilai" sends the originals and then the remedial marks, each its own PUT.
+  One not yet released is taken back with "Tarik" (asked first).
+
   Make-up and remedial (backend 1e6c749, ticket 05; owner 2026-10-11): a row's
   exception is one grey line under its status (FactLine), and an attempt started
   under a remedial says "Remedial". On an ONLINE one published, the answering
@@ -58,6 +68,10 @@ import {
   many students have any, with "Tampilkan yang ada catatan saja". Each student
   shows only the newest attempt and those waiting for marking or release; the
   rest open with "Tampilkan N percobaan lain" (shownAttempts).
+
+  A LATIHAN (backend 026e4f9) has no release and no score that counts: each
+  student shows their best attempt with the latest under it, an attempt's mark is
+  its result (no "draf"), and "Beri komentar" opens it. No KKTP line.
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 sm:p-6 shadow-sm';
@@ -72,6 +86,8 @@ const STATUS_TONE = {
   RELEASED: 'text-emerald-700',
   DID_NOT_SUBMIT: 'text-rose-700',
   VOID: 'text-slate-500',
+  DONE: 'text-emerald-700',
+  SUBMITTED: 'text-emerald-700',
 };
 
 const when = (instant, zone, lang) => {
@@ -84,9 +100,12 @@ const box =
   'rounded-xl border bg-white px-3 py-2 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand disabled:bg-slate-50 disabled:text-slate-500';
 
 /* One student's offline mark: the box, and the comment - open when one is stored, else on demand. */
-const OfflineRow = ({ student, draft, error, commentError, busy, lang, t, onMark, onComment, onOpenComment, onHistory }) => {
+const OfflineRow = ({ student, draft, error, commentError, remedialError, remedialOn, busy, lang, t, onMark, onComment, onOpenComment, onHistory, onRemedial, onTakeBack }) => {
   const id = student.studentProfileId;
   const saved = offlineSavedOf(student);
+  const savedRemedial = offlineSavedOf(student, true);
+  /* One who moved away keeps a remedial mark entered before, read only; a new one is for students placed now. */
+  const remedialEditable = remedialOn && Boolean(student.placedNow);
   const commentShown = draft.commentOpen || Boolean(draft.loadedComment);
   return (
     <div className="space-y-2">
@@ -106,6 +125,32 @@ const OfflineRow = ({ student, draft, error, commentError, busy, lang, t, onMark
           className={`${box} w-24 ${error ? 'border-red-400' : 'border-slate-200'}`}
         />
         {saved && !saved.released && <span className="text-[11px] font-medium text-slate-500">{t('tasm.offline.draft', { value: formatNumber(saved.value, lang) })}</span>}
+        {remedialOn && takesRemedialMark(student) && (
+          <>
+            <label htmlFor={`remedial-${id}`} className="text-xs font-bold text-slate-700">
+              {t('tasm.offline.remedial')}
+            </label>
+            <input
+              id={`remedial-${id}`}
+              type="text"
+              inputMode="decimal"
+              value={draft.remedial ?? ''}
+              disabled={busy || !remedialEditable}
+              aria-invalid={Boolean(remedialError)}
+              placeholder="-"
+              onChange={(e) => onRemedial(e.target.value)}
+              className={`${box} w-24 ${remedialError ? 'border-red-400' : 'border-slate-200'}`}
+            />
+            {savedRemedial && !savedRemedial.released && (
+              <span className="text-[11px] font-medium text-slate-500">{t('tasm.offline.draft', { value: formatNumber(savedRemedial.value, lang) })}</span>
+            )}
+            {savedRemedial && !savedRemedial.released && (
+              <button type="button" onClick={onTakeBack} disabled={busy} className="text-xs font-bold text-rose-700 hover:underline cursor-pointer disabled:opacity-50">
+                {t('tasm.offline.takeBack')}
+              </button>
+            )}
+          </>
+        )}
         {/* A released mark's scores and corrections live on its attempt (Marking, read only for an offline one). */}
         {saved?.released && (
           <button type="button" onClick={onHistory} disabled={busy} className={`${tool} ml-auto border border-slate-200 text-slate-700 hover:bg-slate-50`}>
@@ -119,6 +164,7 @@ const OfflineRow = ({ student, draft, error, commentError, busy, lang, t, onMark
         )}
       </div>
       {error && <p className={errorText}>{t(error)}</p>}
+      {remedialError && <p className={errorText}>{t(remedialError)}</p>}
       {commentShown && (
         <textarea
           aria-label={t('tasm.offline.commentFor', { name: student.fullName ?? '' })}
@@ -156,6 +202,8 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
   const [errors, setErrors] = useState({});
   /* The student whose make-up/remedial dialog is open. */
   const [excFor, setExcFor] = useState(null);
+  /* The student whose remedial mark is being taken back (asked first). */
+  const [takingBack, setTakingBack] = useState(null);
   /* Only students with recorded activity; students whose every attempt is open. */
   const [flaggedOnly, setFlaggedOnly] = useState(false);
   const [expanded, setExpanded] = useState(() => new Set());
@@ -204,7 +252,9 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
   const manages = !readOnly && Boolean((ready && data.assessment ? data.assessment : assessment).canManage);
   const entering = ready && assessment.mode === 'OFFLINE' && manages && (data.assessment ?? assessment).status === 'PUBLISHED';
   const body = entering ? offlineBody(drafts, data.students, reason) : null;
-  const dirty = Boolean(body);
+  const remedialOn = entering && remedialMarksOpen(data.assessment ?? assessment);
+  const remedialPut = remedialOn ? remedialBody(drafts, data.students, reason) : null;
+  const dirty = Boolean(body || remedialPut);
   useEffect(() => {
     onDirty?.(dirty);
   }, [dirty, onDirty]);
@@ -243,15 +293,16 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
   /* Unsaved marks would be left out of a release: save them first. */
   const release = dirty ? { show: true, enabled: false, why: 'tasm.offline.saveFirst' } : releaseState(current, waiting);
   const offline = assessment.mode === 'OFFLINE';
+  const practice = isPractice(current);
   const needsReason = entering && offlineNeedsReason(drafts, students);
 
   const setDraft = (studentProfileId, patch) => {
     setDrafts((prev) => ({ ...prev, [studentProfileId]: { ...prev[studentProfileId], ...patch } }));
-    setErrors((prev) => ({ ...prev, [studentProfileId]: undefined, [`${studentProfileId}:comment`]: undefined, save: undefined }));
+    setErrors((prev) => ({ ...prev, [studentProfileId]: undefined, [`${studentProfileId}:comment`]: undefined, [`${studentProfileId}:remedial`]: undefined, save: undefined }));
   };
 
   const saveMarks = async () => {
-    const found = offlineErrors(drafts, students);
+    const found = { ...offlineErrors(drafts, students), ...(remedialOn ? remedialErrors(drafts, students) : {}) };
     if (needsReason) {
       const reasonError = cancelReasonError(reason);
       if (reasonError) found.reason = reasonError.key === 'tasm.error.reasonEmpty' ? 'tasm.error.fixReasonEmpty' : reasonError.key;
@@ -262,14 +313,45 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
     }
     setBusy(true);
     setFailure(null);
+    /* The originals first, then the remedial marks: two PUTs, so a refused remedial never holds back a class's originals. */
+    let answer = null;
     try {
-      const answer = await assessmentService.offlineMarks(current.id, body);
+      if (body) answer = await assessmentService.offlineMarks(current.id, body);
+      if (remedialPut) answer = await assessmentService.offlineMarks(current.id, remedialPut);
       forgetMarkingQueue();
       notifyPendingChanged();
       adoptResults(answer);
-      showToast?.(t('tasm.toast.offlineSaved', { n: body.marks.length }), 'success');
+      showToast?.(t('tasm.toast.offlineSaved', { n: (body?.marks.length ?? 0) + (remedialPut?.marks.length ?? 0) }), 'success');
     } catch (err) {
       setFailure(assessmentErrorMessage(err, t));
+      if (answer) {
+        /* The originals landed and the remedial marks did not: take the originals in, keep the remedial typing. */
+        forgetMarkingQueue();
+        notifyPendingChanged();
+        const typed = Object.fromEntries(Object.entries(drafts).map(([id, draft]) => [id, draft.remedial]));
+        adoptResults(answer);
+        setDrafts((prev) => Object.fromEntries(Object.entries(prev).map(([id, draft]) => [id, { ...draft, remedial: typed[id] ?? draft.remedial }])));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const takeBack = async () => {
+    const student = takingBack;
+    setBusy(true);
+    setFailure(null);
+    try {
+      const answer = await assessmentService.removeRemedialMark(current.id, student.studentProfileId);
+      forgetMarkingQueue();
+      notifyPendingChanged();
+      setTakingBack(null);
+      adoptResults(answer);
+      showToast?.(t('tasm.offline.takenBack', { name: student.fullName ?? '' }), 'success');
+    } catch (err) {
+      setTakingBack(null);
+      setFailure(assessmentErrorMessage(err, t));
+      setAttempt((n) => n + 1);
     } finally {
       setBusy(false);
     }
@@ -314,18 +396,23 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
         <ul className="space-y-1.5">
           {visible.map((item) => {
             const recorded = signalTotal(item.signals);
-            const shown = item.score ?? (item.mark && item.status !== 'VOID' ? item.mark : null);
-            const isDraft = !item.score && Boolean(shown);
-            const markable = item.status === 'WAITING_FOR_MARKING' || item.status === 'WAITING_FOR_RELEASE' || item.status === 'RELEASED';
-            const label = manages && current.status === 'PUBLISHED' && markable ? 'tasm.results.mark' : 'tasm.results.view';
+            const shown = item.score ?? (item.mark && item.status !== 'VOID' && item.mark.value !== null ? item.mark : null);
+            /* A LATIHAN's mark is its result, never a draft waiting for release. */
+            const isDraft = !practice && !item.score && Boolean(shown);
+            const markable = MARKABLE.includes(item.status);
+            const label = manages && current.status === 'PUBLISHED' && markable ? (practice ? 'tasm.results.comment' : 'tasm.results.mark') : 'tasm.results.view';
             return (
               <li key={item.id} className="flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
                 {!offline && <span className="font-bold text-slate-700">{t('tasm.results.attempt', { n: item.attempt })}</span>}
-                <span className={STATUS_TONE[item.status]}>{t(`tasm.results.attemptStatus.${item.status}`)}</span>
+                <span className={STATUS_TONE[item.status]}>
+                  {practice && item.status === 'WAITING_FOR_MARKING' ? t('tasm.mark.waitingComment') : t(`tasm.results.attemptStatus.${item.status}`)}
+                </span>
                 {item.submittedAt && <span className="tabular-nums">{when(item.submittedAt, zone, lang)}</span>}
                 {item.late && <span className="text-amber-700">{t('tasm.results.late')}</span>}
                 {item.remedial && <span className="text-brand">{t('tasm.results.remedial')}</span>}
-                {item.status === 'WAITING_FOR_MARKING' && item.waitingForMarking > 0 && <span>{t('tasm.results.essaysLeft', { n: item.waitingForMarking })}</span>}
+                {item.status === 'WAITING_FOR_MARKING' && item.waitingForMarking > 0 && (
+                  <span>{t(practice ? 'tasm.results.essaysToComment' : 'tasm.results.essaysLeft', { n: item.waitingForMarking })}</span>
+                )}
                 {shown && (
                   <span className="tabular-nums text-slate-700">
                     {isDraft ? t('tasm.results.draftMark', { value: formatNumber(shown.value, lang) }) : formatNumber(shown.value, lang)}
@@ -364,8 +451,8 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
         <div className="space-y-1 min-w-0 sm:flex-1">
           <h2 className="text-base font-extrabold text-slate-900">{t('tasm.results.title', { n: students.length })}</h2>
           <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-slate-500">
-            <span>{t('tasm.results.waitingMarking', { n: waiting.marking })}</span>
-            <span>{t('tasm.results.waitingRelease', { n: waiting.release })}</span>
+            <span>{t(practice ? 'tasm.results.waitingComment' : 'tasm.results.waitingMarking', { n: waiting.marking })}</span>
+            {!practice && <span>{t('tasm.results.waitingRelease', { n: waiting.release })}</span>}
             {!offline && <span>{t('tasm.results.inProgress', { n: waiting.inProgress })}</span>}
             {flagged > 0 && <span className="text-slate-700">{t('tasm.results.flagged', { n: flagged })}</span>}
           </p>
@@ -400,12 +487,18 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
         )}
       </div>
 
-      {typeof kktp === 'number' && students.length > 0 && (
+      {practice && <p className="text-[11px] font-medium text-slate-500">{t('tasm.results.practiceNote')}</p>}
+      {!practice && typeof kktp === 'number' && students.length > 0 && (
         <p className="text-xs font-semibold text-slate-500">
           <span className="text-rose-700">{t('gradebook.kktp.red')}</span> {t('gradebook.kktp.legend', { kktp })}
         </p>
       )}
       {entering && <p className="text-[11px] font-medium text-slate-500">{t('tasm.offline.hint')}</p>}
+      {entering && (
+        <p className="text-[11px] font-medium text-slate-500">
+          {remedialOn ? t('tasm.offline.remedialHint') : t('tasm.offline.remedialLater', { date: when(current.closesAt, zone, lang) })}
+        </p>
+      )}
       {current.releasedAt && <p className="text-[11px] font-medium text-slate-500">{t('tasm.results.releasedNote')}</p>}
 
       {failure && (
@@ -439,13 +532,25 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
                     </button>
                   )}
                 </div>
-                <div className="text-right shrink-0">
-                  <p className={`text-lg font-extrabold tabular-nums leading-tight ${belowKktp({ score: student.countedScore }, kktp) ? 'text-rose-700' : 'text-slate-900'}`}>
-                    {formatNumber(student.countedScore, lang)}
-                    {belowKktp({ score: student.countedScore }, kktp) && <span className="sr-only"> ({t('gradebook.kktp.below')})</span>}
-                  </p>
-                  {student.countedScore !== null && <p className="text-[11px] font-medium text-slate-500">{t('tasm.results.scoreLabel')}</p>}
-                </div>
+                {practice ? (
+                  <div className="text-right shrink-0">
+                    <p className="text-lg font-extrabold text-slate-900 tabular-nums leading-tight">{formatNumber(student.practice?.best?.value ?? null, lang)}</p>
+                    {student.practice?.best && <p className="text-[11px] font-medium text-slate-500">{t('tasm.results.bestLabel')}</p>}
+                    {student.practice?.latest && student.practice.latest.attempt !== student.practice.best?.attempt && (
+                      <p className="text-[11px] font-medium text-slate-500 tabular-nums">{t('tasm.results.latest', { value: formatNumber(student.practice.latest.value, lang) })}</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-right shrink-0">
+                    <p className={`text-lg font-extrabold tabular-nums leading-tight ${belowKktp({ score: student.countedScore }, kktp) ? 'text-rose-700' : 'text-slate-900'}`}>
+                      {formatNumber(student.countedScore, lang)}
+                      {belowKktp({ score: student.countedScore }, kktp) && <span className="sr-only"> ({t('gradebook.kktp.below')})</span>}
+                    </p>
+                    {student.countedScore !== null && (
+                      <p className="text-[11px] font-medium text-slate-500">{t(student.countedFromRemedial ? 'tasm.results.scoreFromRemedial' : 'tasm.results.scoreLabel')}</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {entering && (
@@ -454,6 +559,8 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
                   draft={drafts[student.studentProfileId] ?? { mark: '', comment: '', loadedComment: null }}
                   error={errors[student.studentProfileId]}
                   commentError={errors[`${student.studentProfileId}:comment`]}
+                  remedialError={errors[`${student.studentProfileId}:remedial`]}
+                  remedialOn={remedialOn}
                   busy={busy}
                   lang={lang}
                   t={t}
@@ -461,6 +568,8 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
                   onComment={(comment) => setDraft(student.studentProfileId, { comment })}
                   onOpenComment={() => setDraft(student.studentProfileId, { commentOpen: true })}
                   onHistory={() => open(offlineSavedOf(student).submissionId)}
+                  onRemedial={(remedial) => setDraft(student.studentProfileId, { remedial })}
+                  onTakeBack={() => setTakingBack(student)}
                 />
               )}
 
@@ -529,6 +638,22 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
           onClose={() => setExcFor(null)}
         />
       )}
+
+      <ConfirmDialog
+        open={Boolean(takingBack)}
+        tone="danger"
+        title={t('tasm.offline.takeBackConfirm.title')}
+        body={t('tasm.offline.takeBackConfirm.body', {
+          name: takingBack?.fullName ?? '',
+          value: formatNumber(takingBack ? offlineSavedOf(takingBack, true)?.value : null, lang),
+        })}
+        confirmLabel={t('tasm.offline.takeBack')}
+        cancelLabel={t('common.cancel')}
+        busy={busy}
+        busyLabel={t('common.loading')}
+        onConfirm={takeBack}
+        onCancel={() => !busy && setTakingBack(null)}
+      />
 
       <ConfirmDialog
         open={confirming}

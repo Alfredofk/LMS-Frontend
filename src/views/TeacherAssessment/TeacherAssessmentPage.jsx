@@ -31,6 +31,7 @@ import {
   MAX_TIME_LIMIT,
   MODES,
   TYPES,
+  PRACTICE,
   actionsOf,
   cancelReasonError,
   createBody,
@@ -249,7 +250,8 @@ const TeacherAssessment = () => {
   const guard = useUnsavedGuard(creating ? Boolean(form) && JSON.stringify(form) !== JSON.stringify(emptyForm()) : detailsDirty || questionsDirty || resultsDirty);
 
   const setField = (key, value) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+    /* A LATIHAN is answered online (backend 026e4f9): choosing it while creating an offline one switches the mode. */
+    setForm((prev) => ({ ...prev, [key]: value, ...(key === 'type' && value === PRACTICE && creating ? { mode: 'ONLINE' } : {}) }));
     setErrors((prev) => ({ ...prev, [key === 'opensDate' || key === 'opensTime' ? 'opens' : key === 'closesDate' || key === 'closesTime' ? 'closes' : key]: undefined }));
     setFailure((prev) => ({ ...prev, details: null }));
   };
@@ -388,7 +390,7 @@ const TeacherAssessment = () => {
 
   const disabled = !editable || Boolean(busy);
   const tz = zone ? ` (${zone})` : '';
-  const total = totalPoints(rows);
+  const total = totalPoints(rows, form?.type === PRACTICE);
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -509,16 +511,18 @@ const TeacherAssessment = () => {
             <span id={`${baseId}-type`} className={fieldLabel}>
               {t('tasm.field.type')}
             </span>
-            <div role="radiogroup" aria-labelledby={`${baseId}-type`} className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div role="radiogroup" aria-labelledby={`${baseId}-type`} className="grid grid-cols-3 sm:grid-cols-5 gap-2">
               {TYPES.map((type) => {
                 const on = form.type === type;
+                /* An offline draft cannot become a LATIHAN: its mode is fixed once created. */
+                const offlinePractice = type === PRACTICE && !creating && form.mode === 'OFFLINE';
                 return (
                   <button
                     key={type}
                     type="button"
                     role="radio"
                     aria-checked={on}
-                    disabled={disabled || published}
+                    disabled={disabled || published || offlinePractice}
                     onClick={() => setField('type', type)}
                     className={`px-3 py-2.5 rounded-xl border text-sm font-bold cursor-pointer disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
                       on ? 'border-brand bg-brand-tint text-brand' : 'border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-60'
@@ -529,6 +533,7 @@ const TeacherAssessment = () => {
                 );
               })}
             </div>
+            {form.type === PRACTICE && <p className="text-[11px] font-medium text-slate-500 leading-relaxed">{t('tasm.practiceHint')}</p>}
             {published && editable && <p className="text-[11px] font-medium text-slate-500">{t('tasm.typeFixed')}</p>}
           </div>
 
@@ -540,21 +545,24 @@ const TeacherAssessment = () => {
               <div role="radiogroup" aria-labelledby={`${baseId}-mode`} className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {MODES.map((mode) => {
                   const on = form.mode === mode;
+                  const closed = form.type === PRACTICE && mode === 'OFFLINE';
                   return (
                     <button
                       key={mode}
                       type="button"
                       role="radio"
                       aria-checked={on}
-                      disabled={disabled}
+                      disabled={disabled || closed}
                       onClick={() => setField('mode', mode)}
-                      className={`px-3.5 py-3 rounded-xl border text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+                      className={`px-3.5 py-3 rounded-xl border text-left cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
                         on ? 'border-brand bg-brand-tint' : 'border-slate-200 hover:bg-slate-50'
                       }`}
                     >
                       <span className={`block text-sm font-bold ${on ? 'text-brand' : 'text-slate-700'}`}>{t(`tasm.mode.${mode}`)}</span>
                       {/* slate-500 on the brand tint measured 4.18:1; slate-600 clears 4.5 (audit 2026-10-08). */}
-                      <span className={`block text-[11px] font-medium leading-relaxed ${on ? 'text-slate-600' : 'text-slate-500'}`}>{t(`tasm.modeHint.${mode}`)}</span>
+                      <span className={`block text-[11px] font-medium leading-relaxed ${on ? 'text-slate-600' : 'text-slate-500'}`}>
+                        {closed ? t('tasm.modeHint.practiceOffline') : t(`tasm.modeHint.${mode}`)}
+                      </span>
                     </button>
                   );
                 })}
@@ -658,12 +666,25 @@ const TeacherAssessment = () => {
                     min={1}
                     max={MAX_ATTEMPTS}
                     value={form.maxAttempts}
-                    disabled={disabled}
+                    disabled={disabled || (form.type === PRACTICE && form.unlimited)}
                     aria-invalid={Boolean(errors.maxAttempts)}
                     onChange={(e) => setField('maxAttempts', e.target.value)}
                     className={`${smallInput} w-28`}
                   />
-                  {errors.maxAttempts ? <p className={errorText}>{t(errors.maxAttempts)}</p> : <p className="text-[11px] font-medium text-slate-500">{t('tasm.attemptsHint')}</p>}
+                  {/* Unlimited attempts, a LATIHAN's alone (backend 026e4f9; owner 2026-10-19: a box under the number). */}
+                  {form.type === PRACTICE && (
+                    <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(form.unlimited)}
+                        disabled={disabled}
+                        onChange={(e) => setField('unlimited', e.target.checked)}
+                        className="w-4 h-4 accent-brand cursor-pointer disabled:cursor-not-allowed"
+                      />
+                      {t('tasm.field.unlimited')}
+                    </label>
+                  )}
+                  {errors.maxAttempts ? <p className={errorText}>{t(errors.maxAttempts)}</p> : <p className="text-[11px] font-medium text-slate-500">{t(form.type === PRACTICE ? 'tasm.attemptsHintPractice' : 'tasm.attemptsHint')}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <label htmlFor={`${baseId}-limit`} className={fieldLabel}>
@@ -689,7 +710,7 @@ const TeacherAssessment = () => {
                 <Toggle checked={form.acceptLate} disabled={disabled} onChange={(v) => setField('acceptLate', v)} label={t('tasm.field.acceptLate')} hint={t('tasm.acceptLateHint')} />
                 <Toggle checked={form.shuffleQuestions} disabled={disabled} onChange={(v) => setField('shuffleQuestions', v)} label={t('tasm.field.shuffleQuestions')} />
                 <Toggle checked={form.shuffleOptions} disabled={disabled} onChange={(v) => setField('shuffleOptions', v)} label={t('tasm.field.shuffleOptions')} hint={t('tasm.shuffleOptionsHint')} />
-                <Toggle checked={form.showKeyOnRelease} disabled={disabled} onChange={(v) => setField('showKeyOnRelease', v)} label={t('tasm.field.showKey')} hint={t('tasm.showKeyHint')} />
+                <Toggle checked={form.showKeyOnRelease} disabled={disabled} onChange={(v) => setField('showKeyOnRelease', v)} label={t(form.type === PRACTICE ? 'tasm.field.showKeyPractice' : 'tasm.field.showKey')} hint={t(form.type === PRACTICE ? 'tasm.showKeyHintPractice' : 'tasm.showKeyHint')} />
               </div>
               {published && editable && <p className="text-[11px] font-medium text-slate-500">{t('tasm.settingsAfterPublish')}</p>}
             </div>
@@ -728,6 +749,9 @@ const TeacherAssessment = () => {
                   {t('tasm.questions')}
                 </h2>
                 <p className="text-xs font-semibold text-slate-500">{t('tasm.count', { n: rows.length, points: total })}</p>
+                {form?.type === PRACTICE && rows.some((row) => row.content?.kind === 'ESSAY') && (
+                  <p className="text-[11px] font-medium text-slate-500">{t('tasm.practiceEssayNote')}</p>
+                )}
                 {questionsDirty && actions.editList && rows.some((row) => row.id) && <p className="text-[11px] font-medium text-slate-500">{t('tasm.editCopy.saveListFirst')}</p>}
               </div>
               {actions.editList && (

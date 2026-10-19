@@ -12,7 +12,12 @@
     stops); a lost connection loses only what was not saved yet.
   - The server holds the clock: past the deadline an attempt is closed with what
     was saved. Before release no key, no points and no comment reach a student.
+  - A LATIHAN (backend 026e4f9) is never released: each attempt shows its result,
+    comments and key as soon as it is handed in, and its attempts may be unlimited
+    (`attemptsLeft` null).
 */
+
+import { isPractice } from '../TeacherAssessment/teacherAssessment';
 
 export const MAX_SHORT_LENGTH = 200;
 export const MAX_ESSAY_LENGTH = 20_000;
@@ -69,16 +74,32 @@ export function startState(outline, now = new Date()) {
   if (phase === 'OFFLINE') return { action: null, why: 'offline' };
   if (assessment.questionCount === 0) return { action: null, why: 'noQuestions' };
   if (phase === 'NOT_OPEN') return { action: null, why: 'notOpen' };
-  if (outline.attemptsLeft <= 0) return { action: null, why: 'noAttempts' };
+  // Null is unlimited (a LATIHAN's), never "none left".
+  if (outline.attemptsLeft !== null && outline.attemptsLeft <= 0) return { action: null, why: 'noAttempts' };
   return { action: null, why: 'closed' };
 }
 
-/** A submission's state for its row: IN_PROGRESS, VOID, RELEASED, or WAITING (handed in, not released). */
-export function attemptState(submission) {
+/**
+ * A submission's state for its row: IN_PROGRESS, VOID, RELEASED, WAITING (handed
+ * in, not released), or on a LATIHAN, which is never released, CHECKED - its
+ * result shows once handed in.
+ */
+export function attemptState(submission, assessment = null) {
   if (submission.status === 'IN_PROGRESS') return 'IN_PROGRESS';
   if (submission.status === 'VOID') return 'VOID';
+  if (isPractice(assessment)) return 'CHECKED';
   return submission.released ? 'RELEASED' : 'WAITING';
 }
+
+/** "Sisa 2 dari 3", or with unlimited attempts (attemptsLeft null) "Tak terbatas": `{ key, vars }`. */
+export function attemptsLeftText(outline) {
+  if (outline.attemptsLeft === null || outline.attemptsLeft === undefined) return { key: 'sasm.attemptsUnlimited', vars: { used: outline.attemptsUsed ?? 0 } };
+  return { key: 'sasm.attemptsLeft', vars: { left: outline.attemptsLeft, max: (outline.attemptsUsed ?? 0) + outline.attemptsLeft } };
+}
+
+/** Whether a handed-in LATIHAN attempt still waits for the teacher's comment on an answered essay. */
+export const waitsForComment = (questions) =>
+  (questions ?? []).some((question) => question.kind === 'ESSAY' && question.points === null && question.answer && question.marks && !question.marks.comment);
 
 // ---------------------------------------------------------------------------
 // Answers

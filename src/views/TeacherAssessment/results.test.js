@@ -14,6 +14,11 @@ import {
   offlineErrors,
   offlineNeedsReason,
   offlineSavedOf,
+  remedialBody,
+  remedialErrors,
+  remedialMarksOpen,
+  takesPoints,
+  takesRemedialMark,
   pointsChanged,
   pointsValue,
   releaseState,
@@ -178,9 +183,9 @@ describe('offline marks - offlineMarksBody / enterOfflineMark', () => {
     expect(offlineSavedOf(students[2])).toEqual({ submissionId: 'x3', value: 85.5, released: true, comment: 'Rapi' });
     expect(offlineSavedOf({ attempts: [{ id: 'v', closedBy: 'TEACHER', status: 'VOID', mark: { value: 1 } }] })).toBeNull();
     expect(offlineDraftsFrom(students)).toEqual({
-      p1: { mark: '', comment: '', loadedComment: null },
-      p2: { mark: '70', comment: '', loadedComment: null },
-      p3: { mark: '85.5', comment: 'Rapi', loadedComment: 'Rapi' },
+      p1: { mark: '', comment: '', loadedComment: null, remedial: '' },
+      p2: { mark: '70', comment: '', loadedComment: null, remedial: '' },
+      p3: { mark: '85.5', comment: 'Rapi', loadedComment: 'Rapi', remedial: '' },
     });
     expect(offlineDraftsFrom(students, 'id').p3.mark).toBe('85,5');
   });
@@ -305,5 +310,113 @@ describe('results - right or wrong, per question (owner, 2026-10-18)', () => {
     expect(verdictOf({ kind: 'ESSAY', points: 10, earned: 10, answered: true })).toBeNull();
     expect(verdictOf({ kind: 'SHORT', points: 1, earned: 0, answered: true, waiting: true })).toBeNull();
     expect(verdictOf({ kind: 'TF', points: 1, earned: null, answered: true })).toBeNull();
+  });
+});
+
+describe('LATIHAN - backend 026e4f9, assessment ticket 08', () => {
+  const practice = { ...assessment, type: 'LATIHAN', closesAt: '2026-10-01T00:00:00Z' };
+
+  it('is never released: no button at all', () => {
+    expect(releaseState(practice, { release: 0 }, new Date('2026-10-02T00:00:00Z'))).toEqual({ show: false, enabled: false, why: null });
+  });
+
+  it('takes comments only, never points - an essay or a short answer alike', () => {
+    expect(takesPoints({ kind: 'ESSAY', answer: { text: 'x' } }, practice)).toBe(false);
+    expect(takesPoints({ kind: 'SHORT', answer: { text: 'x' } }, practice)).toBe(false);
+    expect(takesPoints({ kind: 'ESSAY', answer: { text: 'x' } }, assessment)).toBe(true);
+  });
+
+  it('a handed-in attempt (SUBMITTED) is commented on by its teacher', () => {
+    const v = { assessment: practice, submission: { status: 'SUBMITTED', closedBy: 'STUDENT' }, questions: [] };
+    expect(canMark(v)).toBe(true);
+    expect(canMark({ ...v, submission: { status: 'IN_PROGRESS', closedBy: null } })).toBe(false);
+  });
+
+  it('a comment goes without points or a reason', () => {
+    const v = {
+      assessment: practice,
+      submission: { status: 'SUBMITTED', comment: null },
+      questions: [{ id: 'q1', kind: 'ESSAY', points: 10, answer: { text: 'x' }, teacherPoints: null, comment: null }],
+    };
+    const draft = markDraftFrom(v);
+    draft.answers.q1.points = '5';
+    draft.answers.q1.comment = 'Bagus';
+    expect(markErrors(draft, v)).toEqual({});
+    expect(markBody(draft, v)).toEqual({ answers: [{ questionId: 'q1', comment: 'Bagus' }] });
+  });
+});
+
+describe('remedial marks on an offline assessment - backend dfa2545, assessment ticket 09', () => {
+  const offline = { ...assessment, mode: 'OFFLINE', closesAt: '2026-10-10T00:00:00Z' };
+  const students = [
+    { studentProfileId: 'p1', placedNow: true, attempts: [{ id: 'o1', closedBy: 'TEACHER', status: 'RELEASED', releasedAt: '2026-10-11T00:00:00Z', mark: { value: 60 } }] },
+    {
+      studentProfileId: 'p2',
+      placedNow: true,
+      attempts: [
+        { id: 'o2', closedBy: 'TEACHER', status: 'RELEASED', releasedAt: '2026-10-11T00:00:00Z', mark: { value: 55 } },
+        { id: 'r2', closedBy: 'TEACHER', remedial: true, status: 'WAITING_FOR_RELEASE', releasedAt: null, mark: { value: 80 } },
+      ],
+    },
+    {
+      studentProfileId: 'p3',
+      placedNow: false,
+      attempts: [
+        { id: 'o3', closedBy: 'TEACHER', status: 'RELEASED', releasedAt: '2026-10-11T00:00:00Z', mark: { value: 50 } },
+        { id: 'r3', closedBy: 'TEACHER', remedial: true, status: 'RELEASED', releasedAt: '2026-10-12T00:00:00Z', mark: { value: 75 } },
+        { id: 'v3', closedBy: 'TEACHER', remedial: true, status: 'VOID', mark: { value: 99 } },
+      ],
+    },
+    { studentProfileId: 'p4', placedNow: false, attempts: [] },
+  ];
+
+  it('the original and the remedial are told apart by the flag, a void one never read', () => {
+    expect(offlineSavedOf(students[1]).submissionId).toBe('o2');
+    expect(offlineSavedOf(students[1], true)).toEqual({ submissionId: 'r2', value: 80, released: false, comment: null });
+    expect(offlineSavedOf(students[2], true).submissionId).toBe('r3');
+    expect(offlineSavedOf(students[0], true)).toBeNull();
+    expect(offlineDraftsFrom(students, 'id').p2.remedial).toBe('80');
+  });
+
+  it('only once the window has closed, its close included', () => {
+    expect(remedialMarksOpen(offline, new Date('2026-10-09T23:59:00Z'))).toBe(false);
+    expect(remedialMarksOpen(offline, new Date('2026-10-10T00:00:00Z'))).toBe(true);
+  });
+
+  it('a box for a student placed now, or one who left with a remedial mark already', () => {
+    expect(students.map(takesRemedialMark)).toEqual([true, true, true, false]);
+  });
+
+  it('its own PUT, remedial: true, with only what changed - the originals untouched', () => {
+    const drafts = offlineDraftsFrom(students);
+    expect(remedialBody(drafts, students)).toBeNull();
+    drafts.p1.remedial = '78,5';
+    expect(remedialBody(drafts, students)).toEqual({ remedial: true, marks: [{ studentProfileId: 'p1', value: 78.5 }] });
+    expect(offlineBody(drafts, students)).toBeNull();
+  });
+
+  it('a released remedial changed needs the reason; the originals PUT does not carry it', () => {
+    const drafts = offlineDraftsFrom(students);
+    drafts.p3.remedial = '76';
+    expect(offlineNeedsReason(drafts, students)).toBe(true);
+    expect(remedialBody(drafts, students, ' Salah input ')).toEqual({ remedial: true, marks: [{ studentProfileId: 'p3', value: 76 }], reason: 'Salah input' });
+    drafts.p1.mark = '61';
+    expect(offlineBody(drafts, students, 'Salah input').reason).toBe('Salah input');
+    const onlyRemedial = offlineDraftsFrom(students);
+    onlyRemedial.p3.remedial = '76';
+    onlyRemedial.p2.mark = '55';
+    expect(offlineBody(onlyRemedial, students, 'x')).toBeNull();
+  });
+
+  it('0 to 100, two decimals; a saved one is never emptied - taken back instead', () => {
+    const drafts = offlineDraftsFrom(students);
+    drafts.p1.remedial = '101';
+    drafts.p2.remedial = '';
+    drafts.p3.remedial = '';
+    expect(remedialErrors(drafts, students)).toEqual({
+      'p1:remedial': 'tasm.offline.error.mark',
+      'p2:remedial': 'tasm.offline.error.keepRemedial',
+      'p3:remedial': 'tasm.offline.error.keep',
+    });
   });
 });

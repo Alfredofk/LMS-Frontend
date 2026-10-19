@@ -9,7 +9,7 @@ import { studentAssessmentErrorMessage } from '../../i18n/apiError';
 import { formatNumber } from '../TeacherAssessment/results';
 import { shortWhen, typeModeText } from '../TeacherAssessment/teacherAssessment';
 import { readMyMenu } from '../StudentAssessment/readMyMenu';
-import { afterRuleOf, scoredEntriesOf, whenOf } from '../StudentAssessment/studentMenu';
+import { afterRuleOf, belowKktpOf, scoredEntriesOf, whenOf } from '../StudentAssessment/studentMenu';
 import { noteAssessmentTab } from '../StudentAssessment/assessmentBack';
 
 /*
@@ -21,9 +21,10 @@ import { noteAssessmentTab } from '../StudentAssessment/assessmentBack';
   read. The sidebar's "Nilai" (/scores) is only a way in: the subjects as cards,
   each opening this tab. It used to list every subject's scores on one page.
 
-  No average or final mark: the backend computes no Final Grade yet (request #16,
-  ticket 02). No KKTP mark either: a student cannot read the grade settings (404).
-  Read from the semester's GET /assessments/mine (readMyMenu), as the "Penilaian"
+  No average or final mark: the Final Grade is never a student's to read. A score
+  under the KKTP is red, with "KKTP 75" above the list (backend 3814cf9: each
+  entry carries the `kktp` it is counted with; owner 2026-10-19). Never a LATIHAN,
+  which is not graded (scoredEntriesOf). Read from the semester's GET /assessments/mine (readMyMenu), as the "Penilaian"
   tab is; a 404 for the semester means none for this student.
 */
 
@@ -40,6 +41,7 @@ const ScoreRow = ({ entry, zone, onOpen }) => {
   /* "ditutup" or "closes": one waiting for release may still be open (2026-10-12). */
   const when = whenOf(entry);
   const facts = [typeModeText(t, assessment), t(`smenu.when.${when.key}`, { when: shortWhen(when.instant, zone, lang) })];
+  const below = belowKktpOf(entry);
   return (
     <li>
       <button
@@ -68,7 +70,10 @@ const ScoreRow = ({ entry, zone, onOpen }) => {
         </span>
         {entry.status === 'RELEASED' && entry.score !== null ? (
           <span className="shrink-0 text-right">
-            <span className="block text-lg font-extrabold text-slate-900 tabular-nums leading-tight">{formatNumber(entry.score, lang)}</span>
+            <span className={`block text-lg font-extrabold tabular-nums leading-tight ${below ? 'text-rose-600' : 'text-slate-900'}`}>
+              {formatNumber(entry.score, lang)}
+              {below && <span className="sr-only"> ({t('gradebook.kktp.below')})</span>}
+            </span>
             {afterRuleOf(entry) && (
               <span className="block text-[11px] font-semibold text-slate-500 tabular-nums">
                 {t('smenu.afterRule', { score: formatNumber(afterRuleOf(entry).score, lang) })}
@@ -132,9 +137,13 @@ export const SubjectScores = ({ classSubjectId, semesterId }) => {
     );
   }
 
+  /* One KKTP per subject: the reporting slot's, the same on every entry. */
+  const kktp = value.find((entry) => typeof entry.kktp === 'number')?.kktp ?? null;
+
   return (
     <div className="space-y-3">
       <p className="text-xs font-medium text-slate-500 leading-relaxed">{t('scores.subtitle')}</p>
+      {kktp !== null && value.length > 0 && <p className="text-xs font-semibold text-slate-500 tabular-nums">{t('scores.kktp', { kktp })}</p>}
       {value.length === 0 ? (
         <p className={`${card} p-5 text-sm font-semibold text-slate-600`}>{t('scores.noneYet')}</p>
       ) : (

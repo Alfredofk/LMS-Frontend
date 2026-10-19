@@ -102,14 +102,6 @@ export const membershipReviewService = {
    *   CONFLICT if it was already decided
    */
   reject: (id, reason, roles) => api.post(`${BASE}/${id}/reject`, { reason, ...(roles?.length ? { roles } : {}) }),
-
-  /*
-    Deliberately absent: `POST /membership-requests/approve`, which releases up
-    to fifty at once and answers 200 even when some of them failed, with a result
-    per id. It needs checkboxes, a select-all, and a way to report a mixed
-    outcome — a screen of its own for a situation that only arises once a queue
-    has dozens in it. Add it when one does.
-  */
 };
 
 export default membershipReviewService;

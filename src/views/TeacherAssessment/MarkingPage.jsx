@@ -14,7 +14,7 @@ import { localOf } from '../Attendance/attendance';
 import { formatSchoolDay } from '../QuestionBank/questionBank';
 import { forgetMarkingQueue } from './markingQueue';
 import { notifyPendingChanged } from '../../hooks/usePendingCounts';
-import { cancelReasonError } from './teacherAssessment';
+import { cancelReasonError, isPractice } from './teacherAssessment';
 import SignalLine from './SignalLine';
 import { useSlotFinalised } from '../Grading/useSlotFinalised';
 import {
@@ -48,6 +48,9 @@ import {
     published, or the attempt is in progress or void.
   - `Marking` is also opened in place, read only, by AssessmentReader for the
     homeroom teacher and the leaders (`embedded`: no page heading, no next).
+  - A LATIHAN (backend 026e4f9) takes comments only, shown to the student as soon
+    as they are saved: no points box, an ESSAY "dikomentari, tanpa poin", and the
+    attempt's mark is its result, not a draft.
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 sm:p-6 shadow-sm';
@@ -215,6 +218,9 @@ export const Marking = ({ assessmentId, submissionId, onBack, onOpen, embedded =
   const { assessment, submission, scores, questions } = view;
   const next = students ? nextToMark(students, submission.id) : null;
   const mark = submission.score ?? submission.mark;
+  const practice = isPractice(assessment);
+  /* A LATIHAN's essay counts nowhere: its comment is its mark. */
+  const commentOnly = (question) => practice && question.kind === 'ESSAY';
 
   const setAnswer = (questionId, patch) => {
     setDraft((prev) => ({ ...prev, answers: { ...prev.answers, [questionId]: { ...prev.answers[questionId], ...patch } } }));
@@ -285,13 +291,13 @@ export const Marking = ({ assessmentId, submissionId, onBack, onOpen, embedded =
           ]}
         />
         <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs font-semibold text-slate-500">
-          <span>{t(`tasm.results.attemptStatus.${submission.status}`)}</span>
+          <span>{practice && submission.status === 'WAITING_FOR_MARKING' ? t('tasm.mark.waitingComment') : t(`tasm.results.attemptStatus.${submission.status}`)}</span>
           {submission.submittedAt && <span className="tabular-nums">{when(submission.submittedAt, zone, lang)}</span>}
           {submission.late && <span className="text-amber-700">{t('tasm.results.late')}</span>}
           {submission.remedial && <span className="text-brand">{t('tasm.results.remedial')}</span>}
-          {mark && (
+          {mark && mark.value !== null && (
             <span className="tabular-nums text-slate-700">
-              {submission.score ? t('tasm.mark.score', { value: formatNumber(mark.value, lang) }) : t('tasm.results.draftMark', { value: formatNumber(mark.value, lang) })}
+              {submission.score || practice ? t('tasm.mark.score', { value: formatNumber(mark.value, lang) }) : t('tasm.results.draftMark', { value: formatNumber(mark.value, lang) })}
               {mark.pointsTotal !== null && ` (${t('tasm.results.points', { earned: formatNumber(mark.pointsEarned, lang), total: mark.pointsTotal })})`}
             </span>
           )}
@@ -310,7 +316,7 @@ export const Marking = ({ assessmentId, submissionId, onBack, onOpen, embedded =
           {t(readOnlyWhy, { reason: submission.voidReason ?? '' })}
         </p>
       )}
-      {editable && <p className={note}>{t(released ? 'tasm.mark.releasedNote' : 'tasm.mark.draftNote')}</p>}
+      {editable && <p className={note}>{t(practice ? 'tasm.mark.practiceNote' : released ? 'tasm.mark.releasedNote' : 'tasm.mark.draftNote')}</p>}
 
       <ol className="space-y-4">
         {questions.map((question, index) => {
@@ -330,12 +336,16 @@ export const Marking = ({ assessmentId, submissionId, onBack, onOpen, embedded =
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
                 <span className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 text-xs font-extrabold flex items-center justify-center shrink-0">{index + 1}</span>
                 <span className="text-xs font-bold text-slate-600">{t(`qbank.kind.${question.kind}`)}</span>
-                <span className="text-xs font-semibold text-slate-500">{t('tasm.mark.worth', { n: question.points })}</span>
-                {question.needsMarking && <span className="text-xs font-bold text-amber-700">{t('tasm.results.status.WAITING_FOR_MARKING')}</span>}
-                <span className="ml-auto flex items-baseline gap-2.5 text-xs font-bold tabular-nums">
-                  {verdict && <span className={VERDICT_TONE[verdict]}>{t(`tasm.verdict.${verdict}`)}</span>}
-                  <span className="text-slate-700">{t('tasm.mark.earned', { earned: formatNumber(question.earned, lang), total: question.points })}</span>
-                </span>
+                <span className="text-xs font-semibold text-slate-500">{commentOnly(question) ? t('tasm.mark.commentOnly') : t('tasm.mark.worth', { n: question.points })}</span>
+                {question.needsMarking && (
+                  <span className="text-xs font-bold text-amber-700">{t(practice ? 'tasm.mark.waitingComment' : 'tasm.results.status.WAITING_FOR_MARKING')}</span>
+                )}
+                {!commentOnly(question) && (
+                  <span className="ml-auto flex items-baseline gap-2.5 text-xs font-bold tabular-nums">
+                    {verdict && <span className={VERDICT_TONE[verdict]}>{t(`tasm.verdict.${verdict}`)}</span>}
+                    <span className="text-slate-700">{t('tasm.mark.earned', { earned: formatNumber(question.earned, lang), total: question.points })}</span>
+                  </span>
+                )}
               </div>
               <div className="content-html text-sm text-slate-800 break-words" dangerouslySetInnerHTML={{ __html: question.body ?? '' }} />
               {question.imageId && <QuestionImage imageId={question.imageId} assessmentId={assessmentId} className="max-h-56" />}
@@ -346,7 +356,7 @@ export const Marking = ({ assessmentId, submissionId, onBack, onOpen, embedded =
                 <p className={note}>{t('tasm.mark.auto', { n: formatNumber(question.autoPoints, lang) })}</p>
               )}
 
-              {editable && takesPoints(question) && (
+              {editable && takesPoints(question, assessment) && (
                 <div className="space-y-1">
                   <label htmlFor={`${baseId}-pts-${question.id}`} className={fieldLabel}>
                     {t('tasm.mark.points', { n: question.points })}
@@ -412,7 +422,7 @@ export const Marking = ({ assessmentId, submissionId, onBack, onOpen, embedded =
               }}
               className={`${box} resize-y ${errors.comment ? 'border-red-400' : 'border-slate-200'}`}
             />
-            {errors.comment ? <p className={errorText}>{t(errors.comment)}</p> : <p className={note}>{t('tasm.mark.commentHint')}</p>}
+            {errors.comment ? <p className={errorText}>{t(errors.comment)}</p> : <p className={note}>{t(practice ? 'tasm.mark.commentHintPractice' : 'tasm.mark.commentHint')}</p>}
           </div>
         ) : (
           <p className="text-sm font-medium text-slate-700 break-words">{submission.comment || t('tasm.mark.noComment')}</p>

@@ -186,8 +186,9 @@ describe('every expansion of a dynamic key exists', () => {
   it('an assessment\'s type and mode in one phrase: a word for each (2026-10-12)', () => {
     const types = quotedIn('views/TeacherAssessment/teacherAssessment.js', /export const TYPES = \[([^\]]*)\]/);
     const modes = quotedIn('views/TeacherAssessment/teacherAssessment.js', /export const MODES = \[([^\]]*)\]/);
-    expect(types).toEqual(['TUGAS', 'KUIS', 'UTS', 'UAS']);
+    expect(types).toEqual(['TUGAS', 'KUIS', 'UTS', 'UAS', 'LATIHAN']);
     expectEvery(types.map((s) => `tasm.typeWord.${s}`));
+    expectEvery(types.map((s) => `tasm.type.${s}`));
     expectEvery(modes.map((s) => `tasm.modeWord.${s}`));
   });
 

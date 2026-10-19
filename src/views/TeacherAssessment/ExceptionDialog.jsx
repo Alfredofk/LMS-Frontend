@@ -16,7 +16,8 @@ import { windowText } from './teacherAssessment';
   "Susulan / remedial" for one student on the Hasil tab (backend 1e6c749, ticket
   05; owner 2026-10-11). The whole exception at once: an own window (make-up),
   extra attempts, and whether it is a remedial - locked, with the date, until the
-  class's window has closed. A saved one is read first (GET /:id/exceptions) for
+  class's window has closed. A remedial always brings its own window (backend
+  52c31db), so ticking it ticks the make-up and holds it ticked. A saved one is read first (GET /:id/exceptions) for
   its updatedAt and whether it was used; an unused one can be removed, asked
   inline (a second dialog would share this one's Escape).
 
@@ -156,10 +157,12 @@ export const ExceptionDialog = ({ assessment, student, zone, span = null, onDone
           <>
             <div className="space-y-3">
               <label className="flex items-start gap-2.5 cursor-pointer select-none">
-                <input type="checkbox" checked={form.makeUp} disabled={busy} onChange={(e) => change({ makeUp: e.target.checked })} className="mt-0.5 w-4 h-4 accent-brand cursor-pointer" />
+                <input type="checkbox" checked={form.makeUp} disabled={busy || form.remedial} onChange={(e) => change({ makeUp: e.target.checked })} className="mt-0.5 w-4 h-4 accent-brand cursor-pointer disabled:cursor-not-allowed" />
                 <span className="space-y-0.5">
                   <span className={fieldLabel}>{t('tasm.exc.makeUp')}</span>
-                  <span className={`block ${hint}`}>{t('tasm.exc.makeUpHint', { window: windowText(assessment, zone, lang) })}</span>
+                  <span className={`block ${hint}`}>
+                    {form.remedial ? t('tasm.exc.makeUpRemedial') : t('tasm.exc.makeUpHint', { window: windowText(assessment, zone, lang) })}
+                  </span>
                 </span>
               </label>
               {form.makeUp && (
@@ -206,7 +209,13 @@ export const ExceptionDialog = ({ assessment, student, zone, span = null, onDone
                 type="checkbox"
                 checked={form.remedial}
                 disabled={busy || (!canRemedial && !form.remedial)}
-                onChange={(e) => change({ remedial: e.target.checked, ...(e.target.checked && form.extraAttempts === '0' ? { extraAttempts: '1' } : {}) })}
+                onChange={(e) =>
+                  change({
+                    remedial: e.target.checked,
+                    ...(e.target.checked ? { makeUp: true } : {}),
+                    ...(e.target.checked && form.extraAttempts === '0' ? { extraAttempts: '1' } : {}),
+                  })
+                }
                 className="mt-0.5 w-4 h-4 accent-brand cursor-pointer disabled:cursor-not-allowed"
               />
               <span className="space-y-0.5">

@@ -20,6 +20,11 @@
   - DONE: the rest - released, waiting for release, did not submit, cancelled -
     newest closed first. One handed in that may still be tried again stays here,
     with "Bisa dicoba lagi".
+
+  A LATIHAN (backend 026e4f9, owner 2026-10-18) sits among them with its own
+  statuses - NOT_STARTED, IN_PROGRESS, DONE (handed in at least once) - and shows
+  its best attempt in place of a score (owner 2026-10-19: the best alone). It is
+  never on the "Nilai" tab and never counted as handed in on the dashboard.
 */
 
 export const MENU_SECTIONS = ['TODO', 'UPCOMING', 'DONE'];
@@ -54,6 +59,8 @@ export function wordOf(entry, now = new Date()) {
   }
   if (section === 'UPCOMING') return null;
   if (entry.status === 'RELEASED') return null;
+  // A LATIHAN done: its best attempt says it, or "Sudah dikerjakan" when it has no total (essays alone).
+  if (entry.status === 'DONE') return practiceBestOf(entry) !== null ? null : 'DONE';
   return entry.status;
 }
 
@@ -176,6 +183,23 @@ export const scoredEntriesOf = (classes, classSubjectId) =>
   moved nothing, or there is no released score to sit under.
 */
 
+/*
+  The KKTP a score is counted with (backend 3814cf9, owner 2026-10-19): every graded
+  entry of the menu and the outline carries `kktp`, the reporting slot's - null on a
+  LATIHAN, or where none is known. A released score under it is red, as on the
+  teacher's gradebook; the raw score that counts is what is compared.
+*/
+
+/** Whether a released score that counts sits under the KKTP. Works on a menu entry and on the outline. */
+export function belowKktpOf(entry) {
+  if (typeof entry?.kktp !== 'number' || typeof entry.score !== 'number') return false;
+  if (entry.status !== undefined && entry.status !== 'RELEASED') return false;
+  return entry.score < entry.kktp;
+}
+
+/** A LATIHAN's best attempt's value (backend 026e4f9), or null: what its row shows in place of a score. */
+export const practiceBestOf = (entry) => (entry?.assessment?.type === 'LATIHAN' ? (entry.practice?.best?.value ?? null) : null);
+
 /** `{ score, rule }` when the rule moves a released score, else null. Works on a menu entry and on the outline. */
 export function afterRuleOf(entry) {
   const after = entry?.afterRule;
@@ -189,8 +213,7 @@ export function afterRuleOf(entry) {
   semester's ONLINE assessments whose outcome is known, how many were handed in -
   marked or waiting for release - against "did not submit". An OFFLINE one is a
   paper the teacher marks, not handed in here; a cancelled, voided, running or
-  still-to-do one says nothing yet. Not "on time": the menu does not carry a
-  hand-in's `late` flag (only the outline does).
+  still-to-do one says nothing yet. A LATIHAN (status DONE) is never counted.
 */
 const HANDED_IN = new Set(['RELEASED', 'WAITING_FOR_RELEASE']);
 
@@ -201,6 +224,23 @@ export function handedInOf(classes) {
   );
   const handedIn = known.filter((entry) => HANDED_IN.has(entry.status)).length;
   return { handedIn, total: known.length, rate: known.length ? Math.round((handedIn / known.length) * 100) : null };
+}
+
+/*
+  "Dikumpulkan tepat waktu" under it (backend 3814cf9, owner 2026-10-19): each entry
+  carries `late` - its first attempt handed in, void and remedial ones left out,
+  late counted from the student's own closesAt (a make-up's if any) - and null with
+  none handed in or on an OFFLINE one. Of the graded ones handed in, how many were
+  on time. A LATIHAN is left out, as above.
+*/
+
+/** `{ onTime, total, rate }` over every class of the menu; rate null when total is 0. */
+export function onTimeOf(classes) {
+  const known = allEntries(classes).filter(
+    (entry) => entry.assessment?.type !== 'LATIHAN' && entry.assessment?.status !== 'CANCELLED' && typeof entry.late === 'boolean'
+  );
+  const onTime = known.filter((entry) => entry.late === false).length;
+  return { onTime, total: known.length, rate: known.length ? Math.round((onTime / known.length) * 100) : null };
 }
 
 /** Where a row leads: straight into the attempt running, else the outline. */

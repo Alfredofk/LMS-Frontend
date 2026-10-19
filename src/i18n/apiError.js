@@ -557,6 +557,18 @@ const ASSESSMENT_BY_MESSAGE = [
   /* A UTS or UAS outside an Exam Week (backend cbec3b6, assertInExamWeek). */
   ['Exam Week is set for grade', 'tasm.error.noExamWeek'],
   ['Exam Week of grade', 'tasm.error.outsideExamWeek'],
+  /* LATIHAN, practice never graded (backend 026e4f9). */
+  ['is a LATIHAN: it takes no make-up', 'tasm.error.practiceNoException'],
+  ['is a LATIHAN: it is never released', 'tasm.error.practiceNoRelease'],
+  ['is a LATIHAN: its answers take comments', 'tasm.error.practiceNoPoints'],
+  ['A LATIHAN is answered online', 'tasm.error.practiceOffline'],
+  ['Unlimited attempts are for a LATIHAN only', 'tasm.error.unlimitedPracticeOnly'],
+  /* A remedial mark on an offline one (backend dfa2545), and a remedial's own window (52c31db). */
+  ['enter remedial marks once it has closed', 'tasm.offline.error.remedialOpen'],
+  ['Enter remedial marks only for students placed in', 'tasm.offline.error.remedialNotPlaced'],
+  ['This remedial mark is released', 'tasm.offline.error.remedialReleased'],
+  ['Remedial mark not found', 'tasm.offline.error.remedialGone'],
+  ['A remedial needs its own window', 'tasm.exc.error.remedialWindow'],
   /* A student's exception (backend 1e6c749), first: some share words with the ones below. */
   ['set exceptions once it is published', 'tasm.exc.error.draft'],
   ['enter the make-up mark when there is one', 'tasm.exc.error.offline'],

@@ -14,7 +14,7 @@ import { currentSubjects } from '../Classroom/myClasses';
 import { readMyProgress } from '../Classroom/readMyProgress';
 import { progressTotals } from '../Classroom/myProgress';
 import { readMyMenu } from '../StudentAssessment/readMyMenu';
-import { handedInOf, nextUpcoming, todoAcross } from '../StudentAssessment/studentMenu';
+import { handedInOf, nextUpcoming, onTimeOf, todoAcross } from '../StudentAssessment/studentMenu';
 import { ActiveAssessment, CourseProgress } from './components/Widgets';
 import PinnedAnnouncements from './components/PinnedAnnouncements';
 import ProgressBoard from './components/ProgressBoard';
@@ -146,6 +146,7 @@ export const StudentDashboard = () => {
   }, [membership?.id]);
   const todo = menu === undefined ? undefined : menu === null ? null : todoAcross(menu.classes);
   const handedIn = menu === undefined ? undefined : menu === null ? null : handedInOf(menu.classes);
+  const onTime = menu === undefined ? undefined : menu === null ? null : onTimeOf(menu.classes);
   /* The Exam Week of the student's grade (owner 2026-10-18): a line from 14 days
      before, and while it runs the today card holds that day's UTS and UAS. */
   const schoolToday = useSchoolToday();
@@ -197,7 +198,7 @@ export const StudentDashboard = () => {
         {/* Check-in is the one thing here bound to the clock. It shows one meeting
             (on now, else next), and a day with none, or already over, folds to one line. */}
         <TodaySessionsCard focus examWeek={examWeekToday} exams={examsToday} onCheckedIn={() => setRecorded((n) => n + 1)} />
-        <ProgressBoard totals={totals} zone={membership?.school?.timeZone ?? null} handedIn={handedIn} />
+        <ProgressBoard totals={totals} zone={membership?.school?.timeZone ?? null} handedIn={handedIn} onTime={onTime} />
       </div>
 
       {/* The attendance card leads to /attendance and the subjects card to /classroom

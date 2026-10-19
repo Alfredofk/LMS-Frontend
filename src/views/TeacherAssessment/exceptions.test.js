@@ -67,10 +67,12 @@ describe('the form', () => {
     expect(at({ opensDate: '2026-10-10', closesDate: '2026-10-14', closesTime: '12:00' }).closes).toBe('tasm.exc.error.closesPast');
   });
 
-  it('a remedial: after the class closes, at least one attempt', () => {
-    const remedial = form({ remedial: true, extraAttempts: '1' });
+  it('a remedial: after the class closes, with its own window, at least one attempt', () => {
+    const remedial = form({ remedial: true, makeUp: true, window, extraAttempts: '1' });
     expect(exceptionErrors(remedial, { zone: 'WIB', span, assessment, now: before })).toEqual({ form: 'tasm.exc.error.remedialOpen' });
     expect(exceptionErrors(remedial, { zone: 'WIB', span, assessment, now: after })).toEqual({});
+    // Backend 52c31db: the class's window has closed, so a remedial brings its own.
+    expect(exceptionErrors(form({ remedial: true, extraAttempts: '1' }), { zone: 'WIB', span, assessment, now: after })).toEqual({ form: 'tasm.exc.error.remedialWindow' });
     expect(exceptionErrors(form({ remedial: true, makeUp: true, window }), { zone: 'WIB', span, assessment, now: after }).extraAttempts).toBe('tasm.exc.error.remedialExtra');
   });
 });

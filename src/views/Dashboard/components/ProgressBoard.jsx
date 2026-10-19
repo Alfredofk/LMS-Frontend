@@ -1,5 +1,5 @@
 import React from 'react';
-import { Award, BookOpenCheck, CheckCircle2, Eye, Trophy, Wrench } from 'lucide-react';
+import { Award, BookOpenCheck, CheckCircle2, Clock, Eye, Trophy, Wrench } from 'lucide-react';
 
 import { useT } from '../../../i18n/LanguageContext';
 import { localOf } from '../../Attendance/attendance';
@@ -14,7 +14,8 @@ import { formatDay } from '../../Classes/format';
     progressTotals (views/Classroom/myProgress.js), and the last activity.
   - Assessments handed in (owner, 2026-10-14): of the semester's online ones whose
     outcome is known, how many were handed in (handedInOf, from GET /assessments/mine).
-    It replaced "on time", which the menu cannot tell (no `late` flag there).
+  - Handed in on time (owner, 2026-10-19): of those handed in, how many were not
+    late (onTimeOf; the menu carries `late` since backend 3814cf9).
   - The average score stays "not available yet" (owner's choice: no average until
     the backend computes a Final Grade).
   - The "Top 3 in class" tab is gone (owner, 2026-10-04): the backend shows a
@@ -24,11 +25,12 @@ import { formatDay } from '../../Classes/format';
   @param totals  progressTotals(...); undefined while reading, null when the read failed
   @param zone    the school's time zone (WIB/WITA/WIT), for the last activity
   @param handedIn  handedInOf(...); undefined while reading, null when the read failed
+  @param onTime    onTimeOf(...); the same
 */
 
 const NOT_BUILT = [{ key: 'average', icon: Award, labelKey: 'dash.board.metric.average' }];
 
-export const ProgressBoard = ({ totals, zone = null, handedIn }) => {
+export const ProgressBoard = ({ totals, zone = null, handedIn, onTime }) => {
   const { t, lang } = useT();
   const loading = totals === undefined;
   const failed = totals === null;
@@ -46,6 +48,17 @@ export const ProgressBoard = ({ totals, zone = null, handedIn }) => {
       rate: handedIn?.rate,
       loading: handedIn === undefined,
       failed: handedIn === null,
+    },
+    {
+      key: 'onTime',
+      icon: Clock,
+      labelKey: 'dash.board.metric.onTime',
+      bar: 'bg-amber-500',
+      done: onTime?.onTime,
+      total: onTime?.total,
+      rate: onTime?.rate,
+      loading: onTime === undefined,
+      failed: onTime === null,
     },
   ];
 

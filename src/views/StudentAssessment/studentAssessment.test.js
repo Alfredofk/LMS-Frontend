@@ -4,6 +4,7 @@ import {
   answerBody,
   answeredCount,
   attemptState,
+  attemptsLeftText,
   choose,
   clockText,
   countsDown,
@@ -17,6 +18,7 @@ import {
   remainingMs,
   startState,
   studentStateOf,
+  waitsForComment,
 } from './studentAssessment';
 
 // Against backend assessment.submission.js (6380e3e, 5255842, 1e6c749) and assessment.schema.js answerBody.
@@ -141,5 +143,27 @@ describe('the key once released', () => {
     expect(keyOf({ kind: 'SHORT', key: { accepted: ['5', 'lima'] } })).toEqual({ kind: 'SHORT', accepted: ['5', 'lima'] });
     expect(keyOf({ kind: 'ESSAY', key: null })).toBeNull();
     expect(keyOf({ kind: 'TF', key: null })).toBeNull();
+  });
+});
+
+describe('LATIHAN - backend 026e4f9', () => {
+  it('unlimited attempts (null) never read as none left', () => {
+    const outline = { assessment, canStart: false, inProgressId: null, attemptsLeft: null, attemptsUsed: 4 };
+    expect(startState(outline, after)).toEqual({ action: null, why: 'closed' });
+    expect(attemptsLeftText(outline)).toEqual({ key: 'sasm.attemptsUnlimited', vars: { used: 4 } });
+    expect(attemptsLeftText({ attemptsLeft: 1, attemptsUsed: 2 })).toEqual({ key: 'sasm.attemptsLeft', vars: { left: 1, max: 3 } });
+  });
+
+  it('an attempt handed in reads CHECKED, never waiting for release', () => {
+    expect(attemptState({ status: 'SUBMITTED', released: false }, { type: 'LATIHAN' })).toBe('CHECKED');
+    expect(attemptState({ status: 'VOID', released: false }, { type: 'LATIHAN' })).toBe('VOID');
+    expect(attemptState({ status: 'SUBMITTED', released: false }, { type: 'KUIS' })).toBe('WAITING');
+  });
+
+  it('an answered essay with no comment yet waits for one', () => {
+    const essay = (comment) => ({ kind: 'ESSAY', points: null, answer: { text: 'x' }, marks: { points: null, comment } });
+    expect(waitsForComment([essay(null)])).toBe(true);
+    expect(waitsForComment([essay('Bagus')])).toBe(false);
+    expect(waitsForComment([{ ...essay(null), answer: null }])).toBe(false);
   });
 });

@@ -11,12 +11,12 @@ import { assessmentService } from '../../services/assessmentService';
 import { localOf } from '../Attendance/attendance';
 import { formatSchoolDay } from '../QuestionBank/questionBank';
 import { formatNumber } from '../TeacherAssessment/results';
-import { afterRuleOf } from './studentMenu';
-import { typeModeText, windowText } from '../TeacherAssessment/teacherAssessment';
+import { afterRuleOf, belowKktpOf } from './studentMenu';
+import { isPractice, typeModeText, windowText } from '../TeacherAssessment/teacherAssessment';
 import { noteAssessmentSubject } from './assessmentBack';
 import { forgetMyMenu } from './readMyMenu';
 import { enterFullscreen, leaveFullscreen } from './useIntegritySignals';
-import { STUDENT_STATE_TONE, attemptState, startState, studentStateOf } from './studentAssessment';
+import { STUDENT_STATE_TONE, attemptState, attemptsLeftText, startState, studentStateOf } from './studentAssessment';
 
 /*
   One assessment for a student, before and between attempts (/assessment/:id;
@@ -29,6 +29,11 @@ import { STUDENT_STATE_TONE, attemptState, startState, studentStateOf } from './
 
   Reached from a subject's "Penilaian" tab (SubjectAssessments; /assessment's
   cards lead there), backend 113ae37.
+
+  A LATIHAN (backend 026e4f9, owner 2026-10-18) says it is never graded, may have
+  unlimited attempts, and shows the best attempt's result where the score that
+  counts would be (`practice.best`). A graded one's score is red under the KKTP it
+  is counted with (`kktp`, backend 3814cf9; owner 2026-10-19), "KKTP 75" under it.
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 sm:p-6 shadow-sm';
@@ -39,6 +44,7 @@ const ATTEMPT_TONE = {
   IN_PROGRESS: 'text-sky-700',
   WAITING: 'text-brand',
   RELEASED: 'text-emerald-700',
+  CHECKED: 'text-emerald-700',
   VOID: 'text-slate-500',
 };
 
@@ -104,7 +110,11 @@ export const StudentAssessmentPage = () => {
   const { assessment, submissions = [] } = data;
   const state = startState(data);
   const online = assessment.mode === 'ONLINE';
-  const maxAttempts = (data.attemptsUsed ?? 0) + (data.attemptsLeft ?? 0);
+  const practice = isPractice(assessment);
+  const attemptsLeft = attemptsLeftText(data);
+  /* What heads the attempts: the score that counts, or a LATIHAN's best attempt (backend 026e4f9). */
+  const shownScore = practice ? (data.practice?.best?.value ?? null) : data.score;
+  const below = !practice && belowKktpOf(data);
   /* A clock that starts, or the integrity notice: worth a question before the first click. */
   const asksFirst = Boolean(assessment.timeLimitMinutes) || assessment.integritySignals;
 
@@ -159,10 +169,12 @@ export const StudentAssessmentPage = () => {
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
           <Fact label={t('sasm.fact.window')}>{windowText(assessment, zone, lang)}</Fact>
           {online && <Fact label={t('sasm.fact.timeLimit')}>{assessment.timeLimitMinutes ? t('sasm.minutes', { n: assessment.timeLimitMinutes }) : t('sasm.noLimit')}</Fact>}
-          {online && <Fact label={t('sasm.fact.attempts')}>{t('sasm.attemptsLeft', { left: data.attemptsLeft, max: maxAttempts })}</Fact>}
+          {online && <Fact label={t('sasm.fact.attempts')}>{t(attemptsLeft.key, attemptsLeft.vars)}</Fact>}
           {online && <Fact label={t('sasm.fact.questions')}>{t('sasm.questionCount', { n: assessment.questionCount, points: assessment.totalPoints })}</Fact>}
           {online && assessment.acceptLate && <Fact label={t('sasm.fact.late')}>{t('sasm.lateAccepted')}</Fact>}
         </dl>
+
+        {practice && <p className="rounded-xl bg-brand-tint px-3.5 py-2.5 text-xs font-semibold text-brand leading-relaxed">{t('sasm.practice.note')}</p>}
 
         {exception && (
           <p className="rounded-xl bg-brand-tint px-3.5 py-2.5 text-xs font-semibold text-brand leading-relaxed">
@@ -226,8 +238,18 @@ export const StudentAssessmentPage = () => {
               {t(online ? 'sasm.attempts' : 'sasm.yourMark')}
             </h2>
             <div className="text-right">
-              <p className="text-2xl font-extrabold text-slate-900 tabular-nums leading-tight">{formatNumber(data.score, lang)}</p>
-              <p className="text-[11px] font-medium text-slate-500">{data.score !== null ? t('sasm.scoreCounts') : t('sasm.noScoreYet')}</p>
+              <p className={`text-2xl font-extrabold tabular-nums leading-tight ${below ? 'text-rose-600' : 'text-slate-900'}`}>
+                {formatNumber(shownScore, lang)}
+                {below && <span className="sr-only"> ({t('gradebook.kktp.below')})</span>}
+              </p>
+              <p className="text-[11px] font-medium text-slate-500">
+                {practice
+                  ? t(shownScore !== null ? 'sasm.practice.best' : assessment.totalPoints === 0 ? 'sasm.practice.noTotal' : 'sasm.noScoreYet')
+                  : data.score !== null
+                    ? t('sasm.scoreCounts')
+                    : t('sasm.noScoreYet')}
+              </p>
+              {!practice && typeof data.kktp === 'number' && <p className="text-[11px] font-medium text-slate-500 tabular-nums">{t('sasm.kktp', { kktp: data.kktp })}</p>}
             </div>
           </div>
           {/* The score a remedial counts for, where the school's rule moves it (backend 79b319f, owner 2026-10-18): the raw score stays above. */}
@@ -242,7 +264,7 @@ export const StudentAssessmentPage = () => {
           {submissions.length > 0 ? (
             <ul className="space-y-2">
               {[...submissions].reverse().map((submission) => {
-                const rowState = attemptState(submission);
+                const rowState = attemptState(submission, assessment);
                 return (
                   <li key={submission.id}>
                     <button

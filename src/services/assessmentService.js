@@ -233,6 +233,15 @@ export const assessmentService = {
     return api.put(`/assessments/${q(id)}/offline-marks`, body);
   },
 
+  /**
+   * Takes one student's remedial mark back before its release (backend dfa2545):
+   * voided and kept. Released, 409 - it is corrected with a reason instead.
+   * Answers the results.
+   */
+  async removeRemedialMark(id, studentProfileId) {
+    return api.del(`/assessments/${q(id)}/offline-marks/${q(studentProfileId)}/remedial`);
+  },
+
   /** Records a score for every attempt ready: `{ assessment, released, waitingForMarking, inProgress }`. */
   async release(id) {
     return api.post(`/assessments/${q(id)}/release`, {});

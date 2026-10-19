@@ -10,7 +10,7 @@ import { formatNumber } from '../TeacherAssessment/results';
 import { shortWhen, typeModeText } from '../TeacherAssessment/teacherAssessment';
 import { readMyMenu } from './readMyMenu';
 import { noteAssessmentTab } from './assessmentBack';
-import { afterRuleOf, canRetry, entriesOf, pathOf, sectionsOf, whenOf, wordOf } from './studentMenu';
+import { afterRuleOf, belowKktpOf, canRetry, entriesOf, pathOf, practiceBestOf, sectionsOf, whenOf, wordOf } from './studentMenu';
 
 /*
   A subject's "Penilaian" tab on the student's subject page (/classroom/:id?tab=penilaian;
@@ -22,6 +22,9 @@ import { afterRuleOf, canRetry, entriesOf, pathOf, sectionsOf, whenOf, wordOf } 
 
   The menu answers only the semesters one of the student's placements overlaps, so
   a 404 for this semester means it has none for them: said as no assessments.
+
+  A LATIHAN's row shows its best attempt, "Terbaik 90" (backend 026e4f9). A released
+  score under the KKTP is red, the words said to a screen reader (backend 3814cf9).
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl shadow-sm';
@@ -33,6 +36,7 @@ const WORD_TONE = {
   VOIDED: 'text-amber-700',
   LATE: 'text-amber-700',
   WAITING_FOR_RELEASE: 'text-slate-600',
+  DONE: 'text-slate-600',
   DID_NOT_SUBMIT: 'text-rose-700',
   CANCELLED: 'text-rose-700',
 };
@@ -42,6 +46,8 @@ const Row = ({ entry, zone, onOpen }) => {
   const { assessment } = entry;
   const word = wordOf(entry);
   const when = whenOf(entry);
+  const best = practiceBestOf(entry);
+  const below = belowKktpOf(entry);
   const exception = assessment.exception;
   const facts = [
     typeModeText(t, assessment),
@@ -77,7 +83,16 @@ const Row = ({ entry, zone, onOpen }) => {
         </span>
         <span className="shrink-0 text-right">
           {entry.status === 'RELEASED' && entry.score !== null && (
-            <span className="block text-base font-extrabold text-slate-900 tabular-nums leading-tight">{formatNumber(entry.score, lang)}</span>
+            <span className={`block text-base font-extrabold tabular-nums leading-tight ${below ? 'text-rose-600' : 'text-slate-900'}`}>
+              {formatNumber(entry.score, lang)}
+              {below && <span className="sr-only"> ({t('gradebook.kktp.below')})</span>}
+            </span>
+          )}
+          {best !== null && (
+            <span className="block text-base font-extrabold text-slate-900 tabular-nums leading-tight">
+              <span className="text-[11px] font-semibold text-slate-500">{t('smenu.best')} </span>
+              {formatNumber(best, lang)}
+            </span>
           )}
           {afterRuleOf(entry) && (
             <span className="block text-[11px] font-semibold text-slate-500 tabular-nums">

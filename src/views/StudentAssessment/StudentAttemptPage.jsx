@@ -30,6 +30,7 @@ import {
   keyOf,
   lettered,
   remainingMs,
+  waitsForComment,
 } from './studentAssessment';
 import { forgetMyMenu } from './readMyMenu';
 import FullscreenLockDialog from './FullscreenLockDialog';
@@ -54,6 +55,9 @@ import { useIntegritySignals } from './useIntegritySignals';
   and leaving the page, leaving fullscreen, copying and pasting are
   reported (useIntegritySignals, integrity.js; backend b5db324, owner
   2026-10-13). The outline told the student so before they started.
+
+  A LATIHAN (backend 026e4f9) shows all that as soon as it is handed in, never
+  released; its ESSAY has no points ("Dikomentari guru"), only a comment.
 
   Handed in, closed or void: the answers read back. Released: the score, the
   teacher's comment, each question's points and comment, and the key when the
@@ -397,7 +401,7 @@ const Answering = ({ view, zone, onClosed, onHandedIn }) => {
             {t('sasm.questionOf', { n: index + 1, total: questions.length })}
           </h2>
           <span className="text-xs font-bold text-slate-600">{t(`qbank.kind.${question.kind}`)}</span>
-          <span className="text-xs font-semibold text-slate-500">{t('sasm.points', { n: question.points })}</span>
+          <span className="text-xs font-semibold text-slate-500">{question.points === null ? t('sasm.commentOnly') : t('sasm.points', { n: question.points })}</span>
         </div>
         <QuestionBody question={question} submissionId={submissionId} />
         <AnswerInput
@@ -534,7 +538,7 @@ const KeyLine = ({ question, t }) => {
 const ReadBack = ({ view, zone, notice }) => {
   const { t, lang } = useT();
   const { submission, questions } = view;
-  const state = attemptState(submission);
+  const state = attemptState(submission, view.assessment);
   const local = (instant) => {
     const value = instant ? localOf(instant, zone) : null;
     return value ? `${formatSchoolDay(value.date, lang)} ${value.time}` : '';
@@ -561,6 +565,7 @@ const ReadBack = ({ view, zone, notice }) => {
               {submission.late && <span className="text-amber-700">{t('tasm.results.late')}</span>}
               {submission.remedial && <span className="text-brand">{t('tasm.results.remedial')}</span>}
               {state === 'WAITING' && <span className="text-slate-500">{t('sasm.waitingRelease')}</span>}
+              {state === 'CHECKED' && waitsForComment(questions) && <span className="text-slate-500">{t('sasm.practice.waitingComment')}</span>}
             </p>
           </div>
           {submission.score && (
@@ -596,9 +601,11 @@ const ReadBack = ({ view, zone, notice }) => {
                   t={t}
                 />
                 <span className="text-slate-700">
-                  {question.marks
-                    ? t('sasm.pointsOf', { earned: formatNumber(question.marks.points, lang), total: question.points })
-                    : t('sasm.points', { n: question.points })}
+                  {question.points === null
+                    ? t('sasm.commentOnly')
+                    : question.marks
+                      ? t('sasm.pointsOf', { earned: formatNumber(question.marks.points, lang), total: question.points })
+                      : t('sasm.points', { n: question.points })}
                 </span>
               </span>
             </div>

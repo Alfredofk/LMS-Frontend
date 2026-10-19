@@ -9,7 +9,9 @@
   - Extra attempts, 0 to 20, added to maxAttempts - or, under a remedial, the only
     attempts that count (at least one).
   - A remedial only once the class's window has closed, with nothing of the
-    student's in progress (the server checks the second).
+    student's in progress (the server checks the second) - and so always with its
+    own window (backend 52c31db, owner 2026-10-19: the class's has closed, so
+    without one no attempt could start; 400 otherwise).
   - The whole of it is sent each time (exceptionBody, strict), a change with the
     updatedAt it read. Removed only while unused (`used`).
 */
@@ -18,9 +20,10 @@ import { emptyWindow, instantOf, partsOf, windowErrors } from './teacherAssessme
 
 export const MAX_EXTRA_ATTEMPTS = 20;
 
-/** Whether the answering teacher may set one for this student here. */
+/** Whether the answering teacher may set one for this student here: never on a LATIHAN (backend 026e4f9, 409), which takes more attempts instead. */
 export function canSetException(assessment, student, manages) {
   if (!manages || !assessment || !student) return false;
+  if (assessment.type === 'LATIHAN') return false;
   return assessment.mode === 'ONLINE' && assessment.status === 'PUBLISHED' && Boolean(student.placedNow);
 }
 
@@ -50,7 +53,8 @@ const extraOf = (typed) => {
  * Keys `{ opens?, closes?, extraAttempts?, form? }`: the window as an assessment's
  * (both ends, in order, inside the semester `span`) and closing after now; extra
  * attempts a whole 0-20, at least one under a remedial; a remedial only once the
- * class's window has closed; and something given - a window or extra attempts.
+ * class's window has closed, and with its own window; and something given - a
+ * window or extra attempts.
  */
 export function exceptionErrors(form, { zone, span = null, assessment = null, now = new Date() } = {}) {
   const errors = {};
@@ -63,6 +67,7 @@ export function exceptionErrors(form, { zone, span = null, assessment = null, no
   if (Number.isNaN(extra) || extra > MAX_EXTRA_ATTEMPTS) errors.extraAttempts = 'tasm.exc.error.extra';
   else if (form.remedial && extra < 1) errors.extraAttempts = 'tasm.exc.error.remedialExtra';
   if (form.remedial && assessment && !remedialOpen(assessment, now)) errors.form = 'tasm.exc.error.remedialOpen';
+  else if (form.remedial && !form.makeUp) errors.form = 'tasm.exc.error.remedialWindow';
   else if (!form.makeUp && extra === 0) errors.form = 'tasm.exc.error.empty';
   return errors;
 }
