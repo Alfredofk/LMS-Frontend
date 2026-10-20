@@ -222,6 +222,7 @@ export const TeacherClassSubjectDetail = () => {
             zone={zone}
             onChanged={() => setGradesKey((n) => n + 1)}
             onOpenSessions={() => goSection('pertemuan')}
+            onOpenAssessments={() => goSection('penilaian')}
             onOpenAssessment={(assessmentId) => navigate(`/teacher/courses/${entry.id}/penilaian/${assessmentId}?tab=hasil`)}
             onToast={showToast}
           />

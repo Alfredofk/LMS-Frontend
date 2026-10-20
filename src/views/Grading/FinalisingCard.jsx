@@ -14,9 +14,10 @@ import { forgetSlotFinalised } from './useSlotFinalised';
   eadf680, ticket 04), for its answering teacher: shown only while the semester is
   being finalised or once the slot is (finalisingShown). Before finalising, what
   still blocks it, each line with a way to where it is cleared ("Buka Pertemuan",
-  "Buka Hasil"); "Finalkan" once nothing does. After, who finalised it and when, and
-  "Batalkan finalisasi" until the semester closes. Both ask first. Everything comes
-  from the grade read (`finalised`, `blockers`); a change reads it again (`onChanged`).
+  "Buka Hasil", "Buka Penilaian"); "Finalkan" once nothing does. After, who
+  finalised it and when, and "Batalkan finalisasi" until the semester closes. Both
+  ask first. Everything comes from the grade read (`finalised`, `blockers`); a
+  change reads it again (`onChanged`).
 
   @param classSubjectId     the slot
   @param subjectName        its name, for the dialogs and the toast
@@ -26,6 +27,7 @@ import { forgetSlotFinalised } from './useSlotFinalised';
   @param onChanged          () => void - read the grades again
   @param onOpenSessions     () => void
   @param onOpenAssessment   (assessmentId) => void
+  @param onOpenAssessments  () => void - the assessments tab, for a student with no grade
   @param onToast            (message, type) => void
 */
 
@@ -34,7 +36,7 @@ const button =
   'inline-flex items-center justify-center px-4 py-2 rounded-xl text-sm font-bold cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50 disabled:cursor-not-allowed';
 const link = 'inline-flex items-center gap-0.5 text-xs font-extrabold text-brand hover:underline cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand';
 
-export const FinalisingCard = ({ classSubjectId, subjectName, grades, canEdit = false, zone, onChanged, onOpenSessions, onOpenAssessment, onToast }) => {
+export const FinalisingCard = ({ classSubjectId, subjectName, grades, canEdit = false, zone, onChanged, onOpenSessions, onOpenAssessment, onOpenAssessments, onToast }) => {
   const { t, lang } = useT();
   /* 'finalise' | 'unfinalise' while its dialog is open */
   const [asking, setAsking] = useState(null);
@@ -96,6 +98,12 @@ export const FinalisingCard = ({ classSubjectId, subjectName, grades, canEdit = 
                 {view.link?.to === 'sessions' && onOpenSessions && (
                   <button type="button" onClick={onOpenSessions} className={link}>
                     {t('grading.fin.openSessions')}
+                    <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+                  </button>
+                )}
+                {view.link?.to === 'assessments' && onOpenAssessments && (
+                  <button type="button" onClick={onOpenAssessments} className={link}>
+                    {t('grading.fin.openAssessments')}
                     <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
                   </button>
                 )}

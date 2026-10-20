@@ -17,7 +17,8 @@ import { useT } from '../../../i18n/LanguageContext';
 import { getAccessToken } from '../../../services/apiClient';
 import AccountMenu from '../../../components/AccountMenu';
 import { useAuth } from '../../../context/AuthContext';
-import { homeFor, isPrincipalDesk } from '../../../constants/roles';
+import { ROLES, homeFor, isPrincipalDesk } from '../../../constants/roles';
+import { backOf } from '../../ReportCards/reportCards';
 import { useAssessmentBack } from '../../StudentAssessment/assessmentBack';
 
 /*
@@ -40,6 +41,7 @@ const TITLES = {
   '/schedule': { key: 'shell.schedule', back: true },
   '/assessment': { key: 'shell.assessment', back: true },
   '/attendance': { key: 'shell.attendance', back: true },
+  '/report-cards': { key: 'shell.reportCards', back: true },
   '/announcements': { key: 'shell.announcement', back: true },
   '/profile': { key: 'shell.myProfile' },
   /* No `back`: the button that flag renders goes to /dashboard, hardcoded, which
@@ -407,6 +409,26 @@ export const Navbar = ({ showToast, onOpenNav }) => {
             <ChevronLeft className="w-4 h-4" aria-hidden="true" />
           </button>
           <span className="truncate text-xl font-bold text-slate-900 tracking-tight">{t('shell.assessment')}</span>
+        </div>
+      );
+    }
+
+    /* One report card leads back where it was opened from: the student's list, or a
+       class's card with that class and semester (owner, 2026-10-20; reportCards.js). */
+    if (location.pathname.startsWith('/report-cards/')) {
+      const back = backOf(location.state, activeRole === ROLES.STUDENT ? '/report-cards' : homeFor(activeRole));
+      return (
+        <div className="flex min-w-0 items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate(back.to, { state: back.state })}
+            className="w-8 h-8 shrink-0 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-700 hover:bg-slate-50 transition-all cursor-pointer shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            aria-label={t('rc.back')}
+            title={t('rc.back')}
+          >
+            <ChevronLeft className="w-4 h-4" aria-hidden="true" />
+          </button>
+          <span className="truncate text-xl font-bold text-slate-900 tracking-tight">{t('shell.reportCards')}</span>
         </div>
       );
     }

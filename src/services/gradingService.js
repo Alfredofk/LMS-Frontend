@@ -134,6 +134,53 @@ export const gradingService = {
     return answer?.grades ?? null;
   },
 
+  /**
+   * The Principal closes a FINALIZING semester (backend 3a22f90, ticket 05; a Vice
+   * Principal is told no, 403), on or after its last day, dating its report cards
+   * 'YYYY-MM-DD' from its first day to 30 days after its last (400 otherwise). Every
+   * report card is written in the same step, which may take up to a minute (503
+   * TIMEOUT past it, nothing saved). 409 while a subject is not finalised, one is
+   * blocked or a note is missing, `details: { notFinalised, blocked, notesMissing }`.
+   * Answers `{ semester, reportDate, version, reportCards (how many), message }`, bare.
+   */
+  async closeSemester(semesterId, reportDate) {
+    return api.post(`/grading/semesters/${q(semesterId)}/close`, { reportDate });
+  },
+
+  /**
+   * The Principal takes a CLOSED semester back to FINALIZING (backend 46c6173, ticket 06;
+   * a Vice Principal 403), with a reason (1-500) and the slots unfinalised at once, named
+   * by any ClassSubject of each (none: a note only). 409 for a semester not closed or a
+   * closed year, 400 for an id not of its slots. Its report cards stay; the next close
+   * writes the next version. Answers `{ semester, unfinalised: [slotRef], message }`, bare.
+   */
+  async reopenSemester(semesterId, body) {
+    return api.post(`/grading/semesters/${q(semesterId)}/reopen`, body);
+  },
+
+  /*
+    Report cards (backend 3a22f90 / 46c6173, tickets 05-06), frozen at close. A student
+    reads their own, the newest of each semester, latest semester first; one card is
+    read by its student (the newest only), the homeroom teacher of its class and the
+    leaders, whose read names every `versions` they may open; a class's for a semester
+    by the same staff, the newest of each student closed in it, by name. Anyone else
+    404. Shapes in views/ReportCards/reportCards.js.
+  */
+  async myReportCards() {
+    const answer = await api.get('/grading/report-cards/mine');
+    return answer?.reportCards ?? [];
+  },
+
+  async reportCard(reportCardId) {
+    const answer = await api.get(`/grading/report-cards/${q(reportCardId)}`);
+    return answer?.reportCard ?? null;
+  },
+
+  /** `{ class, academicYear, semester: { id, ordinal, status }, reportCards }`, bare. */
+  async classReportCards(classId, semesterId) {
+    return api.get(`/grading/classes/${q(classId)}/semesters/${q(semesterId)}/report-cards`);
+  },
+
   /** Back to the school's settings, all of them. */
   async clearSlotSettings(classSubjectId, updatedAt) {
     const answer = await api.del(`/grading/class-subjects/${q(classSubjectId)}/settings`, { body: { updatedAt: updatedAt ?? null } });

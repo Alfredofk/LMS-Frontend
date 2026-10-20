@@ -22,6 +22,8 @@ import { useSchoolToday } from '../../hooks/useSchoolToday';
 import { useMyExamWeek } from '../Schedule/useMyExamWeek';
 import ExamWeekLine from '../Schedule/ExamWeekLine';
 import { examsByDay } from '../Schedule/lessonCalendar';
+import { gradingService } from '../../services/gradingService';
+import { latestAverageOf } from '../ReportCards/reportCards';
 
 /*
   A student's home screen: the full layout, with nothing invented in it.
@@ -39,8 +41,10 @@ import { examsByDay } from '../Schedule/lessonCalendar';
     through readMyMenu, the server's default semester; backend 113ae37, owner
     2026-10-12), both leading to /assessment.
 
-  Everything else - pinned announcements, the average and new-materials stat
-  cards - has no backend route yet, so it renders
+  - the average: the newest report card's (latestAverageOf, GET /report-cards/mine;
+    owner 2026-10-20), leading to it; "-" until a semester closes.
+
+  Everything else - pinned announcements - has no backend route yet, so it renders
   `notBuilt` / "-", the same "not available yet" the pages behind it show. It used
   to be sample data under a banner, until the dashboard claimed three active
   assignments the Assessment page said did not exist. When a route lands, feed the
@@ -64,9 +68,6 @@ const greetingKeyFor = (hour) => {
   if (hour >= 15 && hour < 19) return 'dash.greeting.afternoon';
   return 'dash.greeting.evening';
 };
-
-/* The average stays "-" until the backend computes a Final Grade (owner, 2026-10-14). */
-const STATS = [{ key: 'dash.stat.avgScore', icon: Star }];
 
 export const StudentDashboard = () => {
   const { user, membership } = useAuth();
@@ -132,6 +133,21 @@ export const StudentDashboard = () => {
       : progress === null
         ? null
         : progressTotals(progress, subjects ? subjects.map(({ entry }) => entry.id) : null);
+
+  /* The student's report cards, for the average (backend 3a22f90, owner 2026-10-20):
+     undefined while reading, null when it failed. */
+  const [reportCards, setReportCards] = useState(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    gradingService
+      .myReportCards()
+      .then((list) => !cancelled && setReportCards(list))
+      .catch(() => !cancelled && setReportCards(null));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const latest = Array.isArray(reportCards) ? latestAverageOf(reportCards) : null;
 
   /* The assessments to do across every subject: undefined while reading, null when it failed. */
   const [menu, setMenu] = useState(undefined);
@@ -252,15 +268,21 @@ export const StudentDashboard = () => {
           icon={FileText}
           onClick={() => navigate('/classroom')}
         />
-        {STATS.map((stat) => (
-          <StatCard
-            key={stat.key}
-            title={t(stat.key)}
-            value="-"
-            subtext={t('common.notBuilt.title')}
-            icon={stat.icon}
-          />
-        ))}
+        <StatCard
+          title={t('dash.stat.avgScore')}
+          value={reportCards === undefined ? '…' : latest ? new Intl.NumberFormat(lang === 'en' ? 'en-GB' : 'id-ID', { maximumFractionDigits: 1 }).format(latest.average) : '-'}
+          subtext={
+            reportCards === null
+              ? t('dash.att.failed')
+              : reportCards === undefined
+                ? ''
+                : latest
+                  ? t('dash.stat.avgFrom', { n: latest.card.semester.ordinal, year: latest.card.academicYear })
+                  : t('dash.stat.avgNone')
+          }
+          icon={Star}
+          onClick={latest ? () => navigate(`/report-cards/${latest.card.id}`, { state: { back: { to: '/dashboard' } } }) : undefined}
+        />
       </div>
 
       {/* Two cards since the announcements moved to the top (owner, 2026-10-03). */}

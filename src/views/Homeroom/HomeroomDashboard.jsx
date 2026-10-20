@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useOutletContext } from 'react-router-dom';
+import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { ChevronRight, Inbox, School, NotebookPen } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
@@ -7,6 +7,7 @@ import ClassDetail from '../Classes/components/ClassDetail';
 import ClassMovesSection from './ClassMovesSection';
 import HomeroomAttendance from './HomeroomAttendance.jsx';
 import HomeroomNotes from './HomeroomNotes';
+import ClassReportCards from '../ReportCards/ClassReportCards';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { pendingMoveByStudent } from './moves';
 import { academicsService } from '../../services/academicsService';
@@ -56,7 +57,9 @@ export const HomeroomDashboard = () => {
 
   const [classes, setClasses] = useState(null);
   const [error, setError] = useState(null);
-  const [selectedId, setSelectedId] = useState(null);
+  const location = useLocation();
+  /* Coming back from a report card reopens its class (ClassReportCards passes it). */
+  const [selectedId, setSelectedId] = useState(() => location.state?.classId ?? null);
   const [moves, setMoves] = useState(null);
   const [movesError, setMovesError] = useState(null);
   /* The notes card's unsaved typing, and "back" asked for while it waits. */
@@ -154,6 +157,14 @@ export const HomeroomDashboard = () => {
         {selectedYearId && <HomeroomAttendance key={selectedId} classId={selectedId} academicYearId={selectedYearId} />}
         {selectedYearId && (
           <HomeroomNotes key={`notes-${selectedId}`} classId={selectedId} academicYearId={selectedYearId} canEdit onDirty={setNotesDirty} onToast={showToast} />
+        )}
+        {selectedYearId && (
+          <ClassReportCards
+            key={`rc-${selectedId}`}
+            classId={selectedId}
+            academicYearId={selectedYearId}
+            initialSemesterId={location.state?.classId === selectedId ? (location.state?.semesterId ?? null) : null}
+          />
         )}
         <ConfirmDialog
           open={askBack}

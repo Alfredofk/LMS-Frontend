@@ -1,19 +1,33 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
-import { AlertCircle, ChevronDown, RefreshCw } from 'lucide-react';
+import { useNavigate, useOutletContext } from 'react-router-dom';
+import { AlertCircle, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import Select from '../../components/ui/Select';
 import { useAuth } from '../../context/AuthContext';
 import { ROLES } from '../../constants/roles';
-import { useSchoolZone } from '../../hooks/useSchoolToday';
+import { useSchoolToday, useSchoolZone } from '../../hooks/useSchoolToday';
 import { useT } from '../../i18n/LanguageContext';
-import { apiErrorMessage, finalisingErrorMessage, isStaleFinalising } from '../../i18n/apiError';
+import { apiErrorMessage, closeErrorMessage, finalisingErrorMessage, isStaleClose, isStaleFinalising, isStaleReopen, reopenErrorMessage } from '../../i18n/apiError';
 import { academicsService } from '../../services/academicsService';
 import { gradingService } from '../../services/gradingService';
+import { formatDay } from '../Classes/format';
 import { defaultSemesterOf } from '../Subjects/subjects';
 import { shortWhen } from '../TeacherAssessment/teacherAssessment';
-import { blockerText, blockerView, boardByClass, canStopFinalising, slotStateOf } from './finalising';
+import CloseSemesterDialog from './CloseSemesterDialog';
+import ReopenSemesterDialog from './ReopenSemesterDialog';
+import {
+  blockerText,
+  blockerView,
+  boardByClass,
+  canStopFinalising,
+  closeBlocksOf,
+  closeRefusalParts,
+  defaultReportDate,
+  reopenBody,
+  reportDateRange,
+  slotStateOf,
+} from './finalising';
 
 /*
   "Finalisasi Nilai" (/headmaster/finalising; owner, 2026-10-18; backend eadf680,
@@ -26,6 +40,23 @@ import { blockerText, blockerView, boardByClass, canStopFinalising, slotStateOf 
   leaders do not manage a teacher's assessments), Tanpa guru, Siap difinalkan - and
   the class's homeroom notes still missing. The board is read live on the server,
   one slot at a time, so it is read once per semester and on "Muat ulang".
+
+  "Tutup semester" (owner, 2026-10-20; backend 3a22f90, ticket 05), the Principal's
+  alone, while FINALIZING: disabled with what still stops it (closeBlocksOf: the
+  last day not come, subjects not finalised or blocked, notes missing), then
+  CloseSemesterDialog dates the report cards and closes it. A 409 is said in one
+  sentence in the dialog and the board is read again for the detail; done, a toast
+  says how many report cards were written, and the version after a reopen. The date
+  chosen is said under the status for this visit only: the board does not carry it.
+  Once CLOSED, each class card has "Lihat rapor": the class on /headmaster/classes,
+  scrolled to its report cards for this semester (ClassReportCards `focus`).
+
+  "Buka kembali" (owner, 2026-10-20; backend 46c6173, ticket 06), the Principal's
+  alone, on a CLOSED semester of an open year: grey, its dialog red
+  (ReopenSemesterDialog: a reason, the subjects to unfinalise ticked per class).
+  Done, a toast and the board read again; for this visit the board says to close it
+  again, and "Hentikan finalisasi" stays off - the server refuses a reopened
+  semester going back to OPEN, and the board cannot tell one apart otherwise.
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 sm:p-6 shadow-sm';
@@ -94,10 +125,12 @@ const SlotRow = ({ slot, zone }) => {
 };
 
 export const FinalisingPage = () => {
-  const { t } = useT();
+  const { t, lang } = useT();
   const { showToast } = useOutletContext() ?? {};
+  const navigate = useNavigate();
   const { activeRole } = useAuth();
   const zone = useSchoolZone();
+  const today = useSchoolToday();
   const isPrincipal = activeRole === ROLES.PRINCIPAL;
 
   /* undefined reading · years · { error } */
@@ -110,6 +143,13 @@ export const FinalisingPage = () => {
   const [asking, setAsking] = useState(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
+  const [closing, setClosing] = useState(false);
+  /* the last close of this visit: { semesterId, reportDate, version, reportCards } */
+  const [closed, setClosed] = useState(null);
+  /* the board's classes when "Buka kembali" was pressed, so a reload behind the dialog does not empty its list; null while closed */
+  const [reopening, setReopening] = useState(null);
+  /* the semester reopened in this visit */
+  const [reopenedId, setReopenedId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,6 +186,12 @@ export const FinalisingPage = () => {
   const status = ready ? board.semester.status : picked?.semester.status;
   const yearActive = picked?.year.status === 'ACTIVE';
   const classes = ready ? boardByClass(board) : [];
+  const range = reportDateRange(picked?.semester);
+  const closeBlocks = ready && status === 'FINALIZING' ? closeBlocksOf(board, picked?.semester, today) : [];
+  const canClose = isPrincipal && yearActive && ready && status === 'FINALIZING' && Boolean(range) && closeBlocks.length === 0;
+  const lastClose = closed?.semesterId === semesterId ? closed : null;
+  const justReopened = reopenedId === semesterId;
+  const day = (value) => formatDay(value, lang);
 
   const pick = (id) => {
     setBoard(undefined);
@@ -177,6 +223,36 @@ export const FinalisingPage = () => {
 
   const named = { n: picked?.semester.ordinal ?? '', year: picked?.year.label ?? '' };
 
+  const submitClose = async (reportDate) => {
+    try {
+      const answer = await gradingService.closeSemester(semesterId, reportDate);
+      const version = answer?.version ?? 1;
+      setClosing(false);
+      setMessage(null);
+      setClosed({ semesterId, reportDate: answer?.reportDate ?? reportDate, version, reportCards: answer?.reportCards ?? 0 });
+      showToast?.(t(version > 1 ? 'grading.fin.close.doneVersion' : 'grading.fin.close.done', { n: named.n, count: answer?.reportCards ?? 0, version }), 'success');
+      reload();
+    } catch (err) {
+      if (isStaleClose(err)) reload();
+      throw err;
+    }
+  };
+  const submitReopen = async (reason, ticked) => {
+    try {
+      const answer = await gradingService.reopenSemester(semesterId, reopenBody(reason, ticked, board));
+      const count = answer?.unfinalised?.length ?? 0;
+      setReopening(null);
+      setMessage(null);
+      setReopenedId(semesterId);
+      showToast?.(t(count > 0 ? 'grading.fin.reopen.doneSlots' : 'grading.fin.reopen.done', { n: named.n, count }), 'success');
+      reload();
+    } catch (err) {
+      if (isStaleReopen(err)) reload();
+      throw err;
+    }
+  };
+  const closeBlockText = closeBlocks.map((block) => t(block.key, { ...block.vars, date: day(block.vars.date) })).join(', ');
+
   return (
     <div className="space-y-6">
       <div>
@@ -201,6 +277,11 @@ export const FinalisingPage = () => {
                   {t('grading.fin.semesterOption', named)}
                 </h2>
                 {status && <p className="text-xs font-semibold text-slate-500">{t(`grading.fin.semesterStatus.${status}`)}</p>}
+                {status === 'CLOSED' && lastClose && (
+                  <p className="text-xs font-semibold text-slate-500">
+                    {t(lastClose.version > 1 ? 'grading.fin.close.datedVersion' : 'grading.fin.close.dated', { date: day(lastClose.reportDate), version: lastClose.version })}
+                  </p>
+                )}
               </div>
               <Select size="sm" value={semesterId ?? ''} onChange={(e) => pick(e.target.value)} aria-label={t('grading.fin.semester')} className="w-full sm:w-60">
                 {options.map(({ semester, year }) => (
@@ -224,12 +305,29 @@ export const FinalisingPage = () => {
               </p>
             )}
 
+            {yearActive && status === 'CLOSED' && ready && (
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                {isPrincipal ? <span /> : <p className="text-xs font-semibold text-slate-500">{t('grading.fin.reopen.viceNote')}</p>}
+                {isPrincipal && (
+                  <button type="button" onClick={() => setReopening(classes)} disabled={busy || reopening !== null} className={`${button} bg-slate-100 text-slate-700 hover:bg-slate-200`}>
+                    {t('grading.fin.reopen.open')}
+                  </button>
+                )}
+              </div>
+            )}
+
             {yearActive && status !== 'CLOSED' && (
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
                 {!isPrincipal ? (
                   <p className="text-xs font-semibold text-slate-500">{t('grading.fin.viceNote')}</p>
-                ) : status === 'FINALIZING' && ready && !canStopFinalising(board) ? (
-                  <p className="text-xs font-semibold text-slate-500">{t('grading.fin.stopBlockedHint')}</p>
+                ) : status === 'FINALIZING' && ready ? (
+                  <div className="space-y-1 min-w-0">
+                    {justReopened && <p className="text-xs font-semibold leading-relaxed text-amber-700">{t('grading.fin.reopen.afterHint')}</p>}
+                    <p className={`text-xs font-semibold leading-relaxed ${closeBlocks.length ? 'text-slate-500' : 'text-emerald-700'}`}>
+                      {closeBlocks.length ? t('grading.fin.close.blockedHint', { list: closeBlockText }) : t('grading.fin.close.readyHint')}
+                    </p>
+                    {!canStopFinalising(board) && closeBlocks.length > 0 && <p className="text-xs font-semibold text-slate-500">{t('grading.fin.stopBlockedHint')}</p>}
+                  </div>
                 ) : (
                   <span />
                 )}
@@ -242,10 +340,15 @@ export const FinalisingPage = () => {
                   <button
                     type="button"
                     onClick={() => setAsking('stop')}
-                    disabled={busy || !ready || !canStopFinalising(board)}
+                    disabled={busy || !ready || !canStopFinalising(board) || justReopened}
                     className={`${button} bg-slate-100 text-slate-700 hover:bg-slate-200`}
                   >
                     {t('grading.fin.stop')}
+                  </button>
+                )}
+                {isPrincipal && status === 'FINALIZING' && (
+                  <button type="button" onClick={() => setClosing(true)} disabled={busy || closing || !canClose} className={`${button} bg-brand text-white hover:bg-brand-deep`}>
+                    {t('grading.fin.close.open')}
                   </button>
                 )}
               </div>
@@ -269,11 +372,23 @@ export const FinalisingPage = () => {
             <ul className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {classes.map((entry) => (
                 <li key={entry.class.id} className={`${card} space-y-3`}>
-                  <div className="space-y-0.5">
-                    <h3 className="text-sm font-extrabold text-slate-900 break-words">{entry.class.name}</h3>
-                    <p className="text-[11px] font-semibold text-slate-500">
-                      {t('subjects.board.homeroom', { name: entry.homeroomTeacher?.fullName ?? t('classes.detail.noHomeroom') })}
-                    </p>
+                  <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+                    <div className="space-y-0.5 min-w-0">
+                      <h3 className="text-sm font-extrabold text-slate-900 break-words">{entry.class.name}</h3>
+                      <p className="text-[11px] font-semibold text-slate-500">
+                        {t('subjects.board.homeroom', { name: entry.homeroomTeacher?.fullName ?? t('classes.detail.noHomeroom') })}
+                      </p>
+                    </div>
+                    {status === 'CLOSED' && (
+                      <button
+                        type="button"
+                        onClick={() => navigate('/headmaster/classes', { state: { classId: entry.class.id, semesterId, focus: 'reportCards' } })}
+                        className="inline-flex items-center gap-0.5 text-xs font-extrabold text-brand hover:underline cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                      >
+                        {t('grading.fin.viewReportCards')}
+                        <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+                      </button>
+                    )}
                   </div>
                   {entry.slots.length > 0 && (
                     <ul className="divide-y divide-slate-100">
@@ -316,6 +431,27 @@ export const FinalisingPage = () => {
         onConfirm={run}
         onCancel={() => !busy && setAsking(null)}
       />
+
+      {reopening && (
+        <ReopenSemesterDialog
+          title={t('grading.fin.reopen.title', named)}
+          classes={reopening}
+          onClose={() => setReopening(null)}
+          onSubmit={submitReopen}
+          describeError={(err) => reopenErrorMessage(err, t)}
+        />
+      )}
+
+      {closing && (
+        <CloseSemesterDialog
+          title={t('grading.fin.close.title', named)}
+          range={range}
+          initialDate={defaultReportDate(range, today)}
+          onClose={() => setClosing(false)}
+          onSubmit={submitClose}
+          describeError={(err) => closeErrorMessage(err, t, closeRefusalParts(err?.details), day)}
+        />
+      )}
     </div>
   );
 };

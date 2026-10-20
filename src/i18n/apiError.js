@@ -28,6 +28,9 @@ const BY_CODE = {
      read from the access token — and per network only for anonymous requests
      (300), so a school on one Wi-Fi no longer shares one budget. */
   TOO_MANY_REQUESTS: 'error.tooManyRequests',
+  /* Backend 3a22f90: a transaction past its timeout, or with no pool connection in
+     time, rolled back - 503. Nothing was saved, and trying again is the remedy. */
+  TIMEOUT: 'error.timeout',
   UNKNOWN_ERROR: 'error.unknown',
 };
 
@@ -338,6 +341,8 @@ const YEAR_OVERLAP = /The dates overlap academic year (\S+)/;
 const YEAR_LABEL_DATES = /Academic year (\S+) must start in (\d{4}) and end in (\d{4})/;
 /* Backend 4bdd397: a year closes only once no semester of it runs past today. */
 const YEAR_STILL_RUNNING = /Semester (\d+) of (\S+) runs until (\d{4}-\d{2}-\d{2})/;
+/* Backend 3a22f90: and only once every semester of it is CLOSED (the Principal closes it). */
+const YEAR_SEMESTER_UNCLOSED = /Semester (\d+) of (\S+) is not closed yet/;
 const SEMESTER_DATES_BY_MESSAGE = [
   ['A meeting in this Semester has already happened, so its start date is fixed', 'classes.error.semesterStartFixed'],
   ['The Semester cannot end before today', 'classes.error.semesterEndPast'],
@@ -350,6 +355,8 @@ export function academicsErrorMessage(err, t, lang) {
   if (running) {
     return t('classes.error.yearStillRunning', { n: running[1], label: running[2], date: formatDay(running[3], lang) });
   }
+  const unclosed = YEAR_SEMESTER_UNCLOSED.exec(message);
+  if (unclosed) return t('classes.error.yearSemesterUnclosed', { n: unclosed[1], label: unclosed[2] });
   const overlap = YEAR_OVERLAP.exec(message);
   if (overlap) return t('validation.academicYear.overlap', { label: overlap[1] });
   const labelDates = YEAR_LABEL_DATES.exec(message);
@@ -812,6 +819,8 @@ const FINALISING_BY_MESSAGE = [
   ['is no longer being finalised', 'grading.fin.error.notStarted'],
   ['is finalised already', 'grading.fin.error.already'],
   ['are finalised; their teachers undo it first', 'grading.fin.error.stopBlocked'],
+  /* Backend 46c6173: a semester closed once and reopened closes again; it never goes back to OPEN. */
+  ['was closed and reopened', 'grading.fin.error.stopReopened'],
   ['is not finalised', 'grading.fin.error.notFinalised'],
   ['Only the teacher of this class subject', 'grading.fin.error.notYours'],
   ['Only the Principal', 'grading.fin.error.principalOnly'],
@@ -830,6 +839,83 @@ export function finalisingErrorMessage(err, t) {
   if (hit) return t(hit[1], { n: err?.details?.finalised ?? '' });
   return apiErrorMessage(err, t);
 }
+
+/*
+  Closing a semester (backend 3a22f90, grading.close.js closeSemester), told apart on
+  its sentences like the rest. "cannot be closed yet" carries what stops it in
+  `details` (notFinalised, blocked, notesMissing), said as counts; the board, read
+  again, names them per class. Anything else falls to finalisingErrorMessage.
+*/
+const CLOSE_NOT_OVER = /runs until (\d{4}-\d{2}-\d{2}); it closes on its last day or after/;
+const CLOSE_DATE_RANGE = /Date the Report Cards from (\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2})/;
+const CLOSE_BY_MESSAGE = [
+  ['Only the Principal closes a semester', 'grading.fin.close.error.principalOnly'],
+  ['is closed already', 'grading.fin.close.error.already'],
+  ['changed while it was being closed', 'grading.fin.close.error.meanwhile'],
+];
+
+/**
+ * @param parts       closeRefusalParts(details), for "cannot be closed yet"
+ * @param formatDate  ('YYYY-MM-DD') => the day in the reader's words
+ */
+export function closeErrorMessage(err, t, parts = [], formatDate = (day) => day) {
+  const message = String(err?.message ?? '');
+  if (message.includes('cannot be closed yet')) {
+    const said = parts.map((part) => t(part.key, part.vars)).join(', ');
+    return t('grading.fin.close.error.blocked', { list: said || message });
+  }
+  const notOver = CLOSE_NOT_OVER.exec(message);
+  if (notOver) return t('grading.fin.close.blocked.notOver', { date: formatDate(notOver[1]) });
+  const range = CLOSE_DATE_RANGE.exec(message);
+  if (range) return t('grading.fin.close.error.dateRange', { from: formatDate(range[1]), to: formatDate(range[2]) });
+  const hit = CLOSE_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  if (hit) return t(hit[1]);
+  return finalisingErrorMessage(err, t);
+}
+
+/* Reading report cards (backend 3a22f90, grading.reportCards.js): every refusal is a 404. */
+const REPORT_CARDS_BY_MESSAGE = [
+  ['Report card not found', 'rc.error.notFound'],
+  ['Class not found', 'rc.error.gone'],
+  ['Semester not found', 'rc.error.gone'],
+];
+
+export function reportCardErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  const hit = REPORT_CARDS_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  if (hit) return t(hit[1]);
+  return apiErrorMessage(err, t);
+}
+
+/*
+  Reopening a closed semester (backend 46c6173, grading.reopen.js reopenSemester), on
+  its sentences. A semester of a closed year falls to finalisingErrorMessage.
+*/
+const REOPEN_BY_MESSAGE = [
+  ['Only the Principal reopens a semester', 'grading.fin.reopen.error.principalOnly'],
+  ['is not closed', 'grading.fin.reopen.error.notClosed'],
+  ['Not a class subject of', 'grading.fin.reopen.error.stranger'],
+  ['Not finalised:', 'grading.fin.reopen.error.meanwhile'],
+  ['changed meanwhile', 'grading.fin.reopen.error.meanwhile'],
+  ['Give the reason for reopening', 'grading.fin.reopen.error.reasonRequired'],
+];
+
+export function reopenErrorMessage(err, t) {
+  const said = [String(err?.message ?? ''), ...(Array.isArray(err?.details) ? err.details.map((issue) => String(issue?.message ?? '')) : [])];
+  const hit = REOPEN_BY_MESSAGE.find(([needle]) => said.some((text) => text.includes(needle)));
+  if (hit) return t(hit[1]);
+  return finalisingErrorMessage(err, t);
+}
+
+/** A reopening refusal that means the board is behind: read it again. */
+export const isStaleReopen = (err) =>
+  ['is not closed', 'Not a class subject of', 'Not finalised:', 'changed meanwhile'].some((needle) => String(err?.message ?? '').includes(needle));
+
+/** A closing refusal that means the board is behind: read it again. */
+export const isStaleClose = (err) =>
+  ['cannot be closed yet', 'changed while it was being closed', 'is closed already', 'is no longer being finalised', 'is not being finalised'].some((needle) =>
+    String(err?.message ?? '').includes(needle)
+  );
 
 /** A finalising refusal that means the screen is behind (blockers, the slot or the semester changed): read it again. */
 export const isStaleFinalising = (err) =>
@@ -852,9 +938,27 @@ const NOTES_BY_MESSAGE = [
   ['At most 1,000 characters', 'homeroom.notes.error.tooLong'],
 ];
 
-/** @param names  the students `details.studentProfileIds` names, already looked up, for {names} */
-export function notesErrorMessage(err, t, names = '') {
+/*
+  Backend 3a22f90: Notes are written only for students who get a report card, so one
+  placed in the class after the semester ended is refused too, in the same 400 as one
+  not placed there now; `details.joinedAfter` and `details.notPlaced` split the ids.
+*/
+const NO_REPORT_CARD = /No Report Card for Semester (\d+)/;
+
+/**
+ * @param names    the students `details.studentProfileIds` names, already looked up, for {names}
+ * @param namesOf  (ids) => their names joined, for a refusal that splits them (joinedAfter / notPlaced)
+ */
+export function notesErrorMessage(err, t, names = '', namesOf = null) {
   const message = String(err?.message ?? '');
+  const noCard = NO_REPORT_CARD.exec(message);
+  if (noCard) {
+    const joinedAfter = Array.isArray(err?.details?.joinedAfter) ? err.details.joinedAfter : [];
+    const notPlaced = Array.isArray(err?.details?.notPlaced) ? err.details.notPlaced : [];
+    const said = [t('homeroom.notes.error.joinedAfter', { n: noCard[1], names: namesOf ? namesOf(joinedAfter) : names })];
+    if (notPlaced.length) said.push(t('homeroom.notes.error.notPlaced', { names: namesOf ? namesOf(notPlaced) : names }));
+    return said.join(' ');
+  }
   if (/^Academic year .+ is closed$/.test(message)) return t('homeroom.notes.error.yearClosed');
   const said = [message, ...(Array.isArray(err?.details) ? err.details.map((issue) => String(issue?.message ?? '')) : [])];
   const hit = NOTES_BY_MESSAGE.find(([needle]) => said.some((text) => text.includes(needle)));
@@ -864,7 +968,7 @@ export function notesErrorMessage(err, t, names = '') {
 
 /** A Notes refusal that means the list is behind: read it again (a stale row, a student moved out). */
 export const isStaleNotes = (err) =>
-  ['changed meanwhile. Reload and try again', 'Not placed in'].some((needle) => String(err?.message ?? '').includes(needle));
+  ['changed meanwhile. Reload and try again', 'Not placed in', 'No Report Card for Semester'].some((needle) => String(err?.message ?? '').includes(needle));
 
 /** A refusal that means these Notes take no change any more (closed semester or year, not the reader's). */
 export const isNotesLocked = (err) =>

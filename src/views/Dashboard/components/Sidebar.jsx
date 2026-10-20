@@ -9,6 +9,7 @@ import {
   LayoutGrid,
   BookOpen,
   Award,
+  FileText,
   MessageSquare,
   Calendar,
   ClipboardList,
@@ -420,6 +421,14 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
                   >
                     <Award className={`w-4 h-4 shrink-0 transition-colors ${isActive('/scores') ? 'text-white' : 'text-brand'}`} />
                     {t('shell.scores')}
+                  </button>
+
+                  <button
+                    onClick={() => handleLinkClick('shell.reportCards', '/report-cards')}
+                    className={isActive('/report-cards') ? activeBtnClass : inactiveBtnClass}
+                  >
+                    <FileText className={`w-4 h-4 shrink-0 transition-colors ${isActive('/report-cards') ? 'text-white' : 'text-brand'}`} />
+                    {t('shell.reportCards')}
                   </button>
 
                   <button

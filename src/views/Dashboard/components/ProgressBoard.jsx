@@ -1,5 +1,5 @@
 import React from 'react';
-import { Award, BookOpenCheck, CheckCircle2, Clock, Eye, Trophy, Wrench } from 'lucide-react';
+import { BookOpenCheck, CheckCircle2, Clock, Eye, Trophy } from 'lucide-react';
 
 import { useT } from '../../../i18n/LanguageContext';
 import { localOf } from '../../Attendance/attendance';
@@ -27,8 +27,6 @@ import { formatDay } from '../../Classes/format';
   @param handedIn  handedInOf(...); undefined while reading, null when the read failed
   @param onTime    onTimeOf(...); the same
 */
-
-const NOT_BUILT = [{ key: 'average', icon: Award, labelKey: 'dash.board.metric.average' }];
 
 export const ProgressBoard = ({ totals, zone = null, handedIn, onTime }) => {
   const { t, lang } = useT();
@@ -115,21 +113,6 @@ export const ProgressBoard = ({ totals, zone = null, handedIn, onTime }) => {
           );
         })}
 
-        {NOT_BUILT.map(({ key, icon, labelKey }) => {
-          const Icon = icon;
-          return (
-            <li key={key} className="flex items-center justify-between gap-2 text-xs font-bold text-slate-500">
-              <span className="flex items-center gap-1.5 min-w-0">
-                <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
-                <span className="leading-snug">{t(labelKey)}</span>
-              </span>
-              <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-extrabold">
-                <Wrench className="w-3 h-3" aria-hidden="true" />
-                {t('dash.board.notYet')}
-              </span>
-            </li>
-          );
-        })}
       </ul>
 
       {note && <p className="mt-auto pt-4 text-[11px] font-semibold text-slate-500 leading-relaxed">{note}</p>}

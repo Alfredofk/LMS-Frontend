@@ -57,6 +57,8 @@ const QuestionBankPage = lazy(() => import('./views/QuestionBank/QuestionBankPag
 const QuestionEditorPage = lazy(() => import('./views/QuestionBank/QuestionEditorPage'));
 const SubjectsPage = lazy(() => import('./views/Subjects/SubjectsPage'));
 const FinalisingPage = lazy(() => import('./views/Grading/FinalisingPage'));
+const MyReportCardsPage = lazy(() => import('./views/ReportCards/MyReportCardsPage'));
+const ReportCardPage = lazy(() => import('./views/ReportCards/ReportCardPage'));
 
 /*
   The root of every route: the pages with no layout, and a layout that throws
@@ -163,6 +165,18 @@ const router = createBrowserRouter(
             <Route path="/assessment/:assessmentId" element={<StudentAssessmentPage />} />
             <Route path="/assessment/:assessmentId/percobaan/:submissionId" element={<StudentAttemptPage />} />
             <Route path="/attendance" element={<AttendancePage />} />
+            <Route path="/report-cards" element={<MyReportCardsPage />} />
+          </Route>
+
+          {/* One report card: its student, the homeroom teacher of its class and the leaders (backend 3a22f90); the server answers 404 to anyone else. */}
+          <Route
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT, ROLES.TEACHER, ROLES.PRINCIPAL, ROLES.VICE_PRINCIPAL]}>
+                <MainLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/report-cards/:reportCardId" element={<ReportCardPage />} />
           </Route>
 
           <Route

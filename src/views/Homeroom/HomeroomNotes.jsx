@@ -151,8 +151,8 @@ export const HomeroomNotes = ({ classId, academicYearId, canEdit = false, onDirt
       onToast?.(t('homeroom.notes.saved', { n: body.length }), 'success');
     } catch (err) {
       const ids = Array.isArray(err?.details?.studentProfileIds) ? err.details.studentProfileIds : [];
-      const names = ids.map((id) => nameOf.get(id) ?? t('tasm.results.unnamed')).join(', ');
-      setMessage(notesErrorMessage(err, t, names));
+      const namesOf = (list) => list.map((id) => nameOf.get(id) ?? t('tasm.results.unnamed')).join(', ');
+      setMessage(notesErrorMessage(err, t, namesOf(ids), namesOf));
       if (isNotesLocked(err)) setLocked(true);
       if (isStaleNotes(err)) setAttempt((n) => n + 1);
     } finally {

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useLocation, useOutletContext } from 'react-router-dom';
 import { Check, ChevronRight, Pencil, Plus, School, Search, ShieldOff, Lock, Trash2, Users } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
@@ -17,6 +17,7 @@ import { gradesFor } from '../../constants/schoolTypes';
 import { ROLES } from '../../constants/roles';
 import { formatDay } from './format';
 import HomeroomNotes from '../Homeroom/HomeroomNotes';
+import ClassReportCards from '../ReportCards/ClassReportCards';
 import {
   YEAR_TABS,
   yearsInTab,
@@ -105,7 +106,9 @@ export const ClassesPage = () => {
   const [years, setYears] = useState(null);
   const [yearId, setYearId] = useState(null);
   const [classes, setClasses] = useState(null);
-  const [selectedClassId, setSelectedClassId] = useState(null);
+  const location = useLocation();
+  /* Coming back from a report card reopens its class (ClassReportCards passes it). */
+  const [selectedClassId, setSelectedClassId] = useState(() => location.state?.classId ?? null);
 
   const [denied, setDenied] = useState(false);
   const [notBuilt, setNotBuilt] = useState(false);
@@ -355,6 +358,14 @@ export const ClassesPage = () => {
           key={`notes-${selectedClassId}`}
           classId={selectedClassId}
           academicYearId={(classes ?? []).find((entry) => entry.id === selectedClassId)?.academicYear?.id ?? yearId}
+        />
+        {/* The class's report cards, closed semesters first (backend 3a22f90, owner 2026-10-20). */}
+        <ClassReportCards
+          key={`rc-${selectedClassId}`}
+          classId={selectedClassId}
+          academicYearId={(classes ?? []).find((entry) => entry.id === selectedClassId)?.academicYear?.id ?? yearId}
+          initialSemesterId={location.state?.classId === selectedClassId ? (location.state?.semesterId ?? null) : null}
+          focus={location.state?.classId === selectedClassId && location.state?.focus === 'reportCards'}
         />
       </div>
     );

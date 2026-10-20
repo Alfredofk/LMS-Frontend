@@ -28,7 +28,7 @@ import id from './id.js';
 import en from './en.js';
 import { LANGUAGES } from './languages.js';
 import { ROLES, ROLE_LABEL_KEY, ROLE_TAGLINE_KEY } from '../constants/roles.js';
-import { decisionErrorMessage, isAlreadyDecided, academicsErrorMessage, assessmentErrorMessage, isStaleAssessment, copyEditErrorMessage, isStaleCopy, gradingErrorMessage, isGradingLocked, descriptionsErrorMessage, isDescriptionsLocked, isFinalisedRefusal, finalisingErrorMessage, isStaleFinalising } from './apiError.js';
+import { decisionErrorMessage, isAlreadyDecided, academicsErrorMessage, assessmentErrorMessage, isStaleAssessment, copyEditErrorMessage, isStaleCopy, gradingErrorMessage, isGradingLocked, descriptionsErrorMessage, isDescriptionsLocked, isFinalisedRefusal, finalisingErrorMessage, isStaleFinalising, apiErrorMessage, notesErrorMessage, isStaleNotes, closeErrorMessage, isStaleClose, reopenErrorMessage, isStaleReopen } from './apiError.js';
 import { SESSION_STATE_KEYS, sessionState } from '../views/Subjects/timetable.js';
 
 const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -423,6 +423,84 @@ describe('academic years and semesters: the refusals added by backend a09f399 an
 
   it('still says a closed year is closed — the new patterns do not swallow it', () => {
     expect(academicsErrorMessage(refused('CONFLICT', 'Academic year 2027/2028 is closed'), t)).toBe('classes.error.yearClosed');
+  });
+
+  it('names the semester not closed yet when a year is closed (backend 3a22f90, assertSemestersClosed)', () => {
+    const err = refused('CONFLICT', 'Semester 2 of 2026/2027 is not closed yet (FINALIZING); the Principal closes it first');
+    expect(academicsErrorMessage(err, t, 'id')).toBe('classes.error.yearSemesterUnclosed {"n":"2","label":"2026/2027"}');
+  });
+});
+
+describe('report cards: the refusals added by backend 3a22f90', () => {
+  const t = (key, vars) => (vars ? `${key} ${JSON.stringify(vars)}` : key);
+
+  it('a transaction that gave up (503 TIMEOUT) says nothing was saved', () => {
+    expect(apiErrorMessage({ status: 503, code: 'TIMEOUT', message: 'That took too long and nothing was saved. Try again' }, t)).toBe('error.timeout');
+  });
+
+  it('a note for a student placed after the semester ended, and one not placed here, each named apart', () => {
+    /* grading.texts.js assertNotedIn: one 400 naming both kinds. */
+    const err = {
+      status: 400,
+      code: 'BAD_REQUEST',
+      message:
+        'No Report Card for Semester 1 for Budi: placed after it ended, so no note is written. Not placed in XI IPS now: Ani. Their own Class',
+      details: { studentProfileIds: ['p1', 'p2'], joinedAfter: ['p1'], notPlaced: ['p2'] },
+    };
+    const names = { p1: 'Budi', p2: 'Ani' };
+    const namesOf = (ids) => ids.map((id) => names[id]).join(', ');
+    expect(notesErrorMessage(err, t, 'Budi, Ani', namesOf)).toBe(
+      'homeroom.notes.error.joinedAfter {"n":"1","names":"Budi"} homeroom.notes.error.notPlaced {"names":"Ani"}'
+    );
+    expect(notesErrorMessage({ ...err, message: 'No Report Card for Semester 1 for Budi: placed after it ended, so no note is written', details: { joinedAfter: ['p1'], notPlaced: [] } }, t, '', namesOf)).toBe(
+      'homeroom.notes.error.joinedAfter {"n":"1","names":"Budi"}'
+    );
+    expect(isStaleNotes(err)).toBe(true);
+    expect(isStaleNotes({ message: 'No Report Card for Semester 2 for Budi: placed after it ended, so no note is written' })).toBe(true);
+  });
+
+  /* grading.close.js closeSemester and grading.finalising.js stopFinalising, their own sentences. */
+  const conflict = (message, details) => ({ status: 409, code: 'CONFLICT', message, details });
+
+  it('closing: what stops it is said from the details, and the board read again', () => {
+    const err = conflict('Semester 1 of 2026/2027 cannot be closed yet: not finalised: MTK in XI IPS', { notFinalised: [{}], blocked: [], notesMissing: [] });
+    const parts = [{ key: 'grading.fin.close.blocked.slots', vars: { n: 1 } }];
+    expect(closeErrorMessage(err, t, parts)).toBe('grading.fin.close.error.blocked {"list":"grading.fin.close.blocked.slots {\\"n\\":1}"}');
+    expect(isStaleClose(err)).toBe(true);
+  });
+
+  it('closing: the last day, the date range, twice, meanwhile, the Principal only', () => {
+    const day = (value) => `<${value}>`;
+    expect(closeErrorMessage(conflict('Semester 1 of 2026/2027 runs until 2026-12-19; it closes on its last day or after'), t, [], day)).toBe(
+      'grading.fin.close.blocked.notOver {"date":"<2026-12-19>"}'
+    );
+    expect(closeErrorMessage({ status: 400, code: 'BAD_REQUEST', message: 'Date the Report Cards from 2026-07-13 to 2027-01-18' }, t, [], day)).toBe(
+      'grading.fin.close.error.dateRange {"from":"<2026-07-13>","to":"<2027-01-18>"}'
+    );
+    expect(closeErrorMessage(conflict('Semester 1 of 2026/2027 is closed already'), t)).toBe('grading.fin.close.error.already');
+    expect(closeErrorMessage(conflict('The placements in Semester 1 of 2026/2027 changed while it was being closed. Try again'), t)).toBe('grading.fin.close.error.meanwhile');
+    expect(closeErrorMessage({ status: 403, code: 'FORBIDDEN', message: 'Only the Principal closes a semester' }, t)).toBe('grading.fin.close.error.principalOnly');
+    expect(closeErrorMessage(conflict('Semester 1 of 2026/2027 is not being finalised; the Principal starts finalising first'), t)).toMatch(/^grading.fin.error.notFinalising/);
+    expect(isStaleClose(conflict('Semester 1 of 2026/2027 runs until 2026-12-19; it closes on its last day or after'))).toBe(false);
+  });
+
+  it('reopening: each refusal in its words, the stale ones read the board again (backend 46c6173)', () => {
+    expect(reopenErrorMessage({ status: 403, code: 'FORBIDDEN', message: 'Only the Principal reopens a semester' }, t)).toBe('grading.fin.reopen.error.principalOnly');
+    const notClosed = conflict('Semester 1 of 2026/2027 is not closed');
+    expect(reopenErrorMessage(notClosed, t)).toBe('grading.fin.reopen.error.notClosed');
+    expect(isStaleReopen(notClosed)).toBe(true);
+    expect(reopenErrorMessage({ status: 400, code: 'BAD_REQUEST', message: 'Not a class subject of Semester 1 of 2026/2027: x' }, t)).toBe('grading.fin.reopen.error.stranger');
+    expect(reopenErrorMessage(conflict('Not finalised: MTK in XI IPS'), t)).toBe('grading.fin.reopen.error.meanwhile');
+    expect(reopenErrorMessage(conflict('A class subject named changed meanwhile. Try again'), t)).toBe('grading.fin.reopen.error.meanwhile');
+    expect(reopenErrorMessage({ status: 400, code: 'BAD_REQUEST', message: 'Invalid request', details: [{ path: 'reason', message: 'Give the reason for reopening' }] }, t)).toBe(
+      'grading.fin.reopen.error.reasonRequired'
+    );
+    expect(reopenErrorMessage(conflict('Academic year 2026/2027 is closed'), t)).toMatch(/^grading.fin.error.yearClosed/);
+    expect(isStaleReopen(conflict('Academic year 2026/2027 is closed'))).toBe(false);
+  });
+
+  it('stopping a reopened semester is refused in its own words (backend 46c6173)', () => {
+    expect(finalisingErrorMessage(conflict('Semester 1 of 2026/2027 was closed and reopened; it closes again rather than opening'), t)).toMatch(/^grading.fin.error.stopReopened/);
   });
 });
 
