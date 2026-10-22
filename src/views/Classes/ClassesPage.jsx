@@ -17,6 +17,7 @@ import { gradesFor } from '../../constants/schoolTypes';
 import { ROLES } from '../../constants/roles';
 import { formatDay } from './format';
 import HomeroomNotes from '../Homeroom/HomeroomNotes';
+import HomeroomPromotions from '../Homeroom/HomeroomPromotions';
 import ClassReportCards from '../ReportCards/ClassReportCards';
 import {
   YEAR_TABS,
@@ -356,6 +357,12 @@ export const ClassesPage = () => {
         {/* The homeroom teacher's notes, read only at the leaders' desk (backend 483be5a, owner 2026-10-18). */}
         <HomeroomNotes
           key={`notes-${selectedClassId}`}
+          classId={selectedClassId}
+          academicYearId={(classes ?? []).find((entry) => entry.id === selectedClassId)?.academicYear?.id ?? yearId}
+        />
+        {/* Its Semester 2 promotion outcomes, read only here too (backend 4dae152, owner 2026-10-22). */}
+        <HomeroomPromotions
+          key={`promo-${selectedClassId}`}
           classId={selectedClassId}
           academicYearId={(classes ?? []).find((entry) => entry.id === selectedClassId)?.academicYear?.id ?? yearId}
         />

@@ -6,7 +6,7 @@ import { gradingService } from '../../services/gradingService';
 import { useT } from '../../i18n/LanguageContext';
 import { gradingErrorMessage, isStaleGrading } from '../../i18n/apiError';
 import { RuleChoice, SourceWord, WeightFields, WholeBox } from './GradeSettingsParts';
-import { schoolBody, schoolDraftErrors, schoolDraftOf } from './grading';
+import { REPORT_TABLES, schoolBody, schoolDraftErrors, schoolDraftOf } from './grading';
 
 /*
   The school's grade settings, on Settings, for the Principal and Vice Principals
@@ -19,6 +19,10 @@ import { schoolBody, schoolDraftErrors, schoolDraftOf } from './grading';
   KKTP) and each says "Bawaan". Saving sends only what changed, with the updatedAt
   read; a save made meanwhile elsewhere answers 409, and the card reads the
   settings again and says so. No Final Grade exists yet (ticket 02).
+
+  Since backend 4dae152 (ticket 08) also whether the printed report card carries two
+  blank tables, Ekstrakurikuler and Kepribadian, to be filled in by hand: two boxes,
+  off until the school turns one on, frozen onto each report card at close.
 */
 const SchoolGradeSettingsCard = ({ onToast }) => {
   const { t } = useT();
@@ -145,6 +149,23 @@ const SchoolGradeSettingsCard = ({ onToast }) => {
             <RuleChoice value={values.remedialRule} onChange={(rule) => change({ remedialRule: rule })} disabled={isSaving} t={t} />
             {settings.remedialRule.source === 'BUILT_IN' && <p className="text-[11px] font-medium text-slate-500">{t('grading.rule.builtIn')}</p>}
           </div>
+
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-bold text-slate-700 mb-1">{t('grading.tables.legend')}</legend>
+            {REPORT_TABLES.map((key) => (
+              <label key={key} className="flex items-start gap-2.5 text-sm text-slate-800 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={values[key]}
+                  onChange={(e) => change({ [key]: e.target.checked })}
+                  disabled={isSaving}
+                  className="mt-0.5 w-4 h-4 accent-brand cursor-pointer"
+                />
+                <span className="font-semibold">{t(`grading.tables.${key}`)}</span>
+              </label>
+            ))}
+            <p className="text-[11px] font-medium text-slate-500 leading-relaxed">{t('grading.tables.hint')}</p>
+          </fieldset>
 
           {errors.global && (
             <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">

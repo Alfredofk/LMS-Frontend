@@ -66,7 +66,13 @@ export const schoolDraftOf = (settings) => ({
   weights: weightsText(settings?.weights?.value),
   kktp: String(settings?.kktp?.value ?? ''),
   remedialRule: settings?.remedialRule?.value ?? 'CAP_AT_KKTP',
+  /* The report card's two blank tables (backend 4dae152, ticket 08), off when built in. */
+  extracurricularTable: Boolean(settings?.extracurricularTable?.value),
+  personalityTable: Boolean(settings?.personalityTable?.value),
 });
+
+/** The report card's two blank tables, in the order the PDF prints them. */
+export const REPORT_TABLES = ['extracurricularTable', 'personalityTable'];
 
 /** `{ weights?, kktp?, sum? }` - keys, or `{}`. */
 export function schoolDraftErrors(draft) {
@@ -91,6 +97,9 @@ export function schoolBody(settings, draft) {
   const kktp = parseWhole(draft.kktp);
   if (kktp !== settings.kktp.value) body.kktp = kktp;
   if (draft.remedialRule !== settings.remedialRule.value) body.remedialRule = draft.remedialRule;
+  for (const key of REPORT_TABLES) {
+    if (typeof draft[key] === 'boolean' && draft[key] !== Boolean(settings[key]?.value)) body[key] = draft[key];
+  }
   if (Object.keys(body).length === 0) return null;
   return { ...body, updatedAt: settings.updatedAt ?? null };
 }

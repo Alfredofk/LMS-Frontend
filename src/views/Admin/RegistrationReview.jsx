@@ -5,6 +5,7 @@ import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import KtpViewer from './KtpViewer';
 import AppointPrincipalPanel from './AppointPrincipalPanel';
+import SubdomainPanel from './SubdomainPanel';
 import { adminService } from '../../services/adminService';
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage } from '../../i18n/apiError';
@@ -267,7 +268,7 @@ export const RegistrationReview = ({ registration, onBack, onDecided, showToast 
                   className="block w-full rounded-xl border border-slate-200 hover:border-slate-300 bg-white py-2.5 px-4 text-sm text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
                 />
                 {reasonError ? (
-                  <span className="text-xs text-red-500 font-medium" role="alert">{reasonError}</span>
+                  <span className="text-xs text-red-600 font-medium" role="alert">{reasonError}</span>
                 ) : (
                   <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
                     {t('admin.reject.reason.hint')}
@@ -317,6 +318,8 @@ export const RegistrationReview = ({ registration, onBack, onDecided, showToast 
             branch and the one below it are the two faces of the same status.
           */}
           {isApproved && <AppointPrincipalPanel registration={registration} showToast={showToast} />}
+          {/* The school's own address (backend a577abd), the admin's to change. */}
+          {isApproved && <SubdomainPanel key={registration.id} registration={registration} showToast={showToast} />}
 
           {isApproved && !isDeactivated && (
             <section className="border border-rose-200 rounded-2xl p-5 bg-rose-50/40 shadow-sm space-y-4">
@@ -408,7 +411,7 @@ export const RegistrationReview = ({ registration, onBack, onDecided, showToast 
                   className="block w-full rounded-xl border border-slate-200 hover:border-slate-300 bg-white py-2.5 px-4 text-sm text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
                 />
                 {reasonError ? (
-                  <span className="text-xs text-red-500 font-medium" role="alert">{reasonError}</span>
+                  <span className="text-xs text-red-600 font-medium" role="alert">{reasonError}</span>
                 ) : (
                   <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
                     {t('admin.reactivate.note.hint')}

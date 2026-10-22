@@ -109,7 +109,7 @@ export const LocationFields = ({ values, errors = {}, onChange, idPrefix = 'plac
         </button>
       )}
       {locateError && (
-        <p className="text-xs text-red-500 font-medium" role="alert">
+        <p className="text-xs text-red-600 font-medium" role="alert">
           {locateError}
         </p>
       )}

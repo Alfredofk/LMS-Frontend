@@ -53,7 +53,7 @@ const TEXT_FIELDS = [
   { name: 'applicantPhone', labelKey: 'reg.field.phone', hintKey: 'reg.field.phone.hint', inputMode: 'tel', validate: validateApplicantPhone },
 ];
 
-export const SchoolRegistrationForm = () => {
+export const SchoolRegistrationForm = ({ doneTo = '/select-role' }) => {
   const navigate = useNavigate();
   const { t } = useT();
   const fileRef = useRef(null);
@@ -122,7 +122,8 @@ export const SchoolRegistrationForm = () => {
         and shows the Organization card as pending — a state that stays put is a
         better confirmation than a flash that does not.
       */
-      navigate('/select-role', { replace: true });
+      /* A member founding another school goes back to My Profile, whose card lists it. */
+      navigate(doneTo, { replace: true });
     } catch (err) {
       /*
         A zod failure names its fields; every other failure is one sentence for
@@ -253,7 +254,7 @@ export const SchoolRegistrationForm = () => {
             ))}
           </Select>
           {errors.durationYears ? (
-            <span className="text-xs text-red-500 font-medium" role="alert">{errors.durationYears}</span>
+            <span className="text-xs text-red-600 font-medium" role="alert">{errors.durationYears}</span>
           ) : (
             <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
               {t('reg.field.duration.hint')}
@@ -292,7 +293,7 @@ export const SchoolRegistrationForm = () => {
         </button>
 
         {errors.ktp ? (
-          <span className="text-xs text-red-500 font-medium" role="alert">{errors.ktp}</span>
+          <span className="text-xs text-red-600 font-medium" role="alert">{errors.ktp}</span>
         ) : (
           <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
             {t('reg.field.ktp.hint')}

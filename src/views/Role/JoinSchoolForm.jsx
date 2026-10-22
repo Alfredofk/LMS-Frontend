@@ -10,7 +10,7 @@ import PhoneField from '../../components/PhoneField';
 import { usePhonePrefill } from '../../hooks/useAccountPhone';
 import { membershipService } from '../../services/membershipService';
 import { useT } from '../../i18n/LanguageContext';
-import { apiErrorMessage } from '../../i18n/apiError';
+import { joinErrorMessage } from '../../i18n/apiError';
 import { gradesFor } from '../../constants/schoolTypes';
 import {
   normaliseSchoolCode,
@@ -87,7 +87,7 @@ const FIELDS_BY_ROLE = {
   GUARDIAN: ['childNisn', 'childFullName', 'relationship', 'phone'],
 };
 
-export const JoinSchoolForm = ({ intent }) => {
+export const JoinSchoolForm = ({ intent, doneTo = '/select-role' }) => {
   const navigate = useNavigate();
   const { t } = useT();
 
@@ -149,7 +149,7 @@ export const JoinSchoolForm = ({ intent }) => {
       }
       setSchool(found);
     } catch (err) {
-      setErrors({ schoolCode: apiErrorMessage(err, t) });
+      setErrors({ schoolCode: joinErrorMessage(err, t) });
     } finally {
       setIsWorking(false);
     }
@@ -241,13 +241,14 @@ export const JoinSchoolForm = ({ intent }) => {
         it. /select-role reads the membership back from /users/me and shows the
         card as pending — a state that stays put beats a flash that does not.
       */
-      navigate('/select-role', { replace: true });
+      /* A member joining another school goes back to My Profile, whose card lists it as waiting. */
+      navigate(doneTo, { replace: true });
     } catch (err) {
       const fieldErrors = nestedFieldErrors(err.details, ownedFields);
       if (Object.keys(fieldErrors).length) {
         setErrors((prev) => ({ ...prev, ...fieldErrors }));
       } else {
-        setErrors((prev) => ({ ...prev, global: apiErrorMessage(err, t) }));
+        setErrors((prev) => ({ ...prev, global: joinErrorMessage(err, t) }));
       }
     } finally {
       setIsWorking(false);
@@ -368,7 +369,7 @@ export const JoinSchoolForm = ({ intent }) => {
               ))}
             </Select>
             {errors.gradeLevel && (
-              <p className="text-xs text-red-500 font-medium">{errors.gradeLevel}</p>
+              <p className="text-xs text-red-600 font-medium">{errors.gradeLevel}</p>
             )}
           </div>
         </>

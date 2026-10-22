@@ -205,6 +205,27 @@ describe('finalising - closing the semester (backend 3a22f90)', () => {
     ]);
     expect(closeRefusalParts(undefined)).toEqual([]);
   });
+
+  // Backend 4dae152 (ticket 09): Semester 2 also waits for every promotion outcome.
+  it('in Semester 2 the students with no promotion outcome stop it too', () => {
+    expect(keys(closeBlocksOf(board({ promotionsMissing: 2 }), semester, '2026-12-19'))).toEqual(['grading.fin.close.blocked.promotions']);
+    expect(closeBlocksOf(board({ promotionsMissing: 2 }), semester, '2026-12-19')[0].vars.n).toBe(2);
+    expect(closeBlocksOf(board({ promotionsMissing: null }), semester, '2026-12-19')).toEqual([]);
+    expect(closeRefusalParts({ notFinalised: [], blocked: [], notesMissing: [], promotionsMissing: [{}, {}, {}] })).toEqual([
+      { key: 'grading.fin.close.blocked.promotions', vars: { n: 3 } },
+    ]);
+  });
+
+  it("the board carries each class's missing promotions, null in Semester 1", () => {
+    const entries = boardByClass({
+      slots: [],
+      notes: [
+        { class: { id: 'a', name: 'A' }, students: 2, missing: [], promotionsMissing: [{ fullName: 'Ani' }] },
+        { class: { id: 'b', name: 'B' }, students: 2, missing: [], promotionsMissing: null },
+      ],
+    });
+    expect(entries.map((entry) => entry.notes.promotionsMissing)).toEqual([[{ fullName: 'Ani' }], null]);
+  });
 });
 
 describe('finalising - reopening a closed semester (backend 46c6173)', () => {

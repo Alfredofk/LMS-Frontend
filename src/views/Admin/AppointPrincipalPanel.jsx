@@ -125,7 +125,7 @@ const AppointPrincipalPanel = ({ registration, showToast }) => {
             className="block w-full rounded-xl border border-slate-200 hover:border-slate-300 bg-white py-2.5 px-4 text-sm text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
           />
           {errors.reason ? (
-            <span className="text-xs text-red-500 font-medium" role="alert">{errors.reason}</span>
+            <span className="text-xs text-red-600 font-medium" role="alert">{errors.reason}</span>
           ) : (
             <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{t('admin.appoint.reason.hint')}</p>
           )}

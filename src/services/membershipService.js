@@ -120,8 +120,10 @@ export const membershipService = {
    *
    * @returns {Promise<{ id: string, status: 'CANCELLED', school: { name: string } }|null>}
    */
-  async cancelJoinRequest() {
-    const answer = await api.post('/memberships/requests/cancel');
+  async cancelJoinRequest(membershipId = null) {
+    /* Named by its id since backend 72e546b, when several may wait at several
+       schools; the bare route answers 409 then, listing them. */
+    const answer = await api.post(membershipId ? `/memberships/requests/${encodeURIComponent(membershipId)}/cancel` : '/memberships/requests/cancel');
     return answer?.membership ?? null;
   },
 

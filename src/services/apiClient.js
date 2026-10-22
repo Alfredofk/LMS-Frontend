@@ -107,7 +107,11 @@ export const getRefreshToken = () => readToken(REFRESH_TOKEN_KEY);
  *   read as "cannot tell", never as "stale".
  */
 export function accessTokenClaims() {
-  const token = getAccessToken();
+  return claimsOf(getAccessToken());
+}
+
+/** The payload of any JWT, read but never verified - the same caveat as accessTokenClaims. */
+export function claimsOf(token) {
   if (!token) return null;
 
   try {
@@ -292,6 +296,33 @@ const refreshTokens = () => {
   });
   return refreshInFlight;
 };
+
+/**
+ * Move this sign-in to another of the person's schools (`POST /auth/place`, backend
+ * 72e546b): the refresh token is spent and rotated exactly as a refresh spends it,
+ * so it runs under the same lock. It waits for a refresh already in flight, and a
+ * 401 meanwhile waits for it in turn (and retries with the new pair). The new pair
+ * is stored where the old one lived. Answers what sign-in answers.
+ *
+ * @throws {ApiError} NOT_FOUND for a school the person may not open (nothing spent)
+ */
+export async function placeSession(schoolId) {
+  while (refreshInFlight) await refreshInFlight;
+  const job = (async () => {
+    const refreshToken = getRefreshToken();
+    const { response, payload } = await send('/auth/place', { method: 'POST', body: { refreshToken, schoolId }, auth: false });
+    if (!response.ok || !payload?.success) throw toApiError(response, payload);
+    saveTokens(payload.data);
+    return payload.data;
+  })();
+  refreshInFlight = job.then(
+    () => true,
+    () => false
+  ).finally(() => {
+    refreshInFlight = null;
+  });
+  return job;
+}
 
 /**
  * Make a request and return the `data` half of the envelope.

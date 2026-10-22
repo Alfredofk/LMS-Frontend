@@ -15,7 +15,72 @@ import { defaultSemesterOf } from '../Subjects/subjects';
      finalGrade, kktp, description }], attendance: { sick, excused, absent }, note }`
   - a staff read adds `versions: [{ id, version, reportDate, writtenAt }]`, oldest
     first; a student reads only the newest and gets no `versions`.
+  - since backend 4dae152 (tickets 07-10) also `school: { name, npsn, city, address,
+    phone, hasLogo }`, `phase`, each subject's `types: { TUGAS, KUIS, UTS, UAS }` (the
+    rounded average, null where that type has nothing that counts or weighs 0) and
+    `letter`, `blankTables: { extracurricular, personality }` (printed only),
+    `letterScale: [{ letter, from, to }]` and `promotion: { outcome PROMOTED | RETAINED |
+    GRADUATED, nextGradeLevel | null } | null` (an even semester's). A card closed
+    before then carries nulls there. The PDF of it is `GET /report-cards/:id/pdf`.
 */
+
+/** The four types a report card averages, in the PDF's column order. */
+export const REPORT_TYPES = ['TUGAS', 'KUIS', 'UTS', 'UAS'];
+
+/**
+ * Whether the card carries any type average - a card closed before backend 4dae152
+ * froze none, and four columns of "-" would say nothing.
+ */
+export const showsTypeAverages = (subjects) =>
+  (subjects ?? []).some((line) => REPORT_TYPES.some((type) => typeof line.types?.[type] === 'number'));
+
+/** One type's average as printed: the number, or "-" where it counts for nothing. */
+export const typeAverageText = (line, type) => {
+  const value = line?.types?.[type];
+  return typeof value === 'number' ? String(value) : '-';
+};
+
+const ROMAN = [
+  [10, 'X'],
+  [9, 'IX'],
+  [5, 'V'],
+  [4, 'IV'],
+  [1, 'I'],
+];
+
+/** A grade level as a rapor writes it, in Roman numerals (1 to 13; a four-year SMK reaches XIII). */
+export function romanOf(n) {
+  if (!Number.isInteger(n) || n < 1) return String(n ?? '');
+  let rest = n;
+  let out = '';
+  for (const [value, numeral] of ROMAN) {
+    while (rest >= value) {
+      out += numeral;
+      rest -= value;
+    }
+  }
+  return out;
+}
+
+/**
+ * The promotion statement's key and grade, as the PDF says it (grading.pdf.js
+ * PROMOTION_TEXTS): "Naik ke kelas XI", "Tinggal di kelas X", "Lulus". Null without one.
+ */
+export function promotionLineOf(card) {
+  const promotion = card?.promotion;
+  if (!promotion?.outcome) return null;
+  const grade = promotion.nextGradeLevel === null || promotion.nextGradeLevel === undefined ? null : romanOf(promotion.nextGradeLevel);
+  return { key: `rc.promotion.${promotion.outcome}`, grade };
+}
+
+/** The school's address and phone, each `{ kind, value }`, either left out when not set. */
+export const letterheadParts = (school) =>
+  [
+    ['address', school?.address],
+    ['phone', school?.phone],
+  ]
+    .filter(([, value]) => typeof value === 'string' && value.trim() !== '')
+    .map(([kind, value]) => ({ kind, value }));
 
 /** Which semester the class card opens on: the newest closed one, else the one running today. */
 export function defaultReportSemesterOf(year, today) {

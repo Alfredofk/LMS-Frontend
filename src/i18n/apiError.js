@@ -31,6 +31,9 @@ const BY_CODE = {
   /* Backend 3a22f90: a transaction past its timeout, or with no pool connection in
      time, rolled back - 503. Nothing was saved, and trying again is the remedy. */
   TIMEOUT: 'error.timeout',
+  /* Backend a577abd: signing in on a school's own address with an account that is
+     not registered there - only once the password has checked out. */
+  NOT_REGISTERED_HERE: 'error.notRegisteredHere',
   UNKNOWN_ERROR: 'error.unknown',
 };
 
@@ -74,7 +77,8 @@ export function apiErrorMessage(err, t, overrides) {
 */
 const CONFLICT_BY_MESSAGE = [
   ['already have a school registration', 'reg.conflict.pending'],
-  ['already belong to a school', 'reg.conflict.member'],
+  /* Backend 72e546b: a member may found another school; only a student may not. */
+  ['student belongs to one school only', 'reg.conflict.student'],
   ['NPSN is already registered', 'reg.conflict.npsn'],
 ];
 
@@ -96,6 +100,28 @@ export function registrationErrorMessage(err, t) {
   const message = err.message ?? '';
   const hit = CONFLICT_BY_MESSAGE.find(([needle]) => message.includes(needle));
   return t(hit ? hit[1] : 'reg.conflict.other');
+}
+
+/*
+  Several schools per person (backend 72e546b, membership.eligibility.js assertMayJoin):
+  joining is refused, on its sentence, at a school one already belongs to or has a
+  request waiting at, and anywhere to a student - one school only.
+*/
+const JOIN_BY_MESSAGE = [
+  ['join request waiting for approval at this school', 'join.conflict.pendingHere'],
+  ['already belong to this school', 'join.conflict.memberHere'],
+  ['A student belongs to one school only', 'join.conflict.student'],
+];
+
+export function joinErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  const hit = JOIN_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  return hit ? t(hit[1]) : apiErrorMessage(err, t);
+}
+
+/** Opening another of one's schools (`POST /auth/place`): one 404 for a school that no longer opens. */
+export function placesErrorMessage(err, t) {
+  return apiErrorMessage(err, t, { NOT_FOUND: 'choose.error.gone' });
 }
 
 /*
@@ -974,6 +1000,72 @@ export const isStaleNotes = (err) =>
 export const isNotesLocked = (err) =>
   /^Academic year .+ is closed$/.test(String(err?.message ?? '')) ||
   ['its notes stay as they are', 'writes its notes'].some((needle) => String(err?.message ?? '').includes(needle));
+
+/*
+  The report card's letterhead (backend 4dae152, school.letterhead.js and the logo's
+  upload), on its sentences. A deactivated school answers "School not found".
+*/
+const LETTERHEAD_BY_MESSAGE = [
+  ['Only the Principal can do this', 'kop.error.principalOnly'],
+  ['This PNG cannot be read', 'kop.error.pngBroken'],
+  ['The logo may be at most', 'kop.error.logoPixels'],
+  ['cannot be printed on the Report Card', 'kop.error.logoUnprintable'],
+  ['The logo file must be at most', 'kop.error.logoBig'],
+  ['The logo file must be one of', 'kop.error.logoType'],
+  ['The school has no logo', 'kop.error.noLogo'],
+  ['School not found', 'kop.error.gone'],
+  ['At most 300 characters', 'kop.error.addressLong'],
+  ['At most 30 characters', 'kop.error.phoneLong'],
+];
+
+export function letterheadErrorMessage(err, t) {
+  const said = [String(err?.message ?? ''), ...(Array.isArray(err?.details) ? err.details.map((issue) => String(issue?.message ?? '')) : [])];
+  const hit = LETTERHEAD_BY_MESSAGE.find(([needle]) => said.some((text) => text.includes(needle)));
+  if (hit) return t(hit[1], { max: hit[0].includes('300') ? 300 : 30 });
+  return apiErrorMessage(err, t);
+}
+
+/*
+  A class's Promotion Outcomes (backend 4dae152, grading.promotion.js), on their
+  sentences. A stale row names its students in the sentence itself ("The promotion of
+  Ani, Budi changed meanwhile"); a 400 names them in `details.studentProfileIds`.
+*/
+const PROMOTIONS_BY_MESSAGE = [
+  ['changed meanwhile. Reload and try again', 'homeroom.promo.error.meanwhile'],
+  ['decides its promotions', 'homeroom.promo.error.notYours'],
+  ['Promotion is decided at the end of the year', 'homeroom.promo.error.notEven'],
+  ['is not being finalised yet', 'homeroom.promo.notYet.open'],
+  ['reopen it to change a promotion', 'homeroom.promo.notYet.closed'],
+  ['is finalised first; not yet:', 'homeroom.promo.error.waiting'],
+  ['Not a student of', 'homeroom.promo.error.notPlaced'],
+  ['a promotion is', 'homeroom.promo.error.refused'],
+  ['Class not found', 'homeroom.notes.error.gone'],
+  ['Semester not found', 'homeroom.notes.error.gone'],
+];
+
+/**
+ * @param namesOf (ids) => "Ani, Budi" - for the students a 400 names by id
+ */
+export function promotionsErrorMessage(err, t, namesOf = () => '') {
+  const message = String(err?.message ?? '');
+  if (/^Academic year .+ is closed$/.test(message)) return t('homeroom.promo.error.yearClosed');
+  const stale = /^The promotion of (.+) changed meanwhile/.exec(message);
+  const ids = Array.isArray(err?.details?.studentProfileIds) ? err.details.studentProfileIds : [];
+  const names = stale ? stale[1] : namesOf(ids);
+  const hit = PROMOTIONS_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  if (hit) return t(hit[1], { names });
+  return apiErrorMessage(err, t);
+}
+
+/** A promotions refusal that means the card is behind: read it again (a stale row, a student moved, the state changed). */
+export const isStalePromotions = (err) =>
+  /^Academic year .+ is closed$/.test(String(err?.message ?? '')) ||
+  ['changed meanwhile. Reload and try again', 'Not a student of', 'is not being finalised yet', 'reopen it to change a promotion', 'is finalised first; not yet:'].some((needle) =>
+    String(err?.message ?? '').includes(needle)
+  );
+
+/** A refusal that means this reader may not change them at all. */
+export const isPromotionsLocked = (err) => String(err?.message ?? '').includes('decides its promotions');
 
 /*
   A student's check-in — attendance.service.js `checkIn` (backend deb95e8,

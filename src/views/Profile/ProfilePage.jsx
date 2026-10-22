@@ -7,6 +7,8 @@ import BadgeCase from './components/BadgeCase';
 import LeaderboardWidget from './components/LeaderboardWidget';
 import SchoolCodeCard from '../../components/SchoolCodeCard';
 import AddRoleCard from './components/AddRoleCard';
+import OtherSchoolsCard from './components/OtherSchoolsCard';
+import SchoolAddressLine from './components/SchoolAddressLine';
 
 /*
   My Profile, and it is not the same page for everybody.
@@ -61,6 +63,9 @@ export const ProfilePage = () => {
     <div className="space-y-6">
       <ProfileHeader />
 
+      {/* The school's own address, for every member (backend a577abd). */}
+      <SchoolAddressLine />
+
       {isLearner ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-8">
@@ -76,6 +81,9 @@ export const ProfilePage = () => {
           <AddRoleCard />
         </>
       )}
+
+      {/* Schools besides the one open now, and joining another (backend 72e546b). */}
+      <OtherSchoolsCard />
     </div>
   );
 };

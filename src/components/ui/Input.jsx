@@ -30,7 +30,7 @@ export const Input = React.forwardRef(({
           htmlFor={id}
           className="text-sm font-semibold text-slate-700 select-none flex items-center justify-between"
         >
-          <span>{label} {required && <span className="text-red-500" aria-hidden="true">*</span>}</span>
+          <span>{label} {required && <span className="text-red-600" aria-hidden="true">*</span>}</span>
         </label>
       )}
 
@@ -98,7 +98,7 @@ export const Input = React.forwardRef(({
       {error && (
         <span
           id={`${id}-error`}
-          className="text-xs text-red-500 font-medium"
+          className="text-xs text-red-600 font-medium"
           role="alert"
         >
           {error}

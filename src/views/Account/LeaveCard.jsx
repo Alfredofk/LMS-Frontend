@@ -304,7 +304,7 @@ export const LeaveCard = ({ onToast }) => {
                   className="block w-full rounded-xl border border-slate-200 hover:border-slate-300 bg-white py-2.5 px-4 text-sm text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand disabled:bg-slate-50"
                 />
                 {errors.reason && (
-                  <p id="leave-reason-error" className="text-xs text-red-500 font-medium">{errors.reason}</p>
+                  <p id="leave-reason-error" className="text-xs text-red-600 font-medium">{errors.reason}</p>
                 )}
               </div>
 
@@ -326,7 +326,7 @@ export const LeaveCard = ({ onToast }) => {
                   aria-describedby="leave-letter-hint"
                   className="block w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-brand-tint file:text-brand file:font-extrabold file:cursor-pointer cursor-pointer"
                 />
-                <p id="leave-letter-hint" className={`text-xs font-medium ${errors.letter ? 'text-red-500' : 'text-slate-500'}`}>
+                <p id="leave-letter-hint" className={`text-xs font-medium ${errors.letter ? 'text-red-600' : 'text-slate-500'}`}>
                   {errors.letter || t('account.leave.request.letterHint')}
                 </p>
               </div>

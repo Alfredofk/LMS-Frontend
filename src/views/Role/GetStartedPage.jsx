@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import AuthLayout from '../../layouts/AuthLayout';
 import SchoolRegistrationForm from './SchoolRegistrationForm';
@@ -7,6 +7,7 @@ import JoinSchoolForm from './JoinSchoolForm';
 import AddRoleForm from '../../components/AddRoleForm';
 import { useAuth } from '../../context/AuthContext';
 import { ROLES, isEstablishedMember, rolesToAdd } from '../../constants/roles';
+import { mayJoinAnother } from '../../constants/places';
 import { useT } from '../../i18n/LanguageContext';
 
 /*
@@ -153,7 +154,8 @@ const ADDING = {
 export const GetStartedPage = () => {
   const navigate = useNavigate();
   const { intent } = useParams();
-  const { user, membership } = useAuth();
+  const { user, membership, otherSchools } = useAuth();
+  const [search] = useSearchParams();
   const { t } = useT();
 
   /* Role names inside a sentence are keys too, so they bend with the language. */
@@ -161,8 +163,18 @@ export const GetStartedPage = () => {
     Object.fromEntries(Object.entries(vars ?? {}).map(([k, v]) => [k, t(v)]));
 
   const established = isEstablishedMember(membership);
+  /*
+    Another school (backend 72e546b; owner, 2026-10-22): a member who is no student
+    anywhere may ask to join another school as a teacher or a guardian - from My
+    Profile, `?another=1`, so the Teacher card here keeps meaning "add it at this
+    school" - or found one. A student belongs to one school only.
+  */
+  const elsewhere =
+    established &&
+    mayJoinAnother(membership, otherSchools) &&
+    (intent === 'organization' || (search.get('another') === '1' && (intent === 'teacher' || intent === 'guardian')));
   const adding =
-    established && ADDING[intent] && rolesToAdd(membership).includes(ADDING[intent].role)
+    !elsewhere && established && ADDING[intent] && rolesToAdd(membership).includes(ADDING[intent].role)
       ? ADDING[intent]
       : null;
   const schoolName = membership?.school?.name ?? membership?.schoolName ?? '';
@@ -179,12 +191,12 @@ export const GetStartedPage = () => {
     to a school: joining again, founding one, or a role this app does not add.
     The picker says why for each card, so that is where they go.
   */
-  if (established && !adding) return <Navigate to="/select-role" replace />;
+  if (established && !adding && !elsewhere) return <Navigate to="/select-role" replace />;
 
   const footer = (
     <button
       type="button"
-      onClick={() => navigate('/select-role')}
+      onClick={() => navigate(elsewhere ? '/profile' : '/select-role')}
       className="text-xs text-slate-500 hover:text-brand font-bold transition-colors focus:outline-none cursor-pointer"
     >
       {t('getStarted.back')}
@@ -253,9 +265,9 @@ export const GetStartedPage = () => {
            entered, or waiting — is what greets them there. */
         <AddRoleForm role={adding.role} onDone={() => navigate('/select-role', { replace: true })} />
       ) : intent === 'organization' ? (
-        <SchoolRegistrationForm />
+        <SchoolRegistrationForm doneTo={elsewhere ? '/profile' : '/select-role'} />
       ) : (
-        <JoinSchoolForm intent={intent} />
+        <JoinSchoolForm intent={intent} doneTo={elsewhere ? '/profile' : '/select-role'} />
       )}
     </AuthLayout>
   );

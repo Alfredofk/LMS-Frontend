@@ -5,7 +5,7 @@
  * ApiError on failure — unwrapping and token storage live in apiClient.js.
  */
 
-import { api, saveTokens, clearTokens, getRefreshToken } from './apiClient';
+import { api, saveTokens, clearTokens, getRefreshToken, claimsOf } from './apiClient';
 
 /*
   Registration, sign-in and verification are one flow, so they share a shape:
@@ -69,8 +69,12 @@ export const authService = {
    * @throws {ApiError} UNAUTHORIZED on bad credentials, or EMAIL_NOT_VERIFIED
    *   (403) when the address was never confirmed — offer resendVerification().
    */
-  async login({ email, password, remember = false }) {
-    const auth = await api.post('/auth/login', { email, password, rememberMe: remember }, { auth: false });
+  async login({ email, password, remember = false, subdomain = null }) {
+    /* On a school's own address (backend a577abd) the sign-in is for that school:
+       `subdomain` names it, and an account not registered there is a 403
+       NOT_REGISTERED_HERE - only once the password has checked out. */
+    const body = { email, password, rememberMe: remember, ...(subdomain ? { subdomain } : {}) };
+    const auth = await api.post('/auth/login', body, { auth: false });
     saveTokens(auth, remember);
     return auth;
   },
@@ -146,12 +150,40 @@ export const authService = {
    * @throws {ApiError} UNAUTHORIZED when Google refuses the token, or when the
    *   address behind it is not verified on Google's side
    */
-  async signInWithGoogle({ idToken, remember = false }) {
-    const auth = await api.post('/auth/google', { idToken, rememberMe: remember }, { auth: false });
+  async signInWithGoogle({ idToken, remember = false, subdomain = null }) {
+    const body = { idToken, rememberMe: remember, ...(subdomain ? { subdomain } : {}) };
+    const auth = await api.post('/auth/google', body, { auth: false });
     saveTokens(auth, remember);
     return auth;
   },
 
+  /**
+   * A one-time code that carries this sign-in to another of the person's schools,
+   * on that school's own address (`POST /auth/handoff`, backend a577abd): the refresh
+   * token proves the sign-in and is read, not spent - the sign-in here lives on.
+   * Good for 60 seconds, once.
+   *
+   * @returns {Promise<{ code: string, subdomain: string, expiresAt: string }>}
+   * @throws {ApiError} NOT_FOUND for a school the person may not open
+   */
+  async issueHandoff(schoolId) {
+    const answer = await api.post('/auth/handoff', { refreshToken: getRefreshToken(), schoolId }, { auth: false });
+    return answer?.handoff ?? null;
+  },
+
+  /**
+   * Trade a handoff code for a sign-in on this address (`POST /auth/handoff/redeem`).
+   * Public: the code is the credential. The new sign-in keeps the remember-me choice
+   * of the one that asked, which the token carries as `rem`, so it is stored where
+   * that choice says. Answers what sign-in answers.
+   *
+   * @throws {ApiError} UNAUTHORIZED for a code used, expired, or of an ended sign-in
+   */
+  async redeemHandoff(code) {
+    const auth = await api.post('/auth/handoff/redeem', { code }, { auth: false });
+    saveTokens(auth, claimsOf(auth.accessToken)?.rem === true);
+    return auth;
+  },
 };
 
 export default authService;

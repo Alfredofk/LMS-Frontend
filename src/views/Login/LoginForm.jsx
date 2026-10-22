@@ -37,7 +37,7 @@ const icons = {
   ),
 };
 
-export const LoginForm = ({ formState, notice }) => {
+export const LoginForm = ({ formState, notice, googleElsewhere = null }) => {
   const {
     authStep,
     isSignUp,
@@ -242,6 +242,20 @@ export const LoginForm = ({ formState, notice }) => {
         was ours in style but a lie in substance — it called a mock. Their button
         is what the ID-token flow expects and what their branding rules ask for.
       */}
+      {/*
+        On a school's own address there is no Google button (owner, 2026-10-22 E3):
+        Google takes no wildcard origins, so every school address would have to be
+        listed in its console. The main domain signs in with Google and carries the
+        sign-in here.
+      */}
+      {googleElsewhere ? (
+        <a
+          href={googleElsewhere}
+          className="block w-full text-center py-3 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        >
+          {t('auth.googleOnMain')}
+        </a>
+      ) : (
       <GoogleButton
         onCredential={handleGoogleCredential}
         disabled={isLoading}
@@ -253,6 +267,7 @@ export const LoginForm = ({ formState, notice }) => {
         */
         text={isSignUp ? 'signup_with' : 'continue_with'}
       />
+      )}
 
     </div>
   );

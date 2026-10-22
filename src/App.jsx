@@ -1,6 +1,8 @@
 import React, { lazy, Suspense } from 'react';
 import { createBrowserRouter, createRoutesFromElements, Navigate, Outlet, Route, RouterProvider } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { PlaceProvider, usePlace } from './context/PlaceContext';
+import { subdomainOf } from './constants/subdomain';
 import { LanguageProvider } from './i18n/LanguageContext';
 import ThemeProvider from './theme/ThemeProvider';
 import ProtectedRoute, { RequireAuth } from './components/ProtectedRoute';
@@ -23,6 +25,9 @@ import RouteErrorBoundary, { RouterErrorPage } from './components/ui/PageError';
 */
 const SelectRolePage = lazy(() => import('./views/Role/SelectRolePage'));
 const GetStartedPage = lazy(() => import('./views/Role/GetStartedPage'));
+const ChooseSchoolPage = lazy(() => import('./views/Role/ChooseSchoolPage'));
+const HandoffPage = lazy(() => import('./views/Role/HandoffPage'));
+const UnknownPlacePage = lazy(() => import('./views/Role/UnknownPlacePage'));
 const AccountPage = lazy(() => import('./views/Account/AccountPage'));
 const AdminRegistrationsPage = lazy(() => import('./views/Admin/AdminRegistrationsPage'));
 const AdminHolidaysPage = lazy(() => import('./views/Admin/AdminHolidaysPage'));
@@ -67,18 +72,37 @@ const ReportCardPage = lazy(() => import('./views/ReportCards/ReportCardPage'));
   <BrowserRouter>, so a page can hold a navigation while it has unsaved changes
   (useBlocker, hooks/useUnsavedGuard.js); the routes are the same <Route> tree.
 */
+/*
+  On a school's own address (backend a577abd), the app waits for whose it is, and an
+  address nobody uses is said instead of the app (PlaceContext, UnknownPlacePage).
+*/
+const PlaceGate = ({ children }) => {
+  const { status } = usePlace();
+  if (status === 'loading') return <PageLoading fullScreen />;
+  if (status === 'unknown') return <UnknownPlacePage />;
+  return children;
+};
+
 const RootShell = () => (
   <RouteErrorBoundary fullScreen>
     <Suspense fallback={<PageLoading fullScreen />}>
-      <Outlet />
+      <PlaceGate>
+        <Outlet />
+      </PlaceGate>
     </Suspense>
   </RouteErrorBoundary>
 );
 
+/* The landing page is the main domain's; a school's address opens on its sign-in. */
+const Landing = () => (subdomainOf(window.location.hostname) ? <Navigate to="/login" replace /> : <LandingPage />);
+
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route element={<RootShell />} errorElement={<RouterErrorPage />}>
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<Landing />} />
+          {/* A sign-in carried here from another address (backend a577abd): public,
+              the code after # is the credential. */}
+          <Route path="/handoff" element={<HandoffPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
@@ -98,6 +122,17 @@ const router = createBrowserRouter(
             element={
               <RequireAuth>
                 <SelectRolePage />
+              </RequireAuth>
+            }
+          />
+
+          {/* Choosing which of one's schools to open, when a sign-in opened none
+              (backend 72e546b). RequireAuth, like /select-role, for the same reason. */}
+          <Route
+            path="/choose-school"
+            element={
+              <RequireAuth>
+                <ChooseSchoolPage />
               </RequireAuth>
             }
           />
@@ -331,7 +366,9 @@ function App() {
     <LanguageProvider>
       <ThemeProvider>
       <AuthProvider>
-        <RouterProvider router={router} />
+        <PlaceProvider>
+          <RouterProvider router={router} />
+        </PlaceProvider>
       </AuthProvider>
       </ThemeProvider>
     </LanguageProvider>

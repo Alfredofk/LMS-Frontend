@@ -2,8 +2,10 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 
 import { authService } from '../services/authService';
 import { usersService } from '../services/usersService';
-import { activeStore } from '../services/apiClient';
-import { activeRolesOf, defaultRoleOf } from '../constants/roles';
+import { activeStore, placeSession } from '../services/apiClient';
+import { activeRolesOf, defaultRoleOf, signedInHome } from '../constants/roles';
+import { schoolUrl, subdomainOf, subdomainsEnabled } from '../constants/subdomain';
+import { needsPlaceChoice, placeToOpen, rememberSchool, rememberedSchoolOf, schoolIdOf } from '../constants/places';
 
 const AuthContext = createContext(null);
 
@@ -40,6 +42,14 @@ const ACTIVE_ROLE_KEY = 'lms_active_role';
   forget it meanwhile.
 */
 const PLATFORM_ADMIN_KEY = 'lms_platform_admin';
+
+/*
+  The schools this person may open (backend 72e546b, `places`), cached like the
+  membership so the avatar menu can offer a switch before /users/me answers. Every
+  sign-in answer and /users/me replace it. `otherSchools` (their state at schools
+  they may not open) comes from /users/me alone and is not cached.
+*/
+const PLACES_KEY = 'lms_places';
 
 const readJson = (key) => {
   try {
@@ -108,10 +118,13 @@ export const AuthProvider = ({ children }) => {
     and on sign-out.
   */
   const [droppedRole, setDroppedRole] = useState(null);
+  const [places, setPlaces] = useState([]);
+  const [otherSchools, setOtherSchools] = useState([]);
 
   useEffect(() => {
     setUser(readJson(USER_KEY));
     setMembership(readJson(MEMBERSHIP_KEY));
+    setPlaces(readJson(PLACES_KEY) ?? []);
     setActiveRoleState(readRaw(ACTIVE_ROLE_KEY));
     setIsPlatformAdmin(readRaw(PLATFORM_ADMIN_KEY) === '1');
     setLoading(false);
@@ -157,8 +170,18 @@ export const AuthProvider = ({ children }) => {
     only if it is still held; a single role is entered without asking; and
     anything else means the picker has to run.
   */
-  const applySession = useCallback((nextUser, nextMembership, previousRole) => {
+  const applySession = useCallback((nextUser, nextMembership, previousRole, nextPlaces) => {
     const available = activeRolesOf(nextMembership);
+
+    /* An answer that carries the places (every sign-in, /users/me) replaces them,
+       and a school it opened is the one this device remembers for next time -
+       only one the person may open, so a school just left is never remembered. */
+    if (Array.isArray(nextPlaces)) {
+      setPlaces(nextPlaces);
+      writeJson(PLACES_KEY, nextPlaces);
+      const opened = schoolIdOf(nextMembership);
+      if (opened && available.length > 0 && nextPlaces.some((place) => place.id === opened)) rememberSchool(nextUser?.id, opened);
+    }
 
     /* The role chosen before, while it is still held; otherwise the default —
        Principal before Teacher before Student before Guardian (owner,
@@ -176,8 +199,80 @@ export const AuthProvider = ({ children }) => {
     if (nextRole) writeRaw(ACTIVE_ROLE_KEY, nextRole);
     else forget(ACTIVE_ROLE_KEY);
 
-    return { user: nextUser, membership: nextMembership, roles: available, activeRole: nextRole };
+    return { user: nextUser, membership: nextMembership, roles: available, activeRole: nextRole, places: nextPlaces };
   }, []);
+
+  /*
+    A sign-in that opened no school while several may be opened (backend 72e546b):
+    the school this device last opened is opened by itself (owner, 2026-10-22),
+    through `POST /auth/place`; failing that the answer stands and the caller sends
+    the person to /choose-school.
+  */
+  const settlePlace = useCallback(async (auth) => {
+    if (!needsPlaceChoice(auth)) return auth;
+    const remembered = placeToOpen(auth.places, rememberedSchoolOf(auth.user?.id));
+    if (!remembered) return auth;
+    try {
+      return await placeSession(remembered);
+    } catch {
+      return auth;
+    }
+  }, []);
+
+  /**
+   * Open another of this person's schools (`POST /auth/place`): the tokens are
+   * swapped for that school's, it is remembered, and the session is rebuilt with
+   * no prior role - each school has its own roles. The caller decides where to go.
+   *
+   * @throws {ApiError} NOT_FOUND when the school may no longer be opened
+   */
+  const choosePlace = useCallback(
+    async (schoolId) => {
+      const auth = await placeSession(schoolId);
+      rememberSchool(auth.user?.id, schoolId);
+      return applySession(auth.user, auth.membership, null, auth.places);
+    },
+    [applySession]
+  );
+
+  /**
+   * Open one of this person's schools and leave this page for it (owner, 2026-10-22).
+   * With school addresses in use (VITE_BASE_DOMAIN, backend a577abd) the sign-in is
+   * carried to that school's address with a one-time code (`/handoff#code=...`, read
+   * there by HandoffPage) and this address's sign-in lives on; without them the
+   * sign-in here is moved (`POST /auth/place`) and the app loads afresh. Either way
+   * the page is left, so nothing read for the old school stays on screen.
+   *
+   * @throws {ApiError} NOT_FOUND when the school may no longer be opened
+   */
+  const openSchool = useCallback(
+    async (schoolId) => {
+      if (subdomainsEnabled()) {
+        const handoff = await authService.issueHandoff(schoolId);
+        window.location.assign(schoolUrl(handoff.subdomain, '/handoff', `code=${encodeURIComponent(handoff.code)}`));
+        return;
+      }
+      const session = await choosePlace(schoolId);
+      window.location.assign(signedInHome(session));
+    },
+    [choosePlace]
+  );
+
+  /**
+   * The other half of a handoff, on the school's own address: the code is traded for
+   * a sign-in here (`POST /auth/handoff/redeem`), remembered as the last school, and
+   * the session built with no prior role.
+   *
+   * @throws {ApiError} UNAUTHORIZED for a code used, expired, or of an ended sign-in
+   */
+  const redeemHandoff = useCallback(
+    async (code) => {
+      const auth = await authService.redeemHandoff(code);
+      rememberSchool(auth.user?.id, auth.membership?.schoolId);
+      return applySession(auth.user, auth.membership, null, auth.places);
+    },
+    [applySession]
+  );
 
   /**
    * Sign in. Tokens are stored by authService; this stores the person.
@@ -191,17 +286,20 @@ export const AuthProvider = ({ children }) => {
    */
   const signIn = useCallback(
     async ({ email, password, remember = false }) => {
-      const auth = await authService.login({ email, password, remember });
+      /* On a school's own address the sign-in is for that school (backend a577abd). */
+      const subdomain = subdomainOf(window.location.hostname);
+      const auth = await settlePlace(await authService.login({ email, password, remember, subdomain }));
       // A fresh sign-in starts with no prior choice: whoever just typed their
       // password may not be whoever used this browser last.
-      const session = applySession(auth.user, auth.membership, null);
+      const session = applySession(auth.user, auth.membership, null, auth.places);
+      const needsPlace = needsPlaceChoice(auth);
       /* Only when there is nothing to enter with — see checkPlatformAdmin.
          Returned on the session rather than read from state by the caller:
          a state update has not landed by the time the caller routes. */
-      const admin = session.roles.length === 0 ? await checkPlatformAdmin() : false;
-      return { ...session, isPlatformAdmin: admin };
+      const admin = session.roles.length === 0 && !needsPlace ? await checkPlatformAdmin() : false;
+      return { ...session, isPlatformAdmin: admin, needsPlace };
     },
-    [applySession, checkPlatformAdmin]
+    [applySession, checkPlatformAdmin, settlePlace]
   );
 
   /**
@@ -215,12 +313,14 @@ export const AuthProvider = ({ children }) => {
    */
   const signInWithGoogle = useCallback(
     async ({ idToken, remember = false }) => {
-      const auth = await authService.signInWithGoogle({ idToken, remember });
-      const session = applySession(auth.user, auth.membership, null);
-      const admin = session.roles.length === 0 ? await checkPlatformAdmin() : false;
-      return { ...session, isPlatformAdmin: admin };
+      const subdomain = subdomainOf(window.location.hostname);
+      const auth = await settlePlace(await authService.signInWithGoogle({ idToken, remember, subdomain }));
+      const session = applySession(auth.user, auth.membership, null, auth.places);
+      const needsPlace = needsPlaceChoice(auth);
+      const admin = session.roles.length === 0 && !needsPlace ? await checkPlatformAdmin() : false;
+      return { ...session, isPlatformAdmin: admin, needsPlace };
     },
-    [applySession, checkPlatformAdmin]
+    [applySession, checkPlatformAdmin, settlePlace]
   );
 
   /**
@@ -234,7 +334,12 @@ export const AuthProvider = ({ children }) => {
   const refreshMe = useCallback(async () => {
     const me = await usersService.getMe();
     rememberAdmin(me.isPlatformAdmin);
-    return { ...applySession(me.user, me.membership, activeRole), isPlatformAdmin: Boolean(me.isPlatformAdmin) };
+    setOtherSchools(Array.isArray(me.otherSchools) ? me.otherSchools : []);
+    return {
+      ...applySession(me.user, me.membership, activeRole, Array.isArray(me.places) ? me.places : undefined),
+      isPlatformAdmin: Boolean(me.isPlatformAdmin),
+      otherSchools: me.otherSchools ?? [],
+    };
   }, [applySession, activeRole, rememberAdmin]);
 
   /**
@@ -254,7 +359,8 @@ export const AuthProvider = ({ children }) => {
     async (changes) => {
       const me = await usersService.updateMe(changes);
       rememberAdmin(me.isPlatformAdmin);
-      return applySession(me.user, me.membership, activeRole);
+      if (Array.isArray(me.otherSchools)) setOtherSchools(me.otherSchools);
+      return applySession(me.user, me.membership, activeRole, Array.isArray(me.places) ? me.places : undefined);
     },
     [applySession, activeRole, rememberAdmin]
   );
@@ -291,6 +397,9 @@ export const AuthProvider = ({ children }) => {
       setMembership(null);
       setActiveRoleState(null);
       setDroppedRole(null);
+      setPlaces([]);
+      setOtherSchools([]);
+      forget(PLACES_KEY);
       // Clear both storages: signing out must not depend on guessing which one
       // this session happened to use.
       forget(USER_KEY);
@@ -320,8 +429,13 @@ export const AuthProvider = ({ children }) => {
       droppedRole,
       clearDroppedRole: () => setDroppedRole(null),
       register: authService.register,
+      places,
+      otherSchools,
+      choosePlace,
+      openSchool,
+      redeemHandoff,
     }),
-    [user, membership, roles, activeRole, loading, isPlatformAdmin, signIn, signInWithGoogle, logout, refreshMe, updateProfile, checkPlatformAdmin, selectRole, droppedRole]
+    [user, membership, roles, activeRole, loading, isPlatformAdmin, signIn, signInWithGoogle, logout, refreshMe, updateProfile, checkPlatformAdmin, selectRole, droppedRole, places, otherSchools, choosePlace, openSchool, redeemHandoff]
   );
 
   return (

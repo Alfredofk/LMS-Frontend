@@ -93,7 +93,9 @@ export function blockerText(view, t, zone, lang) {
 /**
  * The readiness board by class (owner: a card per class), in the board's class order:
  * `[{ class, homeroomTeacher, slots, notes }]`, `notes` the class's `{ students,
- * missing }` or null. A class with notes and no slot is kept: its notes still count.
+ * missing, promotionsMissing }` or null - `promotionsMissing` the students with no
+ * Promotion Outcome in Semester 2 (backend 4dae152, ticket 09), null in Semester 1. A
+ * class with notes and no slot is kept: its notes still count.
  */
 export function boardByClass(readiness) {
   const out = new Map();
@@ -105,7 +107,7 @@ export function boardByClass(readiness) {
   for (const row of readiness?.notes ?? []) {
     const entry = entryOf(row.class);
     entry.homeroomTeacher = row.homeroomTeacher;
-    entry.notes = { students: row.students, missing: row.missing ?? [] };
+    entry.notes = { students: row.students, missing: row.missing ?? [], promotionsMissing: row.promotionsMissing ?? null };
   }
   return [...out.values()].sort((a, b) => String(a.class.name).localeCompare(String(b.class.name)));
 }
@@ -172,16 +174,19 @@ export function closeBlocksOf(readiness, semester, today) {
   const stuck = (readiness.slots ?? []).filter((slot) => slot.finalised && (slot.blockers ?? []).length > 0).length;
   if (stuck > 0) blocks.push({ key: 'grading.fin.close.blocked.stuck', vars: { n: stuck } });
   if (notesMissing > 0) blocks.push({ key: 'grading.fin.close.blocked.notes', vars: { n: notesMissing } });
+  const promotionsMissing = readiness.counts.promotionsMissing ?? 0;
+  if (promotionsMissing > 0) blocks.push({ key: 'grading.fin.close.blocked.promotions', vars: { n: promotionsMissing } });
   return blocks;
 }
 
-/** The parts of a 409 "cannot be closed yet" (`details.notFinalised / blocked / notesMissing`), as `{ key, vars }`. */
+/** The parts of a 409 "cannot be closed yet" (`details.notFinalised / blocked / notesMissing / promotionsMissing`), as `{ key, vars }`. */
 export function closeRefusalParts(details) {
   const count = (list) => (Array.isArray(list) ? list.length : 0);
   return [
     ['grading.fin.close.blocked.slots', count(details?.notFinalised)],
     ['grading.fin.close.blocked.stuck', count(details?.blocked)],
     ['grading.fin.close.blocked.notes', count(details?.notesMissing)],
+    ['grading.fin.close.blocked.promotions', count(details?.promotionsMissing)],
   ]
     .filter(([, n]) => n > 0)
     .map(([key, n]) => ({ key, vars: { n } }));

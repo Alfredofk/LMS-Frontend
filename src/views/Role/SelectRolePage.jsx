@@ -24,7 +24,8 @@ import {
 import RejectionNotice from './RejectionNotice';
 import { hasUnseenRejection } from './rejections';
 import { useT } from '../../i18n/LanguageContext';
-import { apiErrorMessage, cancelErrorMessage } from '../../i18n/apiError';
+import { apiErrorMessage, cancelErrorMessage, placesErrorMessage } from '../../i18n/apiError';
+import { placeRolesOf, waitingRequestsOf } from '../../constants/places';
 import { membershipService } from '../../services/membershipService';
 import { schoolService } from '../../services/schoolService';
 import { authService } from '../../services/authService';
@@ -164,8 +165,9 @@ const STATUS_BADGE = {
 
     STUDENT held    nothing can be added to a student (approval.js:34), and a
                     student card is never added to anybody else
-    PRINCIPAL       founding a school is refused to a member of one
-                    (school.service.js, "already belong to a school")
+    PRINCIPAL       founding a school is refused to a student only since backend
+                    72e546b (school.service.js assertNotStudent); a member may
+                    found another one beside theirs
     TEACHER,        open whenever `rolesToAdd` offers them — which is always,
     GUARDIAN        except to a student or somebody holding or awaiting the role
 */
@@ -179,6 +181,7 @@ const lockOf = (membership, role, state) => {
   if (!isEstablishedMember(membership)) return null;
   if (rolesToAdd(membership).includes(role)) return null;
   if (heldRolesOf(membership).includes(ROLES.STUDENT)) return LOCK_KEY[ROLES.STUDENT];
+  if (role === ROLES.PRINCIPAL) return null;
   return LOCK_KEY[role] ?? LOCK_KEY[ROLES.STUDENT];
 };
 
@@ -203,7 +206,7 @@ const defaultChoice = (membership, held) =>
 
 export const SelectRolePage = () => {
   const navigate = useNavigate();
-  const { user, membership, roles, activeRole, isPlatformAdmin, refreshMe, selectRole, logout } =
+  const { user, membership, roles, activeRole, isPlatformAdmin, refreshMe, selectRole, logout, places, otherSchools, openSchool } =
     useAuth();
   const { t, lang } = useT();
 
@@ -234,6 +237,8 @@ export const SelectRolePage = () => {
      { kind: 'role', role } for one role added to an ACTIVE membership. */
   const [cancelTarget, setCancelTarget] = useState(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  /* The school being opened from the list of other schools (backend 72e546b). */
+  const [openingPlace, setOpeningPlace] = useState(null);
 
   /*
     Re-read on arrival, and again whenever asked.
@@ -247,6 +252,13 @@ export const SelectRolePage = () => {
       setIsLoading(true);
       try {
         let session = await refreshMe();
+
+        /* Several schools and none open on this sign-in (backend 72e546b): the
+           choice is /choose-school's, not this page's. */
+        if (!session.membership && (session.places?.length ?? 0) > 1) {
+          navigate('/choose-school', { replace: true });
+          return;
+        }
 
         /*
           A separate surface: /users/me reports memberships and knows nothing
@@ -392,12 +404,13 @@ export const SelectRolePage = () => {
     if (!cancelTarget) return;
     setIsCancelling(true);
     try {
-      if (cancelTarget.kind === 'request') await membershipService.cancelJoinRequest();
+      /* By its id since backend 72e546b: several may wait, at several schools. */
+      if (cancelTarget.kind === 'request') await membershipService.cancelJoinRequest(cancelTarget.id ?? membership?.id ?? null);
       else await membershipService.cancelRole(cancelTarget.role);
       setToast({
         message:
           cancelTarget.kind === 'request'
-            ? t('selectRole.cancel.request.done')
+            ? t('selectRole.cancel.request.done', { school: cancelTarget.school ?? schoolName ?? '' })
             : t('selectRole.cancel.role.done', { role: t(ROLE_LABEL_KEY[cancelTarget.role]) }),
         type: 'success',
       });
@@ -450,6 +463,18 @@ export const SelectRolePage = () => {
   const isPending = membership?.status === 'PENDING';
   const waitingRoles = cancellableRolesOf(membership);
   const schoolName = membership?.school?.name ?? membership?.schoolName;
+  /* Requests waiting at other schools (backend 72e546b), each cancellable by its id. */
+  const otherWaiting = waitingRequestsOf(null, otherSchools);
+  const openPlace = async (schoolId) => {
+    setOpeningPlace(schoolId);
+    try {
+      await openSchool(schoolId);
+    } catch (err) {
+      setToast({ message: placesErrorMessage(err, t), type: 'error' });
+      setOpeningPlace(null);
+      check();
+    }
+  };
 
   /*
     A school a platform admin has switched off.
@@ -627,6 +652,35 @@ export const SelectRolePage = () => {
           </div>
         )}
 
+        {/*
+          Schools this person may still open (backend 72e546b) - after being removed
+          from one, leaving it, or its being switched off. The open way on.
+        */}
+        {hasChecked && !hasRoles && places.length > 0 && (
+          <div className="border border-slate-200 rounded-2xl p-4 text-left bg-white shadow-sm space-y-2.5">
+            <p className="text-sm font-bold text-slate-800">{t('selectRole.places.title')}</p>
+            <ul className="space-y-2">
+              {places.map((place) => (
+                <li key={place.id}>
+                  <button
+                    type="button"
+                    onClick={() => openPlace(place.id)}
+                    disabled={openingPlace !== null}
+                    className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-200 hover:border-brand hover:bg-brand-tint/40 transition-colors text-left cursor-pointer disabled:opacity-60 disabled:cursor-wait focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-sm font-extrabold text-slate-900 break-words">{place.name}</span>
+                      <span className="block text-xs font-semibold text-slate-500">
+                        {openingPlace === place.id ? t('choose.opening') : placeRolesOf(place).map((role) => t(`roleTitle.${role}`)).join(', ')}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {hasChecked && !hasRoles && !deactivated && (
           <div className="border border-slate-200 rounded-2xl p-4 text-left bg-white shadow-sm">
             <p className="text-sm text-slate-600 font-medium leading-relaxed">
@@ -795,10 +849,28 @@ export const SelectRolePage = () => {
 
           {/* Taking the whole request back — the only other thing somebody
               waiting can do, and what frees them to ask a different school. */}
+          {/* Requests waiting at other schools, each with its own way back. */}
+          {hasChecked && otherWaiting.length > 0 && (
+            <ul className="space-y-1.5 text-left">
+              {otherWaiting.map((entry) => (
+                <li key={entry.id} className="flex items-center justify-between gap-3 border border-amber-200 bg-amber-50 rounded-2xl px-4 py-2.5">
+                  <p className="text-xs text-amber-800 font-semibold leading-relaxed min-w-0 break-words">{t('selectRole.otherWaiting', { school: entry.schoolName })}</p>
+                  <button
+                    type="button"
+                    onClick={() => setCancelTarget({ kind: 'request', id: entry.id, school: entry.schoolName })}
+                    className="shrink-0 text-xs font-extrabold text-rose-600 hover:text-rose-700 underline underline-offset-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 rounded"
+                  >
+                    {t('others.cancel')}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
           {isPending && hasChecked && (
             <button
               type="button"
-              onClick={() => setCancelTarget({ kind: 'request' })}
+              onClick={() => setCancelTarget({ kind: 'request', id: membership?.id ?? null, school: schoolName })}
               disabled={isLoading}
               className="w-full justify-center py-2 text-rose-600 hover:text-rose-700 font-bold text-sm flex items-center select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:underline"
             >
@@ -825,7 +897,7 @@ export const SelectRolePage = () => {
         body={
           cancelTarget?.kind === 'role'
             ? t('selectRole.cancel.role.body', { school: schoolName ?? '' })
-            : t('selectRole.cancel.request.body', { school: schoolName ?? '' })
+            : t('selectRole.cancel.request.body', { school: cancelTarget?.school ?? schoolName ?? '' })
         }
         confirmLabel={t('selectRole.cancel.confirm')}
         cancelLabel={t('selectRole.cancel.keep')}

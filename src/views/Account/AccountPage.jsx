@@ -14,6 +14,7 @@ import { homeFor, ROLES } from '../../constants/roles';
 import LeaveCard from './LeaveCard';
 import SchoolPlaceCard from './SchoolPlaceCard';
 import SchoolGradeSettingsCard from '../Grading/SchoolGradeSettingsCard';
+import LetterheadCard from './LetterheadCard';
 import HandoverCard from './HandoverCard';
 import DeleteAccountCard from './DeleteAccountCard';
 
@@ -186,6 +187,9 @@ export const AccountPage = () => {
           {(activeRole === ROLES.PRINCIPAL || activeRole === ROLES.VICE_PRINCIPAL) && (
             <SchoolGradeSettingsCard onToast={(message, type) => setToast({ message, type })} />
           )}
+
+          {/* The report card's letterhead - the Principal's alone (backend 4dae152, LetterheadCard). */}
+          {activeRole === ROLES.PRINCIPAL && <LetterheadCard onToast={(message, type) => setToast({ message, type })} />}
 
           {/* Handing the school to a new Principal — the only way a Principal leaves. */}
           {activeRole === ROLES.PRINCIPAL && <HandoverCard />}

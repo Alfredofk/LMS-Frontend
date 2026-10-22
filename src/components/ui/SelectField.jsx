@@ -27,7 +27,7 @@ export const SelectField = ({ id, label, value, onChange, error, disabled, child
       {children}
     </Select>
     {error && (
-      <p id={`${id}-error`} className="text-xs text-red-500 font-medium">
+      <p id={`${id}-error`} className="text-xs text-red-600 font-medium">
         {error}
       </p>
     )}

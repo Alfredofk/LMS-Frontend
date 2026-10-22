@@ -148,6 +148,16 @@ export const adminService = {
    *   already the Principal, BAD_REQUEST when they are not a teacher
    */
   appointPrincipal: (id, email, reason) => api.post(`${BASE}/${id}/principal`, { email, reason }),
+
+  /**
+   * Give a school another address label (`PATCH /admin/schools/:id/subdomain`, backend
+   * a577abd) - keyed by the **school's** id, not the registration's. Audited; the old
+   * label stops resolving at once. `{ school: { id, name, subdomain }, message }`.
+   *
+   * @throws {ApiError} BAD_REQUEST for a reserved word or a bad label, CONFLICT for the
+   *   label it has, one another school holds, or one changed meanwhile
+   */
+  changeSubdomain: (schoolId, subdomain) => api.patch(`/admin/schools/${encodeURIComponent(schoolId)}/subdomain`, { subdomain }),
 };
 
 export default adminService;

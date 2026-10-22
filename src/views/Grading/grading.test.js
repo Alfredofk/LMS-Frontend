@@ -72,6 +72,17 @@ describe('grading - the school', () => {
     expect(schoolBody(saved, next)).toEqual({ weights: { TUGAS: 30, KUIS: 20, UTS: 20, UAS: 30 }, remedialRule: 'HIGHEST', updatedAt: SAVED });
   });
 
+  // Backend 4dae152 (ticket 08): the report card's two blank tables, `{ value, source }`, off when built in.
+  it('the blank tables: off by default, and sent only when switched', () => {
+    const settings = read();
+    expect(schoolDraftOf(settings)).toMatchObject({ extracurricularTable: false, personalityTable: false });
+    expect(schoolBody(settings, { ...schoolDraftOf(settings), personalityTable: true })).toEqual({ personalityTable: true, updatedAt: null });
+    const on = { ...read({ updatedAt: SAVED }), extracurricularTable: { value: true, source: 'SCHOOL' }, personalityTable: { value: false, source: 'BUILT_IN' } };
+    expect(schoolDraftOf(on)).toMatchObject({ extracurricularTable: true, personalityTable: false });
+    expect(schoolBody(on, schoolDraftOf(on))).toBeNull();
+    expect(schoolBody(on, { ...schoolDraftOf(on), extracurricularTable: false })).toEqual({ extracurricularTable: false, updatedAt: SAVED });
+  });
+
   it('the form is checked before anything is sent', () => {
     expect(schoolDraftErrors({ weights: texts('25', '25', '25', '30'), kktp: '75', remedialRule: 'CAP_AT_KKTP' })).toEqual({ weights: { sum: 'grading.error.sum' } });
     expect(schoolDraftErrors({ weights: texts('25', '25', '25', '25'), kktp: '200', remedialRule: 'CAP_AT_KKTP' })).toEqual({ kktp: 'grading.error.kktp' });

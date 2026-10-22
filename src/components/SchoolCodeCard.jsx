@@ -7,6 +7,7 @@ import { useT } from '../i18n/LanguageContext';
 import { apiErrorMessage } from '../i18n/apiError';
 import { useAuth } from '../context/AuthContext';
 import { ROLES, activeRolesOf } from '../constants/roles';
+import { copyText } from '../utils/copyText';
 
 const COPIED_MS = 2000;
 
@@ -23,37 +24,7 @@ const COPIED_MS = 2000;
   over plain http. So the modern path is tried first and the old one catches
   everything it cannot do.
 */
-const copyText = async (text) => {
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      /* Refused, or an insecure context that exposed the API anyway. Fall
-         through rather than reporting a failure we have not had yet. */
-    }
-  }
-
-  try {
-    const field = document.createElement('textarea');
-    field.value = text;
-    field.setAttribute('readonly', '');
-    field.style.position = 'fixed';
-    field.style.top = '-1000px';
-    field.style.opacity = '0';
-    document.body.appendChild(field);
-
-    field.select();
-    /* iOS Safari ignores select() on a readonly field without this. */
-    field.setSelectionRange(0, text.length);
-
-    const ok = document.execCommand('copy');
-    document.body.removeChild(field);
-    return ok;
-  } catch {
-    return false;
-  }
-};
+/* The copy itself lives in utils/copyText.js, shared with the school address on My Profile. */
 
 /*
   The **School Code**, the one number to hand out: eight characters somebody types

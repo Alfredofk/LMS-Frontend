@@ -189,7 +189,7 @@ export const MoveStudentDialog = ({ student, fromClass, onClose, onRequested }) 
                 aria-describedby="move-reason-hint"
                 className="block w-full rounded-xl border border-slate-200 hover:border-slate-300 bg-white py-2.5 px-4 text-sm text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand disabled:bg-slate-50"
               />
-              <p id="move-reason-hint" className={`text-xs font-medium ${errors.reason ? 'text-red-500' : 'text-slate-500'}`}>
+              <p id="move-reason-hint" className={`text-xs font-medium ${errors.reason ? 'text-red-600' : 'text-slate-500'}`}>
                 {errors.reason || t('moves.request.reasonHint')}
               </p>
             </div>

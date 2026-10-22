@@ -38,7 +38,8 @@ import {
   class: each subject with its teacher and state - Difinalkan (by whom, when), N
   penghalang (opened in place, the same words as the teacher's card, no links: the
   leaders do not manage a teacher's assessments), Tanpa guru, Siap difinalkan - and
-  the class's homeroom notes still missing. The board is read live on the server,
+  the class's homeroom notes still missing, and in Semester 2 its students with no
+  promotion outcome (backend 4dae152). The board is read live on the server,
   one slot at a time, so it is read once per semester and on "Muat ulang".
 
   "Tutup semester" (owner, 2026-10-20; backend 3a22f90, ticket 05), the Principal's
@@ -296,6 +297,9 @@ export const FinalisingPage = () => {
               <p className="flex flex-wrap gap-x-4 text-xs font-semibold text-slate-500">
                 <span>{t('grading.fin.count.slots', { finalised: board.counts.finalised, slots: board.counts.slots })}</span>
                 <span className={board.counts.notesMissing > 0 ? 'text-amber-700' : ''}>{t('grading.fin.count.notes', { n: board.counts.notesMissing })}</span>
+                {typeof board.counts.promotionsMissing === 'number' && (
+                  <span className={board.counts.promotionsMissing > 0 ? 'text-amber-700' : ''}>{t('grading.fin.count.promotions', { n: board.counts.promotionsMissing })}</span>
+                )}
               </p>
             )}
 
@@ -411,6 +415,16 @@ export const FinalisingPage = () => {
                               names: entry.notes.missing.map((student) => student.fullName ?? t('tasm.results.unnamed')).join(', '),
                             })
                           : t('grading.fin.notesDone')}
+                    </p>
+                  )}
+                  {entry.notes && entry.notes.students > 0 && Array.isArray(entry.notes.promotionsMissing) && (
+                    <p className={`text-xs font-semibold leading-relaxed break-words ${entry.notes.promotionsMissing.length ? 'text-amber-700' : 'text-slate-500'}`}>
+                      {entry.notes.promotionsMissing.length
+                        ? t('grading.fin.promotionsMissing', {
+                            n: entry.notes.promotionsMissing.length,
+                            names: entry.notes.promotionsMissing.map((student) => student.fullName ?? t('tasm.results.unnamed')).join(', '),
+                          })
+                        : t('grading.fin.promotionsDone')}
                     </p>
                   )}
                 </li>

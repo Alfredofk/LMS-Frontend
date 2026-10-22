@@ -1,4 +1,4 @@
-import { api } from './apiClient';
+import { api, requestBlob } from './apiClient';
 
 /*
   /api/grading (backend 5d42af6, grading-and-report-card ticket 01): grade
@@ -174,6 +174,38 @@ export const gradingService = {
   async reportCard(reportCardId) {
     const answer = await api.get(`/grading/report-cards/${q(reportCardId)}`);
     return answer?.reportCard ?? null;
+  },
+
+  /**
+   * One report card printed (backend 4dae152, ticket 07): the PDF bytes, for exactly
+   * the readers of its JSON. Outside the envelope; the caller owns the Blob.
+   */
+  reportCardPdf(reportCardId) {
+    return requestBlob(`/grading/report-cards/${q(reportCardId)}/pdf`);
+  },
+
+  /**
+   * A Class's Promotion Outcomes for the even Semester (backend 4dae152, ticket 09),
+   * read by its Homeroom Teacher, the Principal and the Vice Principals (404 anyone
+   * else; 409 for an odd Semester): `{ class: { id, name, gradeLevel }, academicYear,
+   * semester: { id, ordinal, status }, decidable, notDecidable | null, waitingFor:
+   * [{ classSubjectId, subject }], choices, automaticOutcome, students: [{
+   * studentProfileId, fullName, outcome | null, automatic: boolean | null, result |
+   * null, updatedAt | null }] }`. Bare, no envelope key.
+   */
+  async promotions(classId, semesterId) {
+    return api.get(`/grading/classes/${q(classId)}/semesters/${q(semesterId)}/promotions`);
+  },
+
+  /**
+   * The Homeroom Teacher decides many at once, all or none: `[{ studentProfileId,
+   * outcome PROMOTED | RETAINED | GRADUATED | null, updatedAt }]` (1-200), null putting
+   * one back to the automatic rule. 403 for a leader; 409 while not decidable or for a
+   * stale row; 400 for a student not the Class's or an outcome its grade does not take
+   * (`details.studentProfileIds`). Answers the read as it now is (plus `message`).
+   */
+  async writePromotions(classId, semesterId, promotions) {
+    return api.put(`/grading/classes/${q(classId)}/semesters/${q(semesterId)}/promotions`, { promotions });
   },
 
   /** `{ class, academicYear, semester: { id, ordinal, status }, reportCards }`, bare. */

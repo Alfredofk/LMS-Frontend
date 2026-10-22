@@ -7,6 +7,7 @@ import ClassDetail from '../Classes/components/ClassDetail';
 import ClassMovesSection from './ClassMovesSection';
 import HomeroomAttendance from './HomeroomAttendance.jsx';
 import HomeroomNotes from './HomeroomNotes';
+import HomeroomPromotions from './HomeroomPromotions';
 import ClassReportCards from '../ReportCards/ClassReportCards';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { pendingMoveByStudent } from './moves';
@@ -44,8 +45,9 @@ import { notifyPendingChanged } from '../../hooks/usePendingCounts';
   opened class, HomeroomAttendance — its subjects, their meetings, each meeting's
   roster. Read only; confirming is the subject teacher's. Under it the report
   card's Notes per semester (HomeroomNotes, backend 483be5a; owner 2026-10-18),
-  which this teacher writes; "back to the class list" asks first while one is
-  unsaved. Report cards themselves are not here yet (ticket 05). The old page carried a whole report modal built on a guessed
+  which this teacher writes, and in Semester 2 the Promotion Outcomes
+  (HomeroomPromotions, backend 4dae152; owner 2026-10-22); "back to the class list"
+  asks first while either is unsaved. Report cards themselves are not here yet (ticket 05). The old page carried a whole report modal built on a guessed
   contract; it went with the guess. The notice says it is coming rather than
   leaving a gap nobody explains.
 */
@@ -64,10 +66,12 @@ export const HomeroomDashboard = () => {
   const [movesError, setMovesError] = useState(null);
   /* The notes card's unsaved typing, and "back" asked for while it waits. */
   const [notesDirty, setNotesDirty] = useState(false);
+  const [promotionsDirty, setPromotionsDirty] = useState(false);
   const [askBack, setAskBack] = useState(false);
   const leaveClass = () => {
     setAskBack(false);
     setNotesDirty(false);
+    setPromotionsDirty(false);
     setSelectedId(null);
   };
 
@@ -144,7 +148,7 @@ export const HomeroomDashboard = () => {
           canMove
           pendingMoves={pendingMoves}
           onMoveRequested={reloadAfterMove}
-          onBack={() => (notesDirty ? setAskBack(true) : leaveClass())}
+          onBack={() => (notesDirty || promotionsDirty ? setAskBack(true) : leaveClass())}
           onChanged={(updated) =>
             setClasses((prev) =>
               (prev ?? []).map((entry) =>
@@ -157,6 +161,16 @@ export const HomeroomDashboard = () => {
         {selectedYearId && <HomeroomAttendance key={selectedId} classId={selectedId} academicYearId={selectedYearId} />}
         {selectedYearId && (
           <HomeroomNotes key={`notes-${selectedId}`} classId={selectedId} academicYearId={selectedYearId} canEdit onDirty={setNotesDirty} onToast={showToast} />
+        )}
+        {selectedYearId && (
+          <HomeroomPromotions
+            key={`promo-${selectedId}`}
+            classId={selectedId}
+            academicYearId={selectedYearId}
+            canEdit
+            onDirty={setPromotionsDirty}
+            onToast={showToast}
+          />
         )}
         {selectedYearId && (
           <ClassReportCards

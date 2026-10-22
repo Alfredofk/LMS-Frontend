@@ -19,11 +19,12 @@ const TONES = {
     // slate-600: slate-500 on the slate-100 track measured 4.35:1 (audit 2026-10-08).
     off: 'text-slate-600 hover:text-slate-800',
   },
-  // On the purple auth panels.
+  // On the purple auth panels. A brand-deep track with white: white/80 on a white/15
+  // track measured 3.31:1 at 11px (audit 2026-10-22); this is 6.93:1.
   dark: {
-    wrap: 'bg-white/15',
+    wrap: 'bg-brand-deep',
     on: 'bg-white text-brand shadow-sm',
-    off: 'text-white/80 hover:text-white',
+    off: 'text-white hover:bg-white/10',
   },
 };
 

@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
-import { backOf, defaultReportSemesterOf, hasVersionChoice, isOlderVersion, latestAverageOf, newestVersionOf, sharedKktpOf } from './reportCards';
+import {
+  backOf,
+  defaultReportSemesterOf,
+  hasVersionChoice,
+  isOlderVersion,
+  latestAverageOf,
+  letterheadParts,
+  newestVersionOf,
+  promotionLineOf,
+  romanOf,
+  sharedKktpOf,
+  showsTypeAverages,
+  typeAverageText,
+} from './reportCards';
 
 // Shapes from backend 3a22f90 / 46c6173: grading.reportCards.js reportCardView and versionView.
 const version = (n, id = `rc${n}`) => ({ id, version: n, reportDate: '2026-12-20', writtenAt: '2026-12-20T03:00:00.000Z' });
@@ -74,5 +87,44 @@ describe("report cards - the dashboard's average", () => {
     expect(latestAverageOf([])).toBeNull();
     expect(latestAverageOf(undefined)).toBeNull();
     expect(latestAverageOf([card('a', [])])).toBeNull();
+  });
+});
+
+// Backend 4dae152: grading.reportCards.js reportCardView's printed fields.
+describe('report cards - what the print adds', () => {
+  const line = (types) => ({ subject: { id: 'm', code: 'MTK', name: 'Matematika' }, finalGrade: 84, kktp: 75, letter: 'B', types, description: null });
+
+  it('shows the type columns only when some average was frozen', () => {
+    expect(showsTypeAverages([line({ TUGAS: null, KUIS: null, UTS: null, UAS: null })])).toBe(false);
+    expect(showsTypeAverages([line(undefined)])).toBe(false);
+    expect(showsTypeAverages([line({ TUGAS: null, KUIS: null, UTS: null, UAS: null }), line({ TUGAS: 0, KUIS: null, UTS: null, UAS: null })])).toBe(true);
+    expect(showsTypeAverages([])).toBe(false);
+  });
+
+  it('writes a type that counts for nothing as "-", and a 0 as 0', () => {
+    const subject = line({ TUGAS: 88, KUIS: 0, UTS: null, UAS: 79 });
+    expect(['TUGAS', 'KUIS', 'UTS', 'UAS'].map((type) => typeAverageText(subject, type))).toEqual(['88', '0', '-', '79']);
+    expect(typeAverageText(line(undefined), 'TUGAS')).toBe('-');
+  });
+
+  it('numbers a grade level in Roman numerals, to XIII', () => {
+    expect([1, 4, 6, 9, 10, 11, 12, 13].map(romanOf)).toEqual(['I', 'IV', 'VI', 'IX', 'X', 'XI', 'XII', 'XIII']);
+  });
+
+  it('states the promotion as the PDF does', () => {
+    expect(promotionLineOf({ promotion: { outcome: 'PROMOTED', nextGradeLevel: 11 } })).toEqual({ key: 'rc.promotion.PROMOTED', grade: 'XI' });
+    expect(promotionLineOf({ promotion: { outcome: 'RETAINED', nextGradeLevel: 10 } })).toEqual({ key: 'rc.promotion.RETAINED', grade: 'X' });
+    expect(promotionLineOf({ promotion: { outcome: 'GRADUATED', nextGradeLevel: null } })).toEqual({ key: 'rc.promotion.GRADUATED', grade: null });
+    expect(promotionLineOf({ promotion: null })).toBeNull();
+    expect(promotionLineOf({})).toBeNull();
+  });
+
+  it('names the address and the phone only when set', () => {
+    expect(letterheadParts({ address: 'Jl. Merdeka 1', phone: '021 555' })).toEqual([
+      { kind: 'address', value: 'Jl. Merdeka 1' },
+      { kind: 'phone', value: '021 555' },
+    ]);
+    expect(letterheadParts({ address: null, phone: '  ' })).toEqual([]);
+    expect(letterheadParts(undefined)).toEqual([]);
   });
 });

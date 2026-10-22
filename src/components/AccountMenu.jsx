@@ -6,6 +6,8 @@ import ConfirmDialog from './ui/ConfirmDialog';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../i18n/LanguageContext';
 import { ROLES, homeFor } from '../constants/roles';
+import { otherPlacesOf, schoolIdOf } from '../constants/places';
+import { placesErrorMessage } from '../i18n/apiError';
 import { accessTokenClaims } from '../services/apiClient';
 import { authService } from '../services/authService';
 
@@ -44,6 +46,15 @@ import { authService } from '../services/authService';
   (per user since backend a09f399), the same reasoning as the sidebar's counts
   (usePendingCounts).
 */
+/*
+  **Switching school** (backend 72e546b; owner, 2026-10-22): above "Masuk sebagai",
+  every school the person may open, the open one ticked. Choosing another trades the
+  sign-in for that school's and leaves the page (AuthContext.openSchool): to that
+  school's own address through a handoff when school addresses are in use (backend
+  a577abd), else `POST /auth/place` and a fresh load at its default role's home, so
+  nothing read for the old school stays on screen or in a module cache. Shown only
+  with two or more.
+*/
 const REREAD_GAP_MS = 20_000;
 let lastReread = 0;
 
@@ -59,12 +70,14 @@ const initialsOf = (fullName) =>
     : '-';
 
 export const AccountMenu = () => {
-  const { user, roles, activeRole, selectRole, logout, refreshMe, isPlatformAdmin } = useAuth();
+  const { user, membership, roles, activeRole, selectRole, logout, refreshMe, isPlatformAdmin, places, openSchool } = useAuth();
   const navigate = useNavigate();
   const { t } = useT();
 
   const [open, setOpen] = useState(false);
   const [confirmingLogOut, setConfirmingLogOut] = useState(false);
+  const [switching, setSwitching] = useState(null);
+  const [switchError, setSwitchError] = useState(null);
   const wrapRef = useRef(null);
   const buttonRef = useRef(null);
 
@@ -124,6 +137,23 @@ export const AccountMenu = () => {
     });
   };
 
+  const currentSchoolId = schoolIdOf(membership);
+  const otherPlaces = otherPlacesOf(places, currentSchoolId);
+
+  const switchSchool = async (schoolId) => {
+    if (switching) return;
+    setSwitching(schoolId);
+    setSwitchError(null);
+    try {
+      /* To its own address when school addresses are in use (a handoff), else here. */
+      await openSchool(schoolId);
+    } catch (err) {
+      setSwitchError(placesErrorMessage(err, t));
+      setSwitching(null);
+      refreshMe().catch(() => {});
+    }
+  };
+
   const label = user?.fullName ? t('accountMenu.button', { name: user.fullName }) : t('accountMenu.buttonNoName');
   const itemClass =
     'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand';
@@ -162,6 +192,38 @@ export const AccountMenu = () => {
               {user?.email}
             </p>
           </div>
+
+          {otherPlaces.length > 0 && (
+            <div className="border-t border-slate-100 pt-2 mt-1">
+              <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">{t('accountMenu.school')}</p>
+              <ul className="space-y-0.5">
+                {places.map((place) => {
+                  const current = place.id === currentSchoolId;
+                  return (
+                    <li key={place.id}>
+                      <button
+                        type="button"
+                        onClick={() => (current ? setOpen(false) : switchSchool(place.id))}
+                        disabled={Boolean(switching)}
+                        aria-current={current ? 'true' : undefined}
+                        className={`${itemClass} justify-between disabled:cursor-wait ${current ? 'bg-brand-tint text-brand' : ''}`}
+                      >
+                        <span className="min-w-0 truncate" title={place.name}>
+                          {switching === place.id ? t('choose.opening') : place.name}
+                        </span>
+                        {current && <Check className="w-4 h-4 shrink-0" aria-hidden="true" />}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {switchError && (
+                <p className="px-3 pt-1 text-[11px] font-semibold text-rose-700" role="alert">
+                  {switchError}
+                </p>
+              )}
+            </div>
+          )}
 
           {roles.length > 1 && (
             <div className="border-t border-slate-100 pt-2 mt-1">

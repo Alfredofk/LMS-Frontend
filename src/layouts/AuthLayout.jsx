@@ -88,8 +88,9 @@ export const AuthLayout = ({
             {heading}
           </h1>
 
+          {/* violet-100, not /90: at 90% it measured 4.10:1 on the brand purple (audit 2026-10-22); solid is 4.67, as the sign-in bullets. */}
           {aside ?? (
-            <p className="text-sm sm:text-base text-violet-100/90 leading-relaxed font-medium">
+            <p className="text-sm sm:text-base text-violet-100 leading-relaxed font-medium">
               {blurb}
             </p>
           )}

@@ -1,4 +1,4 @@
-import { api } from './apiClient';
+import { api, requestBlob } from './apiClient';
 
 /**
  * Founding a school: the applicant's half of it.
@@ -96,6 +96,47 @@ export const schoolService = {
   async updateTimeZone(timeZone) {
     const answer = await api.patch('/school/time-zone', { timeZone });
     return answer?.school ?? null;
+  },
+
+  /*
+    The Report Card's letterhead (backend 4dae152, grading-and-report-card ticket 10),
+    the Principal's alone (403 otherwise), audited. `/users/me` reads it back to the
+    Principal as `school.letterhead: { address, phone, hasLogo }`; every write answers
+    `{ letterhead, message }`, unwrapped here. A Report Card closed from then on carries it.
+  */
+
+  /** `{ address?, phone? }` - null or '' clears one, one left out stays (address <= 300, phone <= 30). */
+  /**
+   * Whose a school address is (`GET /api/places/:subdomain`, backend a577abd), before
+   * anyone signs in: `{ kind: 'SCHOOL', name, schoolType }`. Public. An unknown label
+   * and a switched-off school's are the same 404.
+   */
+  async resolvePlace(subdomain) {
+    const answer = await api.get(`/places/${encodeURIComponent(subdomain)}`, { auth: false });
+    return answer?.place ?? null;
+  },
+
+  async updateLetterhead(body) {
+    const answer = await api.patch('/school/letterhead', body);
+    return answer?.letterhead ?? null;
+  },
+
+  /** The logo's bytes (JPG or PNG), 404 while there is none. The caller owns the Blob. */
+  logo() {
+    return requestBlob('/school/logo');
+  },
+
+  /** A JPG or PNG, at most 2 MB and 2000 x 2000 pixels, that the report card can print (400 otherwise). */
+  async setLogo(file) {
+    const form = new FormData();
+    form.append('logo', file);
+    const answer = await api.put('/school/logo', form);
+    return answer?.letterhead ?? null;
+  },
+
+  async removeLogo() {
+    const answer = await api.del('/school/logo');
+    return answer?.letterhead ?? null;
   },
 };
 
