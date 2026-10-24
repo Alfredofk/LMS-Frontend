@@ -7,6 +7,8 @@
  * tell EMAIL_NOT_VERIFIED from a plain UNAUTHORIZED without matching on prose.
  */
 
+import { placeRequestOf } from '../constants/places';
+
 const BASE_URL = '/api';
 
 /*
@@ -298,19 +300,22 @@ const refreshTokens = () => {
 };
 
 /**
- * Move this sign-in to another of the person's schools (`POST /auth/place`, backend
+ * Move this sign-in to another of the person's places (`POST /auth/place`, backend
  * 72e546b): the refresh token is spent and rotated exactly as a refresh spends it,
  * so it runs under the same lock. It waits for a refresh already in flight, and a
  * 401 meanwhile waits for it in turn (and retries with the new pair). The new pair
  * is stored where the old one lived. Answers what sign-in answers.
  *
- * @throws {ApiError} NOT_FOUND for a school the person may not open (nothing spent)
+ * `place` is `{ kind, id }`: a school goes as `schoolId`, a Governing Body seat
+ * (backend b5cfffd) as `governingBodyId` - one of the two, never both.
+ *
+ * @throws {ApiError} NOT_FOUND for a place the person may not open (nothing spent)
  */
-export async function placeSession(schoolId) {
+export async function placeSession(place) {
   while (refreshInFlight) await refreshInFlight;
   const job = (async () => {
     const refreshToken = getRefreshToken();
-    const { response, payload } = await send('/auth/place', { method: 'POST', body: { refreshToken, schoolId }, auth: false });
+    const { response, payload } = await send('/auth/place', { method: 'POST', body: { refreshToken, ...placeRequestOf(place) }, auth: false });
     if (!response.ok || !payload?.success) throw toApiError(response, payload);
     saveTokens(payload.data);
     return payload.data;

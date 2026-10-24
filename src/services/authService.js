@@ -6,6 +6,7 @@
  */
 
 import { api, saveTokens, clearTokens, getRefreshToken, claimsOf } from './apiClient';
+import { placeRequestOf } from '../constants/places';
 
 /*
   Registration, sign-in and verification are one flow, so they share a shape:
@@ -158,16 +159,17 @@ export const authService = {
   },
 
   /**
-   * A one-time code that carries this sign-in to another of the person's schools,
-   * on that school's own address (`POST /auth/handoff`, backend a577abd): the refresh
+   * A one-time code that carries this sign-in to another of the person's places,
+   * on that place's own address (`POST /auth/handoff`, backend a577abd): the refresh
    * token proves the sign-in and is read, not spent - the sign-in here lives on.
-   * Good for 60 seconds, once.
+   * Good for 60 seconds, once. `place` is `{ kind, id }`, a school or a Governing
+   * Body seat (backend b5cfffd).
    *
    * @returns {Promise<{ code: string, subdomain: string, expiresAt: string }>}
-   * @throws {ApiError} NOT_FOUND for a school the person may not open
+   * @throws {ApiError} NOT_FOUND for a place the person may not open
    */
-  async issueHandoff(schoolId) {
-    const answer = await api.post('/auth/handoff', { refreshToken: getRefreshToken(), schoolId }, { auth: false });
+  async issueHandoff(place) {
+    const answer = await api.post('/auth/handoff', { refreshToken: getRefreshToken(), ...placeRequestOf(place) }, { auth: false });
     return answer?.handoff ?? null;
   },
 

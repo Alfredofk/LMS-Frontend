@@ -12,6 +12,7 @@ import {
   ROLE_TAGLINE_KEY,
   SELECTABLE_ROLES,
   GET_STARTED_PATH,
+  GOVERNING_BODY_HOME,
   homeFor,
   endedMembership,
   heldRolesOf,
@@ -22,10 +23,12 @@ import {
   cancellableRolesOf,
 } from '../../constants/roles';
 import RejectionNotice from './RejectionNotice';
+import { governingBodyService } from '../../services/governingBodyService';
+import { registrationLineOf } from './bodyRegistration';
 import { hasUnseenRejection } from './rejections';
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage, cancelErrorMessage, placesErrorMessage } from '../../i18n/apiError';
-import { placeRolesOf, waitingRequestsOf } from '../../constants/places';
+import { hasGoverningBody, mayJoinAnother, needsPlaceChoice, placeRoleKeysOf, samePlace, waitingRequestsOf } from '../../constants/places';
 import { membershipService } from '../../services/membershipService';
 import { schoolService } from '../../services/schoolService';
 import { authService } from '../../services/authService';
@@ -84,6 +87,22 @@ const roleIcons = {
     </svg>
   ),
 };
+
+/*
+  The fifth card (owner, 2026-10-24: a card, not the line it first was): registering
+  a yayasan, perkumpulan or dinas (backend b5cfffd). Not a role - it is chosen as
+  `BODY_CARD` and Continue opens /get-started/governing-body. Its state is this
+  account's newest Governing Body registration (`registrationLineOf`): waiting locks
+  it with the Organization card's "Menunggu", turned down shows the reviewer's words.
+  Not offered to a student anywhere (`mayJoinAnother`), whom the server refuses.
+*/
+const BODY_CARD = 'GOVERNING_BODY';
+const BODY_CARD_PATH = '/get-started/governing-body';
+const bodyCardIcon = (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" />
+  </svg>
+);
 
 /*
   Sign-in reports roles as bare strings and only the ACTIVE ones; /users/me
@@ -206,7 +225,7 @@ const defaultChoice = (membership, held) =>
 
 export const SelectRolePage = () => {
   const navigate = useNavigate();
-  const { user, membership, roles, activeRole, isPlatformAdmin, refreshMe, selectRole, logout, places, otherSchools, openSchool } =
+  const { user, membership, governingBody, roles, activeRole, isPlatformAdmin, refreshMe, selectRole, logout, places, otherSchools, openPlace } =
     useAuth();
   const { t, lang } = useT();
 
@@ -233,6 +252,8 @@ export const SelectRolePage = () => {
   const [toast, setToast] = useState(null);
   const [isSignOutOpen, setIsSignOutOpen] = useState(false);
   const [registration, setRegistration] = useState(null);
+  /* The fifth card's state: { state: OPEN | WAITING | REJECTED, reason }. */
+  const [bodyLine, setBodyLine] = useState(() => registrationLineOf([]));
   /* What is being taken back: { kind: 'request' } for a whole join request, or
      { kind: 'role', role } for one role added to an ACTIVE membership. */
   const [cancelTarget, setCancelTarget] = useState(null);
@@ -253,9 +274,15 @@ export const SelectRolePage = () => {
       try {
         let session = await refreshMe();
 
-        /* Several schools and none open on this sign-in (backend 72e546b): the
+        /* A Governing Body seat's sign-in (backend b5cfffd) has its own page. */
+        if (session.governingBody?.id) {
+          navigate(GOVERNING_BODY_HOME, { replace: true });
+          return;
+        }
+
+        /* Several places and none open on this sign-in (backend 72e546b): the
            choice is /choose-school's, not this page's. */
-        if (!session.membership && (session.places?.length ?? 0) > 1) {
+        if (needsPlaceChoice(session)) {
           navigate('/choose-school', { replace: true });
           return;
         }
@@ -267,7 +294,8 @@ export const SelectRolePage = () => {
           replacing them with an error.
         */
         const noRoles = session.roles.length === 0;
-        const [mine] = await Promise.allSettled([schoolService.listMyRegistrations()]);
+        const [mine, bodies] = await Promise.allSettled([schoolService.listMyRegistrations(), governingBodyService.listMine()]);
+        setBodyLine(registrationLineOf(bodies.status === 'fulfilled' ? bodies.value : []));
 
         const latest =
           mine.status === 'fulfilled' ? (mine.value.registrations?.[0] ?? null) : null;
@@ -431,6 +459,11 @@ export const SelectRolePage = () => {
   const handleContinue = () => {
     if (!selected) return;
 
+    if (selected === BODY_CARD) {
+      navigate(BODY_CARD_PATH);
+      return;
+    }
+
     if (!roles.includes(selected)) {
       navigate(GET_STARTED_PATH[selected]);
       return;
@@ -455,6 +488,9 @@ export const SelectRolePage = () => {
     `check()` reads /users/me again as a fallback, for a session that predates
     this flag or one whose admin rights were granted mid-session.
   */
+  if (governingBody?.id) {
+    return <Navigate to={GOVERNING_BODY_HOME} replace />;
+  }
   if (isPlatformAdmin && roles.length === 0) {
     return <Navigate to="/admin/school-registrations" replace />;
   }
@@ -465,12 +501,12 @@ export const SelectRolePage = () => {
   const schoolName = membership?.school?.name ?? membership?.schoolName;
   /* Requests waiting at other schools (backend 72e546b), each cancellable by its id. */
   const otherWaiting = waitingRequestsOf(null, otherSchools);
-  const openPlace = async (schoolId) => {
-    setOpeningPlace(schoolId);
+  const openOther = async (place) => {
+    setOpeningPlace(place);
     try {
-      await openSchool(schoolId);
+      await openPlace(place);
     } catch (err) {
-      setToast({ message: placesErrorMessage(err, t), type: 'error' });
+      setToast({ message: placesErrorMessage(err, t, place), type: 'error' });
       setOpeningPlace(null);
       check();
     }
@@ -658,20 +694,20 @@ export const SelectRolePage = () => {
         */}
         {hasChecked && !hasRoles && places.length > 0 && (
           <div className="border border-slate-200 rounded-2xl p-4 text-left bg-white shadow-sm space-y-2.5">
-            <p className="text-sm font-bold text-slate-800">{t('selectRole.places.title')}</p>
+            <p className="text-sm font-bold text-slate-800">{t(hasGoverningBody(places) ? 'selectRole.places.title.withBody' : 'selectRole.places.title')}</p>
             <ul className="space-y-2">
               {places.map((place) => (
-                <li key={place.id}>
+                <li key={`${place.kind}:${place.id}`}>
                   <button
                     type="button"
-                    onClick={() => openPlace(place.id)}
+                    onClick={() => openOther(place)}
                     disabled={openingPlace !== null}
                     className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-slate-200 hover:border-brand hover:bg-brand-tint/40 transition-colors text-left cursor-pointer disabled:opacity-60 disabled:cursor-wait focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                   >
                     <span className="min-w-0">
                       <span className="block text-sm font-extrabold text-slate-900 break-words">{place.name}</span>
                       <span className="block text-xs font-semibold text-slate-500">
-                        {openingPlace === place.id ? t('choose.opening') : placeRolesOf(place).map((role) => t(`roleTitle.${role}`)).join(', ')}
+                        {samePlace(openingPlace, place) ? t('choose.opening') : placeRoleKeysOf(place).map((key) => t(key)).join(', ')}
                       </span>
                     </span>
                   </button>
@@ -697,7 +733,9 @@ export const SelectRolePage = () => {
                   <span className="font-extrabold text-slate-800">{t('selectRole.explain.fresh.d')}</span>{' '}
                   {t('selectRole.explain.fresh.middle')}{' '}
                   <span className="font-extrabold text-slate-800">{t('selectRole.explain.fresh.c')}</span>{' '}
-                  {t('selectRole.explain.fresh.end')}
+                  {t('selectRole.explain.fresh.end')}{' '}
+                  <span className="font-extrabold text-slate-800">{t('gbreg.card.label')}</span>{' '}
+                  {t('selectRole.explain.fresh.bodyEnd')}
                 </>
               )}
             </p>
@@ -785,6 +823,59 @@ export const SelectRolePage = () => {
               </button>
             );
           })}
+
+          {mayJoinAnother(membership, otherSchools) && (() => {
+            const waiting = bodyLine.state === 'WAITING';
+            const state = waiting ? 'PENDING' : bodyLine.state === 'REJECTED' ? 'REJECTED' : null;
+            const selectable = !waiting;
+            const isSelected = selectable && selected === BODY_CARD;
+            const badge = STATUS_BADGE[state];
+            return (
+              <button
+                type="button"
+                onClick={() => selectable && setSelected(BODY_CARD)}
+                disabled={!selectable || isLoading}
+                aria-pressed={isSelected}
+                className={`
+                  w-full border rounded-2xl p-4 flex items-center justify-between text-left transition-all duration-200 select-none
+                  ${isSelected
+                    ? 'border-brand border-2 shadow-lg shadow-brand/5 bg-white cursor-pointer'
+                    : selectable
+                      ? 'border-slate-200 bg-white hover:border-slate-300 cursor-pointer'
+                      : 'border-slate-100 bg-slate-50/60 opacity-60 cursor-not-allowed'
+                  }
+                `}
+              >
+                <div className="flex items-center min-w-0">
+                  <div
+                    className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 mr-4 ${
+                      selectable ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-400'
+                    }`}
+                  >
+                    {bodyCardIcon}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className={`text-base font-extrabold ${selectable ? 'text-slate-800' : 'text-slate-500'}`}>{t('gbreg.card.label')}</h3>
+                    <p className="text-xs text-slate-500 font-semibold mt-0.5 break-words">{t(waiting ? 'gbreg.card.waiting' : 'gbreg.card.tagline')}</p>
+                    {state === 'REJECTED' && (
+                      <p className="mt-1.5 pl-2 border-l-2 border-rose-200 text-[11px] text-rose-600 font-semibold break-words">
+                        {bodyLine.reason ?? t(CARD_NOTE_KEY.REJECTED)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  {badge && <span className={`text-[9px] font-bold px-2 py-1 rounded-full ${badge}`}>{t(`selectRole.badge.${state}`)}</span>}
+                  {selectable && (
+                    <span className="w-8 h-8 rounded-full border border-brand/20 flex items-center justify-center text-brand text-sm">
+                      ➔
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })()}
         </div>
 
         {/*

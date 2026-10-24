@@ -12,29 +12,62 @@ import { ROLES, ROLE_PRIORITY } from './roles';
   off). A sign-in with several places and none chosen opens none (`membership:
   null`) until `POST /auth/place`.
 
-  The owner's choices: this device remembers the last school per account and opens
-  it by itself; otherwise "Pilih sekolah" (/choose-school) asks. Pure, but for the
-  remembered school, which lives in localStorage like the language - a preference
-  of the machine, not of the sign-in.
+  A Governing Body seat is a Place too (backend b5cfffd, ticket 03): `{ kind:
+  'GOVERNING_BODY', id, name, subdomain, roles: ['ADMIN'] }`, opened by
+  `governingBodyId` where a school is by `schoolId`. A sign-in for it names no school
+  (`membership: null`) and carries `governingBody` instead. So a place is told apart
+  by its kind and its id together, and the open one is whichever of the two the
+  session holds (`openPlaceOf`).
+
+  The owner's choices: this device remembers the last place per account and opens
+  it by itself; otherwise "Pilih sekolah" (/choose-school) asks. A body is listed
+  among the schools with "Admin yayasan" under its name, and the words around the
+  list say "sekolah atau yayasan" only while one is in it (owner, 2026-10-24). Pure,
+  but for the remembered place, which lives in localStorage like the language - a
+  preference of the machine, not of the sign-in.
 */
 
-const LAST_SCHOOL_KEY = 'lms_last_school:';
+export const PLACE_KINDS = { SCHOOL: 'SCHOOL', GOVERNING_BODY: 'GOVERNING_BODY' };
 
-/** The school this device last opened for this account, or null. */
-export function rememberedSchoolOf(userId) {
+/* The key kept its name: what it held before ticket 03 is still read (a bare school id). */
+const LAST_PLACE_KEY = 'lms_last_school:';
+
+/** Whether this place is a Governing Body seat rather than a school. */
+export const isGoverningBody = (place) => place?.kind === PLACE_KINDS.GOVERNING_BODY;
+
+/** Whether a list of places holds a Governing Body, which changes the words around it. */
+export const hasGoverningBody = (places) => (places ?? []).some(isGoverningBody);
+
+const kindOf = (place) => place?.kind ?? PLACE_KINDS.SCHOOL;
+
+/** Whether two places are the same one: kind and id both. */
+export const samePlace = (a, b) => Boolean(a?.id && b?.id) && kindOf(a) === kindOf(b) && a.id === b.id;
+
+/** How `POST /auth/place` and `POST /auth/handoff` name a place: one of the two ids. */
+export const placeRequestOf = (place) => (isGoverningBody(place) ? { governingBodyId: place.id } : { schoolId: place?.id });
+
+/**
+ * The place this device last opened for this account, `{ kind, id }`, or null. One
+ * written before governing bodies existed is a bare school id, and reads as one.
+ */
+export function rememberedPlaceOf(userId) {
   if (!userId) return null;
   try {
-    return localStorage.getItem(LAST_SCHOOL_KEY + userId);
+    const raw = localStorage.getItem(LAST_PLACE_KEY + userId);
+    if (!raw) return null;
+    const cut = raw.indexOf(':');
+    if (cut < 0) return { kind: PLACE_KINDS.SCHOOL, id: raw };
+    return { kind: raw.slice(0, cut), id: raw.slice(cut + 1) };
   } catch {
     return null;
   }
 }
 
-/** Remember the school a sign-in opened, for the next sign-in on this device. */
-export function rememberSchool(userId, schoolId) {
-  if (!userId || !schoolId) return;
+/** Remember the place a sign-in opened, `{ kind, id }`, for the next sign-in on this device. */
+export function rememberPlace(userId, place) {
+  if (!userId || !place?.id) return;
   try {
-    localStorage.setItem(LAST_SCHOOL_KEY + userId, schoolId);
+    localStorage.setItem(LAST_PLACE_KEY + userId, `${kindOf(place)}:${place.id}`);
   } catch {
     /* Storage unavailable: the next sign-in asks again. */
   }
@@ -43,17 +76,28 @@ export function rememberSchool(userId, schoolId) {
 /** The school id a membership is for, in either shape (sign-in's `schoolId`, /users/me's `school.id`). */
 export const schoolIdOf = (membership) => membership?.schoolId ?? membership?.school?.id ?? null;
 
-/** Whether a sign-in opened no school while several may be opened: the person has to choose. */
-export const needsPlaceChoice = (answer) => !answer?.membership && (answer?.places?.length ?? 0) > 1;
+/** The place a session has open, `{ kind, id }`: its school, else its Governing Body, else null. */
+export function openPlaceOf({ membership, governingBody } = {}) {
+  const schoolId = schoolIdOf(membership);
+  if (schoolId) return { kind: PLACE_KINDS.SCHOOL, id: schoolId };
+  if (governingBody?.id) return { kind: PLACE_KINDS.GOVERNING_BODY, id: governingBody.id };
+  return null;
+}
 
-/** The remembered school when it may still be opened, else null (then the person chooses). */
-export const placeToOpen = (places, remembered) => (remembered && (places ?? []).some((place) => place.id === remembered) ? remembered : null);
+/** Whether a sign-in opened no place while several may be opened: the person has to choose. */
+export const needsPlaceChoice = (answer) => !openPlaceOf(answer ?? {}) && (answer?.places?.length ?? 0) > 1;
 
-/** A school's roles in the app's order of precedence (Kepala Sekolah first), for showing. */
-export const placeRolesOf = (place) => ROLE_PRIORITY.filter((role) => (place?.roles ?? []).includes(role));
+/** The remembered place when it may still be opened, else null (then the person chooses). */
+export const placeToOpen = (places, remembered) => (remembered && (places ?? []).some((place) => samePlace(place, remembered)) ? remembered : null);
 
-/** The schools to offer a switch to: every place but the one open now. */
-export const otherPlacesOf = (places, currentSchoolId) => (places ?? []).filter((place) => place.id !== currentSchoolId);
+/** A school's roles in the app's order of precedence (Kepala Sekolah first), for showing. A body's seat holds none of them. */
+export const placeRolesOf = (place) => (isGoverningBody(place) ? [] : ROLE_PRIORITY.filter((role) => (place?.roles ?? []).includes(role)));
+
+/** The dictionary keys of the line under a place's name: its roles, or "Admin yayasan" for a body. */
+export const placeRoleKeysOf = (place) => (isGoverningBody(place) ? ['place.governingBodyAdmin'] : placeRolesOf(place).map((role) => `roleTitle.${role}`));
+
+/** The places to offer a switch to: every place but the one open now (`{ kind, id }` or null). */
+export const otherPlacesOf = (places, current) => (places ?? []).filter((place) => !samePlace(place, current));
 
 const LIVE = ['PENDING', 'ACTIVE'];
 const liveRoleNames = (membership) =>

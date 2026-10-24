@@ -8,7 +8,7 @@ import AuthLayout from '../../layouts/AuthLayout';
 import { signedInHome } from '../../constants/roles';
 import { useAuth } from '../../context/AuthContext';
 import { usePlace } from '../../context/PlaceContext';
-import { schoolIdOf } from '../../constants/places';
+import { isGoverningBody, openPlaceOf } from '../../constants/places';
 import { mainUrl, subdomainsEnabled } from '../../constants/subdomain';
 import { useT } from '../../i18n/LanguageContext';
 
@@ -38,7 +38,7 @@ export const LoginPage = () => {
   const location = useLocation();
   const { t } = useT();
   const initialAuthStep = location.state?.step === 'sign_up' ? 'sign_up' : 'sign_in';
-  const { openSchool } = useAuth();
+  const { openPlace } = useAuth();
   /* On a school's own address (backend a577abd): its name, and no Google button. */
   const { label: schoolLabel, place } = usePlace();
 
@@ -51,7 +51,7 @@ export const LoginPage = () => {
     Guardian). Switching is the avatar menu's job. A rejection not yet announced
     is said over the dashboard by the shell (SessionRejectionNotice).
   */
-  const formState = useLoginForm(initialAuthStep, ({ roles, activeRole, isPlatformAdmin, needsPlace, membership }) => {
+  const formState = useLoginForm(initialAuthStep, ({ roles, activeRole, isPlatformAdmin, needsPlace, membership, governingBody }) => {
     /*
       A platform admin holds no school role and never will — they stand above
       every school. Sending them to /select-role would offer three cards that
@@ -65,13 +65,16 @@ export const LoginPage = () => {
       return;
     }
     /* The main domain is the front door (owner, 2026-10-22 E5): somebody with a
-       school is carried to its own address; one with none, and the admin, stay. */
-    const school = schoolIdOf(membership);
-    if (subdomainsEnabled() && !schoolLabel && roles.length > 0 && school) {
-      openSchool(school).catch(() => navigate(signedInHome({ roles, activeRole, isPlatformAdmin }), { replace: true }));
+       school is carried to its own address, and a Governing Body seat to the
+       body's (2026-10-24); one with neither, and the admin, stay. */
+    const home = signedInHome({ roles, activeRole, isPlatformAdmin, governingBody });
+    const opened = openPlaceOf({ membership, governingBody });
+    const enterable = opened && (isGoverningBody(opened) || roles.length > 0);
+    if (subdomainsEnabled() && !schoolLabel && enterable) {
+      openPlace(opened).catch(() => navigate(home, { replace: true }));
       return;
     }
-    navigate(signedInHome({ roles, activeRole, isPlatformAdmin }), { replace: true });
+    navigate(home, { replace: true });
   });
 
   const { authStep, setAuthStep, isSignUp, isCheckEmail, toast, closeToast } = formState;

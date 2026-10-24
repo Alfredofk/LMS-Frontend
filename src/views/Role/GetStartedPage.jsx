@@ -1,8 +1,10 @@
 import React from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Landmark } from 'lucide-react';
 
 import AuthLayout from '../../layouts/AuthLayout';
 import SchoolRegistrationForm from './SchoolRegistrationForm';
+import GoverningBodyRegistrationForm from './GoverningBodyRegistrationForm';
 import JoinSchoolForm from './JoinSchoolForm';
 import AddRoleForm from '../../components/AddRoleForm';
 import { useAuth } from '../../context/AuthContext';
@@ -75,6 +77,27 @@ const INTENTS = {
       ['getStarted.org.need.ktp', 'getStarted.org.need.ktpDetail'],
     ],
     approval: ['getStarted.org.approval'],
+  },
+  /*
+    Registering a yayasan, perkumpulan or dinas (backend b5cfffd; owner 2026-10-24):
+    reached from a line under the cards on /select-role and from My Profile, not a
+    card of its own. The list is the columns of GoverningBodyRegistration and its
+    two files.
+  */
+  'governing-body': {
+    icon: <Landmark className="w-8 h-8" strokeWidth={1.5} aria-hidden="true" />,
+    heading: ['gbreg.title', 'gbreg.titleAccent'],
+    subheading: ['gbreg.subtitle'],
+    panelHeading: 'gbreg.panelHeading',
+    panelBlurb: 'gbreg.panelBlurb',
+    needs: [
+      ['gbreg.need.identity', 'gbreg.need.identityDetail'],
+      ['gbreg.need.address', 'gbreg.need.addressDetail'],
+      ['gbreg.need.phone', 'gbreg.need.phoneDetail'],
+      ['gbreg.need.ktp', 'gbreg.need.ktpDetail'],
+      ['gbreg.need.proof', 'gbreg.need.proofDetail'],
+    ],
+    approval: ['gbreg.approval'],
   },
   /*
     The student path lists one extra thing it will ask for. Both paths now hand
@@ -172,7 +195,7 @@ export const GetStartedPage = () => {
   const elsewhere =
     established &&
     mayJoinAnother(membership, otherSchools) &&
-    (intent === 'organization' || (search.get('another') === '1' && (intent === 'teacher' || intent === 'guardian')));
+    (intent === 'organization' || intent === 'governing-body' || (search.get('another') === '1' && (intent === 'teacher' || intent === 'guardian')));
   const adding =
     !elsewhere && established && ADDING[intent] && rolesToAdd(membership).includes(ADDING[intent].role)
       ? ADDING[intent]
@@ -192,6 +215,8 @@ export const GetStartedPage = () => {
     The picker says why for each card, so that is where they go.
   */
   if (established && !adding && !elsewhere) return <Navigate to="/select-role" replace />;
+  /* A student, or one asking to be, anywhere may not register a Governing Body (the server refuses). */
+  if (intent === 'governing-body' && !mayJoinAnother(membership, otherSchools)) return <Navigate to="/select-role" replace />;
 
   const footer = (
     <button
@@ -266,6 +291,8 @@ export const GetStartedPage = () => {
         <AddRoleForm role={adding.role} onDone={() => navigate('/select-role', { replace: true })} />
       ) : intent === 'organization' ? (
         <SchoolRegistrationForm doneTo={elsewhere ? '/profile' : '/select-role'} />
+      ) : intent === 'governing-body' ? (
+        <GoverningBodyRegistrationForm doneTo={elsewhere ? '/profile' : '/select-role'} />
       ) : (
         <JoinSchoolForm intent={intent} doneTo={elsewhere ? '/profile' : '/select-role'} />
       )}

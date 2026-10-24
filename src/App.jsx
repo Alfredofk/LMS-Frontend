@@ -11,6 +11,7 @@ import LandingPage from './views/Landing/LandingPage';
 import LoginPage from './views/Login/LoginPage';
 import AccountChrome from './views/Account/AccountChrome';
 import AdminLayout from './layouts/AdminLayout';
+import GoverningBodyLayout from './layouts/GoverningBodyLayout';
 import { ROLES } from './constants/roles';
 import PageLoading from './components/ui/PageLoading';
 import RouteErrorBoundary, { RouterErrorPage } from './components/ui/PageError';
@@ -31,6 +32,8 @@ const UnknownPlacePage = lazy(() => import('./views/Role/UnknownPlacePage'));
 const AccountPage = lazy(() => import('./views/Account/AccountPage'));
 const AdminRegistrationsPage = lazy(() => import('./views/Admin/AdminRegistrationsPage'));
 const AdminHolidaysPage = lazy(() => import('./views/Admin/AdminHolidaysPage'));
+const GoverningBodyRegistrationsPage = lazy(() => import('./views/Admin/GoverningBodyRegistrationsPage'));
+const GoverningBodyPage = lazy(() => import('./views/GoverningBody/GoverningBodyPage'));
 const VerifyEmailPage = lazy(() => import('./views/Verify/VerifyEmailPage'));
 const ForgotPasswordPage = lazy(() => import('./views/Password/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('./views/Password/ResetPasswordPage'));
@@ -181,7 +184,21 @@ const router = createBrowserRouter(
             }
           >
             <Route path="/admin/school-registrations" element={<AdminRegistrationsPage />} />
+            <Route path="/admin/governing-body-registrations" element={<GoverningBodyRegistrationsPage />} />
             <Route path="/admin/holidays" element={<AdminHolidaysPage />} />
+          </Route>
+
+          {/* A Governing Body seat's sign-in (backend b5cfffd): above every school,
+              with no school role, so RequireAuth like the admin's; the layout sends
+              a sign-in that is not for a body where it belongs. */}
+          <Route
+            element={
+              <RequireAuth>
+                <GoverningBodyLayout />
+              </RequireAuth>
+            }
+          >
+            <Route path="/governing-body" element={<GoverningBodyPage />} />
           </Route>
 
           <Route

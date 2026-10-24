@@ -8,7 +8,8 @@ import { useT } from '../../../i18n/LanguageContext';
 import { cancelErrorMessage, placesErrorMessage } from '../../../i18n/apiError';
 import { membershipService } from '../../../services/membershipService';
 import { schoolService } from '../../../services/schoolService';
-import { mayJoinAnother, otherPlacesOf, otherSchoolRows, placeRolesOf, schoolIdOf } from '../../../constants/places';
+import GoverningBodyRegistrationLine from '../../../components/GoverningBodyRegistrationLine';
+import { hasGoverningBody, mayJoinAnother, openPlaceOf, otherPlacesOf, otherSchoolRows, placeRoleKeysOf, samePlace } from '../../../constants/places';
 
 /*
   "Sekolah lain" on My Profile (owner, 2026-10-22; backend 72e546b): everything about
@@ -23,6 +24,10 @@ import { mayJoinAnother, otherPlacesOf, otherSchoolRows, placeRolesOf, schoolIdO
     wali murid" (the join form, School Code first, `?another=1`) and "Daftarkan
     sekolah baru" (the registration form). A student belongs to one school only.
   Nothing to say and nothing to offer: no card.
+
+  A Governing Body seat (backend b5cfffd) is one of the places to open, "Admin
+  yayasan" under its name, and while one is listed the card is "Sekolah atau yayasan
+  lain" (owner, 2026-10-24).
 */
 
 const STATE_TONE = {
@@ -34,7 +39,7 @@ const STATE_TONE = {
 };
 
 export const OtherSchoolsCard = () => {
-  const { membership, places, otherSchools, refreshMe, openSchool } = useAuth();
+  const { membership, governingBody, places, otherSchools, refreshMe, openPlace } = useAuth();
   const { showToast } = useOutletContext() ?? {};
   const navigate = useNavigate();
   const { t } = useT();
@@ -55,7 +60,8 @@ export const OtherSchoolsCard = () => {
       .catch(() => {});
   }, [refreshMe]);
 
-  const others = otherPlacesOf(places, schoolIdOf(membership));
+  const others = otherPlacesOf(places, openPlaceOf({ membership, governingBody }));
+  const withBody = hasGoverningBody(others);
   const rows = otherSchoolRows(otherSchools);
   /* The newest registration (the list is newest first), while under review or turned
      down; an approved one is a place now, and an older refusal is history. */
@@ -64,12 +70,12 @@ export const OtherSchoolsCard = () => {
   const canJoin = mayJoinAnother(membership, otherSchools);
   if (others.length === 0 && rows.length === 0 && !registration && !canJoin) return null;
 
-  const open = async (schoolId) => {
-    setOpening(schoolId);
+  const open = async (place) => {
+    setOpening(place);
     try {
-      await openSchool(schoolId);
+      await openPlace(place);
     } catch (err) {
-      showToast?.(placesErrorMessage(err, t), 'error');
+      showToast?.(placesErrorMessage(err, t, place), 'error');
       setOpening(null);
       refreshMe().catch(() => {});
     }
@@ -95,19 +101,19 @@ export const OtherSchoolsCard = () => {
   return (
     <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
       <div>
-        <h2 className="text-base font-extrabold text-slate-900">{t('others.title')}</h2>
-        <p className="text-xs font-medium text-slate-500 leading-relaxed mt-0.5">{t('others.body')}</p>
+        <h2 className="text-base font-extrabold text-slate-900">{t(withBody ? 'others.title.withBody' : 'others.title')}</h2>
+        <p className="text-xs font-medium text-slate-500 leading-relaxed mt-0.5">{t(withBody ? 'others.body.withBody' : 'others.body')}</p>
       </div>
 
       {(others.length > 0 || rows.length > 0 || registration) && (
         <ul className="divide-y divide-slate-100">
           {others.map((place) => (
-            <li key={place.id} className="py-3 first:pt-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <li key={`${place.kind}:${place.id}`} className="py-3 first:pt-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-sm font-bold text-slate-900 break-words">{place.name}</p>
-                <p className="text-xs font-semibold text-slate-500">{roleWords(placeRolesOf(place))}</p>
+                <p className="text-xs font-semibold text-slate-500">{placeRoleKeysOf(place).map((key) => t(key)).join(', ')}</p>
               </div>
-              <Button variant="outline" size="sm" className="shrink-0" onClick={() => open(place.id)} isLoading={opening === place.id} isDisabled={Boolean(opening)}>
+              <Button variant="outline" size="sm" className="shrink-0" onClick={() => open(place)} isLoading={samePlace(opening, place)} isDisabled={Boolean(opening)}>
                 {t('others.open')}
               </Button>
             </li>
@@ -159,6 +165,9 @@ export const OtherSchoolsCard = () => {
           </Button>
         </div>
       )}
+
+      {/* Registering a Governing Body (backend b5cfffd; owner 2026-10-24): one line, its state in its place. */}
+      {canJoin && <GoverningBodyRegistrationLine />}
 
       <ConfirmDialog
         open={Boolean(cancelling)}

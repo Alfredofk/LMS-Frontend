@@ -6,7 +6,7 @@ import ConfirmDialog from './ui/ConfirmDialog';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../i18n/LanguageContext';
 import { ROLES, homeFor } from '../constants/roles';
-import { otherPlacesOf, schoolIdOf } from '../constants/places';
+import { hasGoverningBody, isGoverningBody, openPlaceOf, otherPlacesOf, samePlace } from '../constants/places';
 import { placesErrorMessage } from '../i18n/apiError';
 import { accessTokenClaims } from '../services/apiClient';
 import { authService } from '../services/authService';
@@ -49,11 +49,16 @@ import { authService } from '../services/authService';
 /*
   **Switching school** (backend 72e546b; owner, 2026-10-22): above "Masuk sebagai",
   every school the person may open, the open one ticked. Choosing another trades the
-  sign-in for that school's and leaves the page (AuthContext.openSchool): to that
+  sign-in for that school's and leaves the page (AuthContext.openPlace): to that
   school's own address through a handoff when school addresses are in use (backend
   a577abd), else `POST /auth/place` and a fresh load at its default role's home, so
   nothing read for the old school stays on screen or in a module cache. Shown only
   with two or more.
+
+  A Governing Body seat (backend b5cfffd) is listed among them with "Admin yayasan"
+  under its name, and the group is then "Sekolah & yayasan" (owner, 2026-10-24). On
+  the body's own shell there is no role, so My Profile - a school member's page - is
+  not offered there.
 */
 const REREAD_GAP_MS = 20_000;
 let lastReread = 0;
@@ -70,7 +75,7 @@ const initialsOf = (fullName) =>
     : '-';
 
 export const AccountMenu = () => {
-  const { user, membership, roles, activeRole, selectRole, logout, refreshMe, isPlatformAdmin, places, openSchool } = useAuth();
+  const { user, membership, roles, activeRole, selectRole, logout, refreshMe, isPlatformAdmin, places, governingBody, openPlace } = useAuth();
   const navigate = useNavigate();
   const { t } = useT();
 
@@ -137,18 +142,18 @@ export const AccountMenu = () => {
     });
   };
 
-  const currentSchoolId = schoolIdOf(membership);
-  const otherPlaces = otherPlacesOf(places, currentSchoolId);
+  const currentPlace = openPlaceOf({ membership, governingBody });
+  const otherPlaces = otherPlacesOf(places, currentPlace);
 
-  const switchSchool = async (schoolId) => {
+  const switchPlace = async (place) => {
     if (switching) return;
-    setSwitching(schoolId);
+    setSwitching(place);
     setSwitchError(null);
     try {
-      /* To its own address when school addresses are in use (a handoff), else here. */
-      await openSchool(schoolId);
+      /* To its own address when addresses are in use (a handoff), else here. */
+      await openPlace(place);
     } catch (err) {
-      setSwitchError(placesErrorMessage(err, t));
+      setSwitchError(placesErrorMessage(err, t, place));
       setSwitching(null);
       refreshMe().catch(() => {});
     }
@@ -195,21 +200,28 @@ export const AccountMenu = () => {
 
           {otherPlaces.length > 0 && (
             <div className="border-t border-slate-100 pt-2 mt-1">
-              <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">{t('accountMenu.school')}</p>
+              <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                {t(hasGoverningBody(places) ? 'accountMenu.schoolOrBody' : 'accountMenu.school')}
+              </p>
               <ul className="space-y-0.5">
                 {places.map((place) => {
-                  const current = place.id === currentSchoolId;
+                  const current = samePlace(place, currentPlace);
                   return (
-                    <li key={place.id}>
+                    <li key={`${place.kind}:${place.id}`}>
                       <button
                         type="button"
-                        onClick={() => (current ? setOpen(false) : switchSchool(place.id))}
+                        onClick={() => (current ? setOpen(false) : switchPlace(place))}
                         disabled={Boolean(switching)}
                         aria-current={current ? 'true' : undefined}
                         className={`${itemClass} justify-between disabled:cursor-wait ${current ? 'bg-brand-tint text-brand' : ''}`}
                       >
-                        <span className="min-w-0 truncate" title={place.name}>
-                          {switching === place.id ? t('choose.opening') : place.name}
+                        <span className="min-w-0">
+                          <span className="block truncate" title={place.name}>
+                            {samePlace(switching, place) ? t('choose.opening') : place.name}
+                          </span>
+                          {isGoverningBody(place) && (
+                            <span className="block text-[11px] font-semibold text-slate-500">{t('place.governingBodyAdmin')}</span>
+                          )}
                         </span>
                         {current && <Check className="w-4 h-4 shrink-0" aria-hidden="true" />}
                       </button>
@@ -252,10 +264,12 @@ export const AccountMenu = () => {
           )}
 
           <div className="border-t border-slate-100 pt-2 mt-2 space-y-0.5">
-            <button type="button" onClick={() => go('/profile')} className={itemClass}>
-              <User className="w-4 h-4 shrink-0 text-brand" aria-hidden="true" />
-              {t('shell.myProfile')}
-            </button>
+            {activeRole && (
+              <button type="button" onClick={() => go('/profile')} className={itemClass}>
+                <User className="w-4 h-4 shrink-0 text-brand" aria-hidden="true" />
+                {t('shell.myProfile')}
+              </button>
+            )}
             <button type="button" onClick={() => go('/account')} className={itemClass}>
               <Settings className="w-4 h-4 shrink-0 text-brand" aria-hidden="true" />
               {t('account.title')}

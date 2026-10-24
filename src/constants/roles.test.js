@@ -460,6 +460,12 @@ describe('signedInHome', () => {
   it('enters a school role ahead of the admin desk when both are held', () => {
     expect(signedInHome({ roles: [ROLES.PRINCIPAL], activeRole: ROLES.PRINCIPAL, isPlatformAdmin: true })).toBe('/headmaster/dashboard');
   });
+
+  it('sends a Governing Body seat to the body, ahead of the admin desk (backend b5cfffd)', () => {
+    expect(signedInHome({ roles: [], activeRole: null, governingBody: { id: 'g' } })).toBe('/governing-body');
+    expect(signedInHome({ roles: [], activeRole: null, isPlatformAdmin: true, governingBody: { id: 'g' } })).toBe('/governing-body');
+    expect(signedInHome({ roles: [], activeRole: null, governingBody: null })).toBe('/select-role');
+  });
 });
 
 describe('homeFor', () => {

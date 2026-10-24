@@ -7,23 +7,27 @@ import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
 import { placesErrorMessage } from '../../i18n/apiError';
 import { signedInHome } from '../../constants/roles';
-import { placeRolesOf, waitingRequestsOf } from '../../constants/places';
+import { hasGoverningBody, openPlaceOf, placeRoleKeysOf, samePlace, waitingRequestsOf } from '../../constants/places';
 
 /*
   "Pilih sekolah" (/choose-school; owner, 2026-10-22; backend 72e546b): where a
   sign-in lands when the person may open several schools and none was remembered on
   this device - the first time, or when the remembered one no longer opens. One card
   per school (its name and the roles held there); a click opens it
-  (AuthContext.openSchool: its own address through a handoff when school addresses
+  (AuthContext.openPlace: its own address through a handoff when school addresses
   are in use, else `POST /auth/place` here), remembers it, and enters its default
   role's home. Requests still waiting at other schools are named under the cards.
+
+  A Governing Body seat (backend b5cfffd) is a card too, "Admin yayasan" under its
+  name, and while one is listed the page says "sekolah atau yayasan" (owner,
+  2026-10-24).
 
   Read again on arrival (/users/me): somebody who no longer has a choice - one school
   left, or a school already open - goes on to where they belong instead.
 */
 
 export const ChooseSchoolPage = () => {
-  const { user, membership, roles, activeRole, isPlatformAdmin, places, otherSchools, refreshMe, openSchool, logout } = useAuth();
+  const { user, membership, governingBody, roles, activeRole, isPlatformAdmin, places, otherSchools, refreshMe, openPlace, logout } = useAuth();
   const { t } = useT();
 
   const asked = useRef(false);
@@ -39,18 +43,22 @@ export const ChooseSchoolPage = () => {
       .finally(() => setChecked(true));
   }, [refreshMe]);
 
-  if (checked && (places.length < 2 || membership?.school?.id || membership?.schoolId)) {
-    return <Navigate to={signedInHome({ roles, activeRole, isPlatformAdmin })} replace />;
+  if (checked && (places.length < 2 || openPlaceOf({ membership, governingBody }))) {
+    return <Navigate to={signedInHome({ roles, activeRole, isPlatformAdmin, governingBody })} replace />;
   }
 
-  const open = async (schoolId) => {
-    setOpening(schoolId);
+  /* The words say "sekolah atau yayasan" only while a Governing Body is listed. */
+  const withBody = hasGoverningBody(places);
+  const words = (key) => t(withBody ? `${key}.withBody` : key);
+
+  const open = async (place) => {
+    setOpening(place);
     setError(null);
     try {
-      /* Leaves the page: to the school's own address (a handoff) or a fresh load here. */
-      await openSchool(schoolId);
+      /* Leaves the page: to the place's own address (a handoff) or a fresh load here. */
+      await openPlace(place);
     } catch (err) {
-      setError(placesErrorMessage(err, t));
+      setError(placesErrorMessage(err, t, place));
       setOpening(null);
       refreshMe().catch(() => {});
     }
@@ -69,11 +77,11 @@ export const ChooseSchoolPage = () => {
   );
 
   return (
-    <AuthLayout heading={t('choose.panel.heading')} blurb={t('choose.panel.blurb')} footer={footer}>
+    <AuthLayout heading={words('choose.panel.heading')} blurb={words('choose.panel.blurb')} footer={footer}>
       <div>
-        <h2 className="text-3xl sm:text-[34px] font-extrabold text-brand leading-tight select-none">{t('choose.title')}</h2>
+        <h2 className="text-3xl sm:text-[34px] font-extrabold text-brand leading-tight select-none">{words('choose.title')}</h2>
         <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold">
-          {t('choose.subtitle')}
+          {words('choose.subtitle')}
           {user?.fullName ? ` (${user.fullName})` : ''}
         </p>
       </div>
@@ -83,17 +91,17 @@ export const ChooseSchoolPage = () => {
       ) : (
         <ul className="space-y-3 text-left">
           {places.map((place) => (
-            <li key={place.id}>
+            <li key={`${place.kind}:${place.id}`}>
               <button
                 type="button"
-                onClick={() => open(place.id)}
+                onClick={() => open(place)}
                 disabled={opening !== null}
-                className="w-full flex items-center justify-between gap-3 p-4 rounded-2xl border border-slate-200 bg-white hover:border-brand hover:bg-brand-tint/40 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-wait focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                className="w-full flex items-center justify-between gap-3 p-4 text-left rounded-2xl border border-slate-200 bg-white hover:border-brand hover:bg-brand-tint/40 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-wait focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
               >
                 <span className="min-w-0">
                   <span className="block text-sm font-extrabold text-slate-900 break-words">{place.name}</span>
                   <span className="block text-xs font-semibold text-slate-500 mt-0.5">
-                    {opening === place.id ? t('choose.opening') : placeRolesOf(place).map((role) => t(`roleTitle.${role}`)).join(', ')}
+                    {samePlace(opening, place) ? t('choose.opening') : placeRoleKeysOf(place).map((key) => t(key)).join(', ')}
                   </span>
                 </span>
                 <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />

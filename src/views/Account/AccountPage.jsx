@@ -10,7 +10,7 @@ import ProfileForm from './ProfileForm';
 import PasswordForm from './PasswordForm';
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
-import { homeFor, ROLES } from '../../constants/roles';
+import { GOVERNING_BODY_HOME, homeFor, ROLES } from '../../constants/roles';
 import LeaveCard from './LeaveCard';
 import SchoolPlaceCard from './SchoolPlaceCard';
 import SchoolGradeSettingsCard from '../Grading/SchoolGradeSettingsCard';
@@ -50,7 +50,7 @@ const Card = ({ title, children, className = '' }) => (
 
 export const AccountPage = () => {
   const navigate = useNavigate();
-  const { user, activeRole } = useAuth();
+  const { user, activeRole, governingBody } = useAuth();
   const { t } = useT();
   const { isDark, followsDevice, setDark } = useTheme();
 
@@ -206,11 +206,12 @@ export const AccountPage = () => {
 
   /* No role: the signed-in shell cannot be built, so the page carries its own
      frame, its own title and its own way back. homeFor falls through to the
-     role picker, which is where somebody in this state belongs. */
+     role picker, which is where somebody in this state belongs - or, for a
+     Governing Body seat's sign-in (backend b5cfffd), the body's page. */
   const footer = (
     <button
       type="button"
-      onClick={() => navigate(homeFor(activeRole))}
+      onClick={() => navigate(governingBody?.id ? GOVERNING_BODY_HOME : homeFor(activeRole))}
       className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-brand font-bold transition-colors focus:outline-none focus-visible:text-brand cursor-pointer"
     >
       <ArrowLeft className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />

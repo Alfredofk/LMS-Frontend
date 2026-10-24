@@ -422,6 +422,9 @@ export const GET_STARTED_PATH = {
   [ROLES.PRINCIPAL]: '/get-started/organization',
 };
 
+/** The page a Governing Body seat's sign-in opens on (backend b5cfffd; owner, 2026-10-24). */
+export const GOVERNING_BODY_HOME = '/governing-body';
+
 /** Where to send somebody who holds these roles and has picked `activeRole`. */
 export const homeFor = (role) => ROLE_HOME[role] ?? '/select-role';
 
@@ -430,10 +433,12 @@ export const homeFor = (role) => ROLE_HOME[role] ?? '/select-role';
   open the landing page or a path that does not exist while still signed in
   (LandingPage, owner 2026-10-08). One rule for both, so the two never disagree.
 
-  A platform admin with no school role goes to their own desk; no usable role at
-  all, or none chosen yet, means /select-role; otherwise the active role's home.
+  A sign-in for a Governing Body seat (backend b5cfffd) goes to the body's page; a
+  platform admin with no school role goes to their own desk; no usable role at all,
+  or none chosen yet, means /select-role; otherwise the active role's home.
 */
-export const signedInHome = ({ roles, activeRole, isPlatformAdmin }) => {
+export const signedInHome = ({ roles, activeRole, isPlatformAdmin, governingBody }) => {
+  if (governingBody?.id) return GOVERNING_BODY_HOME;
   if ((roles ?? []).length === 0) return isPlatformAdmin ? '/admin/school-registrations' : '/select-role';
   return activeRole ? homeFor(activeRole) : '/select-role';
 };

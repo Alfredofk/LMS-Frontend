@@ -23,11 +23,13 @@ import { homeFor } from '../constants/roles';
   gradebook, every one of which ProtectedRoute would then refuse.
 
   So: a thin bar with who they are, the language switch, and a way out — and,
-  since the national holiday calendar (backend 9dee2e2), the admin's two pages.
+  since the national holiday calendar (backend 9dee2e2), the admin's pages - the
+  Governing Body queue joined them with backend b5cfffd (owner, 2026-10-24).
 */
 
 const ADMIN_PAGES = [
   { to: '/admin/school-registrations', key: 'admin.nav.registrations' },
+  { to: '/admin/governing-body-registrations', key: 'admin.nav.governingBodies' },
   { to: '/admin/holidays', key: 'admin.nav.holidays' },
 ];
 export const AdminLayout = () => {
@@ -48,7 +50,7 @@ export const AdminLayout = () => {
       )}
 
       <header className="bg-white border-b border-slate-100 shrink-0">
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3.5 flex items-center justify-between gap-3 sm:gap-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-2.5 min-w-0">
             <BrandMark />
             <span className="text-base font-extrabold tracking-tight text-slate-900 select-none">
@@ -105,8 +107,10 @@ export const AdminLayout = () => {
         </nav>
       </header>
 
-      <main className="flex-1 px-4 sm:px-6 py-8">
-        <div className="max-w-6xl mx-auto text-left">
+      {/* The padding sits inside the max-w-6xl box, as the header's does, so a page
+          starts where the logo and the tabs start (it sat 24px left of them). */}
+      <main className="flex-1 py-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 text-left">
           <RouteErrorBoundary>
             <Suspense fallback={<PageLoading />}>
               <Outlet context={{ showToast }} />

@@ -43,6 +43,11 @@ const BY_CODE = {
  * @param {Record<string, string>} [overrides]  code → key, for this call site only
  */
 export function apiErrorMessage(err, t, overrides) {
+  /* The same code at a Governing Body's own address (backend b5cfffd), told apart
+     by its sentence as every shared code here is. */
+  if (err?.code === 'NOT_REGISTERED_HERE' && String(err.message ?? '').includes('admin of this governing body')) {
+    return t('error.notAdminHere');
+  }
   const key = overrides?.[err?.code] ?? BY_CODE[err?.code];
   if (key) return t(key);
   return err?.message || t('error.unknown');
@@ -119,9 +124,64 @@ export function joinErrorMessage(err, t) {
   return hit ? t(hit[1]) : apiErrorMessage(err, t);
 }
 
-/** Opening another of one's schools (`POST /auth/place`): one 404 for a school that no longer opens. */
-export function placesErrorMessage(err, t) {
-  return apiErrorMessage(err, t, { NOT_FOUND: 'choose.error.gone' });
+/**
+ * Opening another of one's places (`POST /auth/place`, `/auth/handoff`): one 404 for
+ * a place that no longer opens - a school, or a Governing Body seat (backend b5cfffd)
+ * when `place` is one.
+ */
+export function placesErrorMessage(err, t, place) {
+  const gone = place?.kind === 'GOVERNING_BODY' ? 'choose.error.goneBody' : 'choose.error.gone';
+  return apiErrorMessage(err, t, { NOT_FOUND: gone });
+}
+
+/*
+  The platform admin's Governing Body queue and bodies (backend b5cfffd,
+  governingBody.service.js): CONFLICT and BAD_REQUEST mean several things each, told
+  apart by the sentence. "already registered" covers both SK sentences (under review
+  or held). "is not deactivated" and "already deactivated" are distinct needles.
+*/
+const GOVERNING_BODY_ADMIN_BY_MESSAGE = [
+  ['has already been decided', 'gbr.error.decided'],
+  ['SK number is already registered', 'gbr.error.skTaken'],
+  ['applicant account no longer exists', 'gbr.error.applicantGone'],
+  ['The applicant is a student', 'gbr.error.applicantStudent'],
+  ['is already deactivated', 'gbr.error.alreadyOff'],
+  ['is not deactivated', 'gbr.error.notOff'],
+  ['changed meanwhile', 'gbr.error.changed'],
+  ['A foundation or an association has a Kemenkumham SK number', 'gbr.edit.skRequired'],
+  ['A government body has no Kemenkumham SK number', 'gbr.edit.skNone'],
+  ['Governing body not found', 'gbr.error.bodyGone'],
+  ['Governing body registration not found', 'gbr.error.registrationGone'],
+];
+
+export function governingBodyAdminErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  const hit = GOVERNING_BODY_ADMIN_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  return hit ? t(hit[1]) : apiErrorMessage(err, t);
+}
+
+/*
+  Registering a Governing Body (backend b5cfffd, `submitRegistration` and the
+  limiter): four CONFLICTs and the limiter's 429, by their sentences. The limiter's
+  sentence and approval.js's durable one share "Too many governing body".
+*/
+const BODY_REGISTRATION_BY_MESSAGE = [
+  ['governing body registration under review', 'gbreg.error.pending'],
+  ['A student belongs to one school only', 'gbreg.error.student'],
+  ['SK number is already registered', 'gbreg.error.skTaken'],
+  ['Too many governing body registration', 'gbreg.error.tooMany'],
+];
+
+export function bodyRegistrationErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  const hit = BODY_REGISTRATION_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  return hit ? t(hit[1]) : apiErrorMessage(err, t);
+}
+
+/** Whether the row on screen is out of date: decided, switched or changed elsewhere, or gone. Read the queue again. */
+export function isStaleGoverningBody(err) {
+  const message = String(err?.message ?? '');
+  return ['has already been decided', 'is already deactivated', 'is not deactivated', 'changed meanwhile', 'not found'].some((needle) => message.includes(needle));
 }
 
 /*
