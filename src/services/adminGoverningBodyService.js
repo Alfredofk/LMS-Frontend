@@ -70,6 +70,42 @@ export const adminGoverningBodyService = {
 
   /** The way back; the note is optional. Its admins sign in again. `{ governingBody, message }`. */
   reactivate: (bodyId, reason) => api.post(`${BODIES}/${encodeURIComponent(bodyId)}/reactivate`, reason ? { reason } : {}),
+
+  /**
+   * Give a body another address label (backend 3d7d05a), by a School's rules: one
+   * space across schools and bodies, audited, the old one stops at once.
+   * `{ governingBody: { id, name, subdomain }, message }`.
+   *
+   * @throws {ApiError} BAD_REQUEST for the shape or a reserved word; CONFLICT for the
+   *   one it has, one held elsewhere, or a change meanwhile
+   */
+  changeSubdomain: (bodyId, subdomain) => api.patch(`${BODIES}/${encodeURIComponent(bodyId)}/subdomain`, { subdomain }),
+
+  /**
+   * A body's admins (backend 8aff4f4): `{ governingBody: { id, name, code,
+   * deactivatedAt }, admins: [{ id, user: { id, fullName, email }, approvedAt, senior,
+   * you: false }], applications: [{ id, status, user, requestedAt, approvedAt,
+   * rejectionReason }] }`, the senior first and the oldest application first.
+   */
+  admins: (bodyId) => api.get(`${BODIES}/${encodeURIComponent(bodyId)}/admins`),
+
+  /**
+   * Decide an admin application in the senior's place - only while the body has no
+   * admin sitting (409 once anyone sits). Approved, they are its admin and senior.
+   * `{ application, message }`.
+   */
+  approveApplication: (bodyId, seatId) => api.post(`${BODIES}/${encodeURIComponent(bodyId)}/admins/${encodeURIComponent(seatId)}/approve`),
+
+  /** The same, turned down with a reason of 3-500 the applicant reads. `{ application, message }`. */
+  rejectApplication: (bodyId, seatId, reason) =>
+    api.post(`${BODIES}/${encodeURIComponent(bodyId)}/admins/${encodeURIComponent(seatId)}/reject`, { reason }),
+
+  /**
+   * The brake: remove any sitting admin with a reason of 3-500 they read - the senior
+   * or the last included. `{ seat, message }`.
+   */
+  removeAdmin: (bodyId, seatId, reason) =>
+    api.post(`${BODIES}/${encodeURIComponent(bodyId)}/admins/${encodeURIComponent(seatId)}/remove`, { reason }),
 };
 
 export default adminGoverningBodyService;

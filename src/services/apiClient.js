@@ -300,6 +300,20 @@ const refreshTokens = () => {
 };
 
 /**
+ * A refresh a screen asks for (`authService.refresh`: after an approval, a handover, a
+ * seat that ended), under the same lock - it joins one already in flight rather than
+ * posting the same token twice. Until 2026-10-24 that path posted on its own: two
+ * screens' effects at once (StrictMode runs each twice in development) replayed a
+ * spent token, and the backend signed kpril888 out everywhere ("Refresh token reuse",
+ * walked for real after leaving a Governing Body).
+ *
+ * @throws {ApiError} UNAUTHORIZED when the refresh token is no longer good (cleared)
+ */
+export async function refreshSession() {
+  if (!(await refreshTokens())) throw new ApiError(401, 'UNAUTHORIZED', 'Invalid or expired refresh token');
+}
+
+/**
  * Move this sign-in to another of the person's places (`POST /auth/place`, backend
  * 72e546b): the refresh token is spent and rotated exactly as a refresh spends it,
  * so it runs under the same lock. It waits for a refresh already in flight, and a

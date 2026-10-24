@@ -6,6 +6,7 @@ import { PROVINCES, fileError, registrationErrors, registrationFormData, registr
 const filled = {
   kind: 'FOUNDATION',
   name: 'Yayasan Penabur Malang',
+  npyp: 'A1B2C3',
   skNumber: 'AHU-0012345.AH.01.04.Tahun 2015',
   street: 'Jl. Merdeka No. 10',
   village: 'Kauman',
@@ -32,11 +33,27 @@ describe('governing body registration - the fields', () => {
     expect(keys({ ...filled, name: 'Y'.repeat(151) })).toEqual({ name: 'gbreg.name.long' });
   });
 
-  it('asks an SK number of 5-100 of a foundation or an association, and none of a government body', () => {
-    expect(keys({ ...filled, skNumber: '' })).toEqual({ skNumber: 'gbreg.skNumber.required' });
+  // c79b56f (ticket 04b): the NPYP required, the SK number optional, a government body neither.
+  it('asks an NPYP of six letters and digits of a foundation or an association', () => {
+    expect(keys({ ...filled, npyp: '' })).toEqual({ npyp: 'gbreg.npyp.required' });
+    expect(keys({ ...filled, kind: 'ASSOCIATION', npyp: ' ' })).toEqual({ npyp: 'gbreg.npyp.required' });
+    expect(keys({ ...filled, npyp: ' a1b2c3 ' })).toEqual({});
+    expect(keys({ ...filled, npyp: 'A1B2C' })).toEqual({ npyp: 'gbreg.npyp.format' });
+    expect(keys({ ...filled, npyp: 'A1B2C3D' })).toEqual({ npyp: 'gbreg.npyp.format' });
+    expect(keys({ ...filled, npyp: 'A1 2C3' })).toEqual({ npyp: 'gbreg.npyp.format' });
+    expect(keys({ ...filled, npyp: 'A1-2C3' })).toEqual({ npyp: 'gbreg.npyp.format' });
+  });
+
+  it('takes the SK number as optional, 5-100 when given', () => {
+    expect(keys({ ...filled, skNumber: '' })).toEqual({});
     expect(keys({ ...filled, kind: 'ASSOCIATION', skNumber: 'AHU1' })).toEqual({ skNumber: 'gbreg.skNumber.short' });
+    expect(keys({ ...filled, skNumber: 'A'.repeat(100) })).toEqual({});
     expect(keys({ ...filled, skNumber: 'A'.repeat(101) })).toEqual({ skNumber: 'gbreg.skNumber.long' });
-    expect(keys({ ...filled, kind: 'GOVERNMENT', skNumber: '' })).toEqual({});
+  });
+
+  it('asks neither of a government body', () => {
+    expect(keys({ ...filled, kind: 'GOVERNMENT', npyp: '', skNumber: '' })).toEqual({});
+    expect(keys({ ...filled, kind: 'GOVERNMENT', npyp: 'bad', skNumber: 'AHU1' })).toEqual({});
   });
 
   it('asks every part of the address but the postal code, which is five digits when given', () => {
@@ -88,8 +105,11 @@ describe('governing body registration - what is sent', () => {
     expect(body.has('postalCode')).toBe(false);
     expect(body.get('applicantPhone')).toBe('0812 3456 7890');
     expect(body.has('ktp') && body.has('proof')).toBe(true);
+    expect(registrationFormData({ ...filled, npyp: ' a1b2c3 ' }, files).get('npyp')).toBe('A1B2C3');
+    expect(registrationFormData({ ...filled, skNumber: '  ' }, files).has('skNumber')).toBe(false);
     const dinas = registrationFormData({ ...filled, kind: 'GOVERNMENT', skNumber: 'typed anyway', postalCode: '65119' }, files);
     expect(dinas.has('skNumber')).toBe(false);
+    expect(dinas.has('npyp')).toBe(false);
     expect(dinas.get('postalCode')).toBe('65119');
   });
 });

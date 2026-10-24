@@ -274,6 +274,8 @@ export const GoverningBodyRegistrationsPage = () => {
                         </div>
                         <p className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs font-medium text-slate-500">
                           <span>{t(`gb.kind.${row.kind}`)}</span>
+                          {/* The body's NPYP once approved: a Platform Admin may have added or corrected it (c79b56f). */}
+                          {(row.governingBody?.npyp ?? row.npyp) && <span>{t('gbr.row.npyp', { npyp: row.governingBody?.npyp ?? row.npyp })}</span>}
                           {row.skNumber && <span className="break-all">{row.skNumber}</span>}
                           {row.address?.city && <span>{row.address.city}</span>}
                           {row.applicant?.fullName && <span>{row.applicant.fullName}</span>}

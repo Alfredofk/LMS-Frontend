@@ -5,6 +5,7 @@ import { Landmark } from 'lucide-react';
 import AuthLayout from '../../layouts/AuthLayout';
 import SchoolRegistrationForm from './SchoolRegistrationForm';
 import GoverningBodyRegistrationForm from './GoverningBodyRegistrationForm';
+import GoverningBodyApplicationForm from './GoverningBodyApplicationForm';
 import JoinSchoolForm from './JoinSchoolForm';
 import AddRoleForm from '../../components/AddRoleForm';
 import { useAuth } from '../../context/AuthContext';
@@ -98,6 +99,20 @@ const INTENTS = {
       ['gbreg.need.proof', 'gbreg.need.proofDetail'],
     ],
     approval: ['gbreg.approval'],
+  },
+  /*
+    Being an admin of a Governing Body that exists (backend 3d7d05a, ticket 04;
+    owner 2026-10-24): its code alone, then its senior admin decides. Linked from
+    /select-role and My Profile, as registering one is.
+  */
+  'governing-body-admin': {
+    icon: <KeyIcon />,
+    heading: ['gbapp.title', 'gbapp.titleAccent'],
+    subheading: ['gbapp.subtitle'],
+    panelHeading: 'gbapp.panelHeading',
+    panelBlurb: 'gbapp.panelBlurb',
+    needs: [['gbapp.need.code', 'gbapp.need.codeDetail']],
+    approval: ['gbapp.approval'],
   },
   /*
     The student path lists one extra thing it will ask for. Both paths now hand
@@ -195,7 +210,7 @@ export const GetStartedPage = () => {
   const elsewhere =
     established &&
     mayJoinAnother(membership, otherSchools) &&
-    (intent === 'organization' || intent === 'governing-body' || (search.get('another') === '1' && (intent === 'teacher' || intent === 'guardian')));
+    (intent === 'organization' || intent === 'governing-body' || intent === 'governing-body-admin' || (search.get('another') === '1' && (intent === 'teacher' || intent === 'guardian')));
   const adding =
     !elsewhere && established && ADDING[intent] && rolesToAdd(membership).includes(ADDING[intent].role)
       ? ADDING[intent]
@@ -215,8 +230,8 @@ export const GetStartedPage = () => {
     The picker says why for each card, so that is where they go.
   */
   if (established && !adding && !elsewhere) return <Navigate to="/select-role" replace />;
-  /* A student, or one asking to be, anywhere may not register a Governing Body (the server refuses). */
-  if (intent === 'governing-body' && !mayJoinAnother(membership, otherSchools)) return <Navigate to="/select-role" replace />;
+  /* A student, or one asking to be, anywhere may not register a Governing Body or be its admin (the server refuses). */
+  if ((intent === 'governing-body' || intent === 'governing-body-admin') && !mayJoinAnother(membership, otherSchools)) return <Navigate to="/select-role" replace />;
 
   const footer = (
     <button
@@ -293,6 +308,8 @@ export const GetStartedPage = () => {
         <SchoolRegistrationForm doneTo={elsewhere ? '/profile' : '/select-role'} />
       ) : intent === 'governing-body' ? (
         <GoverningBodyRegistrationForm doneTo={elsewhere ? '/profile' : '/select-role'} />
+      ) : intent === 'governing-body-admin' ? (
+        <GoverningBodyApplicationForm doneTo={elsewhere ? '/profile' : '/select-role'} />
       ) : (
         <JoinSchoolForm intent={intent} doneTo={elsewhere ? '/profile' : '/select-role'} />
       )}

@@ -18,7 +18,7 @@ import {
   registrationErrors,
   registrationFormData,
   registrationLineOf,
-  takesSkNumber,
+  takesNumbers,
   typeOfFile,
 } from './bodyRegistration';
 
@@ -28,8 +28,9 @@ import {
   SchoolRegistrationForm's shape: multipart, one request carrying both files, checked
   here first by the rules in bodyRegistration.js and by the server again.
 
-  - The SK number is asked of a foundation or an association only; a government body
-    sends none (the schema refuses one).
+  - A foundation or an association gives its NPYP (required since backend c79b56f) and
+    its SK number if it has one (optional since then); a government body sends neither
+    (the schema refuses one).
   - The province is one of the 38; the postal code is optional.
   - The phone starts as the account's (`useAccountPhone`) until it is typed in.
   - Each file's type is read from its bytes as it is picked, as the server reads it.
@@ -38,7 +39,7 @@ import {
   No success toast: the page it goes back to says "sedang ditinjau" in the link's place.
 */
 
-const OWNED_FIELDS = ['kind', 'name', 'skNumber', 'street', 'village', 'district', 'city', 'province', 'postalCode', 'applicantPhone', 'ktp', 'proof'];
+const OWNED_FIELDS = ['kind', 'name', 'npyp', 'skNumber', 'street', 'village', 'district', 'city', 'province', 'postalCode', 'applicantPhone', 'ktp', 'proof'];
 
 const FileField = ({ id, label, hint, accept, file, error, onPick, chooseLabel }) => {
   const ref = useRef(null);
@@ -197,7 +198,7 @@ export const GoverningBodyRegistrationForm = ({ doneTo = '/select-role' }) => {
           value={current.kind}
           onChange={(e) => {
             setField('kind', e.target.value);
-            setErrors((prev) => ({ ...prev, skNumber: null }));
+            setErrors((prev) => ({ ...prev, npyp: null, skNumber: null }));
           }}
         >
           {BODY_KINDS.map((kind) => (
@@ -210,11 +211,17 @@ export const GoverningBodyRegistrationForm = ({ doneTo = '/select-role' }) => {
 
       {textInput('name', 'gbreg.field.name')}
 
-      {takesSkNumber(current.kind) ? (
-        <div className="space-y-1">
-          {textInput('skNumber', 'gb.skNumber', { spellCheck: false })}
-          {!errors.skNumber && <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{t('gbreg.field.skNumber.hint')}</p>}
-        </div>
+      {takesNumbers(current.kind) ? (
+        <>
+          <div className="space-y-1">
+            {textInput('npyp', 'gb.npyp', { spellCheck: false, maxLength: 6, autoCapitalize: 'characters' })}
+            {!errors.npyp && <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{t('gbreg.field.npyp.hint')}</p>}
+          </div>
+          <div className="space-y-1">
+            {textInput('skNumber', 'gbreg.field.skNumber.optional', { spellCheck: false })}
+            {!errors.skNumber && <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{t('gbreg.field.skNumber.hint')}</p>}
+          </div>
+        </>
       ) : (
         <p className="text-xs font-medium text-slate-500 leading-relaxed">{t('gbreg.field.noSk')}</p>
       )}

@@ -25,10 +25,11 @@ import {
 import RejectionNotice from './RejectionNotice';
 import { governingBodyService } from '../../services/governingBodyService';
 import { registrationLineOf } from './bodyRegistration';
+import GoverningBodySeatLines from '../../components/GoverningBodySeatLines';
 import { hasUnseenRejection } from './rejections';
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage, cancelErrorMessage, placesErrorMessage } from '../../i18n/apiError';
-import { hasGoverningBody, mayJoinAnother, needsPlaceChoice, placeRoleKeysOf, samePlace, waitingRequestsOf } from '../../constants/places';
+import { hasGoverningBody, mayJoinAnother, needsPlaceChoice, openPlaceOf, placeRoleKeysOf, samePlace, waitingRequestsOf } from '../../constants/places';
 import { membershipService } from '../../services/membershipService';
 import { schoolService } from '../../services/schoolService';
 import { authService } from '../../services/authService';
@@ -225,7 +226,7 @@ const defaultChoice = (membership, held) =>
 
 export const SelectRolePage = () => {
   const navigate = useNavigate();
-  const { user, membership, governingBody, roles, activeRole, isPlatformAdmin, refreshMe, selectRole, logout, places, otherSchools, openPlace } =
+  const { user, membership, governingBody, roles, activeRole, isPlatformAdmin, refreshMe, selectRole, logout, places, otherSchools, openPlace, choosePlace } =
     useAuth();
   const { t, lang } = useT();
 
@@ -339,6 +340,16 @@ export const SelectRolePage = () => {
         if (session.roles.length > 0 && staleToken) {
           await authService.refresh();
           session = await refreshMe();
+          /*
+            A refresh keeps the place its token's row was opened for. After a
+            Governing Body seat ended (backend 3d7d05a) that place is gone, so the
+            new token names none even though /users/me answers the one school left
+            (walked 2026-10-24: kpril888 after leaving). That school is opened by name.
+          */
+          const school = openPlaceOf(session);
+          if (!accessTokenClaims()?.schoolId && school?.kind === 'SCHOOL' && session.places?.some((place) => samePlace(place, school))) {
+            session = { ...session, ...(await choosePlace(school)) };
+          }
         }
 
         /*
@@ -412,7 +423,7 @@ export const SelectRolePage = () => {
         setHasChecked(true);
       }
     },
-    [refreshMe, navigate, t]
+    [refreshMe, choosePlace, navigate, t]
   );
 
   useEffect(() => {
@@ -877,6 +888,10 @@ export const SelectRolePage = () => {
             );
           })()}
         </div>
+
+        {/* Being an admin of a Governing Body through its code (backend 3d7d05a;
+            owner 2026-10-24): a line, not a card, with each body's outcome above it. */}
+        {hasChecked && !deactivated && mayJoinAnother(membership, otherSchools) && <GoverningBodySeatLines className="px-1" />}
 
         {/*
           A role added to a membership already held, still waiting. Its card above

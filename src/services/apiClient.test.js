@@ -28,6 +28,8 @@ import {
   saveTokens,
   clearTokens,
   isMembershipGone,
+  refreshSession,
+  request,
 } from './apiClient.js';
 
 class MemoryStorage {
@@ -225,5 +227,53 @@ describe('isMembershipGone — the 403 requireActiveMembership answers (shared/a
     expect(isMembershipGone({ status: 401, message: 'You are not an active member of any school' })).toBe(false);
     expect(isMembershipGone({ status: 404, message: 'Not found' })).toBe(false);
     expect(isMembershipGone(null)).toBe(false);
+  });
+});
+
+describe('one refresh at a time — a screen asking joins the one in flight', () => {
+  /* Refresh token reuse signs a person out everywhere (auth.service.js
+     loadLiveRefreshToken); walked for real on 2026-10-24 when two refreshes of one
+     token went out together. */
+  const answer = (body, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+
+  it('posts one refresh for two screens asking at once, and keeps the new pair', async () => {
+    holding('access-1');
+    let calls = 0;
+    vi.stubGlobal('fetch', async () => {
+      calls += 1;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return answer({ success: true, data: { accessToken: 'access-2', refreshToken: 'refresh-2' } });
+    });
+    await Promise.all([refreshSession(), refreshSession()]);
+    expect(calls).toBe(1);
+    expect(getRefreshToken()).toBe('refresh-2');
+  });
+
+  it('joins a refresh a 401 started, rather than replaying the token it spent', async () => {
+    holding('access-1');
+    const posted = [];
+    vi.stubGlobal('fetch', async (url, init) => {
+      if (String(url).includes('/auth/refresh')) {
+        posted.push(JSON.parse(init.body).refreshToken);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return answer({ success: true, data: { accessToken: 'access-2', refreshToken: 'refresh-2' } });
+      }
+      const bearer = init?.headers?.Authorization;
+      return bearer === 'Bearer access-2'
+        ? answer({ success: true, data: { ok: true } })
+        : answer({ success: false, error: { code: 'UNAUTHORIZED', message: 'expired' } }, 401);
+    });
+    const later = new Promise((resolve) => setTimeout(resolve, 1)).then(() => refreshSession());
+    const [, read] = await Promise.all([later, request('/users/me')]);
+    expect(read).toEqual({ ok: true });
+    expect(posted).toEqual(['refresh']);
+  });
+
+  it('says a refresh token no longer good, and clears it', async () => {
+    holding('access-1');
+    vi.stubGlobal('fetch', async () => answer({ success: false, error: { code: 'UNAUTHORIZED', message: 'Invalid or expired refresh token' } }, 401));
+    await expect(refreshSession()).rejects.toMatchObject({ status: 401, code: 'UNAUTHORIZED' });
+    expect(getRefreshToken()).toBeNull();
   });
 });

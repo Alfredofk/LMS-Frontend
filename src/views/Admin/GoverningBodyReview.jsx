@@ -5,6 +5,8 @@ import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import GoverningBodyFileViewer from './GoverningBodyFileViewer';
 import GoverningBodyCorrectionPanel from './GoverningBodyCorrectionPanel';
+import GoverningBodyAdminsPanel from './GoverningBodyAdminsPanel';
+import SubdomainPanel from './SubdomainPanel';
 import { adminGoverningBodyService } from '../../services/adminGoverningBodyService';
 import { governingBodyAdminErrorMessage, isStaleGoverningBody } from '../../i18n/apiError';
 import { useT } from '../../i18n/LanguageContext';
@@ -62,7 +64,9 @@ const CONFIRM = {
   - Approved: the body as it is now (`registration.governingBody`, the registration
     keeping what the applicant wrote), its correction (GoverningBodyCorrectionPanel)
     and switching it off with a reason, or back on with an optional note - keyed by
-    the body's id, not the registration's.
+    the body's id, not the registration's. Since backend 3d7d05a/8aff4f4 also its
+    address label (SubdomainPanel, `body`) and its admins (GoverningBodyAdminsPanel:
+    the brake, and the applications of a body left with none).
 
   Several sentences share CONFLICT here (`governingBodyAdminErrorMessage`); one
   saying the row is out of date - decided, switched or changed elsewhere - reads the
@@ -154,6 +158,10 @@ export const GoverningBodyReview = ({ registration, onBack, onChanged, onStale, 
               <h3 className="text-sm font-extrabold text-slate-900 tracking-tight mb-2">{t('gbr.section.body')}</h3>
               <Row label={t('gbr.field.name')}>{body.name}</Row>
               <Row label={t('gb.kind')}>{kindWord(body.kind)}</Row>
+              {/* A foundation or an association from before c79b56f has none until corrected. */}
+              <Row label={t('gb.npyp')}>
+                {body.npyp ?? (body.kind !== 'GOVERNMENT' ? <span className="text-amber-700 font-extrabold">{t('gbr.npyp.missing')}</span> : null)}
+              </Row>
               <Row label={t('gb.skNumber')}>{body.skNumber}</Row>
               <Row label={t('gb.code')}>{body.code}</Row>
               <Row label={t('gbr.field.subdomain')}>{siteAddress ?? body.subdomain}</Row>
@@ -167,6 +175,7 @@ export const GoverningBodyReview = ({ registration, onBack, onChanged, onStale, 
             <h3 className="text-sm font-extrabold text-slate-900 tracking-tight mb-2">{t('gbr.section.registration')}</h3>
             <Row label={t('gb.kind')}>{kindWord(registration.kind)}</Row>
             <Row label={t('gbr.field.name')}>{registration.name}</Row>
+            <Row label={t('gb.npyp')}>{registration.npyp}</Row>
             <Row label={t('gb.skNumber')}>{registration.skNumber}</Row>
             <Row label={t('gb.address')}>{addressLineOf(registration.address) || null}</Row>
             <Row label={t('admin.field.status')}>{t(`admin.status.${registration.status}`)}</Row>
@@ -210,7 +219,11 @@ export const GoverningBodyReview = ({ registration, onBack, onChanged, onStale, 
             </section>
           )}
 
-          {body && <GoverningBodyCorrectionPanel key={`${body.id}:${body.name}:${body.kind}:${body.skNumber}`} body={body} showToast={showToast} onSaved={(next) => onChanged({ ...registration, governingBody: next })} onStale={onStale} />}
+          {body && <GoverningBodyCorrectionPanel key={`${body.id}:${body.name}:${body.kind}:${body.npyp}:${body.skNumber}`} body={body} showToast={showToast} onSaved={(next) => onChanged({ ...registration, governingBody: next })} onStale={onStale} />}
+
+          {/* Its address and its admins (backend 3d7d05a/8aff4f4; owner 2026-10-24). */}
+          {body && <SubdomainPanel key={`${body.id}:subdomain`} body={body} showToast={showToast} onChanged={(subdomain) => onChanged({ ...registration, governingBody: { ...body, subdomain } })} />}
+          {body && <GoverningBodyAdminsPanel key={`${body.id}:admins`} bodyId={body.id} showToast={showToast} />}
 
           {body && !isOff && (
             <section className="border border-rose-200 rounded-2xl p-5 bg-rose-50/40 shadow-sm space-y-4">

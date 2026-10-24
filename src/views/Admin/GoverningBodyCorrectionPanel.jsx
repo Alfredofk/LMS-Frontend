@@ -8,15 +8,17 @@ import { adminGoverningBodyService } from '../../services/adminGoverningBodyServ
 import { governingBodyAdminErrorMessage, isStaleGoverningBody } from '../../i18n/apiError';
 import { useT } from '../../i18n/LanguageContext';
 import { GOVERNING_BODY_KINDS } from '../GoverningBody/governingBody';
-import { correctionErrorsOf, correctionFormOf, correctionPatchOf, takesSk } from './bodyDecisions';
+import { correctionErrorsOf, correctionFormOf, correctionPatchOf, npypRequiredOf, takesSk } from './bodyDecisions';
 
 /*
   Correcting a body's name, kind or SK number (backend b5cfffd, `PATCH
   /admin/governing-bodies/:id`; owner 2026-10-24): the Platform Admin's, on the
   approved registration's review. Only what changed is sent (`correctionPatchOf`),
   after a question - the change is audited with what it was, and the subdomain stays.
-  A government body takes no SK number, so the box goes when Dinas is chosen and the
-  number is removed; the other two require one.
+  A government body takes no numbers, so the boxes go when Dinas is chosen and the
+  numbers are removed. Since backend c79b56f the other two have an NPYP - required
+  once held, or when a Dinas becomes one; a body from before with none may stay
+  without, or get one here - and an SK number only if they have one.
 
   `onSaved(governingBody)` with the answer; `onStale()` when the body changed or went
   meanwhile, for the page to read the queue again.
@@ -37,7 +39,7 @@ export const GoverningBodyCorrectionPanel = ({ body, showToast, onSaved, onStale
   };
 
   const ask = () => {
-    const found = correctionErrorsOf(form);
+    const found = correctionErrorsOf(form, body);
     setErrors(found);
     if (Object.keys(found).length === 0 && patch) setAsking(true);
   };
@@ -78,7 +80,21 @@ export const GoverningBodyCorrectionPanel = ({ body, showToast, onSaved, onStale
         ))}
       </SelectField>
       {takesSk(form.kind) ? (
-        <Input id="gbSk" label={t('gb.skNumber')} value={form.skNumber} onChange={set('skNumber')} maxLength={120} error={errors.skNumber && t(errors.skNumber)} />
+        <>
+          <div className="space-y-1">
+            <Input
+              id="gbNpyp"
+              label={t(npypRequiredOf(body, form.kind) ? 'gb.npyp' : 'gbr.edit.npyp.optional')}
+              value={form.npyp}
+              onChange={set('npyp')}
+              maxLength={6}
+              autoCapitalize="characters"
+              error={errors.npyp && t(errors.npyp)}
+            />
+            {!errors.npyp && !npypRequiredOf(body, form.kind) && <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{t('gbr.edit.npyp.before')}</p>}
+          </div>
+          <Input id="gbSk" label={t('gbreg.field.skNumber.optional')} value={form.skNumber} onChange={set('skNumber')} maxLength={120} error={errors.skNumber && t(errors.skNumber)} />
+        </>
       ) : (
         <p className="text-xs font-medium text-slate-500 leading-relaxed">{t('gbr.edit.noSk')}</p>
       )}

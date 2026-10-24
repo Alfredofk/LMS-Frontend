@@ -425,6 +425,9 @@ export const GET_STARTED_PATH = {
 /** The page a Governing Body seat's sign-in opens on (backend b5cfffd; owner, 2026-10-24). */
 export const GOVERNING_BODY_HOME = '/governing-body';
 
+/** Its admins and the applications to be one (backend 3d7d05a; owner, 2026-10-24: a tab of its own). */
+export const GOVERNING_BODY_ADMINS = '/governing-body/admins';
+
 /** Where to send somebody who holds these roles and has picked `activeRole`. */
 export const homeFor = (role) => ROLE_HOME[role] ?? '/select-role';
 

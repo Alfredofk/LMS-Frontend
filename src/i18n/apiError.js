@@ -115,6 +115,8 @@ export function registrationErrorMessage(err, t) {
 const JOIN_BY_MESSAGE = [
   ['join request waiting for approval at this school', 'join.conflict.pendingHere'],
   ['already belong to this school', 'join.conflict.memberHere'],
+  /* A live admin seat refuses a STUDENT request (backend 3d7d05a); before the general one. */
+  ['You are an admin of a governing body', 'join.conflict.studentSeat'],
   ['A student belongs to one school only', 'join.conflict.student'],
 ];
 
@@ -148,7 +150,12 @@ const GOVERNING_BODY_ADMIN_BY_MESSAGE = [
   ['is already deactivated', 'gbr.error.alreadyOff'],
   ['is not deactivated', 'gbr.error.notOff'],
   ['changed meanwhile', 'gbr.error.changed'],
-  ['A foundation or an association has a Kemenkumham SK number', 'gbr.edit.skRequired'],
+  /* The NPYP (backend c79b56f): taken (approval and correction), refused for a Dinas,
+     required of a foundation or an association that held one, and its shape. */
+  ['NPYP is already registered', 'gbr.error.npypTaken'],
+  ['A government body has no NPYP', 'gbr.edit.npypNone'],
+  ['A foundation or an association has an NPYP', 'gbr.edit.npypRequired'],
+  ['An NPYP is six letters and digits', 'gbreg.npyp.format'],
   ['A government body has no Kemenkumham SK number', 'gbr.edit.skNone'],
   ['Governing body not found', 'gbr.error.bodyGone'],
   ['Governing body registration not found', 'gbr.error.registrationGone'],
@@ -169,6 +176,7 @@ const BODY_REGISTRATION_BY_MESSAGE = [
   ['governing body registration under review', 'gbreg.error.pending'],
   ['A student belongs to one school only', 'gbreg.error.student'],
   ['SK number is already registered', 'gbreg.error.skTaken'],
+  ['NPYP is already registered', 'gbreg.error.npypTaken'],
   ['Too many governing body registration', 'gbreg.error.tooMany'],
 ];
 
@@ -182,6 +190,69 @@ export function bodyRegistrationErrorMessage(err, t) {
 export function isStaleGoverningBody(err) {
   const message = String(err?.message ?? '');
   return ['has already been decided', 'is already deactivated', 'is not deactivated', 'changed meanwhile', 'not found'].some((needle) => message.includes(needle));
+}
+
+/*
+  A Governing Body's own admins (backend 3d7d05a, governing-body ticket 04:
+  governingBody.admins.js and the seat's half of governingBody.service.js): the
+  senior's decisions and removals, leaving, the address and the code, by their
+  sentences. "Admin application not found" before "Admin not found", which it holds.
+*/
+const GOVERNING_BODY_SEAT_BY_MESSAGE = [
+  ['Only the senior admin can do this', 'gba.error.notSenior'],
+  ['This governing body has an admin', 'gbr.admins.error.hasAdmin'],
+  ['has already been decided', 'gba.error.decided'],
+  ['The applicant account no longer exists', 'gba.error.applicantGone'],
+  ['The applicant is a student at a school', 'gba.error.applicantStudent'],
+  ['Admin application not found', 'gba.error.applicationGone'],
+  ['Admin not found', 'gba.error.adminGone'],
+  ['This admin has already left', 'gba.error.adminGone'],
+  ['To step down yourself, leave the governing body instead', 'gba.error.removeSelf'],
+  ['A governing body cannot be left without an admin', 'gba.error.lastAdmin'],
+  ['You have already left this governing body', 'gba.error.alreadyLeft'],
+  ['This governing body changed meanwhile', 'gb.profile.error.changed'],
+  ['Governing body not found', 'gb.error.gone'],
+  ['A rejection reason is required', 'gba.error.reason'],
+  ['A reason is required', 'gba.error.reason'],
+  ['Give the reason', 'gba.error.reason'],
+];
+
+export function governingBodySeatErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  const hit = GOVERNING_BODY_SEAT_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  return hit ? t(hit[1]) : apiErrorMessage(err, t);
+}
+
+/*
+  Asking to be a Governing Body's admin through its code (backend 3d7d05a): the
+  lookup, the application and taking it back, by their sentences. The limiter's
+  429 says "Too many incorrect codes" since this commit (one budget with the School
+  Code's). The student's sentence differs between the lookup and the application;
+  both start the same.
+*/
+const BODY_APPLICATION_BY_MESSAGE = [
+  ['No governing body uses that code', 'gbapp.error.unknown'],
+  ['A student belongs to one school only', 'gbapp.error.student'],
+  ['You already have an admin application waiting', 'gbapp.error.waiting'],
+  ['You are already an admin of this governing body', 'gbapp.error.already'],
+  ['Too many rejected admin applications', 'gbapp.error.tooManyRejected'],
+  ['Too many incorrect codes', 'gbapp.error.tooManyCodes'],
+  ['No admin application of yours is waiting', 'gbapp.error.decided'],
+  ['has already been decided', 'gbapp.error.decided'],
+];
+
+export function bodyApplicationErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  const hit = BODY_APPLICATION_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  return hit ? t(hit[1]) : apiErrorMessage(err, t);
+}
+
+/** Whether the admins on screen are out of date: decided, gone or left elsewhere. Read them again. */
+export function isStaleSeat(err) {
+  const message = String(err?.message ?? '');
+  return ['has already been decided', 'Admin application not found', 'Admin not found', 'This admin has already left', 'Only the senior admin can do this', 'This governing body has an admin'].some((needle) =>
+    message.includes(needle)
+  );
 }
 
 /*
@@ -370,6 +441,11 @@ const DECISION_BY_MESSAGE = [
   ['carries no NISN', 'requests.error.noNisn'],
   ['Choose the class', 'requests.approve.needsClass'],
   ['and this request asks for grade', 'requests.error.gradeMismatch'],
+  /* The Student rule again at approval (membership.eligibility.js assertStudentAlone);
+     the governing body's since backend 3d7d05a. The school is never named (ADR-0001). */
+  ['is an admin of a governing body, or has asked to be one', 'requests.error.applicantSeat'],
+  ['This applicant belongs to another school', 'requests.error.applicantElsewhere'],
+  ['This applicant is a student at another school', 'requests.error.applicantStudentElsewhere'],
 ];
 
 /** Whether the refusal only means the request was decided elsewhere — reload and move on. */

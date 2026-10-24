@@ -45,8 +45,21 @@ const DELETE_BY_MESSAGE = [
   ['cannot be left without its Principal', 'account.delete.blocked.principal'],
   ['leaves with the Principal', 'account.delete.blocked.member'],
   ['already deleted', 'account.delete.error.gone'],
+  /* Governing bodies (backend 3d7d05a): before the school's sentence, which they hold. */
+  ['governing body registration was decided meanwhile', 'account.delete.error.bodyRegistration'],
+  ['An admin application of yours was decided meanwhile', 'account.delete.error.seat'],
+  ['An admin seat of yours ended meanwhile', 'account.delete.error.seat'],
   ['decided meanwhile', 'account.delete.error.registration'],
 ];
+
+/*
+  The last admin of a live Governing Body is refused (backend 3d7d05a, ADR-0007), the
+  bodies named in `details.governingBodies`. Nothing read before the press can say
+  it - a seat's admins are read only from the seat's own sign-in - so it is said on
+  the refusal: hand the body on (another admin applies by its code) or ask the
+  platform admin.
+*/
+const LAST_ADMIN = 'cannot be left without an admin';
 
 const DeleteAccountCard = () => {
   const navigate = useNavigate();
@@ -99,6 +112,11 @@ const DeleteAccountCard = () => {
       const message = String(err?.message ?? '');
       if (message.includes('has no password')) {
         setMode('google');
+        return;
+      }
+      if (message.includes(LAST_ADMIN)) {
+        const bodies = Array.isArray(err?.details?.governingBodies) ? err.details.governingBodies : [];
+        setError(t('account.delete.blocked.lastAdmin', { names: bodies.join(', ') || t('account.delete.blocked.lastAdmin.unnamed') }));
         return;
       }
       const hit = DELETE_BY_MESSAGE.find(([needle]) => message.includes(needle));

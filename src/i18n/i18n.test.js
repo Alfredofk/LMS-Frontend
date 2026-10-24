@@ -28,7 +28,7 @@ import id from './id.js';
 import en from './en.js';
 import { LANGUAGES } from './languages.js';
 import { ROLES, ROLE_LABEL_KEY, ROLE_TAGLINE_KEY } from '../constants/roles.js';
-import { decisionErrorMessage, isAlreadyDecided, academicsErrorMessage, assessmentErrorMessage, isStaleAssessment, copyEditErrorMessage, isStaleCopy, gradingErrorMessage, isGradingLocked, descriptionsErrorMessage, isDescriptionsLocked, isFinalisedRefusal, finalisingErrorMessage, isStaleFinalising, apiErrorMessage, notesErrorMessage, isStaleNotes, closeErrorMessage, isStaleClose, reopenErrorMessage, isStaleReopen } from './apiError.js';
+import { decisionErrorMessage, governingBodyAdminErrorMessage, bodyRegistrationErrorMessage, joinErrorMessage, bodyApplicationErrorMessage, governingBodySeatErrorMessage, isStaleSeat, isAlreadyDecided, academicsErrorMessage, assessmentErrorMessage, isStaleAssessment, copyEditErrorMessage, isStaleCopy, gradingErrorMessage, isGradingLocked, descriptionsErrorMessage, isDescriptionsLocked, isFinalisedRefusal, finalisingErrorMessage, isStaleFinalising, apiErrorMessage, notesErrorMessage, isStaleNotes, closeErrorMessage, isStaleClose, reopenErrorMessage, isStaleReopen } from './apiError.js';
 import { SESSION_STATE_KEYS, sessionState } from '../views/Subjects/timetable.js';
 
 const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -594,5 +594,63 @@ describe('finalising refusals (backend eadf680, grading.finalising.js)', () => {
   it('reads the screen again when it is behind', () => {
     expect(isStaleFinalising(said('MTK in XI IPS, Semester 1 cannot be finalised yet: x'))).toBe(true);
     expect(isStaleFinalising(said('Only the Principal starts finalising a semester'))).toBe(false);
+  });
+});
+
+describe('governing body admins: refusals by sentence (backend 3d7d05a / 8aff4f4)', () => {
+  /* The server's own sentences, copied from membership.eligibility.js and governingBody.*.js. */
+  const t = (key) => key;
+  const refused = (message, code = 'CONFLICT') => ({ status: 409, code, message });
+
+  it('tells a student refused for an admin seat apart, joining and at approval', () => {
+    expect(joinErrorMessage(refused('A student belongs to one school only. You are an admin of a governing body, or have asked to be one'), t)).toBe('join.conflict.studentSeat');
+    expect(joinErrorMessage(refused('A student belongs to one school only. You already belong to a school, or have asked to join one'), t)).toBe('join.conflict.student');
+    expect(decisionErrorMessage(refused('This applicant is an admin of a governing body, or has asked to be one, and a student belongs to one school only'), t)).toBe('requests.error.applicantSeat');
+    expect(decisionErrorMessage(refused('This applicant belongs to another school, or has asked to join one, and a student belongs to one school only'), t)).toBe('requests.error.applicantElsewhere');
+    expect(decisionErrorMessage(refused('This applicant is a student at another school, or has asked to be one, and a student belongs to one school only'), t)).toBe('requests.error.applicantStudentElsewhere');
+  });
+
+  it('says each refusal of the code and the application', () => {
+    expect(bodyApplicationErrorMessage(refused('No governing body uses that code', 'NOT_FOUND'), t)).toBe('gbapp.error.unknown');
+    expect(bodyApplicationErrorMessage(refused('A student belongs to one school only, so cannot apply to a governing body'), t)).toBe('gbapp.error.student');
+    expect(bodyApplicationErrorMessage(refused('A student belongs to one school only, so cannot be an admin of a governing body'), t)).toBe('gbapp.error.student');
+    expect(bodyApplicationErrorMessage(refused('You already have an admin application waiting at this governing body'), t)).toBe('gbapp.error.waiting');
+    expect(bodyApplicationErrorMessage(refused('You are already an admin of this governing body'), t)).toBe('gbapp.error.already');
+    expect(bodyApplicationErrorMessage(refused('Too many rejected admin applications for this governing body recently. Try again tomorrow.'), t)).toBe('gbapp.error.tooManyRejected');
+    expect(bodyApplicationErrorMessage(refused('Too many incorrect codes. Try again later.', 'TOO_MANY_REQUESTS'), t)).toBe('gbapp.error.tooManyCodes');
+    expect(bodyApplicationErrorMessage(refused('This admin application has already been decided'), t)).toBe('gbapp.error.decided');
+  });
+
+  it('reads the seat refusals, and which mean the list is out of date', () => {
+    const application = refused('Admin application not found', 'NOT_FOUND');
+    expect(governingBodySeatErrorMessage(application, t)).toBe('gba.error.applicationGone');
+    expect(isStaleSeat(application)).toBe(true);
+    expect(governingBodySeatErrorMessage(refused('Admin not found', 'NOT_FOUND'), t)).toBe('gba.error.adminGone');
+    expect(governingBodySeatErrorMessage(refused('Only the senior admin can do this', 'FORBIDDEN'), t)).toBe('gba.error.notSenior');
+    const hasAdmin = refused('This governing body has an admin; its senior admin decides its applications');
+    expect(governingBodySeatErrorMessage(hasAdmin, t)).toBe('gbr.admins.error.hasAdmin');
+    expect(isStaleSeat(hasAdmin)).toBe(true);
+    const last = refused('A governing body cannot be left without an admin');
+    expect(governingBodySeatErrorMessage(last, t)).toBe('gba.error.lastAdmin');
+    expect(isStaleSeat(last)).toBe(false);
+    expect(governingBodySeatErrorMessage(refused('To step down yourself, leave the governing body instead'), t)).toBe('gba.error.removeSelf');
+  });
+});
+
+describe('the NPYP: refusals by sentence (backend c79b56f, governingBody.service.js / .schema.js)', () => {
+  const t = (key) => key;
+  const refused = (message, code = 'CONFLICT') => ({ status: 409, code, message });
+
+  it('says an NPYP held or waiting, on registering and to the Platform Admin', () => {
+    expect(bodyRegistrationErrorMessage(refused('This NPYP is already registered or under review'), t)).toBe('gbreg.error.npypTaken');
+    expect(bodyRegistrationErrorMessage(refused('This SK number is already registered or under review'), t)).toBe('gbreg.error.skTaken');
+    expect(governingBodyAdminErrorMessage(refused('This NPYP is already registered'), t)).toBe('gbr.error.npypTaken');
+    expect(governingBodyAdminErrorMessage(refused('This NPYP is already registered or under review'), t)).toBe('gbr.error.npypTaken');
+  });
+
+  it("says the correction's NPYP rules", () => {
+    expect(governingBodyAdminErrorMessage(refused('A government body has no NPYP', 'BAD_REQUEST'), t)).toBe('gbr.edit.npypNone');
+    expect(governingBodyAdminErrorMessage(refused('A foundation or an association has an NPYP', 'BAD_REQUEST'), t)).toBe('gbr.edit.npypRequired');
+    expect(governingBodyAdminErrorMessage(refused('An NPYP is six letters and digits', 'BAD_REQUEST'), t)).toBe('gbreg.npyp.format');
   });
 });

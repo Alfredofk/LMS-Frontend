@@ -9,6 +9,7 @@ import { cancelErrorMessage, placesErrorMessage } from '../../../i18n/apiError';
 import { membershipService } from '../../../services/membershipService';
 import { schoolService } from '../../../services/schoolService';
 import GoverningBodyRegistrationLine from '../../../components/GoverningBodyRegistrationLine';
+import GoverningBodySeatLines from '../../../components/GoverningBodySeatLines';
 import { hasGoverningBody, mayJoinAnother, openPlaceOf, otherPlacesOf, otherSchoolRows, placeRoleKeysOf, samePlace } from '../../../constants/places';
 
 /*
@@ -168,6 +169,9 @@ export const OtherSchoolsCard = () => {
 
       {/* Registering a Governing Body (backend b5cfffd; owner 2026-10-24): one line, its state in its place. */}
       {canJoin && <GoverningBodyRegistrationLine />}
+
+      {/* Being an admin of one through its code (backend 3d7d05a): its outcomes and the link. */}
+      {canJoin && <GoverningBodySeatLines />}
 
       <ConfirmDialog
         open={Boolean(cancelling)}

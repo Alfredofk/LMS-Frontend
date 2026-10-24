@@ -5,7 +5,7 @@
  * ApiError on failure — unwrapping and token storage live in apiClient.js.
  */
 
-import { api, saveTokens, clearTokens, getRefreshToken, claimsOf } from './apiClient';
+import { api, saveTokens, clearTokens, getRefreshToken, claimsOf, refreshSession } from './apiClient';
 import { placeRequestOf } from '../constants/places';
 
 /*
@@ -88,11 +88,9 @@ export const authService = {
    * approval granted since the last sign-in reaches the token.
    */
   async refresh() {
-    const refreshToken = getRefreshToken();
-    const auth = await api.post('/auth/refresh', { refreshToken }, { auth: false });
-    // No second argument: a refresh keeps the session wherever it already lives.
-    saveTokens(auth);
-    return auth;
+    // Through apiClient's single-flight lock: never two refreshes of one token at once
+    // (the backend reads the second as theft). The pair is kept where it already lives.
+    await refreshSession();
   },
 
   /**

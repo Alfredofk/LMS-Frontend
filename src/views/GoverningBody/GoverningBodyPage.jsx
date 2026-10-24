@@ -1,15 +1,17 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useOutletContext } from 'react-router-dom';
 
 import Button from '../../components/ui/Button';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
-import { apiErrorMessage } from '../../i18n/apiError';
+import { apiErrorMessage, governingBodySeatErrorMessage } from '../../i18n/apiError';
 import { governingBodyService } from '../../services/governingBodyService';
-import { signedInHome } from '../../constants/roles';
+import useMoveOn from './useMoveOn';
 import { schoolAddressOf, schoolUrl } from '../../constants/subdomain';
 import { copyText } from '../../utils/copyText';
 import { addressLineOf, kindKeyOf } from './governingBody';
+import GoverningBodyProfileForm from './GoverningBodyProfileForm';
 
 /*
   /governing-body, where a Governing Body seat's sign-in lands (backend b5cfffd;
@@ -19,8 +21,14 @@ import { addressLineOf, kindKeyOf } from './governingBody';
   address to hand out.
 
   A 403 means the seat ended or the body was switched off since this sign-in: said,
-  and "Periksa lagi" reads /users/me, which moves the person on once the body is no
-  longer theirs (GoverningBodyLayout sends a sign-in without one elsewhere).
+  and "Periksa lagi" trades the token in and reads /users/me, which moves the person
+  on once the body is no longer theirs (GoverningBodyLayout sends a sign-in without
+  one elsewhere). The token comes first: /users/me names the body the token names,
+  ended seat or not, and only a refresh drops a seat that no longer opens.
+
+  Since backend 3d7d05a (ticket 04) any admin changes the address and the phone in
+  place ("Ubah", GoverningBodyProfileForm) and replaces the code (asked first: the
+  old one stops at once, applications already waiting stay).
 */
 
 const localeOf = (lang) => (lang === 'en' ? 'en-GB' : 'id-ID');
@@ -33,7 +41,7 @@ const Fact = ({ label, children }) => (
 );
 
 /* A value to hand out, with a copy button that says how it went. */
-const CopyRow = ({ label, value, copyValue, hint, mono = false }) => {
+const CopyRow = ({ label, value, copyValue, hint, mono = false, children }) => {
   const { t } = useT();
   const [copied, setCopied] = useState(null);
   const copy = async () => {
@@ -57,19 +65,26 @@ const CopyRow = ({ label, value, copyValue, hint, mono = false }) => {
         </button>
       </div>
       {hint && <p className="text-xs font-medium text-slate-500 leading-relaxed">{hint}</p>}
+      {children}
     </section>
   );
 };
 
 export const GoverningBodyPage = () => {
-  const { governingBody: cached, refreshMe } = useAuth();
+  const { governingBody: cached } = useAuth();
   const { t, lang } = useT();
-  const navigate = useNavigate();
+  const moveOn = useMoveOn();
+  const { showToast } = useOutletContext() ?? {};
 
   const [body, setBody] = useState(null);
   const [state, setState] = useState('loading');
   const [error, setError] = useState(null);
   const [checking, setChecking] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [askRotate, setAskRotate] = useState(false);
+  const [rotating, setRotating] = useState(false);
+  const [rotated, setRotated] = useState(false);
+  const [rotateError, setRotateError] = useState(null);
 
   const load = useCallback(() => {
     setState('loading');
@@ -92,13 +107,27 @@ export const GoverningBodyPage = () => {
   const checkAgain = async () => {
     setChecking(true);
     try {
-      const session = await refreshMe();
-      if (!session.governingBody?.id) navigate(signedInHome(session), { replace: true });
-      else load();
+      if (!(await moveOn())) load();
     } catch {
       load();
     } finally {
       setChecking(false);
+    }
+  };
+
+  const rotate = async () => {
+    setRotating(true);
+    setRotateError(null);
+    try {
+      const next = await governingBodyService.rotateCode();
+      if (next) setBody(next);
+      setRotated(true);
+    } catch (err) {
+      if (err?.status === 403) setState('gone');
+      else setRotateError(governingBodySeatErrorMessage(err, t));
+    } finally {
+      setRotating(false);
+      setAskRotate(false);
     }
   };
 
@@ -147,29 +176,91 @@ export const GoverningBodyPage = () => {
       {state === 'ready' && body && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           <section className="lg:col-span-2 bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
-            <h2 className="text-base font-extrabold text-slate-900">{t('gb.identity')}</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-base font-extrabold text-slate-900">{editing ? t('gb.profile.title') : t('gb.identity')}</h2>
+              {!editing && (
+                <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                  {t('gb.profile.edit')}
+                </Button>
+              )}
+            </div>
+            {editing ? (
+              <>
+                <p className="text-xs font-medium text-slate-500 leading-relaxed">{t('gb.profile.lead')}</p>
+                <GoverningBodyProfileForm
+                  body={body}
+                  onCancel={() => setEditing(false)}
+                  onSaved={(next) => {
+                    if (next) setBody(next);
+                    setEditing(false);
+                    showToast?.(t('gb.profile.done'), 'success');
+                  }}
+                  onStale={(message) => {
+                    setEditing(false);
+                    showToast?.(message, 'info');
+                    load();
+                  }}
+                />
+              </>
+            ) : (
             <div className="grid sm:grid-cols-2 gap-4">
               {kindKey && <Fact label={t('gb.kind')}>{t(kindKey)}</Fact>}
+              {body.npyp && <Fact label={t('gb.npyp')}>{body.npyp}</Fact>}
               {body.skNumber && <Fact label={t('gb.skNumber')}>{body.skNumber}</Fact>}
               {body.createdAt && (
                 <Fact label={t('gb.since')}>
                   {new Date(body.createdAt).toLocaleDateString(localeOf(lang), { day: 'numeric', month: 'long', year: 'numeric' })}
                 </Fact>
               )}
+              <Fact label={t('gb.phone')}>{body.phone || '-'}</Fact>
               <div className="sm:col-span-2">
                 <Fact label={t('gb.address')}>{addressLineOf(body.address) || '-'}</Fact>
               </div>
             </div>
+            )}
           </section>
 
           <div className="space-y-6">
-            {body.code && <CopyRow label={t('gb.code')} value={body.code} hint={t('gb.code.hint')} mono />}
+            {body.code && (
+              <CopyRow label={t('gb.code')} value={body.code} hint={t('gb.code.hint')} mono>
+                {rotated && (
+                  <p className="text-xs font-semibold text-emerald-700" role="status">
+                    {t('gb.rotate.done')}
+                  </p>
+                )}
+                {rotateError && (
+                  <p className="text-xs font-semibold text-rose-700" role="alert">
+                    {rotateError}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setAskRotate(true)}
+                  className="text-xs font-bold text-slate-500 hover:text-slate-700 underline underline-offset-2 cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                >
+                  {t('gb.rotate')}
+                </button>
+              </CopyRow>
+            )}
             {siteAddress && <CopyRow label={t('gb.siteAddress')} value={siteAddress} copyValue={schoolUrl(body.subdomain, '/')} hint={t('gb.siteAddress.hint')} />}
           </div>
 
           <p className="lg:col-span-3 text-xs font-medium text-slate-500 leading-relaxed">{t('gb.later')}</p>
         </div>
       )}
+
+      <ConfirmDialog
+        open={askRotate}
+        title={t('gb.rotate.title')}
+        body={t('gb.rotate.body', { code: body?.code ?? '' })}
+        confirmLabel={t('gb.rotate.confirm')}
+        cancelLabel={t('common.cancel')}
+        tone="brand"
+        busy={rotating}
+        busyLabel={t('gb.rotate.busy')}
+        onCancel={() => setAskRotate(false)}
+        onConfirm={rotate}
+      />
     </div>
   );
 };
