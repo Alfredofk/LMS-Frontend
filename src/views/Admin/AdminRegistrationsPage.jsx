@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { ShieldOff, Inbox, ChevronRight, Clock, IdCard, MapPin, Search, SearchX, PowerOff, UserRound } from 'lucide-react';
 import InfoChips from '../../components/ui/InfoChips';
 
@@ -64,11 +64,24 @@ export const AdminRegistrationsPage = () => {
   const { showToast } = useOutletContext();
   const { t, lang } = useT();
 
-  const [status, setStatus] = useState('PENDING');
-  const [selectedId, setSelectedId] = useState(null);
+  /*
+    Opened on one registration from the list of every School ("Lihat pendaftaran",
+    backend ed0d304): its tab, searched by its NPSN so it is on the first page, and
+    its review open. Read once; the state is dropped from the entry so a reload
+    opens the queue as usual.
+  */
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [open] = useState(() => location.state?.open ?? null);
+  useEffect(() => {
+    if (location.state?.open) navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate]);
 
-  const [query, setQuery] = useState('');
-  const [needle, setNeedle] = useState('');
+  const [status, setStatus] = useState(open?.status ?? 'PENDING');
+  const [selectedId, setSelectedId] = useState(open?.id ?? null);
+
+  const [query, setQuery] = useState(open?.q ?? '');
+  const [needle, setNeedle] = useState(open?.q ?? '');
   const [type, setType] = useState(ALL_TYPES);
   const [state, setState] = useState('ALL');
 

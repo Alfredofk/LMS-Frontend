@@ -9,10 +9,14 @@ import { GET_STARTED_PATH } from '../../constants/roles';
   dashboard since 2026-09-24, so the notice can no longer count on the role
   picker being passed through; whoever shows it asks here first.
 
-  The memory lives in `activeStore()`, the same place the session does, because
-  it belongs to this person rather than to this machine. On a shared computer
-  without "Remember me" it dies with the tab, and they are told once more next
-  time. That is the right way round: a new session is a new chance to notice.
+  The memory lives in localStorage, per account (`lms_seen_rejections:<userId>`),
+  as the last school does (owner 2026-10-25). It used to live in `activeStore()`
+  beside the session, so without "Remember me" it died with the tab and every new
+  sign-in announced the same old refusal again: a test school turned down weeks
+  ago popped up each morning. Per account, another person on the same computer is
+  never told it is seen; a new refusal is a new id and still speaks. What a
+  session remembered under the old key is still read, so nothing seen before is
+  announced again.
 */
 
 const SEEN_KEY = 'lms_seen_rejections';
@@ -21,9 +25,21 @@ const SEEN_KEY = 'lms_seen_rejections';
    id that falls off the end belongs to a decision made long ago. */
 const REMEMBER_LAST = 20;
 
-export const readSeen = () => {
+/** The localStorage key for this account; null without one (then the old per-session key). */
+export const seenKeyOf = (userId) => (userId ? `${SEEN_KEY}:${userId}` : null);
+
+/* The signed-in account, as AuthContext keeps it (`lms_user`, beside the session). */
+const currentUserId = () => {
   try {
-    const raw = activeStore().getItem(SEEN_KEY);
+    return JSON.parse(activeStore().getItem('lms_user') ?? 'null')?.id ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const listIn = (store, key) => {
+  try {
+    const raw = key ? store.getItem(key) : null;
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed) ? parsed : [];
   } catch {
@@ -34,10 +50,18 @@ export const readSeen = () => {
   }
 };
 
+export const readSeen = () => {
+  const own = listIn(localStorage, seenKeyOf(currentUserId()));
+  const legacy = listIn(activeStore(), SEEN_KEY);
+  return [...new Set([...own, ...legacy])];
+};
+
 export const rememberRejection = (id) => {
   try {
     const next = [...new Set([...readSeen(), id])].slice(-REMEMBER_LAST);
-    activeStore().setItem(SEEN_KEY, JSON.stringify(next));
+    const key = seenKeyOf(currentUserId());
+    if (key) localStorage.setItem(key, JSON.stringify(next));
+    else activeStore().setItem(SEEN_KEY, JSON.stringify(next));
   } catch {
     /* Storage refused. The dialog will simply say it again next time. */
     return;

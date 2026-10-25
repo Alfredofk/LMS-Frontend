@@ -9,7 +9,7 @@ import Toast from '../components/ui/Toast';
 import AccountMenu from '../components/AccountMenu';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../i18n/LanguageContext';
-import { GOVERNING_BODY_ADMINS, GOVERNING_BODY_HOME, signedInHome } from '../constants/roles';
+import { GOVERNING_BODY_ADMINS, GOVERNING_BODY_HOME, GOVERNING_BODY_SCHOOLS, signedInHome } from '../constants/roles';
 
 /*
   The shell for a Governing Body's admin (backend b5cfffd; owner, 2026-10-24: "like
@@ -17,13 +17,15 @@ import { GOVERNING_BODY_ADMINS, GOVERNING_BODY_HOME, signedInHome } from '../con
   around a school role, and a seat's sign-in holds none - its token names the body
   and no school. So: the brand, the language switch, the avatar menu (switching to
   another place, settings, log out), and a tab row: the body's page and, since
-  backend 3d7d05a, its admins (ticket 04), until its dashboard arrives (ticket 07).
+  backend 3d7d05a, its admins (ticket 04), and between them since ed0d304 its
+  Schools (ticket 05), until its dashboard arrives (ticket 07).
 
   Only for a sign-in that is for a body; anybody else is sent where they belong.
 */
 
 const PAGES = [
   { to: GOVERNING_BODY_HOME, key: 'gb.nav.home' },
+  { to: GOVERNING_BODY_SCHOOLS, key: 'gb.nav.schools' },
   { to: GOVERNING_BODY_ADMINS, key: 'gb.nav.admins' },
 ];
 
@@ -56,7 +58,7 @@ export const GoverningBodyLayout = () => {
             <NavLink
               key={page.to}
               to={page.to}
-              end
+              end={page.to !== GOVERNING_BODY_SCHOOLS}
               className={({ isActive }) =>
                 `pb-3 pt-1 text-sm font-extrabold border-b-2 whitespace-nowrap shrink-0 transition-colors focus:outline-none focus-visible:text-brand ${
                   isActive ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-700'

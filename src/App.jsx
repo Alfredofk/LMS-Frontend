@@ -33,8 +33,11 @@ const AccountPage = lazy(() => import('./views/Account/AccountPage'));
 const AdminRegistrationsPage = lazy(() => import('./views/Admin/AdminRegistrationsPage'));
 const AdminHolidaysPage = lazy(() => import('./views/Admin/AdminHolidaysPage'));
 const GoverningBodyRegistrationsPage = lazy(() => import('./views/Admin/GoverningBodyRegistrationsPage'));
+const AdminSchoolsPage = lazy(() => import('./views/Admin/AdminSchoolsPage'));
 const GoverningBodyPage = lazy(() => import('./views/GoverningBody/GoverningBodyPage'));
 const GoverningBodyAdminsPage = lazy(() => import('./views/GoverningBody/GoverningBodyAdminsPage'));
+const GoverningBodySchoolsPage = lazy(() => import('./views/GoverningBody/GoverningBodySchoolsPage'));
+const GoverningBodyNewSchoolsPage = lazy(() => import('./views/GoverningBody/GoverningBodyNewSchoolsPage'));
 const VerifyEmailPage = lazy(() => import('./views/Verify/VerifyEmailPage'));
 const ForgotPasswordPage = lazy(() => import('./views/Password/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('./views/Password/ResetPasswordPage'));
@@ -186,6 +189,7 @@ const router = createBrowserRouter(
           >
             <Route path="/admin/school-registrations" element={<AdminRegistrationsPage />} />
             <Route path="/admin/governing-body-registrations" element={<GoverningBodyRegistrationsPage />} />
+            <Route path="/admin/schools" element={<AdminSchoolsPage />} />
             <Route path="/admin/holidays" element={<AdminHolidaysPage />} />
           </Route>
 
@@ -200,6 +204,8 @@ const router = createBrowserRouter(
             }
           >
             <Route path="/governing-body" element={<GoverningBodyPage />} />
+            <Route path="/governing-body/schools" element={<GoverningBodySchoolsPage />} />
+            <Route path="/governing-body/schools/new" element={<GoverningBodyNewSchoolsPage />} />
             <Route path="/governing-body/admins" element={<GoverningBodyAdminsPage />} />
           </Route>
 

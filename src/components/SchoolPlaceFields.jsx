@@ -25,6 +25,10 @@ import { TIME_ZONES, splitCoordinatePair } from '../utils/validation';
   follows provinces, not a meridian (school.schema.js). So there is no default —
   a school in Balikpapan must not be quietly filed as WIB.
 
+  `locate={false}` drops the button, for a Governing Body's admin creating its
+  Schools from an office: where they stand is not where the school is (owner,
+  2026-10-25).
+
   Controlled: `values` holds `latitude`, `longitude` and `timeZone` as strings,
   `onChange(name, value)` reports each, `errors` holds sentences.
 */
@@ -34,7 +38,7 @@ const ZONE_KEYS = { WIB: 'place.timeZone.WIB', WITA: 'place.timeZone.WITA', WIT:
 const canLocate = () =>
   typeof window !== 'undefined' && window.isSecureContext && typeof navigator !== 'undefined' && 'geolocation' in navigator;
 
-export const LocationFields = ({ values, errors = {}, onChange, idPrefix = 'place' }) => {
+export const LocationFields = ({ values, errors = {}, onChange, idPrefix = 'place', locate: offerLocate = true }) => {
   const { t } = useT();
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState(null);
@@ -97,7 +101,7 @@ export const LocationFields = ({ values, errors = {}, onChange, idPrefix = 'plac
 
       <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{t('place.hint')}</p>
 
-      {canLocate() && (
+      {offerLocate && canLocate() && (
         <button
           type="button"
           onClick={locate}

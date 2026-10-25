@@ -107,6 +107,20 @@ export function registrationErrorMessage(err, t) {
   return t(hit ? hit[1] : 'reg.conflict.other');
 }
 
+/**
+ * The Governing Body holding this NPSN, when a School Registration is refused because a
+ * body's School has it (backend ed0d304, K6c: `details.governingBody.name`); otherwise
+ * null. Any other taken NPSN keeps the vague sentence. The name is read from the
+ * sentence when the details are missing, as "registered by <name>. Ask".
+ */
+export function npsnHeldByBodyOf(err) {
+  if (err?.code !== 'CONFLICT') return null;
+  const named = err.details?.governingBody?.name;
+  if (typeof named === 'string' && named.trim()) return named.trim();
+  const match = String(err.message ?? '').match(/^This NPSN is registered by (.+?)\. Ask it for/);
+  return match ? match[1] : null;
+}
+
 /*
   Several schools per person (backend 72e546b, membership.eligibility.js assertMayJoin):
   joining is refused, on its sentence, at a school one already belongs to or has a
@@ -222,6 +236,47 @@ export function governingBodySeatErrorMessage(err, t) {
   const hit = GOVERNING_BODY_SEAT_BY_MESSAGE.find(([needle]) => message.includes(needle));
   return hit ? t(hit[1]) : apiErrorMessage(err, t);
 }
+
+/*
+  A Governing Body's Schools (backend ed0d304/9697362, governingBody.schools.js):
+  creating and fixing, by their sentences. Several taken NPSNs are named by row from
+  `details.rows`; one taken is the registration's sentence. "these NPSNs" before
+  "NPSN is already registered", which a single row's sentence holds.
+*/
+const BODY_SCHOOLS_BY_MESSAGE = [
+  ['has had a Principal', 'gbs.error.hadPrincipal'],
+  ['This school changed meanwhile', 'gbs.error.changed'],
+  ['registered meanwhile, so no school was created', 'gbs.error.npsnMeanwhile'],
+  ['NPSN is already registered or under review', 'reg.conflict.npsn'],
+  ['School not found', 'gbs.error.gone'],
+  ['An SMK must state its duration', 'validation.duration.required'],
+  ['An SMK runs 3 or 4 years', 'gbs.error.duration'],
+];
+
+export function bodySchoolsErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  const rows = Array.isArray(err?.details?.rows) ? err.details.rows : [];
+  if (err?.code === 'CONFLICT' && rows.length > 1) {
+    return t('gbs.error.npsnRows', { rows: rows.map((entry) => entry.row).join(', ') });
+  }
+  if (err?.code === 'CONFLICT' && rows.length === 1) {
+    return t('gbs.error.npsnRow', { row: rows[0].row });
+  }
+  const hit = BODY_SCHOOLS_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  return hit ? t(hit[1]) : apiErrorMessage(err, t);
+}
+
+/** Whether the School on screen is out of date: changed meanwhile or gone. Read the list again. */
+export function isStaleBodySchool(err) {
+  const message = String(err?.message ?? '');
+  return ['This school changed meanwhile', 'School not found'].some((needle) => message.includes(needle));
+}
+
+/**
+ * Whether a fix was refused because the School has had a Principal (backend 9697362):
+ * the list's `hasPrincipal` says only whether one sits now, so this is learnt here.
+ */
+export const isHadPrincipal = (err) => String(err?.message ?? '').includes('has had a Principal');
 
 /*
   Asking to be a Governing Body's admin through its code (backend 3d7d05a): the

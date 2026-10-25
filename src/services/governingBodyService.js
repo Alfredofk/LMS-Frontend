@@ -1,7 +1,7 @@
 /**
- * The backend's /api/governing-body contract (backend b5cfffd and 3d7d05a,
- * governing-body tickets 03 and 04), thin over apiClient: the seat's own read and
- * its admins, and the applicant's registration. Every admin reads the admins,
+ * The backend's /api/governing-body contract (backend b5cfffd, 3d7d05a and ed0d304,
+ * governing-body tickets 03 to 05), thin over apiClient: the seat's own read, its
+ * admins and its Schools, and the applicant's registration. Every admin reads the admins,
  * changes the address and phone, replaces the code and leaves unless the last; only
  * the senior admin approves, rejects and removes (403 for the rest).
  */
@@ -63,6 +63,43 @@ export const governingBodyService = {
    * @throws {ApiError} CONFLICT for the last admin
    */
   leave: () => api.post('/governing-body/leave'),
+
+  /**
+   * The body's Schools, by name (`GET /governing-body/schools`, backend ed0d304): each
+   * `{ id, npsn, name, schoolType, durationYears, city, latitude, longitude, timeZone,
+   * subdomain, schoolCode, hasPrincipal, deactivatedAt, createdAt }`. `hasPrincipal` is
+   * a Principal sitting now, not one who ever sat.
+   */
+  async schools() {
+    const answer = await api.get('/governing-body/schools');
+    return answer?.schools ?? [];
+  },
+
+  /**
+   * Create 1-10 Schools at once, all or none (`POST /governing-body/schools`):
+   * `{ schools: [{ npsn, schoolName, schoolType, city, latitude, longitude, timeZone,
+   * durationYears? }] }`, each live at once with its code and address and no Principal.
+   * 201 `{ schools, message }`.
+   *
+   * @throws {ApiError} CONFLICT for an NPSN taken (`details.rows: [{ row, index, npsn }]`)
+   *   or taken meanwhile; BAD_REQUEST per row (`schools.<i>.<field>`)
+   */
+  async createSchools(schools) {
+    const answer = await api.post('/governing-body/schools', { schools });
+    return answer?.schools ?? [];
+  },
+
+  /**
+   * Fix a School's name, NPSN, type or an SMK's duration (`PATCH .../schools/:id`), only
+   * while it has never had a Principal; the address does not follow. `{ school, message }`.
+   *
+   * @throws {ApiError} CONFLICT once it has had a Principal, changed meanwhile or an NPSN
+   *   taken; NOT_FOUND for another body's or none
+   */
+  async fixSchool(schoolId, patch) {
+    const answer = await api.patch(`/governing-body/schools/${encodeURIComponent(schoolId)}`, patch);
+    return answer?.school ?? null;
+  },
 
   /**
    * Register a yayasan, perkumpulan or dinas (`POST /api/governing-body-registrations`),

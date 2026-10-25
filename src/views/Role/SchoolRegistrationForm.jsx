@@ -7,7 +7,7 @@ import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
 import { schoolService } from '../../services/schoolService';
 import { useT } from '../../i18n/LanguageContext';
-import { apiErrorMessage, registrationErrorMessage } from '../../i18n/apiError';
+import { apiErrorMessage, npsnHeldByBodyOf, registrationErrorMessage } from '../../i18n/apiError';
 import { SCHOOL_TYPE_NAMES, choosesDuration, SCHOOL_TYPES } from '../../constants/schoolTypes';
 import {
   validateNpsn,
@@ -131,7 +131,12 @@ export const SchoolRegistrationForm = ({ doneTo = '/select-role' }) => {
         share that code here, see i18n/apiError.js.
       */
       const fieldErrors = fieldErrorsFrom(err.details, OWNED_FIELDS);
-      if (Object.keys(fieldErrors).length) {
+      /* An NPSN a Governing Body's school holds is named by the body, on the NPSN box
+         (backend ed0d304, K6c; owner 2026-10-25). */
+      const body = npsnHeldByBodyOf(err);
+      if (body) {
+        setErrors((prev) => ({ ...prev, global: null, npsn: t('reg.conflict.bodyNpsn', { body }) }));
+      } else if (Object.keys(fieldErrors).length) {
         setErrors((prev) => ({ ...prev, ...fieldErrors }));
       } else {
         setErrors((prev) => ({

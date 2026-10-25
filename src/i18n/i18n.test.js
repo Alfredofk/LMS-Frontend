@@ -28,7 +28,7 @@ import id from './id.js';
 import en from './en.js';
 import { LANGUAGES } from './languages.js';
 import { ROLES, ROLE_LABEL_KEY, ROLE_TAGLINE_KEY } from '../constants/roles.js';
-import { decisionErrorMessage, governingBodyAdminErrorMessage, bodyRegistrationErrorMessage, joinErrorMessage, bodyApplicationErrorMessage, governingBodySeatErrorMessage, isStaleSeat, isAlreadyDecided, academicsErrorMessage, assessmentErrorMessage, isStaleAssessment, copyEditErrorMessage, isStaleCopy, gradingErrorMessage, isGradingLocked, descriptionsErrorMessage, isDescriptionsLocked, isFinalisedRefusal, finalisingErrorMessage, isStaleFinalising, apiErrorMessage, notesErrorMessage, isStaleNotes, closeErrorMessage, isStaleClose, reopenErrorMessage, isStaleReopen } from './apiError.js';
+import { npsnHeldByBodyOf, registrationErrorMessage, decisionErrorMessage, governingBodyAdminErrorMessage, bodyRegistrationErrorMessage, joinErrorMessage, bodyApplicationErrorMessage, governingBodySeatErrorMessage, isStaleSeat, isAlreadyDecided, academicsErrorMessage, assessmentErrorMessage, isStaleAssessment, copyEditErrorMessage, isStaleCopy, gradingErrorMessage, isGradingLocked, descriptionsErrorMessage, isDescriptionsLocked, isFinalisedRefusal, finalisingErrorMessage, isStaleFinalising, apiErrorMessage, notesErrorMessage, isStaleNotes, closeErrorMessage, isStaleClose, reopenErrorMessage, isStaleReopen } from './apiError.js';
 import { SESSION_STATE_KEYS, sessionState } from '../views/Subjects/timetable.js';
 
 const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -646,6 +646,20 @@ describe('the NPYP: refusals by sentence (backend c79b56f, governingBody.service
     expect(bodyRegistrationErrorMessage(refused('This SK number is already registered or under review'), t)).toBe('gbreg.error.skTaken');
     expect(governingBodyAdminErrorMessage(refused('This NPYP is already registered'), t)).toBe('gbr.error.npypTaken');
     expect(governingBodyAdminErrorMessage(refused('This NPYP is already registered or under review'), t)).toBe('gbr.error.npypTaken');
+  });
+
+  it("names the foundation holding an NPSN, from the details or else from the sentence (backend ed0d304, K6c)", () => {
+    const sentence = 'This NPSN is registered by [Uji] Yayasan Coba. Ask it for the school\'s code to apply as its Principal';
+    expect(npsnHeldByBodyOf({ ...refused(sentence), details: { governingBody: { name: 'Yayasan Harapan' } } })).toBe('Yayasan Harapan');
+    expect(npsnHeldByBodyOf(refused(sentence))).toBe('[Uji] Yayasan Coba');
+  });
+
+  it('leaves every other taken NPSN to the vague sentence', () => {
+    const vague = refused('This NPSN is already registered or under review');
+    expect(npsnHeldByBodyOf(vague)).toBeNull();
+    expect(registrationErrorMessage(vague, (key) => key)).toBe('reg.conflict.npsn');
+    expect(npsnHeldByBodyOf({ ...refused('x'), code: 'BAD_REQUEST', details: { governingBody: { name: 'Y' } } })).toBeNull();
+    expect(npsnHeldByBodyOf(null)).toBeNull();
   });
 
   it("says the correction's NPYP rules", () => {

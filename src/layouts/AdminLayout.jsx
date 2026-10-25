@@ -30,6 +30,8 @@ import { homeFor } from '../constants/roles';
 const ADMIN_PAGES = [
   { to: '/admin/school-registrations', key: 'admin.nav.registrations' },
   { to: '/admin/governing-body-registrations', key: 'admin.nav.governingBodies' },
+  /* Every School, a Governing Body's included (backend ed0d304; owner 2026-10-25). */
+  { to: '/admin/schools', key: 'admin.nav.schools' },
   { to: '/admin/holidays', key: 'admin.nav.holidays' },
 ];
 export const AdminLayout = () => {
@@ -90,7 +92,9 @@ export const AdminLayout = () => {
             </button>
           </div>
         </div>
-        <nav className="max-w-6xl mx-auto px-4 sm:px-6 flex gap-6 overflow-x-auto select-none" aria-label={t('admin.nav.label')}>
+        {/* Four tabs since backend ed0d304 scroll sideways on a narrow screen; the bar
+            itself is hidden, as on a subject's tab row. */}
+        <nav className="max-w-6xl mx-auto px-4 sm:px-6 flex gap-6 overflow-x-auto select-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label={t('admin.nav.label')}>
           {ADMIN_PAGES.map((page) => (
             <NavLink
               key={page.to}

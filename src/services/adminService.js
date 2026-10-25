@@ -158,6 +158,20 @@ export const adminService = {
    *   label it has, one another school holds, or one changed meanwhile
    */
   changeSubdomain: (schoolId, subdomain) => api.patch(`/admin/schools/${encodeURIComponent(schoolId)}/subdomain`, { subdomain }),
+
+  /**
+   * Every School, independent or a Governing Body's (`GET /admin/schools`, backend
+   * ed0d304): a body's School has no registration, so the queue never shows it. Only
+   * the parameters with a value are sent (`schoolsQueryOf` builds them).
+   *
+   * @param {{ q?: string, deactivated?: 'true'|'false', sort?: 'name'|'newest'|'oldest',
+   *   limit?: number, offset?: number }} [query]
+   * @returns {Promise<{ schools: Array<{ id, npsn, name, schoolType, durationYears, city,
+   *   subdomain, schoolCode, timeZone, governingBody: { id, name } | null,
+   *   registrationId: string | null, deactivatedAt, deactivationReason, createdAt }>,
+   *   total: number, page: { limit, offset, returned } }>}
+   */
+  schools: (query = {}) => api.get('/admin/schools', { query }),
 };
 
 export default adminService;

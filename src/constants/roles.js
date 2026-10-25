@@ -428,6 +428,9 @@ export const GOVERNING_BODY_HOME = '/governing-body';
 /** Its admins and the applications to be one (backend 3d7d05a; owner, 2026-10-24: a tab of its own). */
 export const GOVERNING_BODY_ADMINS = '/governing-body/admins';
 
+/** Its Schools, and creating them (backend ed0d304; owner, 2026-10-25: a tab between the two). */
+export const GOVERNING_BODY_SCHOOLS = '/governing-body/schools';
+
 /** Where to send somebody who holds these roles and has picked `activeRole`. */
 export const homeFor = (role) => ROLE_HOME[role] ?? '/select-role';
 

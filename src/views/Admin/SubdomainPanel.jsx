@@ -21,6 +21,10 @@ import { schoolAddressOf, subdomainLabelError } from '../../constants/subdomain'
   label is checked as the server checks it (a DNS label, not a reserved word, not
   the one it has); a label another place holds is the server's to say.
 
+  Since backend ed0d304 also on the list of every School (`AdminSchoolDetail`), given
+  `school` - the list's row, keyed by the school itself, a Governing Body's School
+  having no registration.
+
   `onChanged(subdomain)` hands the new label up, for a body whose view shows it.
 */
 
@@ -35,12 +39,14 @@ const SUBDOMAIN_BY_MESSAGE = [
   ['Governing body not found', 'subdomain.error.gone.body'],
 ];
 
-const SubdomainPanel = ({ registration, body, showToast, onChanged }) => {
+const SubdomainPanel = ({ registration, school, body, showToast, onChanged }) => {
   const { t } = useT();
   const isBody = Boolean(body);
   const place = isBody
     ? { id: body.id, name: body.name, subdomain: body.subdomain }
-    : { id: registration?.school?.id, name: registration?.schoolName, subdomain: registration?.school?.subdomain };
+    : school
+      ? { id: school.id, name: school.name, subdomain: school.subdomain }
+      : { id: registration?.school?.id, name: registration?.schoolName, subdomain: registration?.school?.subdomain };
   const [current, setCurrent] = useState(place.subdomain ?? null);
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState('');

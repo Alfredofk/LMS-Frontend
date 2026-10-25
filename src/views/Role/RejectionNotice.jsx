@@ -27,10 +27,9 @@ import { useT } from '../../i18n/LanguageContext';
   thing that was rejected is remembered, and a **new** rejection — a fresh
   registration, a fresh join request — is a new id and speaks again.
 
-  The memory lives in `activeStore()`, the same place the session does, because
-  it belongs to this person rather than to this machine. On a shared computer
-  without "Remember me" it dies with the tab, and they are told once more next
-  time. That is the right way round: a new session is a new chance to notice.
+  The memory lives in localStorage per account since 2026-10-25 (rejections.js
+  says why): once per refusal on this device, whether or not "Remember me" was
+  ticked.
 
   ## Both kinds, one dialog
 
