@@ -21,6 +21,10 @@ import { validateEmail, fieldErrorsFrom } from '../../utils/validation';
   does not guess. Whoever held PRINCIPAL loses it — one who also teaches stays
   as a teacher, one holding nothing else leaves with this reason — so the
   confirmation says so.
+
+  Given `school` instead of `registration` (backend 38ec9ce, ticket 06b), it appoints by
+  the School's own id - for any School, a Governing Body's included, which the server
+  allows only while the body is switched off (said in `note`, and in its refusal).
 */
 const MIN_REASON = 3;
 const MAX_REASON = 500;
@@ -30,9 +34,10 @@ const APPOINT_BY_MESSAGE = [
   ['already the Principal', 'admin.appoint.error.alreadyPrincipal'],
   ['must be an active teacher', 'admin.appoint.error.noTeacher'],
   ['Only an approved registration', 'admin.appoint.error.notApproved'],
+  ['Its governing body appoints its Principal', 'adminSchools.error.bodyAppoints'],
 ];
 
-const AppointPrincipalPanel = ({ registration, showToast }) => {
+const AppointPrincipalPanel = ({ registration, school, note, onAppointed, showToast }) => {
   const { t } = useT();
   const [email, setEmail] = useState('');
   const [reason, setReason] = useState('');
@@ -40,6 +45,7 @@ const AppointPrincipalPanel = ({ registration, showToast }) => {
   const [confirming, setConfirming] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [done, setDone] = useState(null);
+  const schoolName = registration?.schoolName ?? school?.name ?? '';
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -56,13 +62,16 @@ const AppointPrincipalPanel = ({ registration, showToast }) => {
   const appoint = async () => {
     setIsSending(true);
     try {
-      const answer = await adminService.appointPrincipal(registration.id, email.trim().toLowerCase(), reason.trim());
+      const answer = school
+        ? await adminService.appointPrincipalAt(school.id, email.trim().toLowerCase(), reason.trim())
+        : await adminService.appointPrincipal(registration.id, email.trim().toLowerCase(), reason.trim());
       setConfirming(false);
       setDone(answer?.principal?.fullName ?? '');
       setEmail('');
       setReason('');
       setErrors({});
-      showToast?.(t('admin.appoint.done', { name: answer?.principal?.fullName ?? '', school: registration.schoolName }), 'success');
+      showToast?.(t('admin.appoint.done', { name: answer?.principal?.fullName ?? '', school: schoolName }), 'success');
+      onAppointed?.(answer?.school ?? null);
     } catch (err) {
       setConfirming(false);
       const fields = fieldErrorsFrom(err.details, ['email', 'reason']);
@@ -86,12 +95,13 @@ const AppointPrincipalPanel = ({ registration, showToast }) => {
         <div className="min-w-0">
           <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">{t('admin.appoint.section')}</h3>
           <p className="text-xs font-semibold text-slate-500 mt-1 leading-relaxed">{t('admin.appoint.lead')}</p>
+          {note && <p className="text-xs font-semibold text-amber-700 mt-1 leading-relaxed">{note}</p>}
         </div>
       </div>
 
       {done !== null && (
         <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50 text-xs font-semibold text-emerald-800" role="status">
-          {t('admin.appoint.done', { name: done, school: registration.schoolName })}
+          {t('admin.appoint.done', { name: done, school: schoolName })}
         </div>
       )}
 
@@ -145,8 +155,8 @@ const AppointPrincipalPanel = ({ registration, showToast }) => {
       <ConfirmDialog
         open={confirming}
         tone="danger"
-        title={t('admin.appoint.confirm.title', { school: registration.schoolName })}
-        body={t('admin.appoint.confirm.body', { email: email.trim().toLowerCase(), school: registration.schoolName })}
+        title={t('admin.appoint.confirm.title', { school: schoolName })}
+        body={t('admin.appoint.confirm.body', { email: email.trim().toLowerCase(), school: schoolName })}
         confirmLabel={t('admin.appoint.action')}
         cancelLabel={t('common.cancel')}
         busy={isSending}

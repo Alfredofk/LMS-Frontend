@@ -41,7 +41,7 @@ import {
 
 const OWNED_FIELDS = ['kind', 'name', 'npyp', 'skNumber', 'street', 'village', 'district', 'city', 'province', 'postalCode', 'applicantPhone', 'ktp', 'proof'];
 
-const FileField = ({ id, label, hint, accept, file, error, onPick, chooseLabel }) => {
+export const FileField = ({ id, label, hint, accept, file, error, onPick, chooseLabel }) => {
   const ref = useRef(null);
   return (
     <div className="space-y-1.5">

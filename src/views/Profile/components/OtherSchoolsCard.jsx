@@ -10,6 +10,7 @@ import { membershipService } from '../../../services/membershipService';
 import { schoolService } from '../../../services/schoolService';
 import GoverningBodyRegistrationLine from '../../../components/GoverningBodyRegistrationLine';
 import GoverningBodySeatLines from '../../../components/GoverningBodySeatLines';
+import PrincipalApplicationLines from '../../../components/PrincipalApplicationLines';
 import { hasGoverningBody, mayJoinAnother, openPlaceOf, otherPlacesOf, otherSchoolRows, placeRoleKeysOf, samePlace } from '../../../constants/places';
 
 /*
@@ -172,6 +173,9 @@ export const OtherSchoolsCard = () => {
 
       {/* Being an admin of one through its code (backend 3d7d05a): its outcomes and the link. */}
       {canJoin && <GoverningBodySeatLines />}
+
+      {/* Applying to head a Governing Body's School with its code (backend e206bd9): its outcomes and the link. */}
+      {canJoin && <PrincipalApplicationLines />}
 
       <ConfirmDialog
         open={Boolean(cancelling)}

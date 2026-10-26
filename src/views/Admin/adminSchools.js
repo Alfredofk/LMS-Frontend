@@ -46,3 +46,23 @@ export function registrationLinkOf(school) {
   if (!school?.registrationId) return null;
   return { pathname: '/admin/school-registrations', state: { open: { id: school.registrationId, status: 'APPROVED', q: school.npsn } } };
 }
+
+/**
+ * Which of "Kelola sekolah"'s actions a School offers the Platform Admin (backend
+ * 38ec9ce / fdf0267): switch off while it runs; switch back on while off; and for a
+ * Governing Body's School switched off, lock it ("Kunci penonaktifan": take the body's
+ * deactivation over, so the body cannot switch it on) - until a refusal says the
+ * deactivation is the Platform Admin's already (`locked`). The row says neither whose
+ * the deactivation is nor whether the body is switched off (asked of David), so
+ * appointing and the applications are offered for every body School, with a note.
+ */
+export function adminActionsOf(school, { locked = false } = {}) {
+  const off = Boolean(school?.deactivatedAt);
+  const governed = Boolean(school?.governingBody);
+  return {
+    deactivate: !off,
+    reactivate: off,
+    lock: off && governed && !locked,
+    governed,
+  };
+}

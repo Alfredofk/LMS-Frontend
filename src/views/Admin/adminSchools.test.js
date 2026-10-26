@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { SCHOOLS_PAGE, registrationLinkOf, schoolsQueryOf, withPage, withSchool } from './adminSchools';
+import { SCHOOLS_PAGE, adminActionsOf, registrationLinkOf, schoolsQueryOf, withPage, withSchool } from './adminSchools';
 
 // school.schema.js schoolListQuery and school.service.js schoolListView (backend ed0d304).
 describe('platform admin schools - the query', () => {
@@ -53,5 +53,22 @@ describe('platform admin schools - the rows', () => {
   it("links a Governing Body's school nowhere", () => {
     expect(registrationLinkOf({ id: 's', npsn: '1', registrationId: null })).toBeNull();
     expect(registrationLinkOf(null)).toBeNull();
+  });
+});
+
+// school.service.js deactivateSchoolById / takeOverDeactivation (backend fdf0267).
+describe('admin schools - the actions', () => {
+  const body = { id: 'b1', name: 'Yayasan A' };
+
+  it('an independent School: switch off, or back on', () => {
+    expect(adminActionsOf({ deactivatedAt: null, governingBody: null })).toEqual({ deactivate: true, reactivate: false, lock: false, governed: false });
+    expect(adminActionsOf({ deactivatedAt: '2026-10-26T03:00:00Z', governingBody: null })).toEqual({ deactivate: false, reactivate: true, lock: false, governed: false });
+  });
+
+  it("a body's School switched off may be locked until it is found the Platform Admin's already", () => {
+    const off = { deactivatedAt: '2026-10-26T03:00:00Z', governingBody: body };
+    expect(adminActionsOf(off)).toEqual({ deactivate: false, reactivate: true, lock: true, governed: true });
+    expect(adminActionsOf(off, { locked: true }).lock).toBe(false);
+    expect(adminActionsOf({ deactivatedAt: null, governingBody: body }).lock).toBe(false);
   });
 });

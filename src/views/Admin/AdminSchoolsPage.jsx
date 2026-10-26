@@ -22,8 +22,9 @@ import { SCHOOL_SORTS, SCHOOL_STATES, schoolsQueryOf, withPage, withSchool } fro
     Governing Body or "Mandiri" beside it, as text. The School Code is not shown
     (owner): the admin hands none out.
   - A row opens `AdminSchoolDetail` in place of the list, as a registration's
-    review does: its facts, its address, and for an independent School the way to
-    its registration's review, where it is switched off and given a Principal.
+    review does: its facts, its address, switching it off and on and its Principal
+    by the School's own id (tickets 06b-08), its history under bodies, a body School's
+    Principal applications, and for an independent School its registration's review.
   - A 403 is this account not being a Platform Admin, said as the queue says it.
 */
 

@@ -131,6 +131,10 @@ const JOIN_BY_MESSAGE = [
   ['already belong to this school', 'join.conflict.memberHere'],
   /* A live admin seat refuses a STUDENT request (backend 3d7d05a); before the general one. */
   ['You are an admin of a governing body', 'join.conflict.studentSeat'],
+  /* A waiting Principal application refuses one too (backend e206bd9). */
+  ['You have applied to be the Principal of a school', 'join.conflict.studentApplication'],
+  /* A body's School with no Principal takes only an application (e206bd9), should a join slip past the lookup. */
+  ['takes only an application to be its Principal', 'join.conflict.principalWanted'],
   ['A student belongs to one school only', 'join.conflict.student'],
 ];
 
@@ -273,8 +277,8 @@ export function isStaleBodySchool(err) {
 }
 
 /**
- * Whether a fix was refused because the School has had a Principal (backend 9697362):
- * the list's `hasPrincipal` says only whether one sits now, so this is learnt here.
+ * Whether a fix was refused because the School has had a Principal (backend 9697362).
+ * The list says `hadPrincipal` since f669e3e; this still catches one gained meanwhile.
  */
 export const isHadPrincipal = (err) => String(err?.message ?? '').includes('has had a Principal');
 
@@ -301,6 +305,179 @@ export function bodyApplicationErrorMessage(err, t) {
   const hit = BODY_APPLICATION_BY_MESSAGE.find(([needle]) => message.includes(needle));
   return hit ? t(hit[1]) : apiErrorMessage(err, t);
 }
+
+/*
+  Applying to be a Governing Body School's Principal (backend e206bd9,
+  governingBody.principals.js submitApplication / cancelApplication): every refusal a
+  CONFLICT or NOT_FOUND told apart by its sentence. "This school has a Principal" is
+  the one an applicant meets; the automatic rejection's "The school has a Principal
+  now" is a reason, never an error. The lookup before it keeps joinErrorMessage.
+*/
+const PRINCIPAL_APPLICATION_BY_MESSAGE = [
+  ['No school uses that code', 'pa.error.unknown'],
+  ['Only a school run by a governing body', 'pa.error.notGoverned'],
+  ['This school has a Principal', 'pa.error.hasPrincipal'],
+  ['You already belong to this school, or have asked to join it', 'pa.error.memberHere'],
+  ['join request waiting for approval at this school', 'join.conflict.pendingHere'],
+  ['already belong to this school', 'join.conflict.memberHere'],
+  ['A student belongs to one school only', 'pa.error.student'],
+  ['You already have a Principal application waiting', 'pa.error.waiting'],
+  ['Too many rejected Principal applications', 'pa.error.tooManyRejected'],
+  ['Too many incorrect codes', 'gbapp.error.tooManyCodes'],
+  ['No Principal application of yours is waiting', 'pa.error.decided'],
+  ['has already been decided', 'pa.error.decided'],
+];
+
+export function principalApplicationErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  const hit = PRINCIPAL_APPLICATION_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  return hit ? t(hit[1]) : apiErrorMessage(err, t);
+}
+
+/*
+  A Governing Body's admins deciding a Principal application (backend e206bd9,
+  governingBody.principals.js approveAs / rejectAs): decided elsewhere, gone, or the
+  School headed meanwhile mean the list is out of date (`isStalePrincipalDecision`:
+  a toast and a fresh read); the applicant's own standing is said in the dialog.
+*/
+const PRINCIPAL_DECISION_BY_MESSAGE = [
+  ['has already been decided', 'gbpa.error.decided'],
+  ['Principal application not found', 'gbpa.error.decided'],
+  ['The school has a Principal now', 'gbpa.error.hasPrincipal'],
+  ['The applicant account no longer exists', 'gbpa.error.applicantGone'],
+  ['The applicant joined this school meanwhile', 'gbpa.error.joined'],
+  ['is a student at', 'gbpa.error.student'],
+  ['A rejection reason is required', 'gba.error.reason'],
+];
+
+export function principalDecisionErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  const hit = PRINCIPAL_DECISION_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  return hit ? t(hit[1]) : governingBodySeatErrorMessage(err, t);
+}
+
+/** Whether a decision found the list out of date: read it again. */
+export const isStalePrincipalDecision = (err) =>
+  ['has already been decided', 'Principal application not found', 'The school has a Principal now', 'School not found'].some((needle) => String(err?.message ?? '').includes(needle));
+
+/*
+  A Governing Body's powers over its Schools (backend 261a9c7 / fdf0267,
+  governingBody.powers.js and the cores it shares): the School headed or emptied, off or
+  on, or gone meanwhile reads the School again (`isStaleSchoolPower`); the Platform
+  Admin's deactivation is its own sentence (`isPlatformBrake`), which hides the way back.
+*/
+const SCHOOL_POWER_BY_MESSAGE = [
+  ['only the Platform Admin reactivates it', 'gbpw.error.brake'],
+  ['deactivated by the Platform Admin, meanwhile', 'gbpw.error.changed'],
+  ['No active teacher of this school has that id', 'gbpw.error.notTeacher'],
+  ['This school has no Principal', 'gbpw.error.noPrincipal'],
+  ['A school is released only while it has a Principal', 'gbpw.error.releaseNeedsPrincipal'],
+  ['This school has left this governing body meanwhile', 'gbpw.error.gone'],
+  ['This school is already deactivated', 'gbpw.error.alreadyOff'],
+  ['This school is not deactivated', 'gbpw.error.notOff'],
+  ['School not found', 'gbpw.error.gone'],
+  ['Give the reason', 'gba.error.reason'],
+];
+
+export function schoolPowerErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  const hit = SCHOOL_POWER_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  return hit ? t(hit[1]) : governingBodySeatErrorMessage(err, t);
+}
+
+/** Whether the Platform Admin switched the School off, so the body cannot switch it on. */
+export const isPlatformBrake = (err) => String(err?.message ?? '').includes('only the Platform Admin reactivates it');
+
+/**
+ * Whether a reactivation was refused with the claim's sentence, which means either that
+ * somebody switched the School on meanwhile or that the Platform Admin holds it off
+ * (school.service.js restoreAccess; met for the second on 2026-10-26).
+ */
+export const isAmbiguousReactivation = (err) => String(err?.message ?? '').includes('deactivated by the Platform Admin, meanwhile');
+
+/** Whether the School changed meanwhile: read it again. */
+export const isStaleSchoolPower = (err) =>
+  [
+    'deactivated by the Platform Admin, meanwhile',
+    'This school has no Principal',
+    'A school is released only while it has a Principal',
+    'This school has left this governing body meanwhile',
+    'This school is already deactivated',
+    'This school is not deactivated',
+    'School not found',
+    'No active teacher of this school has that id',
+  ].some((needle) => String(err?.message ?? '').includes(needle));
+
+/*
+  Independent Schools asking to join the body (backend 261a9c7,
+  governingBody.affiliations.js approveRequest / rejectRequest).
+*/
+const AFFILIATION_DECISION_BY_MESSAGE = [
+  ['This request to join has already been decided', 'gbaf.error.decided'],
+  ['Request to join not found', 'gbaf.error.decided'],
+  ['This school has joined a governing body, or been deactivated, meanwhile', 'gbaf.error.taken'],
+  ['A rejection reason is required', 'gba.error.reason'],
+];
+
+export function affiliationDecisionErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  const hit = AFFILIATION_DECISION_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  return hit ? t(hit[1]) : governingBodySeatErrorMessage(err, t);
+}
+
+/** Whether the request list is out of date: read it again. */
+export const isStaleAffiliation = (err) =>
+  ['This request to join has already been decided', 'Request to join not found', 'or been deactivated, meanwhile'].some((needle) => String(err?.message ?? '').includes(needle));
+
+/*
+  An independent School's Principal asking to join a Governing Body (backend 261a9c7,
+  governingBody.affiliations.js requestAffiliation / cancelRequest), and the code's
+  lookup before it. "already belongs" tells the card the School is a body's
+  (`isAlreadyGoverned`), which /users/me does not say.
+*/
+const AFFILIATION_REQUEST_BY_MESSAGE = [
+  ['No governing body uses that code', 'gbapp.error.unknown'],
+  ['This school already belongs to a governing body', 'aff.error.governed'],
+  ['already has a request to join a governing body waiting', 'aff.error.waiting'],
+  ['Too many', 'aff.error.tooMany'],
+  ['No request of this school to join a governing body is waiting', 'aff.error.decided'],
+  ['This request to join has already been decided', 'aff.error.decided'],
+  ['Only the Principal can do this', 'aff.error.notPrincipal'],
+];
+
+export function affiliationRequestErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  if (message.includes('Too many incorrect codes')) return t('gbapp.error.tooManyCodes');
+  const hit = AFFILIATION_REQUEST_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  return hit ? t(hit[1]) : apiErrorMessage(err, t);
+}
+
+/** Whether the School turned out to be a Governing Body's already. */
+export const isAlreadyGoverned = (err) => String(err?.message ?? '').includes('This school already belongs to a governing body');
+
+/*
+  The Platform Admin's powers over any School by its id (backend 38ec9ce / 657845a /
+  fdf0267, school.service.js and governingBody.principals.js): a body still running
+  appoints and decides itself; "already deactivated" on a body's School means the
+  deactivation is the Platform Admin's already.
+*/
+const ADMIN_SCHOOL_BY_MESSAGE = [
+  ['This school is already deactivated', 'adminSchools.error.alreadyOff'],
+  ['This school is not deactivated', 'adminSchools.error.notOff'],
+  ['Its governing body appoints its Principal', 'adminSchools.error.bodyAppoints'],
+  ['Its governing body decides the applications', 'adminSchools.error.bodyDecides'],
+  ['School not found', 'adminSchools.error.gone'],
+  ['A reason is required', 'gba.error.reason'],
+];
+
+export function adminSchoolErrorMessage(err, t) {
+  const message = String(err?.message ?? '');
+  const hit = ADMIN_SCHOOL_BY_MESSAGE.find(([needle]) => message.includes(needle));
+  return hit ? t(hit[1]) : apiErrorMessage(err, t);
+}
+
+/** Whether a body School's applications are its body's to decide right now (the body runs). */
+export const isBodyDecides = (err) => String(err?.message ?? '').includes('Its governing body decides the applications');
 
 /** Whether the admins on screen are out of date: decided, gone or left elsewhere. Read them again. */
 export function isStaleSeat(err) {
@@ -499,6 +676,7 @@ const DECISION_BY_MESSAGE = [
   /* The Student rule again at approval (membership.eligibility.js assertStudentAlone);
      the governing body's since backend 3d7d05a. The school is never named (ADR-0001). */
   ['is an admin of a governing body, or has asked to be one', 'requests.error.applicantSeat'],
+  ['This applicant has applied to be the Principal of a school', 'requests.error.applicantApplication'],
   ['This applicant belongs to another school', 'requests.error.applicantElsewhere'],
   ['This applicant is a student at another school', 'requests.error.applicantStudentElsewhere'],
 ];

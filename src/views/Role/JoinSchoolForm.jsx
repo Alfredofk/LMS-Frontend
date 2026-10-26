@@ -12,6 +12,7 @@ import { membershipService } from '../../services/membershipService';
 import { useT } from '../../i18n/LanguageContext';
 import { joinErrorMessage } from '../../i18n/apiError';
 import { gradesFor } from '../../constants/schoolTypes';
+import { takesApplication } from './principalApplication';
 import {
   normaliseSchoolCode,
   validateSchoolCode,
@@ -284,6 +285,54 @@ export const JoinSchoolForm = ({ intent, doneTo = '/select-role' }) => {
           {t('getStarted.join.action.lookup')}
         </Button>
       </form>
+    );
+  }
+
+  /*
+    A Governing Body's School with no Principal takes only an application to be its
+    Principal (backend e206bd9, ticket 06; owner 2026-10-26, A1): the server would
+    refuse the request, so the second step is not offered and the way to apply is,
+    with the code carried over.
+  */
+  if (takesApplication(school)) {
+    return (
+      <div className="space-y-5 text-left">
+        <div className="flex items-start gap-3 p-4 rounded-2xl bg-brand-tint/60 border border-brand/20">
+          <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-sm">
+            <Building2 className="w-4 h-4 text-brand" aria-hidden="true" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-extrabold text-slate-900 leading-tight break-words">{school.name}</p>
+            <p className="mt-1 flex flex-wrap gap-x-2.5 text-xs font-semibold text-slate-600">
+              <span>{school.schoolType}</span>
+              {school.city && <span>{school.city}</span>}
+            </p>
+            {school.governingBody?.name && <p className="mt-0.5 text-xs font-semibold text-slate-600 break-words">{t('pa.underBody', { body: school.governingBody.name })}</p>}
+            <button
+              type="button"
+              onClick={() => {
+                setSchool(null);
+                setErrors({});
+              }}
+              className="mt-1.5 text-[11px] font-extrabold text-brand hover:text-brand-deep underline underline-offset-2 cursor-pointer focus:outline-none"
+            >
+              {t('getStarted.join.action.changeCode')}
+            </button>
+          </div>
+        </div>
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200" role="status">
+          <p className="text-sm font-extrabold text-amber-900">{t('join.principalWanted.title')}</p>
+          <p className="text-xs font-semibold text-amber-900 leading-relaxed mt-1">{t('join.principalWanted.body')}</p>
+        </div>
+        <Button
+          type="button"
+          size="lg"
+          className="w-full"
+          onClick={() => navigate('/get-started/principal', { state: { schoolCode: normaliseSchoolCode(code) } })}
+        >
+          {t('join.principalWanted.apply')}
+        </Button>
+      </div>
     );
   }
 

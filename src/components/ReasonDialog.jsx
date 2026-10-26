@@ -22,9 +22,10 @@ import { validateLeaveReason } from '../utils/validation';
   Render it only while open, keyed on what it is about, so each opening starts
   empty. `validate` swaps the 3-500 rule for another one (cancelling an
   assessment takes 1-500, assessment.schema.js cancelBody); it answers
-  `{ key, vars? }` or null.
+  `{ key, vars? }` or null. `tone` and `icon` change the look for a request that
+  destroys nothing (a School switched back on with an optional note).
 */
-export const ReasonDialog = ({ title, body, label, hint, confirmLabel, onClose, onSubmit, describeError, validate = validateLeaveReason }) => {
+export const ReasonDialog = ({ title, body, label, hint, confirmLabel, onClose, onSubmit, describeError, validate = validateLeaveReason, tone = 'danger', icon = XCircle }) => {
   const { t } = useT();
   const baseId = useId();
   const [reason, setReason] = useState('');
@@ -85,8 +86,8 @@ export const ReasonDialog = ({ title, body, label, hint, confirmLabel, onClose, 
         className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 sm:p-7 space-y-4 text-left max-h-[90dvh] overflow-y-auto"
       >
         <ModalHeading
-          tone="danger"
-          icon={XCircle}
+          tone={tone}
+          icon={icon}
           titleId={ids.title}
           title={title}
           bodyId={ids.body}
@@ -136,7 +137,7 @@ export const ReasonDialog = ({ title, body, label, hint, confirmLabel, onClose, 
             type="button"
             onClick={handleSubmit}
             disabled={busy}
-            className={modalConfirmClass('danger', busy)}
+            className={modalConfirmClass(tone, busy)}
           >
             {busy ? t('common.loading') : confirmLabel}
           </button>

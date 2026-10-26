@@ -2,7 +2,7 @@ import React from 'react';
 
 /**
  * Reusable and accessible Button component.
- * Supports primary (purple), secondary, outline, ghost, and social circle styles.
+ * Supports primary (purple), secondary, outline, dangerOutline, ghost, and social circle styles.
  *
  * A note that is easy to lose and expensive to rediscover: **a caller's
  * `className` cannot override what this file writes.** Tailwind emits every
@@ -56,6 +56,8 @@ export const Button = React.forwardRef(({
     primary: 'bg-brand hover:bg-brand-deep text-white shadow-md shadow-brand/30 active:scale-[0.98]',
     secondary: 'bg-slate-100 hover:bg-slate-200 text-slate-700 active:scale-[0.98]',
     outline: 'border border-slate-300 hover:bg-slate-50 text-slate-700 active:scale-[0.98]',
+    /* An outlined action that destroys something (ending, switching off, letting go). */
+    dangerOutline: 'border border-rose-200 hover:bg-rose-50 text-rose-700 active:scale-[0.98]',
     ghost: 'hover:bg-slate-100 text-slate-700',
     social: 'border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 shadow-sm active:scale-95 transition-transform',
   };

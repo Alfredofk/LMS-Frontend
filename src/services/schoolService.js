@@ -138,6 +138,32 @@ export const schoolService = {
     const answer = await api.del('/school/logo');
     return answer?.letterhead ?? null;
   },
+
+  /**
+   * Ask a Governing Body to take this independent School in (`POST /school/affiliation-requests`,
+   * backend 261a9c7, the Principal's alone), by the body's code: 201 `{ request, message }`.
+   *
+   * @throws {ApiError} NOT_FOUND for the code; CONFLICT when the School is a body's
+   *   already, one waits, or three were turned down by that body today; FORBIDDEN for a
+   *   non-Principal
+   */
+  async requestAffiliation(code) {
+    const answer = await api.post('/school/affiliation-requests', { code });
+    return answer?.request ?? null;
+  },
+
+  /**
+   * The School's requests to join, newest first (`GET /school/affiliation-requests`): `{ id,
+   * status (PENDING | APPROVED | REJECTED | CANCELLED), governingBody: { name, kind },
+   * requestedBy: { fullName }, requestedAt, decidedAt, rejectionReason }`.
+   */
+  async affiliationRequests() {
+    const answer = await api.get('/school/affiliation-requests');
+    return answer?.requests ?? [];
+  },
+
+  /** Take a waiting one back (`POST /school/affiliation-requests/:id/cancel`). */
+  cancelAffiliation: (id) => api.post(`/school/affiliation-requests/${encodeURIComponent(id)}/cancel`),
 };
 
 export default schoolService;

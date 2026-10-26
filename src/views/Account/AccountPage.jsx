@@ -15,6 +15,7 @@ import LeaveCard from './LeaveCard';
 import SchoolPlaceCard from './SchoolPlaceCard';
 import SchoolGradeSettingsCard from '../Grading/SchoolGradeSettingsCard';
 import LetterheadCard from './LetterheadCard';
+import AffiliationCard from './AffiliationCard';
 import HandoverCard from './HandoverCard';
 import DeleteAccountCard from './DeleteAccountCard';
 
@@ -190,6 +191,9 @@ export const AccountPage = () => {
 
           {/* The report card's letterhead - the Principal's alone (backend 4dae152, LetterheadCard). */}
           {activeRole === ROLES.PRINCIPAL && <LetterheadCard onToast={(message, type) => setToast({ message, type })} />}
+
+          {/* Asking a foundation to take an independent school in - the Principal's alone (backend 261a9c7, AffiliationCard). */}
+          {activeRole === ROLES.PRINCIPAL && <AffiliationCard onToast={(message, type) => setToast({ message, type })} />}
 
           {/* Handing the school to a new Principal — the only way a Principal leaves. */}
           {activeRole === ROLES.PRINCIPAL && <HandoverCard />}

@@ -38,6 +38,7 @@ const GoverningBodyPage = lazy(() => import('./views/GoverningBody/GoverningBody
 const GoverningBodyAdminsPage = lazy(() => import('./views/GoverningBody/GoverningBodyAdminsPage'));
 const GoverningBodySchoolsPage = lazy(() => import('./views/GoverningBody/GoverningBodySchoolsPage'));
 const GoverningBodyNewSchoolsPage = lazy(() => import('./views/GoverningBody/GoverningBodyNewSchoolsPage'));
+const GoverningBodySchoolPage = lazy(() => import('./views/GoverningBody/GoverningBodySchoolPage'));
 const VerifyEmailPage = lazy(() => import('./views/Verify/VerifyEmailPage'));
 const ForgotPasswordPage = lazy(() => import('./views/Password/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('./views/Password/ResetPasswordPage'));
@@ -206,6 +207,7 @@ const router = createBrowserRouter(
             <Route path="/governing-body" element={<GoverningBodyPage />} />
             <Route path="/governing-body/schools" element={<GoverningBodySchoolsPage />} />
             <Route path="/governing-body/schools/new" element={<GoverningBodyNewSchoolsPage />} />
+            <Route path="/governing-body/schools/:id" element={<GoverningBodySchoolPage />} />
             <Route path="/governing-body/admins" element={<GoverningBodyAdminsPage />} />
           </Route>
 

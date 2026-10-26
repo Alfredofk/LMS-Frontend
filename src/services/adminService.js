@@ -172,6 +172,61 @@ export const adminService = {
    *   total: number, page: { limit, offset, returned } }>}
    */
   schools: (query = {}) => api.get('/admin/schools', { query }),
+
+  /*
+    Keyed by the **School's** id (backend 38ec9ce / 657845a / 261a9c7 / fdf0267,
+    governing-body tickets 06b, 06c and 08), for any School, independent or a body's.
+    Each change answers the School's list row.
+  */
+
+  /**
+   * Switch a School off (`POST /admin/schools/:id/deactivate`, a reason of 3-500). One its
+   * body switched off is taken over (fdf0267): the body can no longer switch it on.
+   * `{ school, message }`.
+   *
+   * @throws {ApiError} CONFLICT when the Platform Admin switched it off already
+   */
+  deactivateSchool: (schoolId, reason) => api.post(`/admin/schools/${encodeURIComponent(schoolId)}/deactivate`, { reason }),
+
+  /** Switch it back on (`POST .../reactivate`, a note or none): `{ school, message }`; CONFLICT when it is on. */
+  reactivateSchool: (schoolId, note) => api.post(`/admin/schools/${encodeURIComponent(schoolId)}/reactivate`, note ? { reason: note } : {}),
+
+  /**
+   * Make an active teacher of the School its Principal, by email (`POST .../principal`).
+   * At a body's School only while the body is deactivated (CONFLICT "Its governing body
+   * appoints its Principal" otherwise); the applications waiting there close. Answers as
+   * `appointPrincipal`.
+   */
+  appointPrincipalAt: (schoolId, email, reason) => api.post(`/admin/schools/${encodeURIComponent(schoolId)}/principal`, { email, reason }),
+
+  /**
+   * A body School's Principal applications while the body is deactivated (`GET
+   * .../:id/principal-applications`, 06c), as the body's admins read them; CONFLICT while
+   * the body runs, the read included.
+   */
+  async schoolPrincipalApplications(schoolId, status = 'PENDING') {
+    const answer = await api.get(`/admin/schools/${encodeURIComponent(schoolId)}/principal-applications`, { query: { status } });
+    return answer?.applications ?? [];
+  },
+
+  schoolPrincipalKtp: (schoolId, applicationId) =>
+    requestBlob(`/admin/schools/${encodeURIComponent(schoolId)}/principal-applications/${encodeURIComponent(applicationId)}/ktp`),
+
+  approveSchoolPrincipal: (schoolId, applicationId) =>
+    api.post(`/admin/schools/${encodeURIComponent(schoolId)}/principal-applications/${encodeURIComponent(applicationId)}/approve`),
+
+  rejectSchoolPrincipal: (schoolId, applicationId, reason) =>
+    api.post(`/admin/schools/${encodeURIComponent(schoolId)}/principal-applications/${encodeURIComponent(applicationId)}/reject`, { reason }),
+
+  /**
+   * The bodies a School has been under, the latest first (`GET .../:id/affiliations`, 261a9c7):
+   * `{ id, governingBody: { id, name, kind }, began: CREATED | JOINED, startedAt, startedBy:
+   * { fullName } | null, endedAt, endedBy: { fullName } | null, endReason }`.
+   */
+  async schoolAffiliations(schoolId) {
+    const answer = await api.get(`/admin/schools/${encodeURIComponent(schoolId)}/affiliations`);
+    return answer?.affiliations ?? [];
+  },
 };
 
 export default adminService;

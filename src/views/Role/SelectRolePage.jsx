@@ -26,6 +26,7 @@ import RejectionNotice from './RejectionNotice';
 import { governingBodyService } from '../../services/governingBodyService';
 import { registrationLineOf } from './bodyRegistration';
 import GoverningBodySeatLines from '../../components/GoverningBodySeatLines';
+import PrincipalApplicationLines from '../../components/PrincipalApplicationLines';
 import { hasUnseenRejection } from './rejections';
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage, cancelErrorMessage, placesErrorMessage } from '../../i18n/apiError';
@@ -892,6 +893,9 @@ export const SelectRolePage = () => {
         {/* Being an admin of a Governing Body through its code (backend 3d7d05a;
             owner 2026-10-24): a line, not a card, with each body's outcome above it. */}
         {hasChecked && !deactivated && mayJoinAnother(membership, otherSchools) && <GoverningBodySeatLines className="px-1" />}
+
+        {/* Applying to head a Governing Body's School with its code (backend e206bd9; owner 2026-10-26): the same kind of line. */}
+        {hasChecked && !deactivated && mayJoinAnother(membership, otherSchools) && <PrincipalApplicationLines className="px-1" />}
 
         {/*
           A role added to a membership already held, still waiting. Its card above

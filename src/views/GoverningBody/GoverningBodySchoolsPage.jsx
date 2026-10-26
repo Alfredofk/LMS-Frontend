@@ -9,9 +9,11 @@ import { bodySchoolsErrorMessage, governingBodySeatErrorMessage, isHadPrincipal 
 import { governingBodyService } from '../../services/governingBodyService';
 import { GOVERNING_BODY_SCHOOLS } from '../../constants/roles';
 import { schoolAddressOf } from '../../constants/subdomain';
-import { copyText } from '../../utils/copyText';
 import { matchesSchool } from './bodySchools';
+import { waitingSummary } from './principalApplications';
 import GoverningBodySchoolFixForm from './GoverningBodySchoolFixForm';
+import CopyCode from './CopyCode';
+import AffiliationRequestsCard from './AffiliationRequestsCard';
 import useMoveOn from './useMoveOn';
 
 /*
@@ -23,35 +25,18 @@ import useMoveOn from './useMoveOn';
   - A table from md, a card per School below it; a search box over the name, NPSN and
     city, in the browser (the read has no paging).
   - "Buat sekolah" opens /governing-body/schools/new.
-  - "Ubah" opens `GoverningBodySchoolFixForm` under the row, for a School with no
-    Principal now. The list cannot tell one that had a Principal who left
-    (`hasPrincipal` is now, the rule is ever: backend 9697362), so that is learnt from
-    the 409, said, and the button goes for this visit.
+  - "Ubah" opens `GoverningBodySchoolFixForm` under the row, for a School that never
+    had a Principal (`hadPrincipal`, backend f669e3e; the rule is ever: 9697362). One
+    that gained one meanwhile is still learnt from the 409, said, and the button goes
+    for this visit.
+  - A School's name opens its own page, /governing-body/schools/:id, where the Principal
+    applications are decided (backend e206bd9, ticket 06; owner 2026-10-26, B1-B2). The
+    Principal cell names the Principal (f01cd28, D3) and says how many applications wait
+    there; a line above the list sums them; under the name, its Students and Teachers.
+  - Above the list, independent Schools asking to join, while one waits
+    (AffiliationRequestsCard, ticket 08, E7).
   - A 403 means the seat ended or the body was switched off: the other tabs' "gone".
 */
-
-const CopyCode = ({ code }) => {
-  const { t } = useT();
-  const [copied, setCopied] = useState(null);
-  const copy = async () => {
-    setCopied((await copyText(code)) ? 'ok' : 'failed');
-    setTimeout(() => setCopied(null), 2500);
-  };
-  return (
-    <span className="inline-flex items-center gap-2">
-      <span className="font-mono text-sm font-bold tracking-wider text-slate-900">{code}</span>
-      <button
-        type="button"
-        onClick={copy}
-        aria-live="polite"
-        aria-label={copied ? undefined : t('gbs.copyCode', { code })}
-        className="px-2 py-0.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-      >
-        {copied === 'ok' ? t('gb.copied') : copied === 'failed' ? t('gb.copyFailed') : t('gb.copy')}
-      </button>
-    </span>
-  );
-};
 
 /* A cell's own label, on a phone only: the table's header row says it from md. */
 const CellLabel = ({ children }) => <span className="md:hidden text-[11px] font-semibold text-slate-500 block">{children}</span>;
@@ -90,6 +75,9 @@ export const GoverningBodySchoolsPage = () => {
     load();
   }, [load]);
 
+  /* Stable, as a child's read depends on it. */
+  const gone = useCallback(() => setState('gone'), []);
+
   const checkAgain = async () => {
     setChecking(true);
     try {
@@ -125,6 +113,7 @@ export const GoverningBodySchoolsPage = () => {
 
   const name = cached?.name ?? '';
   const shown = schools.filter((school) => matchesSchool(school, needle));
+  const waiting = waitingSummary(schools);
   const createLink = (
     <Link
       to={`${GOVERNING_BODY_SCHOOLS}/new`}
@@ -171,6 +160,9 @@ export const GoverningBodySchoolsPage = () => {
         </section>
       )}
 
+      {/* Independent Schools asking to join (backend 261a9c7, ticket 08): only while one waits. */}
+      {state === 'ready' && <AffiliationRequestsCard showToast={showToast} onJoined={load} onGone={gone} />}
+
       {state === 'ready' && schools.length === 0 && (
         <section className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm space-y-3">
           <h2 className="text-base font-extrabold text-slate-900">{t('gbs.empty.title')}</h2>
@@ -199,6 +191,10 @@ export const GoverningBodySchoolsPage = () => {
             </p>
           </div>
 
+          {waiting.applications > 0 && (
+            <p className="text-sm font-semibold text-amber-700">{t('gbs.waiting.summary', { n: waiting.applications, schools: waiting.schools })}</p>
+          )}
+
           {shown.length === 0 ? (
             <p className="text-sm font-medium text-slate-500 py-4">{t('gbs.noMatch')}</p>
           ) : (
@@ -213,12 +209,17 @@ export const GoverningBodySchoolsPage = () => {
               <ul className="divide-y divide-slate-100">
                 {shown.map((school) => {
                   const address = schoolAddressOf(school.subdomain ?? null);
-                  const canFix = !school.hasPrincipal && !locked.has(school.id);
+                  const canFix = !school.hadPrincipal && !school.hasPrincipal && !locked.has(school.id);
                   return (
                     <li key={school.id} className="py-3.5 space-y-3">
                       <div className={`grid grid-cols-2 gap-x-4 gap-y-2.5 ${COLUMNS}`}>
                         <div className="col-span-2 md:col-span-1 min-w-0">
-                          <p className="text-sm font-bold text-slate-900 break-words">{school.name}</p>
+                          <Link
+                            to={`${GOVERNING_BODY_SCHOOLS}/${encodeURIComponent(school.id)}`}
+                            className="text-sm font-bold text-slate-900 hover:text-brand underline-offset-2 hover:underline break-words focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+                          >
+                            {school.name}
+                          </Link>
                           <p className="text-xs font-medium text-slate-500 mt-0.5 break-words">
                             {school.schoolType}
                             <span className="text-slate-300"> / </span>
@@ -236,6 +237,11 @@ export const GoverningBodySchoolsPage = () => {
                               </>
                             )}
                           </p>
+                          {school.counts && (
+                            <p className="text-xs font-medium text-slate-500 mt-0.5">
+                              {t('gbs.counts', { students: school.counts.students, teachers: school.counts.teachers })}
+                            </p>
+                          )}
                           {school.deactivatedAt && <p className="text-xs font-semibold text-rose-700 mt-0.5">{t('gbs.deactivated')}</p>}
                         </div>
                         <div className="min-w-0">
@@ -248,9 +254,17 @@ export const GoverningBodySchoolsPage = () => {
                         </div>
                         <div className="min-w-0">
                           <CellLabel>{t('gbs.col.principal')}</CellLabel>
-                          <span className={`text-sm font-semibold ${school.hasPrincipal ? 'text-emerald-700' : 'text-slate-500'}`}>
-                            {school.hasPrincipal ? t('gbs.principal.yes') : t('gbs.principal.no')}
+                          <span className={`text-sm font-semibold break-words ${school.hasPrincipal ? 'text-slate-900' : 'text-slate-500'}`}>
+                            {school.principal?.fullName ?? (school.hasPrincipal ? t('gbs.principal.yes') : t('gbs.principal.no'))}
                           </span>
+                          {school.principalApplicationsWaiting > 0 && (
+                            <Link
+                              to={`${GOVERNING_BODY_SCHOOLS}/${encodeURIComponent(school.id)}`}
+                              className="block text-xs font-semibold text-amber-700 hover:text-amber-800 underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+                            >
+                              {t('gbs.waiting.row', { n: school.principalApplicationsWaiting })}
+                            </Link>
+                          )}
                         </div>
                         <div className="flex items-end md:justify-end">
                           {canFix && fixing !== school.id && (

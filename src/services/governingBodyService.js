@@ -6,7 +6,7 @@
  * the senior admin approves, rejects and removes (403 for the rest).
  */
 
-import { api } from './apiClient';
+import { api, requestBlob } from './apiClient';
 
 export const governingBodyService = {
   /**
@@ -67,8 +67,9 @@ export const governingBodyService = {
   /**
    * The body's Schools, by name (`GET /governing-body/schools`, backend ed0d304): each
    * `{ id, npsn, name, schoolType, durationYears, city, latitude, longitude, timeZone,
-   * subdomain, schoolCode, hasPrincipal, deactivatedAt, createdAt }`. `hasPrincipal` is
-   * a Principal sitting now, not one who ever sat.
+   * subdomain, schoolCode, hasPrincipal, hadPrincipal, deactivatedAt, createdAt }`.
+   * `hasPrincipal` is a Principal sitting now, `hadPrincipal` one now or before
+   * (backend f669e3e), which is what a fix asks.
    */
   async schools() {
     const answer = await api.get('/governing-body/schools');
@@ -100,6 +101,106 @@ export const governingBodyService = {
     const answer = await api.patch(`/governing-body/schools/${encodeURIComponent(schoolId)}`, patch);
     return answer?.school ?? null;
   },
+
+  /**
+   * One of the body's Schools (`GET /governing-body/schools/:id`, backend f01cd28), as a
+   * row of `schools()` gives it. Another body's or none is NOT_FOUND.
+   */
+  async school(schoolId) {
+    const answer = await api.get(`/governing-body/schools/${encodeURIComponent(schoolId)}`);
+    return answer?.school ?? null;
+  },
+
+  /**
+   * A School's Teachers (`GET .../schools/:id/teachers`, backend f01cd28, any admin), by
+   * name, not paged: `{ academicYear: { id, label } | null, semester: { id, ordinal } |
+   * null, teachers: [{ membershipId, fullName, nip, nuptk, roles (PRINCIPAL |
+   * VICE_PRINCIPAL | TEACHER), classSubjects: [{ id, subject: { id, code, name }, class:
+   * { id, name } }], homeroomOf: [{ id, name }] }] }` - the current year and Semester.
+   */
+  schoolTeachers: (schoolId) => api.get(`/governing-body/schools/${encodeURIComponent(schoolId)}/teachers`),
+
+  /**
+   * A page of a School's Students (`GET .../schools/:id/students`, f01cd28), by name:
+   * `query` `{ q?, classId?, limit?, offset? }` (50 a page, at most 100). `{ students:
+   * [{ membershipId, fullName, nisn, class: { id, name, gradeLevel } | null }], total,
+   * page: { limit, offset, returned }, academicYear, classes: [{ id, name, gradeLevel }] }`.
+   */
+  schoolStudents: (schoolId, query = {}) => api.get(`/governing-body/schools/${encodeURIComponent(schoolId)}/students`, { query }),
+
+  /**
+   * Make an ACTIVE Teacher of the School its Principal (`POST .../schools/:id/principal`,
+   * backend 261a9c7, any admin), named by the teacher list's `membershipId`, with a reason
+   * of 3-500. The Principal before stays if they hold another role, else leaves; the
+   * applications waiting there close. `{ school, principal: { membershipId, fullName },
+   * previous: [{ membershipId, status: ACTIVE | LEFT }], message }`.
+   *
+   * @throws {ApiError} NOT_FOUND for anyone not an active teacher there
+   */
+  appointPrincipal: (schoolId, membershipId, reason) =>
+    api.post(`/governing-body/schools/${encodeURIComponent(schoolId)}/principal`, { membershipId, reason }),
+
+  /** End the Principal's role with no successor (`POST .../principal/end`): `{ school, previous, message }`; CONFLICT when none sits. */
+  endPrincipal: (schoolId, reason) => api.post(`/governing-body/schools/${encodeURIComponent(schoolId)}/principal/end`, { reason }),
+
+  /** Switch the School off (`POST .../deactivate`, a reason of 3-500): `{ school, message }`. */
+  deactivateSchool: (schoolId, reason) => api.post(`/governing-body/schools/${encodeURIComponent(schoolId)}/deactivate`, { reason }),
+
+  /**
+   * Switch it back on (`POST .../reactivate`, a note of up to 500 or none): `{ school, message }`.
+   *
+   * @throws {ApiError} CONFLICT when the Platform Admin switched it off, or it is not off
+   */
+  reactivateSchool: (schoolId, note) =>
+    api.post(`/governing-body/schools/${encodeURIComponent(schoolId)}/reactivate`, note ? { reason: note } : {}),
+
+  /** Let the School go, independent (`POST .../release`, a reason of 3-500), only while a Principal sits: `{ school: { id, name }, message }`. */
+  releaseSchool: (schoolId, reason) => api.post(`/governing-body/schools/${encodeURIComponent(schoolId)}/release`, { reason }),
+
+  /**
+   * Independent Schools asking to join the body (`GET /governing-body/affiliation-requests`,
+   * 261a9c7): PENDING unless `status` says APPROVED | REJECTED | CANCELLED | ALL. Each
+   * `{ id, status, school: { id, name, npsn, schoolType, city }, requestedBy: { fullName },
+   * requestedAt, decidedAt, decidedBy: { id, fullName } | null, rejectionReason }`.
+   */
+  async affiliationRequests(status = 'PENDING') {
+    const answer = await api.get('/governing-body/affiliation-requests', { query: { status } });
+    return answer?.requests ?? [];
+  },
+
+  /** Take the School in (`POST .../affiliation-requests/:id/approve`): `{ request, message }`. */
+  approveAffiliation: (requestId) => api.post(`/governing-body/affiliation-requests/${encodeURIComponent(requestId)}/approve`),
+
+  /** Turn it down with a reason of 3-500 the Principal reads (`POST .../:id/reject`). */
+  rejectAffiliation: (requestId, reason) => api.post(`/governing-body/affiliation-requests/${encodeURIComponent(requestId)}/reject`, { reason }),
+
+  /**
+   * A School's Principal applications, oldest first (`GET .../schools/:id/principal-applications`,
+   * backend e206bd9, any admin): PENDING unless `status` says APPROVED | REJECTED |
+   * CANCELLED | ALL. Each `{ id, status, school: { id, name }, applicant: { id, fullName,
+   * email | null (account deleted) }, applicantPhone, hasKtp, requestedAt, decidedAt,
+   * decidedBy: { id, fullName } | null, rejectionReason }`.
+   */
+  async principalApplications(schoolId, status = 'PENDING') {
+    const answer = await api.get(`/governing-body/schools/${encodeURIComponent(schoolId)}/principal-applications`, { query: { status } });
+    return answer?.applications ?? [];
+  },
+
+  /** An application's KTP while it waits (`GET .../principal-applications/:id/ktp`), as a Blob; NOT_FOUND once decided. */
+  principalApplicationKtp: (applicationId) => requestBlob(`/governing-body/principal-applications/${encodeURIComponent(applicationId)}/ktp`),
+
+  /**
+   * Make the applicant the School's Principal (`POST .../:id/approve`): the others waiting
+   * there are rejected on their own and every KTP is discarded. `{ application, message }`.
+   *
+   * @throws {ApiError} CONFLICT when decided, the account gone, a student, joined meanwhile
+   *   or the School has a Principal now
+   */
+  approvePrincipalApplication: (applicationId) => api.post(`/governing-body/principal-applications/${encodeURIComponent(applicationId)}/approve`),
+
+  /** Turn it down with a reason of 3-500 the applicant reads (`POST .../:id/reject`). */
+  rejectPrincipalApplication: (applicationId, reason) =>
+    api.post(`/governing-body/principal-applications/${encodeURIComponent(applicationId)}/reject`, { reason }),
 
   /**
    * Register a yayasan, perkumpulan or dinas (`POST /api/governing-body-registrations`),

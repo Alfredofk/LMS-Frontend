@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Paperclip } from 'lucide-react';
 
 import Input from '../../components/ui/Input';
@@ -63,6 +63,8 @@ export const SchoolRegistrationForm = ({ doneTo = '/select-role' }) => {
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [isSending, setIsSending] = useState(false);
+  /* The NPSN is a Governing Body's School's: its Principal applies with the code instead (ticket 06). */
+  const [heldByBody, setHeldByBody] = useState(false);
 
   const needsDuration = choosesDuration(values.schoolType);
 
@@ -136,6 +138,7 @@ export const SchoolRegistrationForm = ({ doneTo = '/select-role' }) => {
       const body = npsnHeldByBodyOf(err);
       if (body) {
         setErrors((prev) => ({ ...prev, global: null, npsn: t('reg.conflict.bodyNpsn', { body }) }));
+        setHeldByBody(true);
       } else if (Object.keys(fieldErrors).length) {
         setErrors((prev) => ({ ...prev, ...fieldErrors }));
       } else {
@@ -178,6 +181,7 @@ export const SchoolRegistrationForm = ({ doneTo = '/select-role' }) => {
             onChange={(e) => {
               const next = e.target.value;
               setValues((prev) => ({ ...prev, [field.name]: next }));
+              if (field.name === 'npsn') setHeldByBody(false);
               if (touched[field.name]) setError(field.name, field.validate(next));
             }}
             onBlur={(e) => {
@@ -185,6 +189,14 @@ export const SchoolRegistrationForm = ({ doneTo = '/select-role' }) => {
               setError(field.name, field.validate(e.target.value));
             }}
           />
+          {field.name === 'npsn' && heldByBody && errors.npsn && (
+            <Link
+              to="/get-started/principal"
+              className="inline-block text-xs font-extrabold text-brand hover:text-brand-deep underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+            >
+              {t('reg.conflict.bodyNpsn.link')}
+            </Link>
+          )}
           {field.hintKey && !errors[field.name] && (
             <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
               {t(field.hintKey)}

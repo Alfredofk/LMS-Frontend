@@ -6,6 +6,7 @@ import AuthLayout from '../../layouts/AuthLayout';
 import SchoolRegistrationForm from './SchoolRegistrationForm';
 import GoverningBodyRegistrationForm from './GoverningBodyRegistrationForm';
 import GoverningBodyApplicationForm from './GoverningBodyApplicationForm';
+import PrincipalApplicationForm from './PrincipalApplicationForm';
 import JoinSchoolForm from './JoinSchoolForm';
 import AddRoleForm from '../../components/AddRoleForm';
 import { useAuth } from '../../context/AuthContext';
@@ -63,6 +64,9 @@ const joinIntent = (role) => ({
   approval: ['getStarted.join.approval', { Role: `role.${role}.label` }],
 });
 
+/* The paths a member may take anywhere but a student may not: they lead above a school, or to heading one. */
+const ABOVE_SCHOOL_INTENTS = ['governing-body', 'governing-body-admin', 'principal'];
+
 const INTENTS = {
   organization: {
     icon: <SchoolIcon />,
@@ -113,6 +117,25 @@ const INTENTS = {
     panelBlurb: 'gbapp.panelBlurb',
     needs: [['gbapp.need.code', 'gbapp.need.codeDetail']],
     approval: ['gbapp.approval'],
+  },
+  /*
+    Applying to be the Principal of a Governing Body's School (backend e206bd9,
+    ticket 06; owner 2026-10-26): its code from the body, a phone and the KTP.
+    Linked from /select-role and My Profile, and from the join form when a code
+    takes only this.
+  */
+  principal: {
+    icon: <KeyIcon />,
+    heading: ['pa.title', 'pa.titleAccent'],
+    subheading: ['pa.subtitle'],
+    panelHeading: 'pa.panelHeading',
+    panelBlurb: 'pa.panelBlurb',
+    needs: [
+      ['pa.need.code', 'pa.need.codeDetail'],
+      ['pa.need.phone', 'pa.need.phoneDetail'],
+      ['pa.need.ktp', 'pa.need.ktpDetail'],
+    ],
+    approval: ['pa.approval'],
   },
   /*
     The student path lists one extra thing it will ask for. Both paths now hand
@@ -210,7 +233,7 @@ export const GetStartedPage = () => {
   const elsewhere =
     established &&
     mayJoinAnother(membership, otherSchools) &&
-    (intent === 'organization' || intent === 'governing-body' || intent === 'governing-body-admin' || (search.get('another') === '1' && (intent === 'teacher' || intent === 'guardian')));
+    (intent === 'organization' || ABOVE_SCHOOL_INTENTS.includes(intent) || (search.get('another') === '1' && (intent === 'teacher' || intent === 'guardian')));
   const adding =
     !elsewhere && established && ADDING[intent] && rolesToAdd(membership).includes(ADDING[intent].role)
       ? ADDING[intent]
@@ -230,8 +253,8 @@ export const GetStartedPage = () => {
     The picker says why for each card, so that is where they go.
   */
   if (established && !adding && !elsewhere) return <Navigate to="/select-role" replace />;
-  /* A student, or one asking to be, anywhere may not register a Governing Body or be its admin (the server refuses). */
-  if ((intent === 'governing-body' || intent === 'governing-body-admin') && !mayJoinAnother(membership, otherSchools)) return <Navigate to="/select-role" replace />;
+  /* A student, or one asking to be, anywhere may not register a Governing Body, be its admin or apply as a Principal (the server refuses). */
+  if (ABOVE_SCHOOL_INTENTS.includes(intent) && !mayJoinAnother(membership, otherSchools)) return <Navigate to="/select-role" replace />;
 
   const footer = (
     <button
@@ -310,6 +333,11 @@ export const GetStartedPage = () => {
         <GoverningBodyRegistrationForm doneTo={elsewhere ? '/profile' : '/select-role'} />
       ) : intent === 'governing-body-admin' ? (
         <GoverningBodyApplicationForm doneTo={elsewhere ? '/profile' : '/select-role'} />
+      ) : intent === 'principal' ? (
+        <PrincipalApplicationForm
+          doneTo={elsewhere ? '/profile' : '/select-role'}
+          teacherPath={elsewhere ? '/get-started/teacher?another=1' : '/get-started/teacher'}
+        />
       ) : (
         <JoinSchoolForm intent={intent} doneTo={elsewhere ? '/profile' : '/select-role'} />
       )}
