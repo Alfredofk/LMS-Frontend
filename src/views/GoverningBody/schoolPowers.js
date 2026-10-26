@@ -8,10 +8,11 @@
     if they hold another role, else leaves the School (ADR-0008). The teacher list holds
     only those holding TEACHER, so a Principal on it stays as a teacher; one not on it
     leaves unless they hold a role the body never reads (a guardian's).
-  - The body switches its School off and on, except a Platform Admin's deactivation (409):
-    the School's row does not say whose it is, so a refusal hides "Aktifkan kembali" for
-    the visit.
-  - It lets the School go only while a Principal sits.
+  - The body switches its School off and on, except a Platform Admin's deactivation: the
+    row says whose it is (`deactivatedByPlatform`, backend 227473f), which hides "Aktifkan
+    kembali". Before, only the 409 said so.
+  - It lets the School go only while a Principal sits and the School runs (227473f): one
+    switched off says why instead of the button (owner 2026-10-26, C).
 */
 
 /** The Teachers who may be made Principal: every one but the Principal sitting. */
@@ -27,16 +28,32 @@ export function principalFateOf(school, teachers) {
   return { name: onList?.fullName ?? school.principal?.fullName ?? '', fate: onList ? 'STAYS' : 'MAY_LEAVE' };
 }
 
-/** Which of the "Kelola sekolah" buttons a School offers; `braked` once a reactivation was refused for the Platform Admin's. */
-export function manageActionsOf(school, { braked = false } = {}) {
+/**
+ * Which of the "Kelola sekolah" buttons a School offers. `braked`: the Platform Admin
+ * switched it off. `releaseBlocked`: 'OFF' or 'BRAKE' when a Principal sits but the School
+ * is off, so the release is said to wait instead of offered.
+ */
+export function manageActionsOf(school) {
   const headed = Boolean(school?.hasPrincipal);
   const off = Boolean(school?.deactivatedAt);
+  const braked = off && Boolean(school?.deactivatedByPlatform);
   return {
     appoint: headed ? 'REPLACE' : 'APPOINT',
     end: headed,
     deactivate: !off,
     reactivate: off && !braked,
-    braked: off && braked,
-    release: headed,
+    braked,
+    release: headed && !off,
+    releaseBlocked: headed && off ? (braked ? 'BRAKE' : 'OFF') : null,
+  };
+}
+
+/** A School switched off, for its summary (owner 2026-10-26, B): when, whose ('PLATFORM' | 'BODY'), why; null while it runs. */
+export function deactivationOf(school) {
+  if (!school?.deactivatedAt) return null;
+  return {
+    at: school.deactivatedAt,
+    by: school.deactivatedByPlatform ? 'PLATFORM' : 'BODY',
+    reason: school.deactivationReason?.trim() || null,
   };
 }

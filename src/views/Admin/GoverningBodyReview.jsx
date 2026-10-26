@@ -166,7 +166,7 @@ export const GoverningBodyReview = ({ registration, onBack, onChanged, onStale, 
               <Row label={t('gb.code')}>{body.code}</Row>
               <Row label={t('gbr.field.subdomain')}>{siteAddress ?? body.subdomain}</Row>
               <Row label={t('gbr.field.state')}>
-                <span className={isOff ? 'text-rose-600 font-extrabold' : 'text-emerald-600 font-extrabold'}>{t(isOff ? 'gbr.state.off' : 'gbr.state.on')}</span>
+                <span className={isOff ? 'text-rose-600 font-extrabold' : 'text-emerald-700 font-extrabold'}>{t(isOff ? 'gbr.state.off' : 'gbr.state.on')}</span>
               </Row>
             </section>
           )}

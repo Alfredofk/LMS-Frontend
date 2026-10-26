@@ -4,7 +4,7 @@ import { Power } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import ReasonDialog from '../../components/ReasonDialog';
 import { useT } from '../../i18n/LanguageContext';
-import { isAmbiguousReactivation, isPlatformBrake, isStaleSchoolPower, schoolPowerErrorMessage } from '../../i18n/apiError';
+import { isPlatformBrake, isStaleSchoolPower, schoolPowerErrorMessage } from '../../i18n/apiError';
 import { governingBodyService } from '../../services/governingBodyService';
 import { validateOptionalReason } from '../../utils/validation';
 import { manageActionsOf, principalFateOf } from './schoolPowers';
@@ -18,11 +18,12 @@ import ReleaseSchoolDialog from './ReleaseSchoolDialog';
 
   - Angkat / Ganti Kepala Sekolah (AppointPrincipalDialog), from the teacher list read as
     it opens; Akhiri jabatan (a reason; the one sitting stays as a teacher or may leave).
-  - Nonaktifkan sekolah (a reason) / Aktifkan kembali (a note or none). The row does not
-    say who switched it off: a refusal for the Platform Admin's says so and hides the way
-    back for the visit (`braked`) - also when it comes as the ambiguous "meanwhile" and
-    the School, read again, is still off.
-  - Lepaskan dari yayasan, while a Principal sits (ReleaseSchoolDialog, the name typed).
+  - Nonaktifkan sekolah (a reason) / Aktifkan kembali (a note or none). The row says
+    whose deactivation it is (`deactivatedByPlatform`, backend 227473f): the Platform
+    Admin's hides the way back with a line. A refusal for it met anyway (taken over
+    meanwhile) is a toast and a fresh read.
+  - Lepaskan dari yayasan, while a Principal sits and the School runs (ReleaseSchoolDialog,
+    the name typed); switched off, a line says what it waits for (owner 2026-10-26, C).
 
   A School changed meanwhile is a toast and a fresh read (`onChanged`); a 403 is the
   seat gone (`onGone`); released, the page goes back to the list (`onReleased`).
@@ -32,9 +33,8 @@ export const SchoolManageCard = ({ school, showToast, onChanged, onGone, onRelea
   const [asking, setAsking] = useState(null);
   const [teachers, setTeachers] = useState(null);
   const [opening, setOpening] = useState(null);
-  const [braked, setBraked] = useState(false);
 
-  const actions = manageActionsOf(school, { braked });
+  const actions = manageActionsOf(school);
 
   /* The teacher list is read as a dialog that needs it opens, so it is never stale. */
   const openWithTeachers = async (kind) => {
@@ -61,23 +61,10 @@ export const SchoolManageCard = ({ school, showToast, onChanged, onGone, onRelea
         onGone();
         return;
       }
+      /* The Platform Admin took the deactivation over meanwhile: the row read again says so. */
       if (isPlatformBrake(err)) {
         setAsking(null);
-        setBraked(true);
         showToast?.(t('gbpw.error.brake'), 'error');
-        return;
-      }
-      /* The same refusal can come as the claim's "reactivated, or deactivated by the
-         Platform Admin, meanwhile" (walked 2026-10-26): the School read again tells which. */
-      if (isAmbiguousReactivation(err)) {
-        setAsking(null);
-        const now = await governingBodyService.school(school.id).catch(() => null);
-        if (now?.deactivatedAt) {
-          setBraked(true);
-          showToast?.(t('gbpw.error.brake'), 'error');
-        } else {
-          showToast?.(t('gbpw.error.changed'), 'info');
-        }
         onChanged();
         return;
       }
@@ -104,6 +91,9 @@ export const SchoolManageCard = ({ school, showToast, onChanged, onGone, onRelea
       </div>
 
       {actions.braked && <p className="text-xs font-semibold text-rose-700">{t('gbpw.error.brake')}</p>}
+      {actions.releaseBlocked && (
+        <p className="text-xs font-medium text-slate-500">{t(actions.releaseBlocked === 'BRAKE' ? 'gbpw.release.waitsBrake' : 'gbpw.release.waitsOff')}</p>
+      )}
 
       <div className="flex flex-wrap gap-2">
         <Button size="sm" onClick={() => openWithTeachers('appoint')} isLoading={opening === 'appoint'}>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { manageActionsOf, principalFateOf, successorsOf } from './schoolPowers';
+import { deactivationOf, manageActionsOf, principalFateOf, successorsOf } from './schoolPowers';
 
 const principal = { membershipId: 't1', fullName: 'Ahmad Fauzi', roles: ['PRINCIPAL', 'TEACHER'] };
 const vice = { membershipId: 't2', fullName: 'Rina Kartika', roles: ['TEACHER', 'VICE_PRINCIPAL'] };
@@ -32,7 +32,8 @@ describe('school powers - the Principal before', () => {
   });
 });
 
-// governingBody.powers.js: release needs a Principal; reactivate refused for the Platform Admin's.
+// governingBody.powers.js (227473f): release needs a Principal and a running School;
+// reactivate refused for the Platform Admin's, which the row names (deactivatedByPlatform).
 describe('school powers - the buttons', () => {
   it('a running School with no Principal: appoint and switch off only', () => {
     expect(manageActionsOf({ hasPrincipal: false, deactivatedAt: null })).toEqual({
@@ -42,6 +43,7 @@ describe('school powers - the buttons', () => {
       reactivate: false,
       braked: false,
       release: false,
+      releaseBlocked: null,
     });
   });
 
@@ -49,9 +51,37 @@ describe('school powers - the buttons', () => {
     expect(manageActionsOf({ hasPrincipal: true, deactivatedAt: null })).toMatchObject({ appoint: 'REPLACE', end: true, release: true, deactivate: true });
   });
 
-  it('a School switched off offers the way back until the Platform Admin is found to hold it', () => {
-    const off = { hasPrincipal: true, deactivatedAt: '2026-10-26T03:00:00Z' };
-    expect(manageActionsOf(off)).toMatchObject({ deactivate: false, reactivate: true, braked: false });
-    expect(manageActionsOf(off, { braked: true })).toMatchObject({ deactivate: false, reactivate: false, braked: true });
+  it('a School the body switched off offers the way back, and no release', () => {
+    const off = { hasPrincipal: true, deactivatedAt: '2026-10-26T03:00:00Z', deactivatedByPlatform: false };
+    expect(manageActionsOf(off)).toMatchObject({ deactivate: false, reactivate: true, braked: false, release: false, releaseBlocked: 'OFF' });
+  });
+
+  it("the Platform Admin's deactivation hides the way back and holds the release", () => {
+    const off = { hasPrincipal: true, deactivatedAt: '2026-10-26T03:00:00Z', deactivatedByPlatform: true };
+    expect(manageActionsOf(off)).toMatchObject({ deactivate: false, reactivate: false, braked: true, release: false, releaseBlocked: 'BRAKE' });
+  });
+
+  it('a School off with no Principal says nothing of a release', () => {
+    expect(manageActionsOf({ hasPrincipal: false, deactivatedAt: '2026-10-26T03:00:00Z', deactivatedByPlatform: true }).releaseBlocked).toBeNull();
+  });
+
+  it('a running School is never braked, whatever the flag', () => {
+    expect(manageActionsOf({ hasPrincipal: true, deactivatedAt: null, deactivatedByPlatform: true })).toMatchObject({ braked: false, release: true, reactivate: false });
+  });
+});
+
+// governingBody.schools.js ownSchoolView (227473f): deactivationReason, deactivatedByPlatform.
+describe('school powers - whose deactivation', () => {
+  it('is nothing while the School runs', () => {
+    expect(deactivationOf({ deactivatedAt: null, deactivatedByPlatform: false })).toBeNull();
+  });
+
+  it("names the Platform Admin's and the body's", () => {
+    expect(deactivationOf({ deactivatedAt: '2026-10-26T03:00:00Z', deactivatedByPlatform: true, deactivationReason: 'Izin operasional dicabut' })).toEqual({
+      at: '2026-10-26T03:00:00Z',
+      by: 'PLATFORM',
+      reason: 'Izin operasional dicabut',
+    });
+    expect(deactivationOf({ deactivatedAt: '2026-10-26T03:00:00Z', deactivatedByPlatform: false, deactivationReason: '  ' })).toMatchObject({ by: 'BODY', reason: null });
   });
 });

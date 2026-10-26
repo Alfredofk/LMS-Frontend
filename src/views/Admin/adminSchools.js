@@ -49,20 +49,26 @@ export function registrationLinkOf(school) {
 
 /**
  * Which of "Kelola sekolah"'s actions a School offers the Platform Admin (backend
- * 38ec9ce / fdf0267): switch off while it runs; switch back on while off; and for a
- * Governing Body's School switched off, lock it ("Kunci penonaktifan": take the body's
- * deactivation over, so the body cannot switch it on) - until a refusal says the
- * deactivation is the Platform Admin's already (`locked`). The row says neither whose
- * the deactivation is nor whether the body is switched off (asked of David), so
- * appointing and the applications are offered for every body School, with a note.
+ * 38ec9ce / fdf0267 / 227473f): switch off while it runs; switch back on while off; and
+ * for a Governing Body's School the body switched off, lock it ("Kunci penonaktifan":
+ * take the body's deactivation over, so the body cannot switch it on). The row says whose
+ * the deactivation is (`deactivatedByPlatform`); `locked` is a refusal met anyway (taken
+ * over meanwhile). The Principal and its applications are the Platform Admin's at an
+ * independent School, and at a body's only while the body is switched off
+ * (`governingBody.deactivatedAt`); while it runs (`bodyRuns`) a note stands in their
+ * place and nothing is read (owner 2026-10-26, E).
  */
 export function adminActionsOf(school, { locked = false } = {}) {
   const off = Boolean(school?.deactivatedAt);
   const governed = Boolean(school?.governingBody);
+  const bodyRuns = governed && !school.governingBody.deactivatedAt;
   return {
     deactivate: !off,
     reactivate: off,
-    lock: off && governed && !locked,
+    lock: off && governed && !school.deactivatedByPlatform && !locked,
     governed,
+    bodyRuns,
+    appoint: !bodyRuns,
+    applications: governed && !bodyRuns,
   };
 }

@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import Input from '../../components/ui/Input';
+import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
 import { affiliationRequestErrorMessage, isAlreadyGoverned } from '../../i18n/apiError';
 import { governingBodyService } from '../../services/governingBodyService';
@@ -23,9 +24,9 @@ import { affiliationStateOf } from './affiliation';
   - Its state from the School's requests (`affiliationStateOf`): waiting, with "Batalkan"
     (asked); turned down, with the reason and the form again; approved, told as history
     beside the form - a School let go keeps that request, so it cannot mean "joined"
-    (walked 2026-10-26). `/users/me` does not say whether the School is a body's (asked
-    of David), so only a refusal saying so turns the card into "already under a
-    foundation" for the visit.
+    (walked 2026-10-26). Under a body (`/users/me`'s `school.governingBody`, backend
+    227473f, read once here when the cached membership is the thin one) the card is one
+    line naming it (owner 2026-10-26, D); a refusal "already belongs" says so too.
   - A 403 (no longer the Principal) hides the card. A read that fails leaves the form.
 */
 
@@ -33,6 +34,7 @@ const localeOf = (lang) => (lang === 'en' ? 'en-GB' : 'id-ID');
 
 export const AffiliationCard = ({ onToast }) => {
   const { t, lang } = useT();
+  const { membership, refreshMe } = useAuth();
   const [requests, setRequests] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [hidden, setHidden] = useState(false);
@@ -62,6 +64,18 @@ export const AffiliationCard = ({ onToast }) => {
     load();
   }, [load]);
 
+  /* Sign-in's membership is the thin one, without the body: /users/me once, when so. */
+  const bodyKnown = membership?.school?.governingBody !== undefined;
+  const asked = useRef(false);
+  const [meRead, setMeRead] = useState(false);
+  useEffect(() => {
+    if (bodyKnown || asked.current) return;
+    asked.current = true;
+    refreshMe()
+      .catch(() => {})
+      .finally(() => setMeRead(true));
+  }, [bodyKnown, refreshMe]);
+
   const refused = (err) => {
     if (err?.status === 403) {
       setHidden(true);
@@ -70,6 +84,7 @@ export const AffiliationCard = ({ onToast }) => {
     if (isAlreadyGoverned(err)) {
       setGoverned(true);
       setBody(null);
+      refreshMe().catch(() => {});
       return;
     }
     setError(affiliationRequestErrorMessage(err, t));
@@ -131,7 +146,8 @@ export const AffiliationCard = ({ onToast }) => {
 
   if (hidden) return null;
 
-  const state = affiliationStateOf(requests, { governed });
+  const state = affiliationStateOf(requests, { governed, bodyName: membership?.school?.governingBody?.name ?? null });
+  const ready = loaded && (bodyKnown || meRead);
 
   return (
     <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-4 text-left">
@@ -140,10 +156,10 @@ export const AffiliationCard = ({ onToast }) => {
         <p className="text-xs text-slate-500 font-medium leading-relaxed mt-0.5">{t('aff.body')}</p>
       </div>
 
-      {!loaded ? (
+      {!ready ? (
         <div className="h-24 bg-slate-50 rounded-2xl animate-pulse" aria-label={t('common.loading')} />
       ) : state.state === 'MEMBER' ? (
-        <p className="text-sm font-semibold text-slate-700">{t('aff.memberUnknown')}</p>
+        <p className="text-sm font-semibold text-slate-700 break-words">{state.bodyName ? t('aff.member', { name: state.bodyName }) : t('aff.memberUnknown')}</p>
       ) : state.state === 'WAITING' ? (
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="min-w-0">

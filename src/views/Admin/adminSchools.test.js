@@ -60,15 +60,27 @@ describe('platform admin schools - the rows', () => {
 describe('admin schools - the actions', () => {
   const body = { id: 'b1', name: 'Yayasan A' };
 
-  it('an independent School: switch off, or back on', () => {
-    expect(adminActionsOf({ deactivatedAt: null, governingBody: null })).toEqual({ deactivate: true, reactivate: false, lock: false, governed: false });
-    expect(adminActionsOf({ deactivatedAt: '2026-10-26T03:00:00Z', governingBody: null })).toEqual({ deactivate: false, reactivate: true, lock: false, governed: false });
+  it("an independent School: switch off, or back on; its Principal is the admin's", () => {
+    const plain = { lock: false, governed: false, bodyRuns: false, appoint: true, applications: false };
+    expect(adminActionsOf({ deactivatedAt: null, governingBody: null })).toEqual({ deactivate: true, reactivate: false, ...plain });
+    expect(adminActionsOf({ deactivatedAt: '2026-10-26T03:00:00Z', deactivatedByPlatform: true, governingBody: null })).toEqual({ deactivate: false, reactivate: true, ...plain });
   });
 
-  it("a body's School switched off may be locked until it is found the Platform Admin's already", () => {
-    const off = { deactivatedAt: '2026-10-26T03:00:00Z', governingBody: body };
-    expect(adminActionsOf(off)).toEqual({ deactivate: false, reactivate: true, lock: true, governed: true });
+  // school.service.js schoolListView (227473f): deactivatedByPlatform, governingBody.deactivatedAt.
+  it("a body's School the body switched off may be locked; the Platform Admin's may not", () => {
+    const off = { deactivatedAt: '2026-10-26T03:00:00Z', deactivatedByPlatform: false, governingBody: body };
+    expect(adminActionsOf(off).lock).toBe(true);
+    expect(adminActionsOf({ ...off, deactivatedByPlatform: true }).lock).toBe(false);
     expect(adminActionsOf(off, { locked: true }).lock).toBe(false);
-    expect(adminActionsOf({ deactivatedAt: null, governingBody: body }).lock).toBe(false);
+    expect(adminActionsOf({ deactivatedAt: null, deactivatedByPlatform: false, governingBody: body }).lock).toBe(false);
+  });
+
+  it("a body's School: the Principal and applications only while the body is switched off", () => {
+    expect(adminActionsOf({ deactivatedAt: null, governingBody: body })).toMatchObject({ bodyRuns: true, appoint: false, applications: false });
+    expect(adminActionsOf({ deactivatedAt: null, governingBody: { ...body, deactivatedAt: '2026-10-20T03:00:00Z' } })).toMatchObject({
+      bodyRuns: false,
+      appoint: true,
+      applications: true,
+    });
   });
 });

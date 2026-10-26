@@ -30,7 +30,17 @@ describe('affiliation card - its state', () => {
   });
 
   it('says a member once "already belongs" was met, whatever the requests say', () => {
-    expect(affiliationStateOf([], { governed: true })).toEqual({ state: 'MEMBER', request: null });
-    expect(affiliationStateOf([req('r1', 'REJECTED')], { governed: true })).toEqual({ state: 'MEMBER', request: null });
+    expect(affiliationStateOf([], { governed: true })).toEqual({ state: 'MEMBER', request: null, bodyName: null });
+    expect(affiliationStateOf([req('r1', 'REJECTED')], { governed: true })).toEqual({ state: 'MEMBER', request: null, bodyName: null });
+  });
+
+  // users.service.js schoolForMember (227473f): the body above the School, by name.
+  it('names the body /users/me names, over any request', () => {
+    expect(affiliationStateOf([req('r1', 'APPROVED')], { bodyName: 'Yayasan A' })).toEqual({ state: 'MEMBER', request: null, bodyName: 'Yayasan A' });
+    expect(affiliationStateOf([req('r2', 'PENDING')], { bodyName: 'Yayasan A', governed: true })).toMatchObject({ state: 'MEMBER', bodyName: 'Yayasan A' });
+  });
+
+  it('a School let go (governingBody null) keeps the approval as history', () => {
+    expect(affiliationStateOf([req('r1', 'APPROVED')], { bodyName: null })).toMatchObject({ state: 'OPEN', approved: true });
   });
 });

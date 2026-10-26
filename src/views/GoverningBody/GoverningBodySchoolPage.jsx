@@ -8,12 +8,15 @@ import { governingBodyService } from '../../services/governingBodyService';
 import { GOVERNING_BODY_SCHOOLS } from '../../constants/roles';
 import { schoolAddressOf } from '../../constants/subdomain';
 import { SCHOOL_TABS, tabOf } from './schoolPeople';
+import { deactivationOf } from './schoolPowers';
 import CopyCode from './CopyCode';
 import SchoolApplicationsTab from './SchoolApplicationsTab';
 import SchoolManageCard from './SchoolManageCard';
 import SchoolStudentsTab from './SchoolStudentsTab';
 import SchoolTeachersTab from './SchoolTeachersTab';
 import useMoveOn from './useMoveOn';
+
+const localeOf = (lang) => (lang === 'en' ? 'en-GB' : 'id-ID');
 
 /*
   /governing-body/schools/:id, one of the body's Schools (owner 2026-10-26, B1 and
@@ -24,7 +27,8 @@ import useMoveOn from './useMoveOn';
     Vice Principals, the counts of Students, Teachers and Vice Principals as one strip,
     the School Code to copy and its own address while addresses are on; under it
     "Kelola sekolah" (ticket 08, SchoolManageCard): the Principal, switching it off and
-    on, letting it go.
+    on, letting it go. A School switched off says under its name whose deactivation it is,
+    when, and why (backend 227473f).
   - Guru and Siswa (ticket 07, SchoolTeachersTab / SchoolStudentsTab): read the first
     time they are opened and kept for the visit - a tab once opened stays mounted,
     hidden while another is shown.
@@ -39,7 +43,7 @@ const TAB_KEYS = { ringkasan: 'gbsp.tab.summary', guru: 'gbsp.tab.teachers', sis
 
 export const GoverningBodySchoolPage = () => {
   const { id } = useParams();
-  const { t } = useT();
+  const { t, lang } = useT();
   const { showToast } = useOutletContext() ?? {};
   const moveOn = useMoveOn();
   const navigate = useNavigate();
@@ -101,6 +105,8 @@ export const GoverningBodySchoolPage = () => {
 
   const waiting = school?.principalApplicationsWaiting ?? 0;
   const address = school ? schoolAddressOf(school.subdomain ?? null) : null;
+  /* Whose deactivation and why (backend 227473f; owner 2026-10-26, B): the Platform Admin's reason too. */
+  const off = deactivationOf(school);
 
   return (
     <div className="space-y-6">
@@ -116,7 +122,16 @@ export const GoverningBodySchoolPage = () => {
             {t('gbpa.npsn', { npsn: school.npsn })}
           </p>
         )}
-        {school?.deactivatedAt && <p className="text-sm font-semibold text-rose-700">{t('gbsp.deactivated')}</p>}
+        {off && (
+          <div className="space-y-0.5">
+            <p className="text-sm font-semibold text-rose-700">
+              {t(off.by === 'PLATFORM' ? 'gbsp.deactivated.platform' : 'gbsp.deactivated.body', {
+                date: new Date(off.at).toLocaleDateString(localeOf(lang), { day: 'numeric', month: 'long', year: 'numeric' }),
+              })}
+            </p>
+            {off.reason && <p className="text-sm font-medium text-slate-500 break-words">{t('gbsp.deactivated.reason', { reason: off.reason })}</p>}
+          </div>
+        )}
       </div>
 
       {state === 'loading' && <div className="h-48 rounded-2xl bg-white border border-slate-100 animate-pulse" aria-busy="true" aria-label={t('common.loading')} />}

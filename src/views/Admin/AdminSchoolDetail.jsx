@@ -21,17 +21,18 @@ import { adminActionsOf, registrationLinkOf } from './adminSchools';
 
   - "Kelola sekolah", by the School's own id for any School (backend 38ec9ce / fdf0267):
     Nonaktifkan (a reason) or Aktifkan kembali (a note or none), and for a body's School
-    switched off "Kunci penonaktifan" - the body's deactivation taken over, so the body
-    cannot switch it on; a refusal "already deactivated" means it is the Platform
-    Admin's already, and the button goes for the visit. An independent School keeps
-    "Lihat pendaftaran", its registration's review.
+    switched off by the body "Kunci penonaktifan" - the body's deactivation taken over,
+    so the body cannot switch it on. The row says whose it is (`deactivatedByPlatform`,
+    backend 227473f); a refusal "already deactivated" met anyway hides the button for the
+    visit. An independent School keeps "Lihat pendaftaran", its registration's review.
   - Its Principal by an active teacher's email (`AppointPrincipalPanel` given `school`);
-    at a body's School only while the body is switched off, which the row cannot tell,
-    so a note says so and the refusal is said in the panel.
+    at a body's School only while the body is switched off (`governingBody.deactivatedAt`,
+    227473f): while it runs, one note stands in place of the panel and the applications,
+    and nothing is read (owner 2026-10-26, E).
   - Its address (`SubdomainPanel`) and its history under bodies (`GET .../affiliations`).
   - For a body's School, full width below, its Principal applications as the body's
     admins read them (`SchoolApplicationsTab` with the Platform Admin's calls, ticket
-    06c); while the body runs the server refuses even the read, said in their place.
+    06c), only while the body is switched off.
 */
 
 const ADMIN_SOURCE = {
@@ -171,22 +172,29 @@ export const AdminSchoolDetail = ({ school, onBack, onChanged, showToast }) => {
             <Row label={t('adminSchools.field.body')}>{school.governingBody?.name ?? t('adminSchools.independent')}</Row>
             <Row label={t('adminSchools.field.created')}>{asDate(school.createdAt)}</Row>
             <Row label={t('admin.field.schoolState')}>
-              <span className={off ? 'text-rose-600 font-extrabold' : 'text-emerald-600 font-extrabold'}>{t(off ? 'admin.school.off' : 'admin.school.on')}</span>
+              <span className={off ? 'text-rose-600 font-extrabold' : 'text-emerald-700 font-extrabold'}>{t(off ? 'admin.school.off' : 'admin.school.on')}</span>
             </Row>
             {off && <Row label={t('adminSchools.field.offSince')}>{asDate(school.deactivatedAt)}</Row>}
             {off && school.deactivationReason && <Row label={t('adminSchools.field.offReason')}>{school.deactivationReason}</Row>}
           </section>
 
-          <AppointPrincipalPanel
-            key={`appoint:${school.id}`}
-            school={school}
-            note={actions.governed ? t('adminSchools.appoint.bodyNote', { body: school.governingBody.name }) : null}
-            onAppointed={(row) => {
-              if (row) onChanged?.(row);
-              setVersion((n) => n + 1);
-            }}
-            showToast={showToast}
-          />
+          {actions.appoint ? (
+            <AppointPrincipalPanel
+              key={`appoint:${school.id}`}
+              school={school}
+              note={actions.governed ? t('adminSchools.appoint.bodyNote', { body: school.governingBody.name }) : null}
+              onAppointed={(row) => {
+                if (row) onChanged?.(row);
+                setVersion((n) => n + 1);
+              }}
+              showToast={showToast}
+            />
+          ) : (
+            <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-1">
+              <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">{t('admin.appoint.section')}</h3>
+              <p className="text-xs font-semibold text-slate-500 leading-relaxed break-words">{t('adminSchools.bodyRuns', { body: school.governingBody.name })}</p>
+            </section>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -230,7 +238,7 @@ export const AdminSchoolDetail = ({ school, onBack, onChanged, showToast }) => {
         </div>
       </div>
 
-      {actions.governed && (
+      {actions.applications && (
         <SchoolApplicationsTab
           key={`apps:${school.id}`}
           school={school}

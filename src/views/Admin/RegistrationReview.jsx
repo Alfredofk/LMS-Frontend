@@ -218,7 +218,7 @@ export const RegistrationReview = ({ registration, onBack, onDecided, showToast 
             )}
             {school && (
               <Row label={t('admin.field.schoolState')}>
-                <span className={isDeactivated ? 'text-rose-600 font-extrabold' : 'text-emerald-600 font-extrabold'}>
+                <span className={isDeactivated ? 'text-rose-600 font-extrabold' : 'text-emerald-700 font-extrabold'}>
                   {t(isDeactivated ? 'admin.school.off' : 'admin.school.on')}
                 </span>
               </Row>

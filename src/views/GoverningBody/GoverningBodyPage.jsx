@@ -12,6 +12,7 @@ import { schoolAddressOf, schoolUrl } from '../../constants/subdomain';
 import { copyText } from '../../utils/copyText';
 import { addressLineOf, kindKeyOf } from './governingBody';
 import GoverningBodyProfileForm from './GoverningBodyProfileForm';
+import SchoolsOverview from './SchoolsOverview';
 
 /*
   /governing-body, where a Governing Body seat's sign-in lands (backend b5cfffd;
@@ -29,6 +30,9 @@ import GoverningBodyProfileForm from './GoverningBodyProfileForm';
   Since backend 3d7d05a (ticket 04) any admin changes the address and the phone in
   place ("Ubah", GoverningBodyProfileForm) and replaces the code (asked first: the
   old one stops at once, applications already waiting stay).
+
+  At the top since 2026-10-26 (owner, 1-8): the body's Schools summed and what needs the
+  admins (SchoolsOverview), read on its own beside `GET /governing-body`.
 */
 
 const localeOf = (lang) => (lang === 'en' ? 'en-GB' : 'id-ID');
@@ -173,6 +177,8 @@ export const GoverningBodyPage = () => {
 
       {/* Two columns from lg (owner, 2026-10-24): the identity wide on the left, the
           two things to hand out stacked on the right; one column below lg. */}
+      {state === 'ready' && body && <SchoolsOverview />}
+
       {state === 'ready' && body && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           <section className="lg:col-span-2 bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
@@ -244,8 +250,6 @@ export const GoverningBodyPage = () => {
             )}
             {siteAddress && <CopyRow label={t('gb.siteAddress')} value={siteAddress} copyValue={schoolUrl(body.subdomain, '/')} hint={t('gb.siteAddress.hint')} />}
           </div>
-
-          <p className="lg:col-span-3 text-xs font-medium text-slate-500 leading-relaxed">{t('gb.later')}</p>
         </div>
       )}
 

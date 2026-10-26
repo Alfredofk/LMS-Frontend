@@ -361,14 +361,19 @@ export const isStalePrincipalDecision = (err) =>
   ['has already been decided', 'Principal application not found', 'The school has a Principal now', 'School not found'].some((needle) => String(err?.message ?? '').includes(needle));
 
 /*
-  A Governing Body's powers over its Schools (backend 261a9c7 / fdf0267,
+  A Governing Body's powers over its Schools (backend 261a9c7 / fdf0267 / 227473f,
   governingBody.powers.js and the cores it shares): the School headed or emptied, off or
   on, or gone meanwhile reads the School again (`isStaleSchoolPower`); the Platform
-  Admin's deactivation is its own sentence (`isPlatformBrake`), which hides the way back.
+  Admin's deactivation is its own sentence (`isPlatformBrake`). Since 227473f the row
+  names it beforehand, and a release waits for a School switched off (two sentences:
+  "only once the Platform Admin reactivates it" is not "only the Platform Admin
+  reactivates it").
 */
 const SCHOOL_POWER_BY_MESSAGE = [
   ['only the Platform Admin reactivates it', 'gbpw.error.brake'],
-  ['deactivated by the Platform Admin, meanwhile', 'gbpw.error.changed'],
+  ['released only once the Platform Admin reactivates it', 'gbpw.error.releaseBrake'],
+  ['This school is deactivated: reactivate it first', 'gbpw.error.releaseOff'],
+  ['This school changed meanwhile', 'gbpw.error.changed'],
   ['No active teacher of this school has that id', 'gbpw.error.notTeacher'],
   ['This school has no Principal', 'gbpw.error.noPrincipal'],
   ['A school is released only while it has a Principal', 'gbpw.error.releaseNeedsPrincipal'],
@@ -388,17 +393,12 @@ export function schoolPowerErrorMessage(err, t) {
 /** Whether the Platform Admin switched the School off, so the body cannot switch it on. */
 export const isPlatformBrake = (err) => String(err?.message ?? '').includes('only the Platform Admin reactivates it');
 
-/**
- * Whether a reactivation was refused with the claim's sentence, which means either that
- * somebody switched the School on meanwhile or that the Platform Admin holds it off
- * (school.service.js restoreAccess; met for the second on 2026-10-26).
- */
-export const isAmbiguousReactivation = (err) => String(err?.message ?? '').includes('deactivated by the Platform Admin, meanwhile');
-
 /** Whether the School changed meanwhile: read it again. */
 export const isStaleSchoolPower = (err) =>
   [
-    'deactivated by the Platform Admin, meanwhile',
+    'This school changed meanwhile',
+    'released only once the Platform Admin reactivates it',
+    'This school is deactivated: reactivate it first',
     'This school has no Principal',
     'A school is released only while it has a Principal',
     'This school has left this governing body meanwhile',
