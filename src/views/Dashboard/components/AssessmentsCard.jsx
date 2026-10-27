@@ -4,7 +4,7 @@ import { ChevronRight, ClipboardList } from 'lucide-react';
 
 import { useT } from '../../../i18n/LanguageContext';
 import StateWord from '../../TeacherAssessment/StateWord';
-import { dashboardAssessments, windowText } from '../../TeacherAssessment/teacherAssessment';
+import { dashboardAssessments, shortWhen, waitingSinceText, windowText } from '../../TeacherAssessment/teacherAssessment';
 
 /*
   The teacher's assessments on the dashboard (owner, 2026-10-08), in the place
@@ -12,27 +12,31 @@ import { dashboardAssessments, windowText } from '../../TeacherAssessment/teache
   next and drafts not yet published, across every subject taught now
   (dashboardAssessments). The lists come from markingQueue.js (one GET
   /assessments/class-subjects/:id per live assignment, a list that fails left out),
-  and with them what waits (owner, 2026-10-10): an assessment with attempts to
-  mark or release comes first, under "Perlu dinilai", whatever its window, and
-  opens on its "Hasil" tab. At most five rows, the rest counted with a way to
+  and what waits from `GET /dashboard/teaching`'s queue (owner, 2026-10-10 and
+  2026-10-27): an assessment with attempts to mark or release comes first, under
+  "Perlu dinilai", whatever its window, the longest waiting first with how long,
+  and opens on its "Hasil" tab. A release not open yet says when it opens. The
+  queue failing leaves the other groups and says so in one line. At most five rows, the rest counted with a way to
   "Kelas Saya". A row opens the assessment's page through the teacher's own class
   subject.
 
   @param queue      readMarkingQueue's answer: undefined while reading, null when
                     it could not be read
+  @param lists      readTeachingLists' answer, the same three states
   @param zone       the school's zone, for the windows
   @param className  the grid placement
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm text-left';
 
-export const AssessmentsCard = ({ queue, zone, className = '' }) => {
+export const AssessmentsCard = ({ queue, lists, zone, className = '' }) => {
   const { t, lang } = useT();
   const navigate = useNavigate();
-  /* { items, more, counts }, or what the queue is: undefined reading, null failed. */
-  const data = useMemo(() => (queue ? dashboardAssessments(queue.lists, { waitingById: queue.waitingById }) : queue), [queue]);
+  /* { items, more, counts }, or what the lists are: undefined reading, null failed. */
+  const data = useMemo(() => (lists ? dashboardAssessments(lists, { waitingById: queue?.waitingById ?? {} }) : lists), [lists, queue]);
 
-  const reading = queue === undefined;
+  const reading = lists === undefined || queue === undefined;
+  const queueFailed = queue === null;
   const empty = data?.items.length === 0;
 
   let body;
@@ -55,6 +59,7 @@ export const AssessmentsCard = ({ queue, zone, className = '' }) => {
           {data.items.map(({ assessment, row, group, waiting }, i) => {
             /* A group is named above its first row. */
             const heading = i === 0 || data.items[i - 1].group !== group ? group : null;
+            const since = waiting ? waitingSinceText(waiting.since, zone) : null;
             return (
               <li key={assessment.id}>
                 {heading && (
@@ -80,7 +85,14 @@ export const AssessmentsCard = ({ queue, zone, className = '' }) => {
                     {waiting ? (
                       <span className="flex flex-wrap gap-x-2.5 gap-y-0.5 text-[11px] font-bold">
                         {waiting.marking > 0 && <span className="text-amber-700">{t('teacherDash.asm.toMark', { n: waiting.marking })}</span>}
-                        {waiting.release > 0 && <span className="text-brand">{t('teacherDash.asm.toRelease', { n: waiting.release })}</span>}
+                        {waiting.release > 0 && (waiting.releasableAt ? (
+                          <span className="text-slate-500">
+                            {t('teacherDash.asm.releaseFrom', { n: waiting.release, when: shortWhen(waiting.releasableAt, zone, lang) })}
+                          </span>
+                        ) : (
+                          <span className="text-brand">{t('teacherDash.asm.toRelease', { n: waiting.release })}</span>
+                        ))}
+                        {since && <span className="font-semibold text-slate-500">{t(since.key, since.vars)}</span>}
                       </span>
                     ) : (
                       <span className="block text-[11px] font-semibold text-slate-500 tabular-nums">{windowText(assessment, zone, lang)}</span>
@@ -116,6 +128,9 @@ export const AssessmentsCard = ({ queue, zone, className = '' }) => {
           {t('common.seeAll')}
         </Link>
       </div>
+      {queueFailed && data && (
+        <p className="mb-2 text-xs font-semibold text-rose-700" role="alert">{t('teacherDash.asm.queueFailed')}</p>
+      )}
       {body}
     </section>
   );

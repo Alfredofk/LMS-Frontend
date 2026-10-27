@@ -22,7 +22,8 @@ import { readMarkingQueue } from '../views/TeacherAssessment/markingQueue';
 
     PRINCIPAL — joinRequests · leaveRequests · teachingRequests
     TEACHER   — joinRequests · classMoves · marking (attempts to mark + to release,
-                markingQueue.js: read at most once a minute, shared with the dashboard)
+                GET /dashboard/teaching's queue through markingQueue.js: read at most
+                once a minute, shared with the dashboard)
 
   Read on arrival, again on navigation at most every 20 seconds (the backend
   rate-limits), and at once when a page reports a decision through

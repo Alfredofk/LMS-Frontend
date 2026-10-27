@@ -1,30 +1,36 @@
 import { describe, expect, it } from 'vitest';
 
-import { markingQueueOf, queueCandidates } from './markingQueue';
+import { markingQueueOf } from './markingQueue';
 
-describe('markingQueue - what waits on the teacher (results `waiting`)', () => {
-  const now = new Date('2026-10-12T05:00:00Z');
-
-  it('reads only published ones already opened', () => {
-    const list = [
-      { id: 'open', status: 'PUBLISHED', opensAt: '2026-10-12T00:30:00Z' },
-      { id: 'later', status: 'PUBLISHED', opensAt: '2026-10-13T00:00:00Z' },
-      { id: 'draft', status: 'DRAFT', opensAt: '2026-10-01T00:00:00Z' },
-      { id: 'cancelled', status: 'CANCELLED', opensAt: '2026-10-01T00:00:00Z' },
-      { id: 'offlineLater', status: 'PUBLISHED', mode: 'OFFLINE', opensAt: '2026-10-13T00:00:00Z' },
-    ];
-    expect(queueCandidates(list, now).map((a) => a.id)).toEqual(['open', 'offlineLater']);
+describe('markingQueue - what waits on the teacher (GET /dashboard/teaching queue)', () => {
+  const entry = (id, marking, release, over = {}) => ({
+    assessment: { id },
+    marking,
+    release,
+    oldestWaitingSince: '2026-10-20T03:00:00.000Z',
+    releasableAt: null,
+    ...over,
   });
 
-  it('keeps only what waits, and adds marking and release up', () => {
-    const out = markingQueueOf([{ row: { id: 'cs' }, assessments: [] }], [
-      { id: 'a', waiting: { marking: 2, release: 1, inProgress: 4 } },
-      { id: 'b', waiting: { marking: 0, release: 0, inProgress: 3 } },
-      { id: 'c', waiting: { marking: 0, release: 5 } },
-    ]);
-    expect(out.waitingById).toEqual({ a: { marking: 2, release: 1 }, c: { marking: 0, release: 5 } });
+  it('adds marking and release up, and keeps each entry by its assessment', () => {
+    const out = markingQueueOf([entry('a', 2, 1), entry('c', 0, 5, { oldestWaitingSince: '2026-10-18T01:00:00.000Z' })]);
+    expect(out.waitingById).toEqual({
+      a: { marking: 2, release: 1, since: '2026-10-20T03:00:00.000Z', releasableAt: null },
+      c: { marking: 0, release: 5, since: '2026-10-18T01:00:00.000Z', releasableAt: null },
+    });
     expect(out.marking).toBe(2);
     expect(out.release).toBe(6);
-    expect(out.lists).toHaveLength(1);
+  });
+
+  it('counts as releasable only what may be released now', () => {
+    const out = markingQueueOf([entry('open', 0, 3, { releasableAt: '2026-12-19T16:59:00.000Z' }), entry('closed', 1, 2)]);
+    expect(out.release).toBe(5);
+    expect(out.releasable).toBe(2);
+    expect(out.waitingById.open.releasableAt).toBe('2026-12-19T16:59:00.000Z');
+  });
+
+  it('an empty or missing queue is all zeros', () => {
+    expect(markingQueueOf([])).toEqual({ waitingById: {}, marking: 0, release: 0, releasable: 0 });
+    expect(markingQueueOf(undefined)).toEqual({ waitingById: {}, marking: 0, release: 0, releasable: 0 });
   });
 });

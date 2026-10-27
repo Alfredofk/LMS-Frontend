@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  addDays, classCount, currentSemester, dayMeetings, finalisingSemesterOf, liveAssignments, openSemesterIds, teachingDay, uniqueStudentCount,
+  addDays, classCount, currentSemester, dayMeetings, finalisingSemesterOf, liveAssignments, openSemesterIds, teachingDay,
 } from './teacherHome.js';
 
 const row = (id, over = {}) => ({
@@ -56,20 +56,6 @@ describe('classCount', () => {
   it('counts a class taught two subjects once', () => {
     expect(classCount([row('a'), row('b', { class: { id: 'class-a' } }), row('c')])).toBe(2);
   });
-});
-
-describe('uniqueStudentCount', () => {
-  it('counts a student in two subjects once, and only those placed now', () => {
-    const answers = [
-      { students: [{ studentProfileId: 's1', placedNow: true }, { studentProfileId: 's2', placedNow: false }] },
-      { students: [{ studentProfileId: 's1', placedNow: true }, { studentProfileId: 's3', placedNow: true }] },
-    ];
-    expect(uniqueStudentCount(answers)).toBe(2);
-  });
-  it('answers null when one read failed', () => {
-    expect(uniqueStudentCount([{ students: [] }, null])).toBeNull();
-  });
-  it('answers 0 with no assignments', () => expect(uniqueStudentCount([])).toBe(0));
 });
 
 describe('currentSemester', () => {

@@ -16,6 +16,7 @@ import {
   copyTargets,
   createBody,
   dashboardAssessments,
+  waitingSinceText,
   emptyForm,
   isPractice,
   emptyWindow,
@@ -372,20 +373,39 @@ describe('dashboardAssessments - the dashboard card', () => {
     expect(out.counts.draft).toBe(7);
   });
 
-  it('attempts waiting come first as review, ended ones too, most to mark first; never a cancelled one', () => {
+  it('attempts waiting come first as review, ended ones too, the longest waiting first; never a cancelled one', () => {
     const lists = [
       { row, assessments: [
         a('openNone', 'PUBLISHED', '2026-10-19T00:00:00Z', '2026-10-30T00:00:00Z'),
-        a('endedWaits', 'PUBLISHED', '2026-10-01T00:00:00Z', '2026-10-02T00:00:00Z'),
-        a('openWaits', 'PUBLISHED', '2026-10-19T00:00:00Z', '2026-10-31T00:00:00Z'),
+        a('endedWaits', 'PUBLISHED', '2026-10-15T00:00:00Z', '2026-10-19T12:00:00Z'),
+        a('openWaits', 'PUBLISHED', '2026-10-10T00:00:00Z', '2026-10-31T00:00:00Z'),
         a('cancelled', 'CANCELLED', '2026-10-19T00:00:00Z', '2026-10-30T00:00:00Z'),
       ] },
     ];
-    const waitingById = { endedWaits: { marking: 1, release: 2 }, openWaits: { marking: 3, release: 0 }, cancelled: { marking: 1, release: 0 } };
+    const waitingById = {
+      endedWaits: { marking: 1, release: 2, since: '2026-10-19T06:00:00Z' },
+      openWaits: { marking: 3, release: 0, since: '2026-10-19T08:00:00Z' },
+      cancelled: { marking: 1, release: 0, since: '2026-10-01T01:00:00Z' },
+    };
     const out = dashboardAssessments(lists, { now, waitingById });
-    expect(out.items.map((item) => `${item.group}:${item.assessment.id}`)).toEqual(['review:openWaits', 'review:endedWaits', 'open:openNone']);
-    expect(out.items[1].waiting).toEqual({ marking: 1, release: 2 });
+    expect(out.items.map((item) => `${item.group}:${item.assessment.id}`)).toEqual(['review:endedWaits', 'review:openWaits', 'open:openNone']);
+    expect(out.items[0].waiting).toEqual({ marking: 1, release: 2, since: '2026-10-19T06:00:00Z' });
     expect(out.counts.review).toBe(2);
+  });
+});
+
+describe('waitingSinceText - how long a review row has waited', () => {
+  const now = new Date('2026-10-27T03:00:00Z');
+
+  it('by the school days, not by 24 hours', () => {
+    expect(waitingSinceText('2026-10-27T00:30:00Z', 'WIB', now)).toEqual({ key: 'teacherDash.asm.waitingToday' });
+    expect(waitingSinceText('2026-10-26T17:00:00Z', 'WIB', now)).toEqual({ key: 'teacherDash.asm.waitingToday' });
+    expect(waitingSinceText('2026-10-26T16:59:00Z', 'WIB', now)).toEqual({ key: 'teacherDash.asm.waitingYesterday' });
+    expect(waitingSinceText('2026-10-24T03:00:00Z', 'WIB', now)).toEqual({ key: 'teacherDash.asm.waitingDays', vars: { n: 3 } });
+  });
+
+  it('none without a since', () => {
+    expect(waitingSinceText(null, 'WIB', now)).toBeNull();
   });
 });
 

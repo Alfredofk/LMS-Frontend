@@ -9,10 +9,9 @@
     `classSubjectId`, `class` (name), `academicYear` (label) and `subject`. A closed
     year's are left out and each class gets its grade from the assignments
     (dayMeetings), then shown a day at a time (teachingDay).
-  - Students: `GET /tracking/class-subjects/:id/progress` per live assignment, the
-    only roster a subject teacher may read (`GET /academics/classes/:id` is for the
-    Principal and the homeroom teacher). Its `students` include who left or moved,
-    so only `placedNow` ones count.
+  - Students: `GET /dashboard/teaching`'s slots since 2026-10-27 (owner), each class
+    of the current semester counted once - studentsAcrossClasses in teachingDashboard.js.
+    It was one `GET /tracking/class-subjects/:id/progress` per live assignment.
 */
 
 /**
@@ -35,21 +34,6 @@ export const liveAssignments = (rows, openSemesters = null) =>
 
 /** How many different classes the live assignments are in. */
 export const classCount = (live) => new Set((live ?? []).map((row) => row.class?.id).filter(Boolean)).size;
-
-/**
- * Students placed now in any of the teacher's classes, each counted once.
- * null when any read failed: a total missing a class is a number nobody counted.
- *
- * @param progresses  one classSubjectProgress answer per live assignment, null where it failed
- */
-export function uniqueStudentCount(progresses) {
-  if ((progresses ?? []).some((answer) => !answer)) return null;
-  const ids = new Set();
-  for (const answer of progresses) {
-    for (const student of answer.students ?? []) if (student.placedNow) ids.add(student.studentProfileId);
-  }
-  return ids.size;
-}
 
 /** The semester the live assignments are in, `{ ordinal, academicYear }`, or null. */
 export const currentSemester = (live) => live?.[0]?.semester ?? null;

@@ -1163,6 +1163,20 @@ export const isStaleGrading = (err) =>
     String(err?.message ?? '').includes(needle)
   );
 
+/*
+  The school's Support Signal thresholds (backend 002298e, dashboard.settings.js):
+  a stale updatedAt is 409 "changed meanwhile", none sent while a row exists 400.
+  Both mean the form is behind: read again.
+*/
+const SIGNAL_STALE = ['The signal settings were changed meanwhile', 'updatedAt you last read of these signal settings'];
+
+export const isStaleSignalSettings = (err) => SIGNAL_STALE.some((needle) => String(err?.message ?? '').includes(needle));
+
+export function signalSettingsErrorMessage(err, t) {
+  if (isStaleSignalSettings(err)) return t('signal.error.stale');
+  return apiErrorMessage(err, t);
+}
+
 /** A refusal that means this slot's settings take no change any more (closed semester or year, not the reader's). */
 export const isGradingLocked = (err) =>
   /^Academic year .+ is closed$/.test(String(err?.message ?? '')) ||

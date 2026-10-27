@@ -14,6 +14,7 @@ import { GOVERNING_BODY_HOME, homeFor, ROLES } from '../../constants/roles';
 import LeaveCard from './LeaveCard';
 import SchoolPlaceCard from './SchoolPlaceCard';
 import SchoolGradeSettingsCard from '../Grading/SchoolGradeSettingsCard';
+import SignalSettingsCard from './SignalSettingsCard';
 import LetterheadCard from './LetterheadCard';
 import AffiliationCard from './AffiliationCard';
 import HandoverCard from './HandoverCard';
@@ -187,6 +188,12 @@ export const AccountPage = () => {
               Vice Principal's to set (backend 5d42af6, SchoolGradeSettingsCard). */}
           {(activeRole === ROLES.PRINCIPAL || activeRole === ROLES.VICE_PRINCIPAL) && (
             <SchoolGradeSettingsCard onToast={(message, type) => setToast({ message, type })} />
+          )}
+
+          {/* When a teacher's dashboard flags a student as needing support - the Principal's
+              and a Vice Principal's to set (backend 002298e, SignalSettingsCard). */}
+          {(activeRole === ROLES.PRINCIPAL || activeRole === ROLES.VICE_PRINCIPAL) && (
+            <SignalSettingsCard onToast={(message, type) => setToast({ message, type })} />
           )}
 
           {/* The report card's letterhead - the Principal's alone (backend 4dae152, LetterheadCard). */}

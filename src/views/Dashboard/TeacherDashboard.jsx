@@ -7,19 +7,20 @@ import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
 import { academicsService } from '../../services/academicsService';
 import { sessionsService } from '../../services/sessionsService';
-import { trackingService } from '../../services/trackingService';
 import { localOf } from '../Attendance/attendance';
 import StatCard from './components/StatCard';
 import TeachingDayCard from './components/TeachingDayCard';
 import AssessmentsCard from './components/AssessmentsCard';
-import { readMarkingQueue } from '../TeacherAssessment/markingQueue';
+import TeachingSlotsCard from './components/TeachingSlotsCard';
+import { readTeachingDashboard, studentsAcrossClasses } from './teachingDashboard';
+import { readMarkingQueue, readTeachingLists } from '../TeacherAssessment/markingQueue';
 import { dashboardAssessments } from '../TeacherAssessment/teacherAssessment';
 import { openYearLabels } from '../Schedule/teacherLessons';
 import { useMyExamWeek } from '../Schedule/useMyExamWeek';
 import ExamWeekLine from '../Schedule/ExamWeekLine';
 import { examsByDay, teacherExamClasses } from '../Schedule/lessonCalendar';
 import {
-  DAYS_AHEAD, addDays, classCount, currentSemester, dayMeetings, finalisingSemesterOf, liveAssignments, openSemesterIds, uniqueStudentCount,
+  DAYS_AHEAD, addDays, classCount, currentSemester, dayMeetings, finalisingSemesterOf, liveAssignments, openSemesterIds,
 } from './teacherHome';
 
 /*
@@ -32,14 +33,18 @@ import {
   - Today's meetings (TeachingDayCard): `GET /sessions/teaching` from today over the
     route's 42 days, so a day with none can name the next (backend 1bd81ab; until
     2026-10-05 one read per assignment).
-  - Students: one `GET /tracking/class-subjects/:id/progress` per live assignment,
-    the only roster a subject teacher may read; see teacherHome.js.
+  - Students: the classes of this semester's slots in `GET /dashboard/teaching`,
+    each counted once (owner 2026-10-27; it was one progress read per assignment).
   - To review (owner, 2026-10-10): attempts waiting for marking, and under them
-    how many are ready to release - markingQueue.js, shared with the sidebar's
-    number; a click opens the first assessment that waits, on its "Hasil" tab.
+    how many may be released now - `GET /dashboard/teaching`'s queue through
+    markingQueue.js, shared with the sidebar's number (owner 2026-10-27); a click
+    opens the assessment waiting longest, on its "Hasil" tab.
   - Assessments (AssessmentsCard, owner 2026-10-08): open, upcoming and drafts
     across the subjects taught now. It took the place of "recent submissions",
     which had no route.
+  - This semester's classes (TeachingSlotsCard, owner 2026-10-27): each subject's
+    materials and attendance, and the students needing support, from the same
+    `GET /dashboard/teaching` answer (readTeachingDashboard, kept a minute).
 */
 
 const greetingKeyFor = (hour) => {
@@ -87,34 +92,39 @@ export const TeacherDashboard = () => {
     [teaching, live]
   );
 
-  /* undefined → reading; a number → counted; null → a read failed (or the
-     assignments themselves could not be read). */
-  const [counted, setCounted] = useState(undefined);
+  /* GET /dashboard/teaching: undefined → reading; the answer; null → failed. */
+  const [board, setBoard] = useState(undefined);
   useEffect(() => {
-    if (!live) return undefined;
     let cancelled = false;
-    Promise.all(live.map((row) => trackingService.classSubjectProgress(row.id).catch(() => null)))
-      .then((answers) => !cancelled && setCounted(uniqueStudentCount(answers)));
+    readTeachingDashboard(membership?.id)
+      .then((answer) => !cancelled && setBoard(answer))
+      .catch(() => !cancelled && setBoard(null));
     return () => {
       cancelled = true;
     };
-  }, [live]);
-  const students = teaching === null ? null : counted;
+  }, [membership?.id]);
+  const students = board ? studentsAcrossClasses(board.slots) : board;
 
-  /* undefined -> reading; { lists, waitingById, marking, release } -> read; null -> failed. */
+  /* undefined -> reading; { waitingById, marking, release, releasable } -> read; null -> failed. */
   const [queue, setQueue] = useState(undefined);
+  /* The assessments of the slots taught, [{ row, assessments }]: undefined, read, or null. */
+  const [lists, setLists] = useState(undefined);
   useEffect(() => {
     let cancelled = false;
     readMarkingQueue(membership?.id)
       .then((answer) => !cancelled && setQueue(answer))
       .catch(() => !cancelled && setQueue(null));
+    readTeachingLists(membership?.id)
+      .then((answer) => !cancelled && setLists(answer))
+      .catch(() => !cancelled && setLists(null));
     return () => {
       cancelled = true;
     };
   }, [membership?.id]);
+  /* Opened through the teacher's own row of the slot, which the lists carry. */
   const firstWaiting = useMemo(
-    () => (queue ? dashboardAssessments(queue.lists, { waitingById: queue.waitingById }).items.find((item) => item.group === 'review') ?? null : null),
-    [queue]
+    () => (queue && lists ? dashboardAssessments(lists, { waitingById: queue.waitingById }).items.find((item) => item.group === 'review') ?? null : null),
+    [queue, lists]
   );
 
   const now = new Date();
@@ -134,10 +144,10 @@ export const TeacherDashboard = () => {
   );
   const examReminder = useMyExamWeek(myGrades, todayLocal);
   const examWeekToday = examReminder?.kind === 'running' ? examReminder.week : null;
-  /* Today's published UTS and UAS of the subjects taught, from the queue's lists. */
+  /* Today's published UTS and UAS of the subjects taught, from the lists. */
   const examsToday = useMemo(
-    () => (examWeekToday && queue ? examsByDay(teacherExamClasses(queue.lists), zone).get(todayLocal) ?? [] : []),
-    [examWeekToday, queue, zone, todayLocal]
+    () => (examWeekToday && lists ? examsByDay(teacherExamClasses(lists), zone).get(todayLocal) ?? [] : []),
+    [examWeekToday, lists, zone, todayLocal]
   );
 
   const loading = teaching === undefined;
@@ -192,7 +202,7 @@ export const TeacherDashboard = () => {
         <StatCard
           title={t('teacherDash.stat.review')}
           value={queue === undefined ? '…' : queue === null ? '-' : String(queue.marking)}
-          subtext={queue === null ? t('dash.att.failed') : queue === undefined ? '' : t('teacherDash.stat.review.sub', { n: queue.release })}
+          subtext={queue === null ? t('dash.att.failed') : queue === undefined ? '' : t('teacherDash.stat.review.sub', { n: queue.releasable })}
           icon={ClipboardCheck}
           onClick={firstWaiting ? () => navigate(`/teacher/courses/${firstWaiting.row.id}/penilaian/${firstWaiting.assessment.id}?tab=hasil`) : undefined}
         />
@@ -208,8 +218,10 @@ export const TeacherDashboard = () => {
           className="lg:col-span-7"
         />
 
-        <AssessmentsCard queue={queue} zone={zone} className="lg:col-span-5" />
+        <AssessmentsCard queue={queue} lists={lists} zone={zone} className="lg:col-span-5" />
       </div>
+
+      <TeachingSlotsCard board={board} />
     </div>
   );
 };

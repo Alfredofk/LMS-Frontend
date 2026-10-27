@@ -605,7 +605,8 @@ const DASHBOARD_GROUPS = ['review', 'open', 'upcoming', 'draft'];
  * soonest to open; then drafts, by their window. Ended and cancelled ones ask
  * nothing of the teacher and are left out - unless attempts wait on them
  * (waitingById, markingQueue.js, owner 2026-10-10): those come first, in
- * "review", whatever their window, most to mark first. One reached through two rows of a
+ * "review", whatever their window, the longest waiting first (`since`, the
+ * queue's oldestWaitingSince; owner 2026-10-27). One reached through two rows of a
  * slot is listed once. Each item keeps the row it was read through, which is
  * the page's own class subject.
  *
@@ -630,10 +631,26 @@ export function dashboardAssessments(lists, { now = new Date(), limit = DASHBOAR
     }
   }
   const at = (item) => new Date(item.group === 'open' ? item.assessment.closesAt : item.assessment.opensAt).getTime();
-  const toMark = (item) => (item.group === 'review' ? -item.waiting.marking : 0);
-  all.sort((a, b) => DASHBOARD_GROUPS.indexOf(a.group) - DASHBOARD_GROUPS.indexOf(b.group) || toMark(a) - toMark(b) || at(a) - at(b));
+  /* A review row with no `since` (none can wait without one) goes last. */
+  const since = (item) => (item.waiting?.since ? new Date(item.waiting.since).getTime() : Number.MAX_SAFE_INTEGER);
+  all.sort((a, b) => DASHBOARD_GROUPS.indexOf(a.group) - DASHBOARD_GROUPS.indexOf(b.group) || (a.group === 'review' ? since(a) - since(b) : 0) || at(a) - at(b));
   const counts = Object.fromEntries(DASHBOARD_GROUPS.map((group) => [group, all.filter((item) => item.group === group).length]));
   return { items: all.slice(0, limit), more: Math.max(0, all.length - limit), counts };
+}
+
+/**
+ * How long a review row has waited, as `{ key, vars }`: by the school's days from
+ * its oldest attempt waiting to today - "today", "yesterday" or "{n} days". Null
+ * without a `since`.
+ */
+export function waitingSinceText(since, zone, now = new Date()) {
+  const from = partsOf(since, zone).date;
+  const today = partsOf(now, zone).date;
+  if (!from || !today) return null;
+  const days = Math.max(0, Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / (24 * 60 * 60 * 1000)));
+  if (days === 0) return { key: 'teacherDash.asm.waitingToday' };
+  if (days === 1) return { key: 'teacherDash.asm.waitingYesterday' };
+  return { key: 'teacherDash.asm.waitingDays', vars: { n: days } };
 }
 
 /* ---- Exam Weeks (backend cbec3b6, teaching-and-learning ticket 13; owner 2026-10-18) ----

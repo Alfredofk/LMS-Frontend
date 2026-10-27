@@ -29,7 +29,7 @@ import {
   withoutExamWeekCancelled,
 } from './lessonCalendar';
 import { readMyMenu } from '../StudentAssessment/readMyMenu';
-import { readMarkingQueue } from '../TeacherAssessment/markingQueue';
+import { readTeachingLists } from '../TeacherAssessment/markingQueue';
 import ExamRows from './ExamRows';
 import { examWeekItems, examWeeksForGrades, taughtGrades } from './examWeeks';
 
@@ -96,7 +96,7 @@ const LEGEND_KINDS = ['NATIONAL', 'JOINT_LEAVE', 'SCHOOL'];
    there is no teaching, so the day is its exams), from their menu for the current
    semester (readMyMenu, kept a minute), on every day of each one's window. A
    teacher's show the published UTS and UAS of the subjects they teach now, from the
-   marking queue's lists (readMarkingQueue, shared with the dashboard), naming the
+   assessment lists of the slots taught (readTeachingLists, shared with the dashboard), naming the
    class. Meetings cancelled for an Exam Week are left out; an exam day with none
    says so. */
 
@@ -121,14 +121,14 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
     };
   }, [teacher]);
   /* The exams' source, false when the read failed: a student's menu (its classes), or
-     a teacher's published assessments from the marking queue's lists (owner 2026-10-18). */
+     a teacher's published assessments from readTeachingLists (owner 2026-10-18). */
   const [menuClasses, setMenuClasses] = useState(null);
   const membershipId = membership?.id ?? null;
   useEffect(() => {
     if (!membershipId) return undefined;
     let cancelled = false;
     const reading = teacher
-      ? readMarkingQueue(membershipId).then((queue) => teacherExamClasses(queue?.lists))
+      ? readTeachingLists(membershipId).then(teacherExamClasses)
       : readMyMenu(membershipId).then((menu) => menu?.classes ?? []);
     reading
       .then((classes) => !cancelled && setMenuClasses(classes))

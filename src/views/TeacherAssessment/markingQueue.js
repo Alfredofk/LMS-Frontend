@@ -1,89 +1,86 @@
 import { academicsService } from '../../services/academicsService';
 import { assessmentService } from '../../services/assessmentService';
 import { liveAssignments, openSemesterIds } from '../Dashboard/teacherHome';
+import { forgetTeachingDashboard, readTeachingDashboard } from '../Dashboard/teachingDashboard';
 
 /*
   What waits on the teacher's marking (owner, 2026-10-10): the dashboard's "Untuk
   diperiksa" card and "Perlu dinilai" group, and the number beside "Kelas Saya" in
-  the sidebar. The backend has no route for it, so it is counted here:
+  the sidebar. Two reads, each kept a minute per membership and shared:
 
-    ?mine=true + the years -> the assignments taught now (liveAssignments)
-    one GET /assessments/class-subjects/:id per assignment
-    one GET /assessments/:id/submissions per assessment published and opened
-      (one not opened yet has nothing in it) -> its `waiting`
+  - readMarkingQueue: `GET /dashboard/teaching`'s queue (backend 27400b4, owner
+    2026-10-27), through readTeachingDashboard, whose one answer the dashboard's
+    other cards share. One request where there used to be one results read per
+    assessment published and opened; the counts are the same, the server's own
+    standingsOf. The sidebar reads only this.
+  - readTeachingLists: every assessment of the slots taught now, one
+    `GET /assessments/class-subjects/:id` per live assignment (`?mine=true` + the
+    years). The dashboard card's open / upcoming / draft groups and the teacher's
+    exam days need them; the queue carries none of that.
 
-  Read once a minute at most, per membership, and shared: the dashboard and the
-  sidebar ask the same promise. A change made here (marks saved, a release) calls
-  `forgetMarkingQueue()`. A results read that fails leaves that assessment out;
-  the lists and the assignments failing make the whole read fail.
+  A change made here (marks saved, a release) calls `forgetMarkingQueue()`, which
+  drops both. A list that fails is left out; all of them failing fails the read.
 */
 
 const KEEP_MS = 60 * 1000;
-let cached = null;
+const cached = { lists: null };
+
+/** The read kept under `slot` for this membership, or a fresh one. */
+function kept(slot, membershipId, fresh, read) {
+  const held = cached[slot];
+  if (!fresh && held?.membershipId === membershipId && Date.now() - held.at < KEEP_MS) return held.promise;
+
+  const promise = read();
+  cached[slot] = { membershipId, at: Date.now(), promise };
+  promise.catch(() => {
+    if (cached[slot]?.promise === promise) cached[slot] = null;
+  });
+  return promise;
+}
 
 /**
- * The assessments whose results are read: published and already opened - or
- * OFFLINE, whose marks the teacher may enter and release before its window
- * (measured 2026-10-10: a mark of 90 released on a paper opening two days later).
- */
-export const queueCandidates = (assessments, now = new Date()) =>
-  (assessments ?? []).filter(
-    (assessment) => assessment.status === 'PUBLISHED' && (assessment.mode === 'OFFLINE' || new Date(assessment.opensAt) <= now)
-  );
-
-/**
- * `{ lists, waitingById, marking, release }` from the lists and the results read:
- * per assessment id `{ marking, release }` where anything waits, and the totals.
+ * `{ waitingById, marking, release, releasable }` from the queue's entries: per
+ * assessment id `{ marking, release, since, releasableAt }`, the totals, and how
+ * many of the releases may be pressed now (`releasableAt` null).
  *
- * @param lists    [{ row, assessments }] - one per assignment taught now
- * @param results  [{ id, waiting }] - one per results read that answered
+ * @param queue  `GET /dashboard/teaching`'s `queue`
  */
-export function markingQueueOf(lists, results) {
+export function markingQueueOf(queue) {
   const waitingById = {};
   let marking = 0;
   let release = 0;
-  for (const { id, waiting } of results ?? []) {
-    const m = waiting?.marking ?? 0;
-    const r = waiting?.release ?? 0;
-    if (m + r === 0) continue;
-    waitingById[id] = { marking: m, release: r };
+  let releasable = 0;
+  for (const entry of queue ?? []) {
+    const id = entry.assessment?.id;
+    if (!id) continue;
+    const m = entry.marking ?? 0;
+    const r = entry.release ?? 0;
+    waitingById[id] = { marking: m, release: r, since: entry.oldestWaitingSince ?? null, releasableAt: entry.releasableAt ?? null };
     marking += m;
     release += r;
+    if (!entry.releasableAt) releasable += r;
   }
-  return { lists: lists ?? [], waitingById, marking, release };
+  return { waitingById, marking, release, releasable };
 }
 
-export function readMarkingQueue(membershipId, { fresh = false, now = () => new Date() } = {}) {
-  if (!fresh && cached?.membershipId === membershipId && Date.now() - cached.at < KEEP_MS) return cached.promise;
+export function readMarkingQueue(membershipId, { fresh = false } = {}) {
+  return readTeachingDashboard(membershipId, { fresh }).then((answer) => markingQueueOf(answer?.queue));
+}
 
-  const promise = (async () => {
+/** `[{ row, assessments }]`, one per assignment taught now whose list answered. */
+export function readTeachingLists(membershipId, { fresh = false } = {}) {
+  return kept('lists', membershipId, fresh, async () => {
     const [rows, years] = await Promise.all([academicsService.myClassSubjects(), academicsService.academicYears()]);
     const live = liveAssignments(rows, openSemesterIds(years));
     const settled = await Promise.allSettled(live.map((row) => assessmentService.listFor(row.id).then((assessments) => ({ row, assessments }))));
     const lists = settled.filter((item) => item.status === 'fulfilled').map((item) => item.value);
     if (live.length > 0 && lists.length === 0) throw new Error('No assessment list could be read');
-    const at = now();
-    const seen = new Set();
-    const candidates = lists.flatMap(({ assessments }) => queueCandidates(assessments, at)).filter((assessment) => !seen.has(assessment.id) && seen.add(assessment.id));
-    const results = await Promise.all(
-      candidates.map((assessment) =>
-        assessmentService
-          .results(assessment.id)
-          .then((answer) => ({ id: assessment.id, waiting: answer?.waiting }))
-          .catch(() => null)
-      )
-    );
-    return markingQueueOf(lists, results.filter(Boolean));
-  })();
-
-  cached = { membershipId, at: Date.now(), promise };
-  promise.catch(() => {
-    if (cached?.promise === promise) cached = null;
+    return lists;
   });
-  return promise;
 }
 
-/** The next read is fresh: after marks are saved or scores released. */
+/** The next reads are fresh: after marks are saved or scores released. */
 export function forgetMarkingQueue() {
-  cached = null;
+  forgetTeachingDashboard();
+  cached.lists = null;
 }
