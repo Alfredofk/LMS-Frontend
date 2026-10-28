@@ -9,7 +9,7 @@ import { formatNumber } from '../TeacherAssessment/results';
   worked out here: GET /grading/class-subjects/:id/grades (backend 79b319f,
   ticket 02), computed live with the slot's weights, KKTP and the school's
   remedial rule. It is a running grade - "did not submit" counts 0, what waits
-  counts nothing yet - so the cell says how many of each under the number.
+  counts nothing yet - so the opened row says how many of each.
 
   Read in one request since 2026-10-13: GET /assessments/class-subjects/:id/recap
   (backend 113ae37), whose cells say whether only a remedial reached the score
@@ -68,17 +68,11 @@ export function finalOf(student) {
   };
 }
 
-/** The counts said under the number (`gradebook.final.flag.*`), and all four in the details (`gradebook.final.note.*`). */
-export const FINAL_FLAGS = ['waiting', 'didNotSubmit'];
+/** The counts said in a student's details (`gradebook.final.note.*`). */
 export const FINAL_NOTES = ['waiting', 'didNotSubmit', 'remedialRuleMoved', 'pooled'];
 
-/**
- * The counts said under the number (owner, 2026-10-18), only those above 0:
- * `[{ key, n }]`. Moved by the remedial rule and pooled from an earlier class
- * are said in the details only (`finalNotes`).
- */
+/** Every count above 0, `[{ key, n }]`, shown in a student's opened row (owner, 2026-10-18). */
 const countsOf = (keys) => (final) => keys.filter((key) => final?.[key] > 0).map((key) => ({ key, n: final[key] }));
-export const finalFlags = countsOf(FINAL_FLAGS);
 export const finalNotes = countsOf(FINAL_NOTES);
 
 /**
@@ -138,3 +132,30 @@ export function gradebookCsv(columns, rows, { lang, nameHeader, columnHeader, wo
  * as `{ score: final.value }`.
  */
 export const belowKktp = (cell, kktp) => typeof kktp === 'number' && typeof cell?.score === 'number' && cell.score < kktp;
+
+/**
+ * What one student's row says under the name (owner, 2026-10-28: a row per
+ * student instead of the table): how many scores count, then how many cells
+ * carry each word, in a fixed order, only those above 0: `[{ key, n }]`, the
+ * first `scores`, the rest a cell word (`gradebook.count.*`).
+ */
+export const COUNT_ORDER = ['DID_NOT_SUBMIT', 'WAITING_FOR_MARKING', 'WAITING_FOR_RELEASE', 'IN_PROGRESS', 'NOT_STARTED', 'RELEASED', 'notOpen'];
+export function rowCounts(row) {
+  const cells = row?.cells ?? [];
+  const scores = cells.filter((cell) => 'score' in cell).length;
+  const words = COUNT_ORDER.map((key) => ({ key, n: cells.filter((cell) => cell.word === key).length })).filter(({ n }) => n > 0);
+  return [{ key: 'scores', n: scores }, ...words];
+}
+
+/**
+ * The three numbers above the rows: the mean of the final grades there are
+ * (one decimal, null with none), how many of those are under the KKTP (null
+ * without a KKTP), out of how many, and how many cells read "did not submit".
+ */
+export function gradebookSummary(rows, kktp) {
+  const finals = (rows ?? []).map((row) => row.final?.value).filter((value) => typeof value === 'number');
+  const average = finals.length ? Math.round((finals.reduce((sum, value) => sum + value, 0) / finals.length) * 10) / 10 : null;
+  const below = typeof kktp === 'number' ? finals.filter((value) => value < kktp).length : null;
+  const didNotSubmit = (rows ?? []).reduce((sum, row) => sum + (row.cells ?? []).filter((cell) => cell.word === 'DID_NOT_SUBMIT').length, 0);
+  return { average, below, graded: finals.length, didNotSubmit };
+}

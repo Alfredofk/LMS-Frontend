@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { AlertCircle, Printer } from 'lucide-react';
+import { Printer } from 'lucide-react';
 
+import Button from '../../components/ui/Button';
+import FactLine from '../../components/ui/FactLine';
 import Select from '../../components/ui/Select';
 import { useSchoolZone } from '../../hooks/useSchoolToday';
 import { useT } from '../../i18n/LanguageContext';
@@ -9,7 +11,9 @@ import { reportCardErrorMessage } from '../../i18n/apiError';
 import { gradingService } from '../../services/gradingService';
 import { openFileInNewTab } from '../../utils/openFile';
 import { formatDay } from '../Classes/format';
+import { formatNumber } from '../TeacherAssessment/results';
 import { shortWhen } from '../TeacherAssessment/teacherAssessment';
+import { Bone, HomeError } from '../Dashboard/components/HomeCard';
 import {
   REPORT_TYPES,
   hasVersionChoice,
@@ -17,6 +21,7 @@ import {
   letterheadParts,
   newestVersionOf,
   promotionLineOf,
+  reportSummaryOf,
   sharedKktpOf,
   showsTypeAverages,
   typeAverageText,
@@ -38,15 +43,37 @@ import {
   tab. A staff read holding several versions offers them; an older one says so and
   links the newest. The navbar leads back where it was opened from (`state.back`,
   reportCards.js backOf).
+
+  The look since 2026-10-28 (owner, mockup rapor.html): three numbers first
+  (reportSummaryOf: the average final grade, subjects reaching their KKTP, sessions
+  missed), the facts as eyebrow cells, the table's head on a pale fill with the
+  letter in a small box and "CAPAIAN KOMPETENSI" as an eyebrow, absences and the
+  grading system as boxes, the older-version note an amber box with its button.
 */
 
-const card = 'bg-white border border-slate-100 rounded-2xl p-5 sm:p-6 shadow-sm';
+const card = 'bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm min-w-0';
 
+/* An eyebrow on its value, ruled off below as the subject page's header facts are. */
 const Fact = ({ label, value }) => (
-  <div className="min-w-0">
-    <dt className="text-[11px] font-semibold text-slate-500">{label}</dt>
-    <dd className="text-sm font-bold text-slate-900 break-words">{value || '-'}</dd>
+  <div className="min-w-0 py-3 pr-4 border-b border-slate-100">
+    <dt className="text-[10px] font-bold tracking-wider uppercase text-slate-500">{label}</dt>
+    <dd className="mt-0.5 text-sm font-extrabold text-slate-900 break-words">{value || '-'}</dd>
   </div>
+);
+
+/* A box with an eyebrow over a number, for absences and the letter scale. */
+const Box = ({ label, value, unit = null, small = false }) => (
+  <div className="min-w-0 flex flex-col rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
+    {/* The label takes what height is left, so a label on two lines keeps the numbers level. */}
+    <p className="flex-1 text-[10px] font-bold tracking-wider uppercase text-slate-500 break-words">{label}</p>
+    <p className={`font-extrabold text-slate-900 tabular-nums leading-tight ${small ? 'text-sm sm:text-base pt-0.5' : 'text-xl'}`}>{value}</p>
+    {unit && <p className="text-[11px] font-semibold text-slate-500">{unit}</p>}
+  </div>
+);
+
+/* The letter of a final grade in a small slate box. */
+const Letter = ({ letter }) => (
+  <span className="inline-grid place-items-center min-w-7 h-[26px] px-1.5 rounded-lg bg-slate-100 text-sm font-extrabold text-slate-900">{letter ?? '-'}</span>
 );
 
 export const ReportCardPage = () => {
@@ -77,15 +104,28 @@ export const ReportCardPage = () => {
   const open = (id) => navigate(`/report-cards/${id}`, { replace: true, state: location.state });
 
   if (read === undefined) {
-    return <div className="h-64 rounded-2xl bg-white border border-slate-100 animate-pulse" aria-busy="true" aria-label={t('common.loading')} />;
+    return (
+      <div className="space-y-6 max-w-4xl" aria-busy="true" aria-label={t('common.loading')}>
+        <Bone className="h-9 w-2/3" />
+        <div className="grid grid-cols-3 gap-2">
+          {[0, 1, 2].map((n) => (
+            <Bone key={n} className="h-16" />
+          ))}
+        </div>
+        <div className={card}>
+          {[0, 1, 2, 3].map((n) => (
+            <Bone key={n} className="h-4 mt-3 first:mt-0" />
+          ))}
+        </div>
+      </div>
+    );
   }
   if (read?.error || !read) {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">{t('shell.reportCards')}</h1>
-        <div className={`${card} flex flex-col items-center text-center gap-3 py-8`} role="alert">
-          <AlertCircle className="w-7 h-7 text-rose-500" aria-hidden="true" />
-          <p className="text-sm font-bold text-slate-700 max-w-sm">{read?.error ?? t('rc.error.notFound')}</p>
+        <div className={card}>
+          <HomeError message={read?.error ?? t('rc.error.notFound')} />
         </div>
       </div>
     );
@@ -97,6 +137,7 @@ export const ReportCardPage = () => {
   const withTypes = showsTypeAverages(rc.subjects);
   const promotion = promotionLineOf(rc);
   const contact = letterheadParts(rc.school);
+  const summary = reportSummaryOf(rc);
   const pdfHere = pdf?.id === rc.id ? pdf : null;
   const versionLabel = (entry) => {
     const label = t('rc.versionOption', { n: entry.version, date: day(entry.reportDate) });
@@ -119,11 +160,7 @@ export const ReportCardPage = () => {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">{t('rc.title', { n: rc.semester.ordinal, year: rc.academicYear })}</h1>
-          <p className="text-xs sm:text-sm text-slate-500 font-bold mt-1 break-words">
-            {rc.student.fullName}
-            <span className="font-light text-slate-300"> / </span>
-            {rc.class.name}
-          </p>
+          <FactLine className="mt-2" wrap facts={[rc.student.fullName, rc.class.name]} />
         </div>
         <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
           {hasVersionChoice(rc) && (
@@ -135,39 +172,49 @@ export const ReportCardPage = () => {
               ))}
             </Select>
           )}
-          <button
-            type="button"
-            onClick={printPdf}
-            disabled={Boolean(pdfHere?.busy)}
-            className="inline-flex items-center justify-center gap-2 h-9 px-4 rounded-xl bg-brand text-white text-sm font-bold hover:bg-brand-deep disabled:opacity-60 cursor-pointer disabled:cursor-wait focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 shrink-0"
-          >
-            <Printer className="w-4 h-4" aria-hidden="true" />
-            {pdfHere?.busy ? t('rc.pdf.opening') : t('rc.pdf.print')}
-          </button>
+          <Button onClick={printPdf} isLoading={Boolean(pdfHere?.busy)} className="shrink-0">
+            <span className="inline-flex items-center gap-2">
+              {!pdfHere?.busy && <Printer className="w-4 h-4" aria-hidden="true" />}
+              {pdfHere?.busy ? t('rc.pdf.opening') : t('rc.pdf.print')}
+            </span>
+          </Button>
         </div>
       </div>
 
-      {pdfHere?.error && (
-        <p className="text-sm font-semibold text-rose-700" role="alert">
-          {pdfHere.error}
-        </p>
-      )}
+      {pdfHere?.error && <HomeError message={pdfHere.error} />}
 
       {isOlderVersion(rc) && (
-        <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm font-semibold text-amber-700" role="status">
-          {t('rc.olderNote', { n: newest.version })}
-          <button type="button" onClick={() => open(newest.id)} className="text-xs font-extrabold text-brand hover:underline cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-50 p-3.5 text-[13px] font-semibold text-amber-700" role="status">
+          <span className="min-w-0">{t('rc.olderNote', { n: newest.version })}</span>
+          <Button size="sm" variant="outline" onClick={() => open(newest.id)}>
             {t('rc.openNewest')}
-          </button>
-        </p>
+          </Button>
+        </div>
       )}
 
-      <section className={`${card} space-y-4`} aria-label={t('rc.fact.student')}>
-        <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
+        {[
+          { key: 'average', value: summary.average === null ? '-' : formatNumber(summary.average, lang), tone: 'text-slate-900' },
+          {
+            key: 'passed',
+            value: summary.passed + summary.below === 0 ? '-' : t('rc.sum.ofValue', { n: summary.passed, total: summary.passed + summary.below }),
+            tone: summary.passed > 0 ? 'text-emerald-700' : 'text-slate-900',
+          },
+          { key: 'missed', value: String(summary.missed), tone: 'text-slate-900' },
+        ].map(({ key, value, tone }) => (
+          <p key={key} className="min-w-0 rounded-xl border border-slate-100 bg-white px-2.5 sm:px-3 py-2.5">
+            <span className={`block text-lg sm:text-xl font-extrabold tabular-nums leading-tight ${tone}`}>{value}</span>
+            <span className="block text-xs font-semibold text-slate-500">{t(`rc.sum.${key}`)}</span>
+          </p>
+        ))}
+      </div>
+
+      <section className={`${card} space-y-3`} aria-label={t('rc.fact.student')}>
+        <dl className="grid grid-cols-2 sm:grid-cols-4 -mt-3">
           <Fact label={t('rc.fact.student')} value={rc.student.fullName} />
           <Fact label={t('rc.fact.nisn')} value={rc.student.nisn} />
           <Fact label={t('rc.fact.class')} value={rc.class.name} />
-          <Fact label={t('rc.fact.phase')} value={rc.phase ? t('rc.phaseValue', { phase: rc.phase }) : null} />
+          <Fact label={t('rc.fact.phase')} value={rc.phase} />
           <Fact label={t('rc.fact.school')} value={rc.school.name} />
           <Fact label={t('rc.fact.npsn')} value={rc.school.npsn} />
           <Fact label={t('rc.fact.year')} value={rc.academicYear} />
@@ -195,8 +242,8 @@ export const ReportCardPage = () => {
           <>
             <table className="hidden sm:table w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-200 text-left text-xs font-bold text-slate-500">
-                  <th scope="col" className="py-2 pr-3 w-10">{t('rc.col.no')}</th>
+                <tr className="bg-slate-50 text-left text-xs font-bold text-slate-500">
+                  <th scope="col" className="py-2.5 pl-3 pr-3 w-10 rounded-l-xl">{t('rc.col.no')}</th>
                   <th scope="col" className="py-2 pr-3">{t('rc.col.subject')}</th>
                   {withTypes &&
                     REPORT_TYPES.map((type) => (
@@ -205,27 +252,29 @@ export const ReportCardPage = () => {
                       </th>
                     ))}
                   <th scope="col" className="py-2 px-2 w-20 text-right">{t('rc.col.grade')}</th>
-                  <th scope="col" className="py-2 pl-2 w-20 text-center">{t('rc.col.letter')}</th>
+                  <th scope="col" className="py-2.5 pl-2 pr-3 w-20 text-center rounded-r-xl">{t('rc.col.letter')}</th>
                 </tr>
               </thead>
               {rc.subjects.map((line, index) => (
                 <tbody key={line.subject.id} className="border-t border-slate-100 first-of-type:border-t-0">
                   <tr className="align-top">
-                    <td className="pt-2.5 pr-3 text-slate-500 tabular-nums">{index + 1}</td>
-                    <td className="pt-2.5 pr-3 font-bold text-slate-900 break-words">{line.subject.name}</td>
+                    <td className="pt-3 pl-3 pr-3 text-slate-500 tabular-nums">{index + 1}</td>
+                    <td className="pt-3 pr-3 font-bold text-slate-900 break-words">{line.subject.name}</td>
                     {withTypes &&
                       REPORT_TYPES.map((type) => (
-                        <td key={type} className="pt-2.5 px-2 text-right text-slate-700 tabular-nums">
-                          {typeAverageText(line, type)}
+                        <td key={type} className="pt-3 px-2 text-right text-slate-700 tabular-nums">
+                          {typeAverageText(line, type, lang)}
                         </td>
                       ))}
-                    <td className="pt-2.5 px-2 text-right font-extrabold text-slate-900 tabular-nums">{line.finalGrade}</td>
-                    <td className="pt-2.5 pl-2 text-center font-extrabold text-slate-900">{line.letter ?? '-'}</td>
+                    <td className="pt-3 px-2 text-right text-base font-extrabold text-slate-900 tabular-nums">{line.finalGrade}</td>
+                    <td className="pt-2 pl-2 pr-3 text-center">
+                      <Letter letter={line.letter} />
+                    </td>
                   </tr>
                   <tr>
                     <td aria-hidden="true" />
-                    <td colSpan={withTypes ? 7 : 3} className="pt-1 pb-2.5 text-xs text-slate-700 leading-relaxed break-words whitespace-pre-line">
-                      <span className="font-semibold text-slate-500">{t('rc.col.description')}: </span>
+                    <td colSpan={withTypes ? 7 : 3} className="pt-1 pb-3 pr-3 text-xs text-slate-700 leading-relaxed break-words whitespace-pre-line">
+                      <span className="mr-1.5 text-[10px] font-bold tracking-wider uppercase text-slate-500">{t('rc.col.description')}</span>
                       {line.description || '-'}
                     </td>
                   </tr>
@@ -243,7 +292,7 @@ export const ReportCardPage = () => {
                     <span className="text-sm font-extrabold text-slate-900 tabular-nums shrink-0">
                       <span className="sr-only">{t('rc.col.grade')} </span>
                       {line.finalGrade}
-                      <span className="sr-only"> {t('rc.col.letter')}</span> {line.letter ?? '-'}
+                      <span className="sr-only"> {t('rc.col.letter')}</span> <Letter letter={line.letter} />
                     </span>
                   </div>
                   {withTypes && (
@@ -251,7 +300,7 @@ export const ReportCardPage = () => {
                       {REPORT_TYPES.map((type, i) => (
                         <React.Fragment key={type}>
                           {i > 0 && <span className="font-light text-slate-300"> / </span>}
-                          {t(`tasm.type.${type}`)} {typeAverageText(line, type)}
+                          {t(`tasm.type.${type}`)} {typeAverageText(line, type, lang)}
                         </React.Fragment>
                       ))}
                     </p>
@@ -270,18 +319,15 @@ export const ReportCardPage = () => {
           <h2 id="rc-attendance" className="text-base font-extrabold text-slate-900">
             {t('rc.attendance')}
           </h2>
-          <dl className="space-y-1.5 text-sm">
+          <div className="grid grid-cols-3 gap-2">
             {[
               ['rc.att.sick', rc.attendance.sick],
               ['rc.att.excused', rc.attendance.excused],
               ['rc.att.absent', rc.attendance.absent],
             ].map(([key, n]) => (
-              <div key={key} className="flex justify-between gap-3">
-                <dt className="text-slate-600">{t(key)}</dt>
-                <dd className="font-bold text-slate-900 tabular-nums">{t('rc.att.unit', { n })}</dd>
-              </div>
+              <Box key={key} label={t(key)} value={n} unit={t('rc.att.unitWord')} />
             ))}
-          </dl>
+          </div>
         </section>
 
         <section className={`${card} space-y-2`} aria-labelledby="rc-note">
@@ -297,29 +343,10 @@ export const ReportCardPage = () => {
           <h2 id="rc-scale" className="text-base font-extrabold text-slate-900">
             {t('rc.scale.title')}
           </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-xs font-bold text-slate-500">
-                  <th scope="row" className="sr-only sm:not-sr-only py-2 pr-3 text-left">{t('rc.scale.letter')}</th>
-                  {rc.letterScale.map((band) => (
-                    <th key={band.letter} scope="col" className="py-2 px-1 sm:px-2 text-center text-slate-900 font-extrabold">
-                      {band.letter}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th scope="row" className="sr-only sm:not-sr-only py-2 pr-3 text-left text-xs font-bold text-slate-500">{t('rc.col.grade')}</th>
-                  {rc.letterScale.map((band) => (
-                    <td key={band.letter} className="py-2 px-1 sm:px-2 text-center text-slate-700 tabular-nums">
-                      {band.from}-{band.to}
-                    </td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
+          <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+            {rc.letterScale.map((band) => (
+              <Box key={band.letter} label={band.letter} value={`${band.from}-${band.to}`} small />
+            ))}
           </div>
           <p className="text-xs text-slate-500 leading-relaxed">{t('rc.scale.note')}</p>
         </section>

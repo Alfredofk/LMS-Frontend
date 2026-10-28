@@ -2,7 +2,10 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { ShieldOff, Inbox, ChevronRight, Search, SearchX } from 'lucide-react';
 
+import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
+import { Bone, HomeEmpty, HomeError } from '../Dashboard/components/HomeCard';
+import { Segments, SlashFacts } from './adminParts';
 import AdminSchoolDetail from './AdminSchoolDetail';
 import { adminService } from '../../services/adminService';
 import { useT } from '../../i18n/LanguageContext';
@@ -26,15 +29,17 @@ import { SCHOOL_SORTS, SCHOOL_STATES, schoolsQueryOf, withPage, withSchool } fro
     by the School's own id (tickets 06b-08), its history under bodies, a body School's
     Principal applications, and for an independent School its registration's review.
   - A 403 is this account not being a Platform Admin, said as the queue says it.
+
+  The look since 2026-10-28 (owner, mockup daftar-sekolah.html): a slash line under
+  the title, the state as small segments and the order a small dropdown in one
+  row, the rows one card ("Nonaktif" first in rose, then type / NPSN / city /
+  subdomain, and "Yayasan: ..." or "Mandiri" under it), the dashboards' states.
 */
+
+const CARD = 'bg-white border border-slate-100 rounded-2xl shadow-sm min-w-0';
 
 const TYPING_PAUSE = 300;
 const NO_ROWS = Object.freeze([]);
-
-const chipClass = (on) =>
-  `px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
-    on ? 'bg-brand text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300'
-  }`;
 
 export const AdminSchoolsPage = () => {
   const { showToast } = useOutletContext() ?? {};
@@ -115,11 +120,126 @@ export const AdminSchoolsPage = () => {
   const isFirstLoad = isFetching && rows.length === 0;
   const isRefining = isFetching && rows.length > 0;
 
+  let list;
+  if (error) {
+    list = <HomeError message={error} retryLabel={t('att.error.retry')} onRetry={() => fetchPage(0)} />;
+  } else if (isFirstLoad) {
+    list = (
+      <div className={`${CARD} px-4 sm:px-5 py-2`} aria-busy="true" aria-label={t('common.loading')}>
+        {[0, 1, 2].map((n) => (
+          <div key={n} className="py-3.5">
+            <Bone className="h-3.5 w-2/5" />
+            <Bone className="h-3 w-3/4 mt-2" />
+          </div>
+        ))}
+      </div>
+    );
+  } else if (everyCount === 0) {
+    list = (
+      <div className={`${CARD} p-6 max-sm:p-[18px]`}>
+        <HomeEmpty icon={Inbox} title={t('adminSchools.empty')} />
+      </div>
+    );
+  } else {
+    list = (
+      <>
+        <div className="flex flex-wrap items-center gap-2.5 select-none">
+          <div className="relative flex-1 min-w-[min(100%,20rem)]">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" aria-hidden="true" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t('adminSchools.search')}
+              aria-label={t('adminSchools.search')}
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-brand focus:ring-1 focus:ring-brand outline-none text-sm font-medium placeholder-slate-500 bg-white transition-colors"
+            />
+          </div>
+          <Segments label={t('admin.filter.state')} options={SCHOOL_STATES} value={state} onChange={setState} labelOf={(option) => t(`admin.filter.state.${option}`)} />
+          <div className="w-44">
+            <Select size="sm" id="adminSchoolsSort" name="sort" value={sort} onChange={(e) => setSort(e.target.value)} aria-label={t('adminSchools.sort')}>
+              {SCHOOL_SORTS.map((option) => (
+                <option key={option} value={option}>
+                  {t('adminSchools.sortOption', { order: t(`adminSchools.sort.${option}`) })}
+                </option>
+              ))}
+            </Select>
+          </div>
+        </div>
+
+        {total === 0 ? (
+          <div className={`${CARD} p-6 max-sm:p-[18px]`}>
+            <HomeEmpty
+              icon={SearchX}
+              title={t('admin.search.empty')}
+              action={
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setQuery('');
+                    setState('ALL');
+                  }}
+                >
+                  {t('admin.search.clear')}
+                </Button>
+              }
+            />
+          </div>
+        ) : (
+          <div className={`${CARD} px-3 sm:px-4 py-2 transition-opacity ${isRefining ? 'opacity-50' : 'opacity-100'}`} aria-busy={isRefining}>
+            <p className="px-2 pt-1.5 pb-1 text-xs font-semibold text-slate-500 select-none">
+              {rows.length < total ? t('adminSchools.countOf', { n: rows.length, total }) : t('adminSchools.count', { n: total })}
+            </p>
+            <ul>
+              {rows.map((row) => (
+                <li key={row.id} className="border-b border-slate-100 last:border-0">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(row.id)}
+                    className="w-full flex items-center gap-3 px-2 py-3.5 text-left rounded-xl hover:bg-slate-50 transition-colors duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                  >
+                    <span className="flex-1 min-w-0 space-y-0.5">
+                      <span className="block text-sm font-bold text-slate-900 break-words">{row.name}</span>
+                      <SlashFacts
+                        parts={[
+                          row.deactivatedAt && <span className="font-bold text-rose-700">{t('admin.list.deactivated')}</span>,
+                          row.schoolType,
+                          t('admin.list.npsn', { npsn: row.npsn }),
+                          row.city,
+                          row.subdomain,
+                        ]}
+                      />
+                      <span className="block text-xs font-semibold text-slate-500 break-words">
+                        {row.governingBody?.name ? t('adminSchools.bodyLine', { body: row.governingBody.name }) : t('adminSchools.independent')}
+                      </span>
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {rows.length < total && (
+              <div className="px-2 pt-2 pb-2.5">
+                <Button size="sm" variant="outline" onClick={() => fetchPage(rows.length)} isLoading={isAppending} className="w-full">
+                  {isAppending ? t('common.loading') : t('admin.queue.loadMore')}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="select-none">
         <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('adminSchools.title')}</h1>
-        <p className="text-xs sm:text-sm text-slate-500 font-bold mt-1">{t('adminSchools.subtitle')}</p>
+        <SlashFacts
+          className="block mt-2 text-sm font-medium text-slate-500"
+          parts={[everyCount !== null && everyCount > 0 ? t('adminSchools.count', { n: everyCount }) : null, t('adminSchools.kinds')]}
+        />
       </div>
 
       {selected ? (
@@ -129,123 +249,8 @@ export const AdminSchoolsPage = () => {
           onChanged={(school) => setRows((prev) => withSchool(prev, school))}
           showToast={showToast}
         />
-      ) : error ? (
-        <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700" role="alert">
-          {error}
-        </div>
-      ) : isFirstLoad ? (
-        <div className="h-40 bg-white border border-slate-100 rounded-2xl animate-pulse" aria-busy="true" aria-label={t('common.loading')} />
-      ) : everyCount === 0 ? (
-        <div className="py-16 text-center border border-dashed border-slate-200 rounded-2xl bg-white select-none">
-          <Inbox className="w-9 h-9 text-slate-300 mx-auto" aria-hidden="true" />
-          <p className="mt-2.5 text-xs font-extrabold text-slate-500">{t('adminSchools.empty')}</p>
-        </div>
       ) : (
-        <>
-          <div className="flex flex-col lg:flex-row gap-3 lg:items-center justify-between select-none">
-            <div className="relative w-full lg:max-w-sm">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" aria-hidden="true" />
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t('adminSchools.search')}
-                aria-label={t('adminSchools.search')}
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-brand focus:ring-1 focus:ring-brand outline-none text-xs font-semibold placeholder-slate-500 bg-white shadow-sm transition-all"
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-1.5" role="group" aria-label={t('admin.filter.state')}>
-                {SCHOOL_STATES.map((option) => (
-                  <button key={option} type="button" onClick={() => setState(option)} aria-pressed={state === option} className={chipClass(state === option)}>
-                    {t(`admin.filter.state.${option}`)}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-2">
-                <label htmlFor="adminSchoolsSort" className="text-[11px] font-bold text-slate-500">
-                  {t('adminSchools.sort')}
-                </label>
-                <div className="w-36">
-                  <Select id="adminSchoolsSort" name="sort" value={sort} onChange={(e) => setSort(e.target.value)}>
-                    {SCHOOL_SORTS.map((option) => (
-                      <option key={option} value={option}>
-                        {t(`adminSchools.sort.${option}`)}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {total === 0 ? (
-            <div className="py-16 text-center border border-dashed border-slate-200 rounded-2xl bg-white select-none">
-              <SearchX className="w-9 h-9 text-slate-300 mx-auto" aria-hidden="true" />
-              <p className="mt-2.5 text-xs font-extrabold text-slate-500">{t('admin.search.empty')}</p>
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery('');
-                  setState('ALL');
-                }}
-                className="mt-3 text-xs font-bold text-brand hover:text-brand-deep underline underline-offset-4 cursor-pointer focus:outline-none"
-              >
-                {t('admin.search.clear')}
-              </button>
-            </div>
-          ) : (
-            <div className={`space-y-2.5 transition-opacity ${isRefining ? 'opacity-50' : 'opacity-100'}`} aria-busy={isRefining}>
-              <p className="text-xs font-semibold text-slate-500 select-none">
-                {rows.length < total ? t('adminSchools.countOf', { n: rows.length, total }) : t('adminSchools.count', { n: total })}
-              </p>
-
-              {rows.map((row) => (
-                <button
-                  key={row.id}
-                  type="button"
-                  onClick={() => setSelectedId(row.id)}
-                  className="w-full bg-white border border-slate-100 hover:border-brand/40 hover:shadow-md rounded-2xl p-4 shadow-sm grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_12rem_auto] items-center gap-x-4 gap-y-1 text-left transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-extrabold text-slate-900 break-words">
-                      {row.name}
-                      {row.deactivatedAt && <span className="ml-2 text-xs font-bold text-rose-700">{t('admin.list.deactivated')}</span>}
-                    </p>
-                    <p className="text-xs font-medium text-slate-500 mt-0.5 break-words">
-                      NPSN {row.npsn}
-                      <span className="text-slate-300"> / </span>
-                      {row.schoolType}
-                      <span className="text-slate-300"> / </span>
-                      {row.city}
-                      {row.subdomain && (
-                        <>
-                          <span className="text-slate-300"> / </span>
-                          <span className="break-all">{row.subdomain}</span>
-                        </>
-                      )}
-                    </p>
-                    <p className="sm:hidden text-xs font-semibold text-slate-600 mt-0.5 break-words">{row.governingBody?.name ?? t('adminSchools.independent')}</p>
-                  </div>
-                  <p className="hidden sm:block text-xs font-semibold text-slate-600 break-words">{row.governingBody?.name ?? t('adminSchools.independent')}</p>
-                  <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" aria-hidden="true" />
-                </button>
-              ))}
-
-              {rows.length < total && (
-                <button
-                  type="button"
-                  onClick={() => fetchPage(rows.length)}
-                  disabled={isAppending}
-                  className="w-full py-3 rounded-2xl border border-dashed border-slate-200 bg-white text-xs font-extrabold text-brand hover:border-brand/40 hover:bg-brand-tint/40 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50 disabled:cursor-default"
-                >
-                  {isAppending ? t('common.loading') : t('admin.queue.loadMore')}
-                </button>
-              )}
-            </div>
-          )}
-        </>
+        list
       )}
     </div>
   );

@@ -2,7 +2,10 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { ShieldOff, Inbox, ChevronRight, Search, SearchX } from 'lucide-react';
 
+import Button from '../../components/ui/Button';
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
+import { Bone, HomeEmpty, HomeError } from '../Dashboard/components/HomeCard';
+import { Segments, SlashFacts } from './adminParts';
 import GoverningBodyReview from './GoverningBodyReview.jsx';
 import { adminGoverningBodyService } from '../../services/adminGoverningBodyService';
 import { isNotBuiltYet } from '../../services/apiClient';
@@ -18,6 +21,7 @@ const STATES = ['ALL', 'ON', 'OFF'];
 const NO_ROWS = Object.freeze([]);
 const NO_COUNTS = Object.freeze({ PENDING: 0, APPROVED: 0, REJECTED: 0 });
 const PAGE = 50;
+const CARD = 'bg-white border border-slate-100 rounded-2xl shadow-sm min-w-0';
 const TYPING_PAUSE = 300;
 
 /*
@@ -158,152 +162,159 @@ export const GoverningBodyRegistrationsPage = () => {
   const locale = lang === 'en' ? 'en-GB' : 'id-ID';
   const isFirstLoad = isFetching && rows.length === 0;
   const isRefining = isFetching && rows.length > 0;
-  const chip = (active) =>
-    `px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
-      active ? 'bg-brand text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300'
-    }`;
+  const day = (value) => new Date(value).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+
+  /* The look since 2026-10-28 (owner, mockup pendaftaran-yayasan.html): the school queue's. */
+  let list;
+  if (error) {
+    list = <HomeError message={error} retryLabel={t('att.error.retry')} onRetry={() => fetchPage(0)} />;
+  } else if (isFirstLoad) {
+    list = (
+      <div className={`${CARD} px-4 sm:px-5 py-2`} aria-busy="true" aria-label={t('common.loading')}>
+        {[0, 1, 2].map((n) => (
+          <div key={n} className="py-3.5">
+            <Bone className="h-3.5 w-2/5" />
+            <Bone className="h-3 w-3/4 mt-2" />
+          </div>
+        ))}
+      </div>
+    );
+  } else if (counts[status] === 0) {
+    list = (
+      <div className={`${CARD} p-6 max-sm:p-[18px]`}>
+        <HomeEmpty icon={Inbox} title={t('admin.queue.empty')} body={t('gbr.queue.empty.body')} />
+      </div>
+    );
+  } else {
+    list = (
+      <>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="relative flex-1 min-w-[min(100%,22rem)]">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" aria-hidden="true" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t('gbr.search.placeholder')}
+              aria-label={t('gbr.search.placeholder')}
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-brand focus:ring-1 focus:ring-brand outline-none text-sm font-medium placeholder-slate-500 bg-white transition-colors"
+            />
+          </div>
+          <Segments
+            label={t('gb.kind')}
+            options={[ALL_KINDS, ...GOVERNING_BODY_KINDS]}
+            value={kind}
+            onChange={setKind}
+            labelOf={(option) => (option === ALL_KINDS ? t('admin.filter.all') : t(`gb.kind.${option}`))}
+          />
+          {status === 'APPROVED' && (
+            <Segments label={t('gbr.filter.state')} options={STATES} value={state} onChange={setState} labelOf={(option) => t(`admin.filter.state.${option}`)} />
+          )}
+        </div>
+
+        {total === 0 ? (
+          <div className={`${CARD} p-6 max-sm:p-[18px]`}>
+            <HomeEmpty
+              icon={SearchX}
+              title={t('admin.search.empty')}
+              action={
+                <Button size="sm" variant="outline" onClick={clearFilters}>
+                  {t('admin.search.clear')}
+                </Button>
+              }
+            />
+          </div>
+        ) : (
+          <div className={`${CARD} px-3 sm:px-4 py-2 transition-opacity ${isRefining ? 'opacity-50' : 'opacity-100'}`} aria-busy={isRefining}>
+            <p className="px-2 pt-1.5 pb-1 text-xs font-semibold text-slate-500 select-none">
+              {rows.length < total ? t('admin.queue.countOf', { n: rows.length, total }) : t('admin.queue.count', { n: total })}
+            </p>
+            <ul>
+              {rows.map((row) => (
+                <li key={row.id} className="border-b border-slate-100 last:border-0">
+                  <button
+                    type="button"
+                    onClick={() => setSelected(row)}
+                    className="w-full flex items-center gap-3 px-2 py-3.5 text-left rounded-xl hover:bg-slate-50 transition-colors duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                  >
+                    <span className="flex-1 min-w-0 space-y-0.5">
+                      <span className="block text-sm font-bold text-slate-900 break-words">{row.governingBody?.name ?? row.name}</span>
+                      <SlashFacts
+                        parts={[
+                          isBodyOff(row) && <span className="font-bold text-rose-700">{t('gbr.state.off')}</span>,
+                          t(`gb.kind.${row.kind}`),
+                          /* The body's NPYP once approved: a Platform Admin may have added or corrected it (c79b56f). */
+                          (row.governingBody?.npyp ?? row.npyp) && t('gbr.row.npyp', { npyp: row.governingBody?.npyp ?? row.npyp }),
+                          row.skNumber && <span className="whitespace-normal break-all">{t('gbr.row.sk', { sk: row.skNumber })}</span>,
+                          row.address?.city,
+                          row.applicant?.fullName,
+                          t('admin.list.submitted', { date: day(row.createdAt) }),
+                        ]}
+                      />
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {rows.length < total && (
+              <div className="px-2 pt-2 pb-2.5">
+                <Button size="sm" variant="outline" onClick={() => fetchPage(rows.length)} isLoading={isAppending} className="w-full">
+                  {isAppending ? t('common.loading') : t('admin.queue.loadMore')}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="select-none">
         <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('gbr.title')}</h1>
-        <p className="text-xs sm:text-sm text-slate-500 font-bold mt-1">{t('gbr.subtitle')}</p>
+        <SlashFacts
+          className="block mt-2 text-sm font-medium text-slate-500"
+          parts={TABS.map((tab) => (
+            <span className={tab === 'PENDING' && (counts.PENDING ?? 0) > 0 ? 'font-bold text-amber-700' : ''}>{t(`admin.summary.${tab}`, { n: counts[tab] ?? 0 })}</span>
+          ))}
+        />
       </div>
 
       {selected ? (
         <GoverningBodyReview registration={selected} onBack={() => setSelected(null)} onChanged={handleChanged} onStale={handleStale} showToast={showToast} />
       ) : (
         <>
-          <div className="border-b border-slate-100 flex gap-6 select-none">
+          <div role="tablist" className="flex gap-0.5 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shadow-[inset_0_-1px_0_var(--color-slate-100)] select-none">
             {TABS.map((tab) => {
-              const isActive = status === tab;
+              const on = status === tab;
               const count = counts[tab] ?? 0;
+              const waiting = tab === 'PENDING' && count > 0;
               return (
                 <button
                   key={tab}
                   type="button"
+                  role="tab"
+                  aria-selected={on}
                   onClick={() => openTab(tab)}
-                  className={`pb-3 text-sm font-extrabold transition-all border-b-2 cursor-pointer focus:outline-none flex items-center gap-2 ${
-                    isActive ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-600'
+                  className={`px-2.5 py-2 text-sm font-bold border-b-2 whitespace-nowrap transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-t-lg ${
+                    on ? 'text-brand border-brand' : 'text-slate-500 border-transparent hover:text-slate-700'
                   }`}
                 >
                   {t(`admin.tab.${tab}`)}
-                  {count > 0 && (
-                    <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold tabular-nums ${isActive ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-600'}`}>
-                      {count}
-                    </span>
-                  )}
+                  <span
+                    className={`ml-1.5 px-1.5 rounded-full text-[11px] tabular-nums ${
+                      waiting ? 'bg-amber-50 text-amber-700' : on ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    {count}
+                  </span>
                 </button>
               );
             })}
           </div>
-
-          {error ? (
-            <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700" role="alert">
-              {error}
-            </div>
-          ) : isFirstLoad ? (
-            <div className="h-40 bg-white border border-slate-100 rounded-2xl animate-pulse" />
-          ) : counts[status] === 0 ? (
-            <div className="py-16 text-center border border-dashed border-slate-200 rounded-2xl bg-white select-none">
-              <Inbox className="w-9 h-9 text-slate-300 mx-auto" aria-hidden="true" />
-              <p className="mt-2.5 text-xs font-extrabold text-slate-500">{t('admin.queue.empty')}</p>
-            </div>
-          ) : (
-            <>
-              <div className="flex flex-col lg:flex-row gap-3 lg:items-center justify-between select-none">
-                <div className="relative w-full lg:max-w-sm">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" aria-hidden="true" />
-                  <input
-                    type="search"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder={t('gbr.search.placeholder')}
-                    aria-label={t('gbr.search.placeholder')}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-brand focus:ring-1 focus:ring-brand outline-none text-xs font-semibold placeholder-slate-500 bg-white shadow-sm transition-all"
-                  />
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={t('gb.kind')}>
-                  {[ALL_KINDS, ...GOVERNING_BODY_KINDS].map((option) => (
-                    <button key={option} type="button" onClick={() => setKind(option)} aria-pressed={kind === option} className={chip(kind === option)}>
-                      {option === ALL_KINDS ? t('admin.filter.all') : t(`gb.kind.${option}`)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {status === 'APPROVED' && (
-                <div className="flex items-center gap-1.5 select-none" role="group" aria-label={t('gbr.filter.state')}>
-                  {STATES.map((option) => (
-                    <button key={option} type="button" onClick={() => setState(option)} aria-pressed={state === option} className={chip(state === option)}>
-                      {t(`admin.filter.state.${option}`)}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {total === 0 ? (
-                <div className="py-16 text-center border border-dashed border-slate-200 rounded-2xl bg-white select-none">
-                  <SearchX className="w-9 h-9 text-slate-300 mx-auto" aria-hidden="true" />
-                  <p className="mt-2.5 text-xs font-extrabold text-slate-500">{t('admin.search.empty')}</p>
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className="mt-3 text-xs font-bold text-brand hover:text-brand-deep underline underline-offset-4 cursor-pointer focus:outline-none"
-                  >
-                    {t('admin.search.clear')}
-                  </button>
-                </div>
-              ) : (
-                <div className={`space-y-2.5 transition-opacity ${isRefining ? 'opacity-50' : 'opacity-100'}`} aria-busy={isRefining}>
-                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider select-none">
-                    {rows.length < total ? t('admin.queue.countOf', { n: rows.length, total }) : t('admin.queue.count', { n: total })}
-                  </p>
-
-                  {rows.map((row) => (
-                    <button
-                      key={row.id}
-                      type="button"
-                      onClick={() => setSelected(row)}
-                      className="w-full bg-white border border-slate-100 hover:border-brand/40 hover:shadow-md rounded-2xl p-4 shadow-sm flex items-center justify-between gap-4 text-left transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-baseline gap-2 min-w-0">
-                          <h3 className="text-sm font-extrabold text-slate-900 truncate">{row.governingBody?.name ?? row.name}</h3>
-                          {isBodyOff(row) && <span className="shrink-0 text-xs font-bold text-rose-600">{t('gbr.state.off')}</span>}
-                        </div>
-                        <p className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs font-medium text-slate-500">
-                          <span>{t(`gb.kind.${row.kind}`)}</span>
-                          {/* The body's NPYP once approved: a Platform Admin may have added or corrected it (c79b56f). */}
-                          {(row.governingBody?.npyp ?? row.npyp) && <span>{t('gbr.row.npyp', { npyp: row.governingBody?.npyp ?? row.npyp })}</span>}
-                          {row.skNumber && <span className="break-all">{row.skNumber}</span>}
-                          {row.address?.city && <span>{row.address.city}</span>}
-                          {row.applicant?.fullName && <span>{row.applicant.fullName}</span>}
-                          <span>
-                            {t('admin.list.submitted', {
-                              date: new Date(row.createdAt).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }),
-                            })}
-                          </span>
-                        </p>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" aria-hidden="true" />
-                    </button>
-                  ))}
-
-                  {rows.length < total && (
-                    <button
-                      type="button"
-                      onClick={() => fetchPage(rows.length)}
-                      disabled={isAppending}
-                      className="w-full py-3 rounded-2xl border border-dashed border-slate-200 bg-white text-xs font-extrabold text-brand hover:border-brand/40 hover:bg-brand-tint/40 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50 disabled:cursor-default"
-                    >
-                      {isAppending ? t('common.loading') : t('admin.queue.loadMore')}
-                    </button>
-                  )}
-                </div>
-              )}
-            </>
-          )}
+          {list}
         </>
       )}
     </div>

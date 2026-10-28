@@ -9,6 +9,7 @@ import {
   letterheadParts,
   newestVersionOf,
   promotionLineOf,
+  reportSummaryOf,
   romanOf,
   sharedKktpOf,
   showsTypeAverages,
@@ -105,6 +106,8 @@ describe('report cards - what the print adds', () => {
     const subject = line({ TUGAS: 88, KUIS: 0, UTS: null, UAS: 79 });
     expect(['TUGAS', 'KUIS', 'UTS', 'UAS'].map((type) => typeAverageText(subject, type))).toEqual(['88', '0', '-', '79']);
     expect(typeAverageText(line(undefined), 'TUGAS')).toBe('-');
+    expect(typeAverageText(line({ TUGAS: 52.5 }), 'TUGAS')).toBe('52,5');
+    expect(typeAverageText(line({ TUGAS: 52.5 }), 'TUGAS', 'en')).toBe('52.5');
   });
 
   it('numbers a grade level in Roman numerals, to XIII', () => {
@@ -126,5 +129,25 @@ describe('report cards - what the print adds', () => {
     ]);
     expect(letterheadParts({ address: null, phone: '  ' })).toEqual([]);
     expect(letterheadParts(undefined)).toEqual([]);
+  });
+});
+
+describe('reportSummaryOf', () => {
+  const card = {
+    subjects: [
+      { finalGrade: 82, kktp: 70 },
+      { finalGrade: 80, kktp: 70 },
+      { finalGrade: 53, kktp: 70 },
+    ],
+    attendance: { sick: 1, excused: 0, absent: 2 },
+  };
+  it('averages the final grades, counts the subjects reaching their KKTP and those under it, and adds up the absences', () => {
+    expect(reportSummaryOf(card)).toEqual({ average: 71.7, passed: 2, below: 1, subjects: 3, missed: 3 });
+  });
+  it('a grade at the KKTP reaches it; a subject with no KKTP counts in neither', () => {
+    expect(reportSummaryOf({ subjects: [{ finalGrade: 70, kktp: 70 }, { finalGrade: 40, kktp: null }] })).toMatchObject({ passed: 1, below: 0, subjects: 2 });
+  });
+  it('nothing to sum: no average, zeros', () => {
+    expect(reportSummaryOf({ subjects: [] })).toEqual({ average: null, passed: 0, below: 0, subjects: 0, missed: 0 });
   });
 });

@@ -7,6 +7,7 @@ import { adminGoverningBodyService } from '../../services/adminGoverningBodyServ
 import { governingBodySeatErrorMessage, isStaleSeat } from '../../i18n/apiError';
 import { useT } from '../../i18n/LanguageContext';
 import { decidesApplications, removalNoteOf } from './bodyDecisions';
+import { SlashFacts } from './adminParts';
 
 /*
   A body's admins, for the Platform Admin (backend 8aff4f4; owner 2026-10-24: on the
@@ -89,22 +90,25 @@ export const GoverningBodyAdminsPanel = ({ bodyId, showToast }) => {
   const senior = admins[0] ?? null;
   const note = asking?.kind === 'remove' ? removalNoteOf(admins, asking.row.id) : null;
 
-  const person = (row, facts) => (
+  const person = (row, facts, lead = null) => (
     <div className="min-w-0">
       <p className="text-sm font-bold text-slate-900 break-words">{row.user.fullName}</p>
-      <p className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs font-medium text-slate-500 mt-0.5">
-        <span className="break-all">{row.user.email}</span>
-        {facts.filter(Boolean).map((fact) => (
-          <span key={fact}>{fact}</span>
-        ))}
-      </p>
+      {/* One grey slash line (owner, 2026-10-28): "Admin senior" leads it in brand, then the email and the facts. */}
+      <SlashFacts
+        className="block mt-0.5 text-xs font-medium text-slate-500"
+        parts={[
+          lead && <span className="font-bold text-brand">{lead}</span>,
+          <span className="break-all whitespace-normal">{row.user.email}</span>,
+          ...facts,
+        ]}
+      />
     </div>
   );
 
   return (
-    <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-4">
+    <section className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm min-w-0 space-y-4">
       <div>
-        <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">{t('gbr.admins.section')}</h3>
+        <h3 className="text-base font-extrabold text-slate-900 tracking-tight">{t('gbr.admins.section')}</h3>
         <p className="text-xs font-semibold text-slate-500 mt-1 leading-relaxed">{t('gbr.admins.lead')}</p>
       </div>
 
@@ -131,8 +135,8 @@ export const GoverningBodyAdminsPanel = ({ bodyId, showToast }) => {
               <ul className="divide-y divide-slate-100">
                 {admins.map((row) => (
                   <li key={row.id} className="py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
-                    {person(row, [row.senior && t('gba.senior'), row.approvedAt && t('gba.approvedAt', { date: asDate(row.approvedAt) })])}
-                    <Button size="sm" variant="outline" className="shrink-0 self-start sm:self-auto" onClick={() => setAsking({ kind: 'remove', row })}>
+                    {person(row, [row.approvedAt && t('gba.approvedAt', { date: asDate(row.approvedAt) })], row.senior ? t('gba.senior') : null)}
+                    <Button size="sm" variant="dangerOutline" className="shrink-0 self-start sm:self-auto" onClick={() => setAsking({ kind: 'remove', row })}>
                       {t('gba.remove')}
                     </Button>
                   </li>

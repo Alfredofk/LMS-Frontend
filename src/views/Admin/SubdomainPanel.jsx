@@ -89,9 +89,9 @@ const SubdomainPanel = ({ registration, school, body, showToast, onChanged }) =>
   };
 
   return (
-    <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-4">
+    <section className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm min-w-0 space-y-4">
       <div className="min-w-0">
-        <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">{word('subdomain.section')}</h3>
+        <h3 className="text-base font-extrabold text-slate-900 tracking-tight">{word('subdomain.section')}</h3>
         <p className="text-xs font-semibold text-slate-500 mt-1 leading-relaxed">{word('subdomain.lead')}</p>
       </div>
 

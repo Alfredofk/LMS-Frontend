@@ -13,6 +13,7 @@ import {
   pathOf,
   practiceBestOf,
   scoredEntriesOf,
+  scoresSummaryOf,
   sectionOf,
   sectionsOf,
   todoAcross,
@@ -387,5 +388,19 @@ describe('late and kktp in the menu - backend 3814cf9', () => {
     expect(belowKktpOf({ status: 'RELEASED', score: 10, kktp: null })).toBe(false);
     // The outline carries no status: its counted score is compared as it is.
     expect(belowKktpOf({ score: 60, kktp: 75 })).toBe(true);
+  });
+});
+
+describe('scoresSummaryOf', () => {
+  const entry = (status, score, kktp = 70) => ({ status, score, kktp, assessment: { id: `${status}-${score}` } });
+  it('counts released, those reaching the KKTP, those under it, and those waiting', () => {
+    const entries = [entry('WAITING_FOR_RELEASE', null), entry('RELEASED', 81.82), entry('RELEASED', 0), entry('RELEASED', 50), entry('RELEASED', 90), entry('DID_NOT_SUBMIT', null)];
+    expect(scoresSummaryOf(entries)).toEqual({ released: 4, passed: 2, below: 2, waiting: 1 });
+  });
+  it('says nothing about the KKTP when no entry carries one', () => {
+    expect(scoresSummaryOf([entry('RELEASED', 40, null)])).toEqual({ released: 1, passed: null, below: null, waiting: 0 });
+  });
+  it('a score exactly at the KKTP reaches it', () => {
+    expect(scoresSummaryOf([entry('RELEASED', 70)])).toMatchObject({ passed: 1, below: 0 });
   });
 });

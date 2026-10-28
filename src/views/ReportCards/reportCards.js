@@ -1,4 +1,5 @@
 import { defaultSemesterOf } from '../Subjects/subjects';
+import { formatNumber } from '../TeacherAssessment/results';
 
 /*
   Report cards (backend 3a22f90 / 46c6173, grading-and-report-card tickets 05-06;
@@ -34,10 +35,10 @@ export const REPORT_TYPES = ['TUGAS', 'KUIS', 'UTS', 'UAS'];
 export const showsTypeAverages = (subjects) =>
   (subjects ?? []).some((line) => REPORT_TYPES.some((type) => typeof line.types?.[type] === 'number'));
 
-/** One type's average as printed: the number, or "-" where it counts for nothing. */
-export const typeAverageText = (line, type) => {
+/** One type's average as printed: the number in the reader's language ("52,5"), or "-" where it counts for nothing. */
+export const typeAverageText = (line, type, lang = 'id') => {
   const value = line?.types?.[type];
-  return typeof value === 'number' ? String(value) : '-';
+  return typeof value === 'number' ? formatNumber(value, lang) : '-';
 };
 
 const ROMAN = [
@@ -127,4 +128,26 @@ export function latestAverageOf(reportCards) {
   if (!card || grades.length === 0) return null;
   const mean = grades.reduce((sum, value) => sum + value, 0) / grades.length;
   return { card, average: Math.round(mean * 10) / 10 };
+}
+
+/**
+ * One report card summed up (owner, 2026-10-28: the numbers above it, and on its
+ * row in a list): the mean of its final grades to one decimal (null with none, the
+ * same mean as latestAverageOf), how many subjects reach their own KKTP and how
+ * many are under it (a subject with no KKTP counts in neither), out of how many,
+ * and the sessions missed (sick + excused + absent).
+ */
+export function reportSummaryOf(card) {
+  const lines = card?.subjects ?? [];
+  const grades = lines.map((line) => line.finalGrade).filter((value) => typeof value === 'number');
+  const judged = lines.filter((line) => typeof line.finalGrade === 'number' && typeof line.kktp === 'number');
+  const below = judged.filter((line) => line.finalGrade < line.kktp).length;
+  const att = card?.attendance ?? {};
+  return {
+    average: grades.length ? Math.round((grades.reduce((sum, value) => sum + value, 0) / grades.length) * 10) / 10 : null,
+    passed: judged.length - below,
+    below,
+    subjects: lines.length,
+    missed: (att.sick ?? 0) + (att.excused ?? 0) + (att.absent ?? 0),
+  };
 }

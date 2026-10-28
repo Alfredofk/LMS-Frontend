@@ -1,4 +1,4 @@
-import React, { Fragment } from 'react';
+import React from 'react';
 
 import { GRADE_TYPES, REMEDIAL_RULES, weightsSum } from './grading';
 
@@ -16,48 +16,47 @@ const errorText = 'text-xs font-semibold text-red-600';
 export const SourceWord = ({ source, t }) =>
   source ? <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">{t(`grading.source.${source}`)}</span> : null;
 
+/* One setting as a fact cell: the eyebrow on its value, and its source under it when it has one of its own. */
+const SettingCell = ({ label, value, source, wide = false, t }) => (
+  <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
+    <dt className="text-[10px] font-bold tracking-wider uppercase text-slate-500">{label}</dt>
+    <dd className={`mt-0.5 font-extrabold text-slate-900 tabular-nums break-words ${wide ? 'text-sm pt-1' : 'text-xl leading-tight'}`}>{value}</dd>
+    {source && <dd className="mt-0.5 text-[11px] font-semibold text-slate-500">{t(`grading.source.${source}`)}</dd>}
+  </div>
+);
+
 /**
- * The settings as they apply: weights, KKTP and the remedial rule, each with its
- * source. `rule` false leaves the remedial rule out.
+ * The settings as they apply (owner, 2026-10-28: boxes, not one slashed line):
+ * the four weights a cell each with their one source under them, then KKTP and
+ * the remedial rule, each cell with its own source. `rule` false leaves the
+ * remedial rule out.
  */
 export const SettingsSummary = ({ settings, t, rule = true }) => {
   const weights = settings?.weights?.value ?? {};
   return (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2.5 text-sm items-baseline">
-      <dt className="text-xs font-bold text-slate-500">{t('grading.weights')}</dt>
-      <dd className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 min-w-0">
-        {/* A flex row so the four wrap on a narrow dialog: the parts have no space between them to break at. */}
-        <span className="flex flex-wrap items-baseline gap-y-0.5 min-w-0 font-semibold text-slate-800">
-          {GRADE_TYPES.map((type, i) => (
-            <Fragment key={type}>
-              {i > 0 && (
-                <span className="mx-1.5 text-slate-300" aria-hidden="true">
-                  /
-                </span>
-              )}
-              <span className="whitespace-nowrap">{t('grading.weightOf', { type: t(`grading.type.${type}`), n: weights[type] ?? '-' })}</span>
-            </Fragment>
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <p className="text-xs font-bold text-slate-600">{t('grading.weights')}</p>
+        <dl className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          {GRADE_TYPES.map((type) => (
+            <SettingCell key={type} label={t(`grading.type.${type}`)} value={weights[type] === undefined ? '-' : `${weights[type]}%`} t={t} />
           ))}
-        </span>
+        </dl>
         <SourceWord source={settings?.weights?.source} t={t} />
-      </dd>
-
-      <dt className="text-xs font-bold text-slate-500">{t('grading.kktp')}</dt>
-      <dd className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-        <span className="font-semibold text-slate-800">{settings?.kktp?.value ?? '-'}</span>
-        <SourceWord source={settings?.kktp?.source} t={t} />
-      </dd>
-
-      {rule && (
-        <>
-          <dt className="text-xs font-bold text-slate-500">{t('grading.remedial')}</dt>
-          <dd className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-            <span className="font-semibold text-slate-800">{t(`grading.rule.${settings?.remedialRule?.value ?? 'CAP_AT_KKTP'}`)}</span>
-            <SourceWord source={settings?.remedialRule?.source} t={t} />
-          </dd>
-        </>
-      )}
-    </dl>
+      </div>
+      <dl className={`grid gap-2.5 ${rule ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'}`}>
+        <SettingCell label={t('grading.kktp')} value={settings?.kktp?.value ?? '-'} source={settings?.kktp?.source} t={t} />
+        {rule && (
+          <SettingCell
+            label={t('grading.remedial')}
+            value={t(`grading.rule.${settings?.remedialRule?.value ?? 'CAP_AT_KKTP'}`)}
+            source={settings?.remedialRule?.source}
+            wide
+            t={t}
+          />
+        )}
+      </dl>
+    </div>
   );
 };
 

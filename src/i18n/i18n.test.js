@@ -179,6 +179,7 @@ describe('every expansion of a dynamic key exists', () => {
     const words = keysOf('views/StudentAssessment/SubjectAssessments.jsx', /const WORD_TONE = \{([\s\S]*?)\};/);
     expect(sections).toEqual(['TODO', 'UPCOMING', 'DONE']);
     expectEvery(sections.map((s) => `smenu.section.${s}`));
+    expectEvery(sections.map((s) => `smenu.sectionEmpty.${s}`));
     expectEvery(words.map((s) => `smenu.status.${s}`));
     expectEvery(['opens', 'closes', 'closed'].map((s) => `smenu.when.${s}`));
   });
@@ -199,12 +200,17 @@ describe('every expansion of a dynamic key exists', () => {
   });
 
   it('the gradebook\'s final grade: a phrase for each count (backend 79b319f)', () => {
-    const flags = quotedIn('views/Gradebook/gradebook.js', /export const FINAL_FLAGS = \[([^\]]*)\]/);
     const notes = quotedIn('views/Gradebook/gradebook.js', /export const FINAL_NOTES = \[([^\]]*)\]/);
     expect(notes).toEqual(['waiting', 'didNotSubmit', 'remedialRuleMoved', 'pooled']);
-    expectEvery(flags.map((s) => `gradebook.final.flag.${s}`));
     expectEvery(notes.map((s) => `gradebook.final.note.${s}`));
     expectEvery(['TUGAS', 'KUIS', 'UTS', 'UAS'].map((s) => `tasm.type.${s}`));
+  });
+
+  it('a gradebook row\'s counts: a phrase for scores and each cell word (owner, 2026-10-28)', () => {
+    const words = quotedIn('views/Gradebook/gradebook.js', /export const COUNT_ORDER = \[([^\]]*)\]/);
+    expect(words.length).toBe(7);
+    expectEvery(['scores', ...words].map((s) => `gradebook.count.${s}`));
+    expectEvery(words.map((s) => `gradebook.cell.${s}`));
   });
 
   it('a description box refused before sending: a sentence for each (descriptionErrors)', () => {

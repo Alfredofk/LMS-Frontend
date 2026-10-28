@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Check, X, Trash2, RotateCcw } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
@@ -9,6 +9,8 @@ import SubdomainPanel from './SubdomainPanel';
 import { adminService } from '../../services/adminService';
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage } from '../../i18n/apiError';
+import { HomeError } from '../Dashboard/components/HomeCard';
+import { ADMIN_CARD as CARD, Fact, Facts } from './adminParts';
 
 const CONFIRM_TITLE = {
   approve: 'admin.approve.confirm.title',
@@ -36,16 +38,8 @@ const BRAND_TONED = ['approve', 'reactivate'];
 const MIN_REASON = 3;
 const MAX_REASON = 500;
 
-const Row = ({ label, children }) => (
-  <div className="flex items-start justify-between gap-4 py-2 border-b border-slate-100 last:border-0">
-    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider shrink-0">
-      {label}
-    </span>
-    <span className="text-xs font-semibold text-slate-800 text-right break-words min-w-0">
-      {children ?? '-'}
-    </span>
-  </div>
-);
+/* Where a registration stands, in words and colour, for the header's slash line. */
+const STATUS_TONE = { PENDING: 'text-amber-700', APPROVED: 'text-emerald-700', REJECTED: 'text-rose-700' };
 
 /*
   One registration, and the decision about it.
@@ -167,79 +161,90 @@ export const RegistrationReview = ({ registration, onBack, onDecided, showToast 
         {t('admin.back')}
       </button>
 
-      {error && (
-        <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700" role="alert">
-          {error}
-        </div>
-      )}
+      <div className="min-w-0">
+        <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight break-words">{registration.schoolName}</h2>
+        <p className="mt-1.5 text-sm font-medium text-slate-500">
+          {[
+            <span key="status" className={`font-bold ${STATUS_TONE[registration.status] ?? ''}`}>
+              {t(`admin.status.${registration.status}`)}
+            </span>,
+            school && (
+              <span key="state" className={`font-bold ${isDeactivated ? 'text-rose-700' : 'text-emerald-700'}`}>
+                {t(isDeactivated ? 'admin.school.off' : 'admin.school.on')}
+              </span>
+            ),
+            /* The code is here so an admin can read it back to whoever lost it. */
+            school?.schoolCode && <span key="code">{t('admin.review.code', { code: school.schoolCode })}</span>,
+          ]
+            .filter(Boolean)
+            .map((part, i) => (
+              <React.Fragment key={i}>
+                {i > 0 && (
+                  <>
+                    {' '}
+                    <span className="mx-1 text-slate-300" aria-hidden="true">
+                      /
+                    </span>{' '}
+                  </>
+                )}
+                {part}
+              </React.Fragment>
+            ))}
+        </p>
+      </div>
+
+      {error && <HomeError message={error} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="space-y-6">
-          <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm">
-            <h3 className="text-sm font-extrabold text-slate-900 tracking-tight mb-2">
-              {t('admin.section.school')}
-            </h3>
-            <Row label={t('admin.field.schoolName')}>{registration.schoolName}</Row>
-            <Row label={t('admin.field.npsn')}>{registration.npsn}</Row>
-            <Row label={t('admin.field.schoolType')}>{registration.schoolType}</Row>
-            <Row label={t('admin.field.duration')}>
-              {registration.durationYears
-                ? t('admin.field.duration.years', { n: registration.durationYears })
-                : null}
-            </Row>
-            <Row label={t('admin.field.city')}>{registration.city}</Row>
-            {/* The point and zone (backend 431513b, 0ad658f) — absent on a registration made before them.
-                A map link, so the admin can see the point is where the school says it is. */}
-            <Row label={t('admin.field.location')}>
-              {registration.latitude != null && registration.longitude != null ? (
-                <a
-                  href={`https://www.google.com/maps?q=${registration.latitude},${registration.longitude}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-brand hover:underline tabular-nums"
-                >
-                  {registration.latitude}, {registration.longitude}
-                </a>
-              ) : null}
-            </Row>
-            <Row label={t('admin.field.timeZone')}>{registration.timeZone}</Row>
-            <Row label={t('admin.field.status')}>{t(`admin.status.${registration.status}`)}</Row>
-            <Row label={t('admin.field.submitted')}>{asDate(registration.createdAt)}</Row>
-            {registration.reviewedAt && (
-              <Row label={t('admin.field.reviewed')}>{asDate(registration.reviewedAt)}</Row>
-            )}
-            {registration.createdSchoolId && (
-              <Row label={t('admin.field.schoolCreated')}>{registration.createdSchoolId}</Row>
-            )}
-            {/* The code is here so an admin can read it back to whoever lost it —
-                which is the reason the backend puts it in this response at all. */}
-            {school?.schoolCode && (
-              <Row label={t('admin.field.schoolCode')}>{school.schoolCode}</Row>
-            )}
-            {school && (
-              <Row label={t('admin.field.schoolState')}>
-                <span className={isDeactivated ? 'text-rose-600 font-extrabold' : 'text-emerald-700 font-extrabold'}>
-                  {t(isDeactivated ? 'admin.school.off' : 'admin.school.on')}
-                </span>
-              </Row>
-            )}
-            {registration.rejectionReason && (
-              <Row label={t('admin.field.rejectionReason')}>{registration.rejectionReason}</Row>
-            )}
+          <section className={CARD}>
+            <h3 className="text-base font-extrabold text-slate-900 tracking-tight">{t('admin.section.school')}</h3>
+            {/* The name, status, state and code are the header's; the created School's id is the database's, not a reader's. */}
+            <Facts>
+              <Fact label={t('admin.field.npsn')}>{registration.npsn}</Fact>
+              <Fact label={t('admin.field.schoolType')}>{registration.schoolType}</Fact>
+              <Fact label={t('admin.field.duration')}>
+                {registration.durationYears ? t('admin.field.duration.years', { n: registration.durationYears }) : null}
+              </Fact>
+              <Fact label={t('admin.field.city')}>{registration.city}</Fact>
+              {/* The point and zone (backend 431513b, 0ad658f), absent on a registration made before them.
+                  A map link, so the admin can see the point is where the school says it is. */}
+              <Fact label={t('admin.field.location')}>
+                {registration.latitude != null && registration.longitude != null ? (
+                  <a
+                    href={`https://www.google.com/maps?q=${registration.latitude},${registration.longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-brand hover:underline tabular-nums"
+                  >
+                    {registration.latitude}, {registration.longitude}
+                  </a>
+                ) : null}
+              </Fact>
+              <Fact label={t('admin.field.timeZone')}>{registration.timeZone}</Fact>
+              <Fact label={t('admin.field.submitted')}>{asDate(registration.createdAt)}</Fact>
+              {registration.reviewedAt && <Fact label={t('admin.field.reviewed')}>{asDate(registration.reviewedAt)}</Fact>}
+              {school?.schoolCode && <Fact label={t('admin.field.schoolCode')}>{school.schoolCode}</Fact>}
+              {registration.rejectionReason && (
+                <Fact label={t('admin.field.rejectionReason')} wide>
+                  {registration.rejectionReason}
+                </Fact>
+              )}
+            </Facts>
           </section>
 
-          <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm">
-            <h3 className="text-sm font-extrabold text-slate-900 tracking-tight mb-2">
-              {t('admin.section.applicant')}
-            </h3>
-            <Row label={t('admin.field.name')}>{registration.applicant?.fullName}</Row>
-            <Row label={t('admin.field.email')}>{registration.applicant?.email}</Row>
-            <Row label={t('admin.field.phone')}>{registration.applicantPhone}</Row>
+          <section className={CARD}>
+            <h3 className="text-base font-extrabold text-slate-900 tracking-tight">{t('admin.section.applicant')}</h3>
+            <Facts>
+              <Fact label={t('admin.field.name')}>{registration.applicant?.fullName}</Fact>
+              <Fact label={t('admin.field.email')}>{registration.applicant?.email}</Fact>
+              <Fact label={t('admin.field.phone')}>{registration.applicantPhone}</Fact>
+            </Facts>
           </section>
         </div>
 
         <div className="space-y-6">
-          <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm">
+          <div className={CARD}>
             {/* Keyed: switching registrations remounts the viewer, so its
                 object URL is revoked by the unmount rather than by an effect
                 racing the next fetch. */}
@@ -251,7 +256,8 @@ export const RegistrationReview = ({ registration, onBack, onDecided, showToast 
           </div>
 
           {isPending && (
-            <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-4">
+            <section className={`${CARD} space-y-4`}>
+              <h3 className="text-base font-extrabold text-slate-900 tracking-tight">{t('admin.decision.title')}</h3>
               <div className="space-y-1.5">
                 <label htmlFor="reason" className="text-sm font-semibold text-slate-700 block">
                   {t('admin.reject.reason')}
@@ -276,28 +282,20 @@ export const RegistrationReview = ({ registration, onBack, onDecided, showToast 
                 )}
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Button
-                  type="button"
-                  isLoading={isSending}
-                  onClick={() => setConfirming('approve')}
-                  className="flex-1 py-3 rounded-2xl justify-center text-sm gap-1.5"
-                >
-                  <Check className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <div className="flex flex-wrap gap-2.5">
+                <Button type="button" isLoading={isSending} onClick={() => setConfirming('approve')}>
                   {t('admin.approve')}
                 </Button>
-
-                {/* Not a Button: the danger action should not wear the primary
-                    colour beside the one it is the opposite of. */}
-                <button
+                <Button
                   type="button"
+                  variant="dangerOutline"
                   disabled={isSending}
-                  onClick={() => { if (checkReason('reject')) setConfirming('reject'); }}
-                  className="flex-1 py-3 rounded-2xl border border-rose-200 bg-white text-rose-600 hover:bg-rose-50 text-sm font-bold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+                  onClick={() => {
+                    if (checkReason('reject')) setConfirming('reject');
+                  }}
                 >
-                  <X className="w-4 h-4 shrink-0" aria-hidden="true" />
                   {t('admin.reject')}
-                </button>
+                </Button>
               </div>
             </section>
           )}
@@ -322,18 +320,16 @@ export const RegistrationReview = ({ registration, onBack, onDecided, showToast 
           {isApproved && <SubdomainPanel key={registration.id} registration={registration} showToast={showToast} />}
 
           {isApproved && !isDeactivated && (
-            <section className="border border-rose-200 rounded-2xl p-5 bg-rose-50/40 shadow-sm space-y-4">
+            <section className={`${CARD} space-y-4`}>
               <div>
-                <h3 className="text-sm font-extrabold text-rose-900 tracking-tight">
-                  {t('admin.deactivate.section')}
-                </h3>
-                <p className="text-xs font-semibold text-rose-700/80 mt-1 leading-relaxed">
+                <h3 className="text-base font-extrabold text-slate-900 tracking-tight">{t('admin.deactivate.section')}</h3>
+                <p className="text-[13px] font-medium text-slate-500 mt-1 leading-relaxed">
                   {t('admin.deactivate.lead')}
                 </p>
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="deactivateReason" className="text-sm font-semibold text-rose-900 block">
+                <label htmlFor="deactivateReason" className="text-sm font-semibold text-slate-700 block">
                   {t('admin.deactivate.reason')}
                 </label>
                 <textarea
@@ -345,26 +341,27 @@ export const RegistrationReview = ({ registration, onBack, onDecided, showToast 
                     setReason(e.target.value);
                     if (reasonError) setReasonError(null);
                   }}
-                  className="block w-full rounded-xl border border-rose-200 hover:border-rose-300 bg-white py-2.5 px-4 text-sm text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-rose-400/20 focus:border-rose-400"
+                  className="block w-full rounded-xl border border-slate-200 hover:border-slate-300 bg-white py-2.5 px-4 text-sm text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
                 />
                 {reasonError ? (
                   <span className="text-xs text-red-600 font-medium" role="alert">{reasonError}</span>
                 ) : (
-                  <p className="text-[11px] text-rose-700/70 font-medium leading-relaxed">
+                  <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
                     {t('admin.deactivate.reason.hint')}
                   </p>
                 )}
               </div>
 
-              <button
+              <Button
                 type="button"
+                variant="dangerOutline"
                 disabled={isSending}
-                onClick={() => { if (checkReason('deactivate')) setConfirming('deactivate'); }}
-                className="w-full py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+                onClick={() => {
+                  if (checkReason('deactivate')) setConfirming('deactivate');
+                }}
               >
-                <Trash2 className="w-4 h-4 shrink-0" aria-hidden="true" />
                 {t('admin.deactivate.action')}
-              </button>
+              </Button>
             </section>
           )}
 
@@ -380,20 +377,20 @@ export const RegistrationReview = ({ registration, onBack, onDecided, showToast 
             genuinely optional, which is the only reason field on this screen that is.
           */}
           {isApproved && isDeactivated && (
-            <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-4">
+            <section className={`${CARD} space-y-4`}>
               <div>
-                <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">
-                  {t('admin.reactivate.section')}
-                </h3>
-                <p className="text-xs font-semibold text-slate-500 mt-1 leading-relaxed">
+                <h3 className="text-base font-extrabold text-slate-900 tracking-tight">{t('admin.reactivate.section')}</h3>
+                <p className="text-[13px] font-medium text-slate-500 mt-1 leading-relaxed">
                   {t('admin.reactivate.lead')}
                 </p>
               </div>
 
-              <div className="rounded-xl border border-rose-200 bg-rose-50/50 px-4 py-3">
-                <Row label={t('admin.field.deactivatedAt')}>{asDate(school.deactivatedAt)}</Row>
-                <Row label={t('admin.field.deactivationReason')}>{school.deactivationReason}</Row>
-              </div>
+              <dl className="grid grid-cols-2 sm:grid-cols-3 -mt-1">
+                <Fact label={t('admin.field.deactivatedAt')}>{asDate(school.deactivatedAt)}</Fact>
+                <Fact label={t('admin.field.deactivationReason')} wide>
+                  {school.deactivationReason}
+                </Fact>
+              </dl>
 
               <div className="space-y-1.5">
                 <label htmlFor="reactivateNote" className="text-sm font-semibold text-slate-700 block">
@@ -422,10 +419,10 @@ export const RegistrationReview = ({ registration, onBack, onDecided, showToast 
               <Button
                 type="button"
                 isLoading={isSending}
-                onClick={() => { if (checkReason('reactivate')) setConfirming('reactivate'); }}
-                className="w-full py-3 rounded-2xl justify-center text-sm gap-1.5"
+                onClick={() => {
+                  if (checkReason('reactivate')) setConfirming('reactivate');
+                }}
               >
-                <RotateCcw className="w-4 h-4 shrink-0" aria-hidden="true" />
                 {t('admin.reactivate.action')}
               </Button>
             </section>

@@ -39,7 +39,7 @@ import { useSchoolZone } from '../../hooks/useSchoolToday';
     assessments (AssessmentsTab); each opens its own page under
     /teacher/courses/:id/penilaian.
   - "Nilai" (`?tab=nilai`, owner 2026-10-11): the class subject's gradebook
-    (GradebookTable), a column or score opening that assessment's "Hasil"; above
+    (GradebookTable), a row per student whose assessments open their "Hasil"; above
     it the slot's grade settings (SlotGradeSettings, backend 5d42af6), which the
     teacher may change while the year is open. The
     sidebar's "Buku Nilai" lists the same cards as "Kelas Saya" and opens here.
@@ -240,12 +240,12 @@ export const TeacherClassSubjectDetail = () => {
           />
           {/* A finalised slot (ticket 04, the grade read's `finalised`) takes no settings change until its teacher undoes it. */}
           <SlotGradeSettings classSubjectId={entry.id} canEdit={!readOnly && !grades?.finalised} onToast={showToast} onSettings={onGradeSettings} />
-          <p className="text-xs font-medium text-slate-500 leading-relaxed">{t('gradebook.intro')}</p>
           <GradebookTable
             classSubjectId={entry.id}
             caption={t('gradebook.option', { code: entry.subject.code, className: entry.class.name, n: entry.semester.ordinal, year: entry.semester.academicYear })}
             fileName={`nilai-${entry.subject.code}-${entry.class.name}.csv`.replace(/\s+/g, '-')}
             onOpen={(assessment) => navigate(`/teacher/courses/${entry.id}/penilaian/${assessment.id}?tab=hasil`)}
+            onOpenAssessments={() => goSection('penilaian')}
             kktp={gradeSettings?.kktp?.value ?? null}
             settingsStamp={gradeSettings === undefined ? undefined : (gradeSettings.updatedAt ?? null)}
             onGrades={onGrades}

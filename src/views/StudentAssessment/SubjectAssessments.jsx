@@ -1,16 +1,18 @@
 import React, { Fragment, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, ChevronRight, RefreshCw } from 'lucide-react';
+import { ChevronRight, ClipboardCheck } from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
-import { useSchoolZone } from '../../hooks/useSchoolToday';
+import { useSchoolToday, useSchoolZone } from '../../hooks/useSchoolToday';
 import { useT } from '../../i18n/LanguageContext';
 import { studentAssessmentErrorMessage } from '../../i18n/apiError';
 import { formatNumber } from '../TeacherAssessment/results';
 import { shortWhen, typeModeText } from '../TeacherAssessment/teacherAssessment';
+import { Bone, HomeEmpty, HomeError } from '../Dashboard/components/HomeCard';
+import TodoRow from '../Dashboard/components/TodoRow';
 import { readMyMenu } from './readMyMenu';
 import { noteAssessmentTab } from './assessmentBack';
-import { afterRuleOf, belowKktpOf, canRetry, entriesOf, pathOf, practiceBestOf, sectionsOf, whenOf, wordOf } from './studentMenu';
+import { MENU_SECTIONS, afterRuleOf, belowKktpOf, canRetry, entriesOf, pathOf, practiceBestOf, sectionsOf, whenOf, wordOf } from './studentMenu';
 
 /*
   A subject's "Penilaian" tab on the student's subject page (/classroom/:id?tab=penilaian;
@@ -20,14 +22,21 @@ import { afterRuleOf, belowKktpOf, canRetry, entriesOf, pathOf, practiceBestOf, 
   outline, where the integrity notice and the attempts are read first. A class the
   student left is read the same way; its outlines open with nothing to start.
 
+  The look since 2026-10-28 (owner, mockup nilai-penilaian-siswa.html): one card,
+  the three parts as the dashboards' text tabs with counts, opening on the first
+  with anything in it; "Perlu dikerjakan" rows are the dashboard's (TodoRow: the
+  date box, the pill, opening in place into "Mulai kerjakan"); in "Selesai" the
+  cancelled ones come last under "Dibatalkan", their titles grey.
+
   The menu answers only the semesters one of the student's placements overlaps, so
   a 404 for this semester means it has none for them: said as no assessments.
 
-  A LATIHAN's row shows its best attempt, "Terbaik 90" (backend 026e4f9). A released
-  score under the KKTP is red, the words said to a screen reader (backend 3814cf9).
+  A LATIHAN's row shows its best attempt, "100" over "nilai terbaik" (backend
+  026e4f9). A released score under the KKTP is red, the words said to a screen
+  reader (backend 3814cf9).
 */
 
-const card = 'bg-white border border-slate-100 rounded-2xl shadow-sm';
+const CARD = 'bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm min-w-0 text-left';
 
 /* The word at a row's end, and its colour. */
 const WORD_TONE = {
@@ -48,6 +57,7 @@ const Row = ({ entry, zone, onOpen }) => {
   const when = whenOf(entry);
   const best = practiceBestOf(entry);
   const below = belowKktpOf(entry);
+  const cancelled = assessment.status === 'CANCELLED';
   const exception = assessment.exception;
   const facts = [
     typeModeText(t, assessment),
@@ -56,14 +66,14 @@ const Row = ({ entry, zone, onOpen }) => {
   ].filter(Boolean);
 
   return (
-    <li>
+    <li className="border-b border-slate-100 last:border-0">
       <button
         type="button"
         onClick={() => onOpen(entry)}
-        className="w-full text-left px-4 sm:px-5 py-3.5 flex items-center gap-3 hover:bg-slate-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand first:rounded-t-2xl last:rounded-b-2xl"
+        className="w-full text-left px-2 py-3.5 flex items-center gap-3 rounded-xl hover:bg-slate-50 transition-colors duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
       >
         <span className="min-w-0 flex-1 space-y-0.5">
-          <span className="block text-sm font-extrabold text-slate-900 break-words">{assessment.title}</span>
+          <span className={`block text-sm font-extrabold break-words ${cancelled ? 'text-slate-500' : 'text-slate-900'}`}>{assessment.title}</span>
           {/* FactLine's look - grey, light slashes - in spans: a button takes no <p>. */}
           <span className="block text-xs font-semibold text-slate-500">
             {facts.map((part, i) => (
@@ -83,16 +93,16 @@ const Row = ({ entry, zone, onOpen }) => {
         </span>
         <span className="shrink-0 text-right">
           {entry.status === 'RELEASED' && entry.score !== null && (
-            <span className={`block text-base font-extrabold tabular-nums leading-tight ${below ? 'text-rose-600' : 'text-slate-900'}`}>
+            <span className={`block text-base font-extrabold tabular-nums leading-tight ${below ? 'text-rose-700' : 'text-slate-900'}`}>
               {formatNumber(entry.score, lang)}
               {below && <span className="sr-only"> ({t('gradebook.kktp.below')})</span>}
             </span>
           )}
           {best !== null && (
-            <span className="block text-base font-extrabold text-slate-900 tabular-nums leading-tight">
-              <span className="text-[11px] font-semibold text-slate-500">{t('smenu.best')} </span>
-              {formatNumber(best, lang)}
-            </span>
+            <>
+              <span className="block text-base font-extrabold text-slate-900 tabular-nums leading-tight">{formatNumber(best, lang)}</span>
+              <span className="block text-[11px] font-semibold text-slate-500">{t('smenu.bestBelow')}</span>
+            </>
           )}
           {afterRuleOf(entry) && (
             <span className="block text-[11px] font-semibold text-slate-500 tabular-nums">
@@ -116,12 +126,16 @@ export const SubjectAssessments = ({ classSubjectId, semesterId }) => {
   const { t } = useT();
   const navigate = useNavigate();
   const zone = useSchoolZone();
+  const today = useSchoolToday();
   const { membership } = useAuth();
   const [attempt, setAttempt] = useState(0);
   const asked = `${semesterId}|${attempt}`;
   /* undefined reading · entries · { error } */
   const [read, setRead] = useState({ key: null, value: undefined });
   const value = read.key === asked ? read.value : undefined;
+  /* The tab picked, null until one is: then the first with anything in it. */
+  const [picked, setPicked] = useState(null);
+  const [openId, setOpenId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -136,49 +150,129 @@ export const SubjectAssessments = ({ classSubjectId, semesterId }) => {
     };
   }, [asked, attempt, membership?.id, semesterId, classSubjectId, t]);
 
+  const open = (entry) => {
+    noteAssessmentTab(entry.assessment.id, 'penilaian');
+    navigate(pathOf(entry));
+  };
+
   if (value === undefined) {
-    return <div className="h-48 rounded-2xl bg-white border border-slate-100 animate-pulse" aria-busy="true" aria-label={t('common.loading')} />;
+    return (
+      <div className={CARD} aria-busy="true" aria-label={t('common.loading')}>
+        <Bone className="h-8 w-3/5" />
+        {[0, 1, 2].map((n) => (
+          <div key={n} className="flex items-center gap-3 mt-4 px-2">
+            <span className="flex-1">
+              <Bone className="h-3.5 w-3/5" />
+              <Bone className="h-3 w-2/5 mt-2" />
+            </span>
+            <Bone className="h-5 w-9" />
+          </div>
+        ))}
+      </div>
+    );
   }
   if (value.error) {
     return (
-      <div className={`${card} p-6 flex flex-col items-center text-center gap-3 py-8`} role="alert">
-        <AlertCircle className="w-7 h-7 text-rose-500" aria-hidden="true" />
-        <p className="text-sm font-bold text-slate-700 max-w-sm">{value.error}</p>
-        <button
-          type="button"
-          onClick={() => setAttempt((n) => n + 1)}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-        >
-          <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
-          {t('att.error.retry')}
-        </button>
+      <div className={CARD}>
+        <HomeError message={value.error} retryLabel={t('att.error.retry')} onRetry={() => setAttempt((n) => n + 1)} />
       </div>
     );
   }
 
-  const sections = sectionsOf(value);
-  if (sections.length === 0) return <p className={`${card} p-5 text-sm font-semibold text-slate-600`}>{t('smenu.emptySubject')}</p>;
+  const present = sectionsOf(value);
+  if (present.length === 0) {
+    return (
+      <div className={CARD}>
+        <HomeEmpty icon={ClipboardCheck} title={t('smenu.emptySubject')} body={t('smenu.emptySubject.body')} />
+      </div>
+    );
+  }
 
-  return (
-    <div className="space-y-5">
-      {sections.map((section) => (
-        <section key={section.key} className="space-y-2" aria-labelledby={`smenu-${section.key}`}>
-          <h3 id={`smenu-${section.key}`} className="flex items-baseline gap-2 text-sm font-extrabold text-slate-900">
-            {t(`smenu.section.${section.key}`)}
-            <span className="text-xs font-semibold text-slate-500 tabular-nums">{section.entries.length}</span>
-          </h3>
-          <ul className={`${card} divide-y divide-slate-100`}>
-            {section.entries.map((entry) => (
-              <Row key={entry.assessment.id} entry={entry} zone={zone} onOpen={(picked) => {
-                  noteAssessmentTab(picked.assessment.id, 'penilaian');
-                  navigate(pathOf(picked));
-                }}
-              />
+  const byKey = new Map(present.map((section) => [section.key, section.entries]));
+  const shown = picked ?? present[0].key;
+  const entries = byKey.get(shown) ?? [];
+  const live = entries.filter((entry) => entry.assessment.status !== 'CANCELLED');
+  const cancelled = entries.filter((entry) => entry.assessment.status === 'CANCELLED');
+
+  /* The line under the tabs is an inset shadow, as on the dashboard's TodoCard. */
+  const tabs = (
+    <div role="tablist" className="flex gap-0.5 mb-2 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shadow-[inset_0_-1px_0_var(--color-slate-100)]">
+      {MENU_SECTIONS.map((key) => {
+        const on = shown === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => {
+              setPicked(key);
+              setOpenId(null);
+            }}
+            className={`px-2.5 py-2 text-sm font-bold border-b-2 whitespace-nowrap transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-t-lg ${
+              on ? 'text-brand border-brand' : 'text-slate-500 border-transparent hover:text-slate-700'
+            }`}
+          >
+            {t(`smenu.section.${key}`)}
+            <span className={`ml-1.5 px-1.5 rounded-full text-[11px] tabular-nums ${on ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-600'}`}>
+              {byKey.get(key)?.length ?? 0}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  let list;
+  if (entries.length === 0) {
+    list = <HomeEmpty icon={ClipboardCheck} title={t(`smenu.sectionEmpty.${shown}`)} />;
+  } else if (shown === 'TODO') {
+    list = (
+      <ul>
+        {entries.map((entry) => (
+          <TodoRow
+            key={entry.assessment.id}
+            entry={entry}
+            open={openId === entry.assessment.id}
+            onToggle={() => setOpenId(openId === entry.assessment.id ? null : entry.assessment.id)}
+            onLater={() => setOpenId(null)}
+            zone={zone}
+            today={today}
+            showSubject={false}
+            onStart={(started) => noteAssessmentTab(started.assessment.id, 'penilaian')}
+          />
+        ))}
+      </ul>
+    );
+  } else {
+    list = (
+      <>
+        {live.length > 0 && (
+          <ul>
+            {live.map((entry) => (
+              <Row key={entry.assessment.id} entry={entry} zone={zone} onOpen={open} />
             ))}
           </ul>
-        </section>
-      ))}
-    </div>
+        )}
+        {cancelled.length > 0 && (
+          <>
+            <p className={`px-2 pb-1 text-xs font-bold text-slate-600 ${live.length > 0 ? 'mt-4' : ''}`}>{t('smenu.cancelledGroup')}</p>
+            <ul>
+              {cancelled.map((entry) => (
+                <Row key={entry.assessment.id} entry={entry} zone={zone} onOpen={open} />
+              ))}
+            </ul>
+          </>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <section className={CARD} aria-label={t('smenu.tabLabel')}>
+      {tabs}
+      <div role="tabpanel">{list}</div>
+    </section>
   );
 };
 

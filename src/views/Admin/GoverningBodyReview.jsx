@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Check, X, PowerOff, RotateCcw } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
@@ -13,17 +13,15 @@ import { useT } from '../../i18n/LanguageContext';
 import { schoolAddressOf } from '../../constants/subdomain';
 import { addressLineOf, kindKeyOf } from '../GoverningBody/governingBody';
 import { MAX_REASON, isBodyOff, reasonErrorOf } from './bodyDecisions';
+import { HomeError } from '../Dashboard/components/HomeCard';
+import { Fact, Facts, SlashFacts } from './adminParts';
 
-const Row = ({ label, children }) => (
-  <div className="flex items-start justify-between gap-4 py-2 border-b border-slate-100 last:border-0">
-    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider shrink-0">{label}</span>
-    <span className="text-xs font-semibold text-slate-800 text-right break-words min-w-0">{children ?? '-'}</span>
-  </div>
-);
+/* Where a registration stands, in words and colour, for the header's slash line. */
+const STATUS_TONE = { PENDING: 'text-amber-700', APPROVED: 'text-emerald-700', REJECTED: 'text-rose-700' };
 
-const ReasonBox = ({ id, label, hint, value, onChange, error, tone = 'slate' }) => (
+const ReasonBox = ({ id, label, hint, value, onChange, error }) => (
   <div className="space-y-1.5">
-    <label htmlFor={id} className={`text-sm font-semibold block ${tone === 'rose' ? 'text-rose-900' : 'text-slate-700'}`}>
+    <label htmlFor={id} className="text-sm font-semibold block text-slate-700">
       {label}
     </label>
     <textarea
@@ -32,9 +30,7 @@ const ReasonBox = ({ id, label, hint, value, onChange, error, tone = 'slate' }) 
       maxLength={MAX_REASON}
       value={value}
       onChange={onChange}
-      className={`block w-full rounded-xl border bg-white py-2.5 px-4 text-sm text-slate-900 transition-all focus:outline-none focus:ring-2 ${
-        tone === 'rose' ? 'border-rose-200 hover:border-rose-300 focus:ring-rose-400/20 focus:border-rose-400' : 'border-slate-200 hover:border-slate-300 focus:ring-brand/20 focus:border-brand'
-      }`}
+      className="block w-full rounded-xl border bg-white py-2.5 px-4 text-sm text-slate-900 transition-all focus:outline-none focus:ring-2 border-slate-200 hover:border-slate-300 focus:ring-brand/20 focus:border-brand"
     />
     {error ? (
       <span className="text-xs text-red-600 font-medium" role="alert">
@@ -145,76 +141,89 @@ export const GoverningBodyReview = ({ registration, onBack, onChanged, onStale, 
         {t('admin.back')}
       </button>
 
-      {error && (
-        <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700" role="alert">
-          {error}
-        </div>
-      )}
+      <div className="min-w-0">
+        <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight break-words">{name}</h2>
+        <SlashFacts
+          className="block mt-1.5 text-sm font-medium text-slate-500"
+          parts={[
+            <span className={`font-bold ${STATUS_TONE[registration.status] ?? ''}`}>{t(`admin.status.${registration.status}`)}</span>,
+            body && <span className={`font-bold ${isOff ? 'text-rose-700' : 'text-emerald-700'}`}>{t(isOff ? 'gbr.state.off' : 'gbr.state.on')}</span>,
+            body?.code && t('gbr.review.code', { code: body.code }),
+          ]}
+        />
+      </div>
+
+      {error && <HomeError message={error} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="space-y-6">
           {body && (
-            <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm">
-              <h3 className="text-sm font-extrabold text-slate-900 tracking-tight mb-2">{t('gbr.section.body')}</h3>
-              <Row label={t('gbr.field.name')}>{body.name}</Row>
-              <Row label={t('gb.kind')}>{kindWord(body.kind)}</Row>
-              {/* A foundation or an association from before c79b56f has none until corrected. */}
-              <Row label={t('gb.npyp')}>
-                {body.npyp ?? (body.kind !== 'GOVERNMENT' ? <span className="text-amber-700 font-extrabold">{t('gbr.npyp.missing')}</span> : null)}
-              </Row>
-              <Row label={t('gb.skNumber')}>{body.skNumber}</Row>
-              <Row label={t('gb.code')}>{body.code}</Row>
-              <Row label={t('gbr.field.subdomain')}>{siteAddress ?? body.subdomain}</Row>
-              <Row label={t('gbr.field.state')}>
-                <span className={isOff ? 'text-rose-600 font-extrabold' : 'text-emerald-700 font-extrabold'}>{t(isOff ? 'gbr.state.off' : 'gbr.state.on')}</span>
-              </Row>
+            <section className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm min-w-0">
+              <h3 className="text-base font-extrabold text-slate-900 tracking-tight">{t('gbr.section.body')}</h3>
+              <Facts>
+                <Fact label={t('gb.kind')}>{kindWord(body.kind)}</Fact>
+                {/* A foundation or an association from before c79b56f has none until corrected. */}
+                <Fact label={t('gb.npyp')}>
+                  {body.npyp ?? (body.kind !== 'GOVERNMENT' ? <span className="text-amber-700 font-extrabold">{t('gbr.npyp.missing')}</span> : null)}
+                </Fact>
+                <Fact label={t('gbr.field.subdomain')}>{siteAddress ?? body.subdomain}</Fact>
+                <Fact label={t('gb.skNumber')} wide>
+                  {body.skNumber}
+                </Fact>
+              </Facts>
             </section>
           )}
 
-          <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm">
-            <h3 className="text-sm font-extrabold text-slate-900 tracking-tight mb-2">{t('gbr.section.registration')}</h3>
-            <Row label={t('gb.kind')}>{kindWord(registration.kind)}</Row>
-            <Row label={t('gbr.field.name')}>{registration.name}</Row>
-            <Row label={t('gb.npyp')}>{registration.npyp}</Row>
-            <Row label={t('gb.skNumber')}>{registration.skNumber}</Row>
-            <Row label={t('gb.address')}>{addressLineOf(registration.address) || null}</Row>
-            <Row label={t('admin.field.status')}>{t(`admin.status.${registration.status}`)}</Row>
-            <Row label={t('admin.field.submitted')}>{asDate(registration.createdAt)}</Row>
-            {registration.reviewedAt && <Row label={t('admin.field.reviewed')}>{asDate(registration.reviewedAt)}</Row>}
-            {registration.rejectionReason && <Row label={t('admin.field.rejectionReason')}>{registration.rejectionReason}</Row>}
+          <section className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm min-w-0">
+            <h3 className="text-base font-extrabold text-slate-900 tracking-tight">{t('gbr.section.registration')}</h3>
+            {/* What the applicant wrote: it may differ from the body once corrected. */}
+            <Facts>
+              <Fact label={t('gb.kind')}>{kindWord(registration.kind)}</Fact>
+              <Fact label={t('gbr.field.name')}>{registration.name}</Fact>
+              <Fact label={t('gb.npyp')}>{registration.npyp}</Fact>
+              <Fact label={t('gb.skNumber')} wide>
+                {registration.skNumber}
+              </Fact>
+              <Fact label={t('gb.address')} wide>
+                {addressLineOf(registration.address) || null}
+              </Fact>
+              <Fact label={t('admin.field.submitted')}>{asDate(registration.createdAt)}</Fact>
+              {registration.reviewedAt && <Fact label={t('admin.field.reviewed')}>{asDate(registration.reviewedAt)}</Fact>}
+              {registration.rejectionReason && (
+                <Fact label={t('admin.field.rejectionReason')} wide>
+                  {registration.rejectionReason}
+                </Fact>
+              )}
+            </Facts>
           </section>
 
-          <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm">
-            <h3 className="text-sm font-extrabold text-slate-900 tracking-tight mb-2">{t('admin.section.applicant')}</h3>
-            <Row label={t('admin.field.name')}>{registration.applicant?.fullName}</Row>
-            <Row label={t('admin.field.email')}>{registration.applicant?.email}</Row>
-            <Row label={t('admin.field.phone')}>{registration.applicantPhone}</Row>
+          <section className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm min-w-0">
+            <h3 className="text-base font-extrabold text-slate-900 tracking-tight">{t('admin.section.applicant')}</h3>
+            <Facts>
+              <Fact label={t('admin.field.name')}>{registration.applicant?.fullName}</Fact>
+              <Fact label={t('admin.field.email')}>{registration.applicant?.email}</Fact>
+              <Fact label={t('admin.field.phone')}>{registration.applicantPhone}</Fact>
+            </Facts>
           </section>
         </div>
 
         <div className="space-y-6">
-          <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-6">
+          <div className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm min-w-0 space-y-6">
             <GoverningBodyFileViewer key={`${registration.id}:ktp`} registrationId={registration.id} which="ktp" has={registration.hasKtp} decided={!isPending} />
             <GoverningBodyFileViewer key={`${registration.id}:proof`} registrationId={registration.id} which="proof" has={registration.hasProof} decided={!isPending} />
           </div>
 
           {isPending && (
-            <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-4">
+            <section className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm min-w-0 space-y-4">
+              <h3 className="text-base font-extrabold text-slate-900 tracking-tight">{t('admin.decision.title')}</h3>
               <ReasonBox id="gbReason" label={t('gbr.reject.reason')} hint={t('gbr.reject.reason.hint')} value={reason} onChange={typeReason} error={reasonError} />
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Button type="button" isLoading={isSending} onClick={() => askFor('approve')} className="flex-1 py-3 rounded-2xl justify-center text-sm gap-1.5">
-                  <Check className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <div className="flex flex-wrap gap-2.5">
+                <Button type="button" isLoading={isSending} onClick={() => askFor('approve')}>
                   {t('gbr.approve')}
                 </Button>
-                <button
-                  type="button"
-                  disabled={isSending}
-                  onClick={() => askFor('reject')}
-                  className="flex-1 py-3 rounded-2xl border border-rose-200 bg-white text-rose-600 hover:bg-rose-50 text-sm font-bold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
-                >
-                  <X className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <Button type="button" variant="dangerOutline" disabled={isSending} onClick={() => askFor('reject')}>
                   {t('gbr.reject')}
-                </button>
+                </Button>
               </div>
             </section>
           )}
@@ -226,37 +235,32 @@ export const GoverningBodyReview = ({ registration, onBack, onChanged, onStale, 
           {body && <GoverningBodyAdminsPanel key={`${body.id}:admins`} bodyId={body.id} showToast={showToast} />}
 
           {body && !isOff && (
-            <section className="border border-rose-200 rounded-2xl p-5 bg-rose-50/40 shadow-sm space-y-4">
+            <section className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm min-w-0 space-y-4">
               <div>
-                <h3 className="text-sm font-extrabold text-rose-900 tracking-tight">{t('gbr.deactivate.section')}</h3>
-                <p className="text-xs font-semibold text-rose-700/80 mt-1 leading-relaxed">{t('gbr.deactivate.lead')}</p>
+                <h3 className="text-base font-extrabold text-slate-900 tracking-tight">{t('gbr.deactivate.section')}</h3>
+                <p className="text-[13px] font-medium text-slate-500 mt-1 leading-relaxed">{t('gbr.deactivate.lead')}</p>
               </div>
-              <ReasonBox id="gbOffReason" tone="rose" label={t('gbr.deactivate.reason')} hint={t('gbr.deactivate.reason.hint')} value={reason} onChange={typeReason} error={reasonError} />
-              <button
-                type="button"
-                disabled={isSending}
-                onClick={() => askFor('deactivate')}
-                className="w-full py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
-              >
-                <PowerOff className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <ReasonBox id="gbOffReason" label={t('gbr.deactivate.reason')} hint={t('gbr.deactivate.reason.hint')} value={reason} onChange={typeReason} error={reasonError} />
+              <Button type="button" variant="dangerOutline" disabled={isSending} onClick={() => askFor('deactivate')}>
                 {t('gbr.deactivate.action')}
-              </button>
+              </Button>
             </section>
           )}
 
           {body && isOff && (
-            <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-4">
+            <section className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm min-w-0 space-y-4">
               <div>
-                <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">{t('gbr.reactivate.section')}</h3>
-                <p className="text-xs font-semibold text-slate-500 mt-1 leading-relaxed">{t('gbr.reactivate.lead')}</p>
+                <h3 className="text-base font-extrabold text-slate-900 tracking-tight">{t('gbr.reactivate.section')}</h3>
+                <p className="text-[13px] font-medium text-slate-500 mt-1 leading-relaxed">{t('gbr.reactivate.lead')}</p>
               </div>
-              <div className="rounded-xl border border-rose-200 bg-rose-50/50 px-4 py-3">
-                <Row label={t('admin.field.deactivatedAt')}>{asDate(body.deactivatedAt)}</Row>
-                <Row label={t('admin.field.deactivationReason')}>{body.deactivationReason}</Row>
-              </div>
+              <Facts className="-mt-1">
+                <Fact label={t('admin.field.deactivatedAt')}>{asDate(body.deactivatedAt)}</Fact>
+                <Fact label={t('admin.field.deactivationReason')} wide>
+                  {body.deactivationReason}
+                </Fact>
+              </Facts>
               <ReasonBox id="gbOnNote" label={t('gbr.reactivate.note')} hint={t('gbr.reactivate.note.hint')} value={reason} onChange={typeReason} error={reasonError} />
-              <Button type="button" isLoading={isSending} onClick={() => askFor('reactivate')} className="w-full py-3 rounded-2xl justify-center text-sm gap-1.5">
-                <RotateCcw className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <Button type="button" isLoading={isSending} onClick={() => askFor('reactivate')}>
                 {t('gbr.reactivate.action')}
               </Button>
             </section>

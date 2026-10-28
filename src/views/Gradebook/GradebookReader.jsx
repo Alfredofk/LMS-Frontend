@@ -49,6 +49,7 @@ export const GradebookReader = ({ classSubjectId, name, onBack, showTitle = true
         caption={name}
         fileName={`nilai-${name ?? ''}.csv`.replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, '-')}
         framed={false}
+        showTitle={false}
         kktp={settings?.kktp?.value ?? null}
         settingsStamp={settings === undefined ? undefined : (settings.updatedAt ?? null)}
         onGrades={onGrades}

@@ -246,3 +246,21 @@ export function onTimeOf(classes) {
 /** Where a row leads: straight into the attempt running, else the outline. */
 export const pathOf = (entry) =>
   entry.inProgressId ? `/assessment/${entry.assessment.id}/percobaan/${entry.inProgressId}` : `/assessment/${entry.assessment.id}`;
+
+/**
+ * The three numbers above a subject's scores (owner, 2026-10-28): how many are
+ * released, how many of those reach the KKTP ("tuntas", null without a KKTP on
+ * any of them) and how many are under it, and how many wait for release. Counted
+ * on the raw score, as the red marks are (belowKktpOf). Never an average.
+ */
+export function scoresSummaryOf(entries) {
+  const released = (entries ?? []).filter((entry) => entry.status === 'RELEASED' && typeof entry.score === 'number');
+  const known = released.some((entry) => typeof entry.kktp === 'number');
+  const below = released.filter(belowKktpOf).length;
+  return {
+    released: released.length,
+    passed: known ? released.length - below : null,
+    below: known ? below : null,
+    waiting: (entries ?? []).filter((entry) => entry.status === 'WAITING_FOR_RELEASE').length,
+  };
+}

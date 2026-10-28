@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { belowKktp, cellOf, finalFlags, finalNotes, finalOf, gradebookColumns, gradebookCsv, gradebookRows } from './gradebook';
+import { belowKktp, cellOf, finalNotes, finalOf, gradebookColumns, gradebookCsv, gradebookRows, gradebookSummary, rowCounts } from './gradebook';
 
 const now = new Date('2026-10-20T00:00:00Z');
 const a = (id, status, opensAt, title = id) => ({ id, status, opensAt, title, type: 'KUIS' });
@@ -120,15 +120,6 @@ describe('gradebook - the final grade', () => {
     expect(finalOf(undefined)).toBeNull();
   });
 
-  it('under the number: waiting, then did not submit, only above 0', () => {
-    expect(finalFlags(finalOf(graded()))).toEqual([
-      { key: 'waiting', n: 2 },
-      { key: 'didNotSubmit', n: 1 },
-    ]);
-    expect(finalFlags(finalOf(graded({ grade: { ...graded().grade, waiting: 0, didNotSubmit: 0 } })))).toEqual([]);
-    expect(finalFlags({ reportedBy: 'XI IPA 1' })).toEqual([]);
-    expect(finalFlags(null)).toEqual([]);
-  });
 
   it('in the details: all four counts above 0', () => {
     expect(finalNotes(finalOf(graded()))).toEqual([
@@ -163,5 +154,34 @@ describe('gradebook - the final grade', () => {
     ];
     const csv = gradebookCsv(columns, rows, { lang: 'id', nameHeader: 'Nama', columnHeader: (x) => x.title, words: (key) => key, finalHeader: 'Nilai akhir' });
     expect(csv.slice(1)).toBe('Nama;q;Nilai akhir\r\nAni;87,5;78\r\nBudi;60;-\r\nCici;70;-\r\n');
+  });
+});
+
+describe('rowCounts', () => {
+  it('counts scores first, then each word above 0 in a fixed order', () => {
+    const row = { cells: [{ word: 'WAITING_FOR_RELEASE' }, { word: 'DID_NOT_SUBMIT' }, { word: 'DID_NOT_SUBMIT' }, { score: 100, remedial: false }] };
+    expect(rowCounts(row)).toEqual([
+      { key: 'scores', n: 1 },
+      { key: 'DID_NOT_SUBMIT', n: 2 },
+      { key: 'WAITING_FOR_RELEASE', n: 1 },
+    ]);
+  });
+  it('keeps scores at 0 and nothing else for an empty row', () => {
+    expect(rowCounts({ cells: [] })).toEqual([{ key: 'scores', n: 0 }]);
+  });
+});
+
+describe('gradebookSummary', () => {
+  const rows = [
+    { cells: [{ word: 'DID_NOT_SUBMIT' }, { score: 90 }], final: { value: 50 } },
+    { cells: [{ word: 'DID_NOT_SUBMIT' }, { word: 'DID_NOT_SUBMIT' }], final: { value: 53 } },
+    { cells: [{ score: 80 }], final: { reportedBy: 'XI IPA 1' } },
+    { cells: [], final: null },
+  ];
+  it('averages the final grades there are, to one decimal, and counts those under the KKTP', () => {
+    expect(gradebookSummary(rows, 52)).toEqual({ average: 51.5, below: 1, graded: 2, didNotSubmit: 3 });
+  });
+  it('says nothing about the KKTP without one, and no average without a grade', () => {
+    expect(gradebookSummary([{ cells: [], final: { value: null } }], null)).toEqual({ average: null, below: null, graded: 0, didNotSubmit: 0 });
   });
 });

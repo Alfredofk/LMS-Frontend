@@ -6,13 +6,15 @@ import { useT } from '../../i18n/LanguageContext';
   A year's semesters as one small segmented control, the Board's and the
   Timetable's (owner, 2026-10-28: the big purple buttons were too loud). As tall
   as the year's dropdown beside it, so the two labelled columns line up; the one
-  chosen is pale purple, not filled.
+  chosen is pale purple, not filled. `hideLabel` keeps the label for screen
+  readers only, where a card heading already says what it chooses (a class's
+  report cards, 2026-10-28).
 */
-export const SemesterSegments = ({ id, semesters, value, onChange }) => {
+export const SemesterSegments = ({ id, semesters, value, onChange, hideLabel = false }) => {
   const { t } = useT();
   return (
     <div className="flex flex-col gap-1.5">
-      <span id={id} className="text-sm font-semibold text-slate-700 select-none">
+      <span id={id} className={hideLabel ? 'sr-only' : 'text-sm font-semibold text-slate-700 select-none'}>
         {t('subjects.board.semester')}
       </span>
       <div className="inline-flex self-start gap-1 rounded-xl border border-slate-200 bg-white p-1" role="group" aria-labelledby={id}>

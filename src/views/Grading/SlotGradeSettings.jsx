@@ -29,7 +29,7 @@ import { slotChange, slotDraftErrors, slotDraftOf, weightsLine } from './grading
   @param onSettings      (settings) => void - each read and save, so the host can
                          mark the gradebook's scores under the KKTP
 */
-const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm';
+const card = 'bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm';
 
 const FollowChoice = ({ name, own, onOwn, followLabel, ownLabel, disabled }) => (
   <div className="space-y-2">
@@ -156,10 +156,10 @@ export const SlotGradeSettings = ({ classSubjectId, canEdit = false, onToast, on
     <section className={`${card} space-y-4 text-left`} aria-labelledby={`grading-${classSubjectId}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 id={`grading-${classSubjectId}`} className="text-sm font-extrabold text-slate-900">
+          <h3 id={`grading-${classSubjectId}`} className="text-base font-extrabold text-slate-900 tracking-tight">
             {t('grading.slot.title')}
           </h3>
-          <p className="text-xs font-medium text-slate-500 leading-relaxed mt-0.5">{t('grading.slot.body')}</p>
+          <p className="text-[13px] font-medium text-slate-500 leading-relaxed mt-0.5">{t('grading.slot.body')}</p>
         </div>
         {canEdit && !locked && !editing && (
           <Button variant="outline" size="sm" onClick={() => setDraft(slotDraftOf(settings))} className="shrink-0">

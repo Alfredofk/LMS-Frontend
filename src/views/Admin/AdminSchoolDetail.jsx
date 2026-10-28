@@ -12,6 +12,7 @@ import { useT } from '../../i18n/LanguageContext';
 import { adminSchoolErrorMessage } from '../../i18n/apiError';
 import { validateOptionalReason } from '../../utils/validation';
 import { adminActionsOf, registrationLinkOf } from './adminSchools';
+import { Fact, Facts, SlashFacts } from './adminParts';
 
 /*
   One School opened from the Platform Admin's list of every School (backend ed0d304;
@@ -44,12 +45,9 @@ const ADMIN_SOURCE = {
 
 const noop = () => {};
 
-const Row = ({ label, children }) => (
-  <div className="flex items-start justify-between gap-4 py-2 border-b border-slate-100 last:border-0">
-    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider shrink-0">{label}</span>
-    <span className="text-xs font-semibold text-slate-800 text-right break-words min-w-0">{children ?? '-'}</span>
-  </div>
-);
+/* The look since 2026-10-28 (owner, mockup daftar-sekolah.html): a slash line under the
+   name (whether it runs, its body or "Mandiri", since when it is off), the facts as eyebrow
+   cells, the dashboards' card frame, a history entry as the body's name over one grey line. */
 
 /* The bodies a School has been under, the latest first. */
 const AffiliationHistory = ({ schoolId, version }) => {
@@ -74,8 +72,8 @@ const AffiliationHistory = ({ schoolId, version }) => {
   }, [schoolId, version]);
 
   return (
-    <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-3">
-      <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">{t('adminSchools.history.title')}</h3>
+    <section className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm min-w-0 space-y-3">
+      <h3 className="text-base font-extrabold text-slate-900 tracking-tight">{t('adminSchools.history.title')}</h3>
       {failed ? (
         <p className="text-xs font-semibold text-rose-700">{t('adminSchools.history.failed')}</p>
       ) : rows === null ? (
@@ -86,26 +84,21 @@ const AffiliationHistory = ({ schoolId, version }) => {
         <ul className="divide-y divide-slate-100">
           {rows.map((row) => (
             <li key={row.id} className="py-2.5 space-y-0.5">
-              <p className="text-sm font-bold text-slate-900 break-words">
-                {t(row.began === 'JOINED' ? 'adminSchools.history.joined' : 'adminSchools.history.created', { body: row.governingBody?.name ?? '' })}
-              </p>
-              <p className="text-xs font-medium text-slate-500">
-                {row.startedBy?.fullName
-                  ? t('adminSchools.history.since', { date: asDate(row.startedAt), name: row.startedBy.fullName })
-                  : t('adminSchools.history.sinceUnknown', { date: asDate(row.startedAt) })}
-              </p>
-              {row.endedAt ? (
-                <>
-                  <p className="text-xs font-semibold text-slate-600">
-                    {row.endedBy?.fullName
-                      ? t('adminSchools.history.ended', { date: asDate(row.endedAt), name: row.endedBy.fullName })
-                      : t('adminSchools.history.endedUnknown', { date: asDate(row.endedAt) })}
-                  </p>
-                  {row.endReason && <p className="text-xs font-medium text-slate-600 break-words">{t('others.reason', { reason: row.endReason })}</p>}
-                </>
-              ) : (
-                <p className="text-xs font-semibold text-emerald-700">{t('adminSchools.history.now')}</p>
-              )}
+              <p className="text-sm font-bold text-slate-900 break-words">{row.governingBody?.name ?? '-'}</p>
+              <SlashFacts
+                parts={[
+                  t(row.began === 'JOINED' ? 'adminSchools.history.began.JOINED' : 'adminSchools.history.began.CREATED'),
+                  t('adminSchools.history.sinceOn', { date: asDate(row.startedAt) }),
+                  row.startedBy?.fullName,
+                  row.endedAt ? (
+                    t('adminSchools.history.endedOn', { date: asDate(row.endedAt) })
+                  ) : (
+                    <span className="font-bold text-emerald-700">{t('adminSchools.history.nowWord')}</span>
+                  ),
+                  row.endedAt && row.endedBy?.fullName,
+                ]}
+              />
+              {row.endedAt && row.endReason && <p className="text-xs font-medium text-slate-600 break-words">{t('others.reason', { reason: row.endReason })}</p>}
             </li>
           ))}
         </ul>
@@ -158,24 +151,35 @@ export const AdminSchoolDetail = ({ school, onBack, onChanged, showToast }) => {
         {t('adminSchools.back')}
       </button>
 
-      <h2 className="text-xl font-extrabold text-slate-900 tracking-tight break-words">{school.name}</h2>
+      <div className="min-w-0">
+        <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight break-words">{school.name}</h2>
+        <SlashFacts
+          className="block mt-1.5 text-sm font-medium text-slate-500"
+          parts={[
+            <span className={`font-bold ${off ? 'text-rose-700' : 'text-emerald-700'}`}>{t(off ? 'admin.school.off' : 'admin.school.on')}</span>,
+            school.governingBody?.name ?? t('adminSchools.independent'),
+            off && t('adminSchools.offSinceLine', { date: asDate(school.deactivatedAt) }),
+          ]}
+        />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <div className="space-y-6">
-          <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm">
-            <h3 className="text-sm font-extrabold text-slate-900 tracking-tight mb-2">{t('admin.section.school')}</h3>
-            <Row label={t('admin.field.npsn')}>{school.npsn}</Row>
-            <Row label={t('admin.field.schoolType')}>{school.schoolType}</Row>
-            <Row label={t('admin.field.duration')}>{school.durationYears ? t('admin.field.duration.years', { n: school.durationYears }) : null}</Row>
-            <Row label={t('admin.field.city')}>{school.city}</Row>
-            <Row label={t('admin.field.timeZone')}>{school.timeZone}</Row>
-            <Row label={t('adminSchools.field.body')}>{school.governingBody?.name ?? t('adminSchools.independent')}</Row>
-            <Row label={t('adminSchools.field.created')}>{asDate(school.createdAt)}</Row>
-            <Row label={t('admin.field.schoolState')}>
-              <span className={off ? 'text-rose-600 font-extrabold' : 'text-emerald-700 font-extrabold'}>{t(off ? 'admin.school.off' : 'admin.school.on')}</span>
-            </Row>
-            {off && <Row label={t('adminSchools.field.offSince')}>{asDate(school.deactivatedAt)}</Row>}
-            {off && school.deactivationReason && <Row label={t('adminSchools.field.offReason')}>{school.deactivationReason}</Row>}
+          <section className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm min-w-0">
+            <h3 className="text-base font-extrabold text-slate-900 tracking-tight">{t('admin.section.school')}</h3>
+            <Facts>
+              <Fact label={t('admin.field.npsn')}>{school.npsn}</Fact>
+              <Fact label={t('admin.field.schoolType')}>{school.schoolType}</Fact>
+              <Fact label={t('admin.field.duration')}>{school.durationYears ? t('admin.field.duration.years', { n: school.durationYears }) : null}</Fact>
+              <Fact label={t('admin.field.city')}>{school.city}</Fact>
+              <Fact label={t('admin.field.timeZone')}>{school.timeZone}</Fact>
+              <Fact label={t('adminSchools.field.created')}>{asDate(school.createdAt)}</Fact>
+              {off && school.deactivationReason && (
+                <Fact label={t('adminSchools.field.offReason')} wide>
+                  {school.deactivationReason}
+                </Fact>
+              )}
+            </Facts>
           </section>
 
           {actions.appoint ? (
@@ -190,16 +194,16 @@ export const AdminSchoolDetail = ({ school, onBack, onChanged, showToast }) => {
               showToast={showToast}
             />
           ) : (
-            <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-1">
-              <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">{t('admin.appoint.section')}</h3>
+            <section className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm min-w-0 space-y-1">
+              <h3 className="text-base font-extrabold text-slate-900 tracking-tight">{t('admin.appoint.section')}</h3>
               <p className="text-xs font-semibold text-slate-500 leading-relaxed break-words">{t('adminSchools.bodyRuns', { body: school.governingBody.name })}</p>
             </section>
           )}
         </div>
 
         <div className="space-y-6">
-          <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-3">
-            <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">{t('adminSchools.manage.title')}</h3>
+          <section className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm min-w-0 space-y-3">
+            <h3 className="text-base font-extrabold text-slate-900 tracking-tight">{t('adminSchools.manage.title')}</h3>
             <div className="flex flex-wrap gap-2">
               {actions.deactivate && (
                 <Button size="sm" variant="dangerOutline" onClick={() => setAsking('deactivate')}>
