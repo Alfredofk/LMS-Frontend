@@ -21,6 +21,7 @@ import {
   ROLE_LABEL_KEY,
   ROLE_TAGLINE_KEY,
   GET_STARTED_PATH,
+  roleTitleKey,
   activeRolesOf,
   heldRolesOf,
   homeFor,
@@ -512,5 +513,18 @@ describe('the tables agree with one another', () => {
 
   it('only homes roles that exist', () => {
     for (const role of Object.keys(ROLE_HOME)) expect(all).toContain(role);
+  });
+});
+
+describe('roleTitleKey — what a held role is called in a list', () => {
+  it('names the Principal as the school does, not as the picker card does', () => {
+    expect(roleTitleKey(ROLES.PRINCIPAL)).toBe('roleTitle.PRINCIPAL');
+    expect(ROLE_LABEL_KEY[ROLES.PRINCIPAL]).toBe('role.PRINCIPAL.label');
+  });
+
+  it('covers every role and nothing else', () => {
+    for (const role of Object.values(ROLES)) expect(roleTitleKey(role)).toBe(`roleTitle.${role}`);
+    expect(roleTitleKey('ADMIN')).toBe('requests.role.unknown');
+    expect(roleTitleKey(undefined)).toBe('requests.role.unknown');
   });
 });

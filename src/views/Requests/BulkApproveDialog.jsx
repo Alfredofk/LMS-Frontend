@@ -10,7 +10,7 @@ import { academicsService } from '../../services/academicsService';
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage, decisionErrorMessage } from '../../i18n/apiError';
-import { ROLE_LABEL_KEY, releasableInPov } from '../../constants/roles';
+import { releasableInPov, roleTitleKey } from '../../constants/roles';
 import { classesFor, groupForApproval, planCalls, summarise } from './bulk';
 
 /*
@@ -244,7 +244,7 @@ export const BulkApproveDialog = ({ requests, onClose, onDone }) => {
                         ? t('requests.link.row', {
                             names: request.children.filter((link) => link.status === 'PENDING').map((link) => link.student?.fullName).join(', '),
                           })
-                        : (request.roles ?? []).map((entry) => t(ROLE_LABEL_KEY[entry.role] ?? 'requests.role.unknown')).join(', ')}
+                        : (request.roles ?? []).map((entry) => t(roleTitleKey(entry.role))).join(', ')}
                       {request.student?.gradeLevel != null ? `, ${t('requests.field.grade', { n: request.student.gradeLevel })}` : ''}
                     </span>
                   </li>

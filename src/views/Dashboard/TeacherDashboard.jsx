@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarDays, ChevronRight, ClipboardCheck, GraduationCap, School, Users } from 'lucide-react';
+import { CalendarDays, ChevronRight, ClipboardCheck, Flag, Users } from 'lucide-react';
 
-import InfoChips from '../../components/ui/InfoChips';
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
 import { academicsService } from '../../services/academicsService';
@@ -12,7 +11,7 @@ import StatCard from './components/StatCard';
 import TeachingDayCard from './components/TeachingDayCard';
 import AssessmentsCard from './components/AssessmentsCard';
 import TeachingSlotsCard from './components/TeachingSlotsCard';
-import { readTeachingDashboard, studentsAcrossClasses } from './teachingDashboard';
+import { readTeachingDashboard, studentsAcrossClasses, studentsNeedingSupportAcross } from './teachingDashboard';
 import { readMarkingQueue, readTeachingLists } from '../TeacherAssessment/markingQueue';
 import { dashboardAssessments } from '../TeacherAssessment/teacherAssessment';
 import { openYearLabels } from '../Schedule/teacherLessons';
@@ -152,24 +151,37 @@ export const TeacherDashboard = () => {
 
   const loading = teaching === undefined;
   const failed = teaching === null;
+  const facts = [
+    schoolName,
+    semester && t('teacherDash.academicContext', { year: semester.academicYear, n: semester.ordinal }),
+    today,
+  ].filter(Boolean);
+  /* Students needing support, each once across the subjects (owner, 2026-10-27). */
+  const support = board ? studentsNeedingSupportAcross(board.slots) : board;
+  const scrollToSlots = () => document.getElementById('teacher-slots-heading')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   return (
     <div className="space-y-6 text-left">
       <header className="select-none">
-        <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-slate-900">
+        <h1 className="text-3xl max-sm:text-2xl font-extrabold leading-tight tracking-tight text-slate-900">
           {t(greetingKeyFor(now.getHours()), { name })}
         </h1>
-        <InfoChips
-          className="mt-2"
-          items={[
-            schoolName && { icon: School, label: schoolName },
-            semester && {
-              icon: GraduationCap,
-              label: t('teacherDash.academicContext', { year: semester.academicYear, n: semester.ordinal }),
-            },
-            { icon: CalendarDays, label: today },
-          ]}
-        />
+        {/* One grey slash line in place of the icon chips (owner, 2026-10-27, as the student's). */}
+        <p className="mt-2 text-sm font-medium text-slate-500">
+          {facts.map((fact, i) => (
+            <React.Fragment key={fact}>
+              {i > 0 && (
+                <>
+                  {' '}
+                  <span className="mx-1 text-slate-300" aria-hidden="true">
+                    /
+                  </span>{' '}
+                </>
+              )}
+              <span className="whitespace-nowrap">{fact}</span>
+            </React.Fragment>
+          ))}
+        </p>
       </header>
 
       {finalising && (
@@ -185,7 +197,7 @@ export const TeacherDashboard = () => {
 
       <ExamWeekLine reminder={examReminder} staff />
 
-      <section aria-label={t('teacherDash.stats.label')} className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+      <section aria-label={t('teacherDash.stats.label')} className="grid grid-cols-2 gap-5 max-sm:gap-3 lg:grid-cols-4">
         <StatCard
           title={t('teacherDash.stat.classes')}
           value={loading ? '…' : failed ? '-' : String(classCount(live))}
@@ -206,19 +218,29 @@ export const TeacherDashboard = () => {
           icon={ClipboardCheck}
           onClick={firstWaiting ? () => navigate(`/teacher/courses/${firstWaiting.row.id}/penilaian/${firstWaiting.assessment.id}?tab=hasil`) : undefined}
         />
+        <StatCard
+          title={t('teacherDash.stat.support')}
+          value={support === undefined ? '…' : support === null ? '-' : String(support)}
+          subtext={support === null ? t('dash.att.failed') : support === undefined ? '' : t('teacherDash.stat.support.sub')}
+          icon={Flag}
+          onClick={support ? scrollToSlots : undefined}
+        />
       </section>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+      {/* Both cards end level (owner, 2026-10-27): the row stretches, HomeCard fills it. */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
         <TeachingDayCard
           live={teaching === undefined ? undefined : live}
           meetings={meetings}
           today={todayLocal}
           examWeek={examWeekToday}
           exams={examsToday}
-          className="lg:col-span-7"
+          className="lg:col-span-6"
         />
 
-        <AssessmentsCard queue={queue} lists={lists} zone={zone} className="lg:col-span-5" />
+        {/* Half and half since 2026-10-27 (7/5 before): at 5/12 the four tabs did not fit
+            and the owner wanted no scrollbar under them. */}
+        <AssessmentsCard queue={queue} lists={lists} zone={zone} className="lg:col-span-6" />
       </div>
 
       <TeachingSlotsCard board={board} />

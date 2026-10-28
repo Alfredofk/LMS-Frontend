@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Award } from 'lucide-react';
+import FactLine from '../../../components/ui/FactLine';
 
 import { useAuth } from '../../../context/AuthContext';
 import { schoolService } from '../../../services/schoolService';
@@ -164,7 +164,7 @@ export const ProfileHeader = () => {
         : null;
 
   return (
-    <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 select-none hover:shadow-md transition-shadow duration-200 text-left">
+    <div className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 select-none text-left">
 
       <div className="flex items-center gap-4 min-w-0">
         <div className="w-16 h-16 rounded-full bg-violet-100 text-brand flex items-center justify-center font-extrabold text-xl shadow-inner shrink-0 border-2 border-white ring-4 ring-violet-50">
@@ -180,29 +180,15 @@ export const ProfileHeader = () => {
             {user?.email || <Empty />}
           </p>
 
-          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-            {schoolName && (
-              <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-extrabold rounded-md">
-                {schoolName}
-              </span>
-            )}
-            {/* The level beside the school, in its own pill (owner, 2026-10-03: no
-                "a · b" lines): "Bintang Jaya Supreme" alone does not say what it teaches. */}
-            {schoolName && schoolType && (
-              <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-extrabold rounded-md">{schoolType}</span>
-            )}
-            {held.map((role) => (
-              <span
-                key={role}
-                className="px-2 py-0.5 bg-brand-tint text-brand text-[10px] font-extrabold rounded-md"
-              >
-                {/* The role's title, as in Members and the avatar menu - not the
-                    picker card's label, which names PRINCIPAL "Sekolah" for the
-                    register-a-school path (owner, 2026-10-07). */}
-                {t(`roleTitle.${role}`)}
-              </span>
-            ))}
-          </div>
+          {/* School / level / roles as one grey line, not chips (owner, 2026-10-28, the
+              reviewed mockup). The level still says what the school teaches; a role is its
+              title, as in Members and the avatar menu - not the picker card's label, which
+              names PRINCIPAL "Sekolah" (owner, 2026-10-07). The labelled facts under it
+              stay labelled (owner, 2026-10-28: NPSN, NIP and dates read badly as slashes). */}
+          <FactLine
+            className="pt-0.5"
+            facts={[schoolName, schoolName && schoolType, held.map((role) => t(`roleTitle.${role}`)).join(', ')]}
+          />
 
           {/* flex-wrap: three pairs of label and value do not fit one line at 375px. */}
           {isLearner ? (
@@ -252,24 +238,6 @@ export const ProfileHeader = () => {
         </div>
       </div>
 
-      {/* Gamification belongs to learners. A teacher has no XP, not "no XP yet". */}
-      {isLearner && (
-        <div className="w-full md:w-80 lg:w-96 space-y-2.5 shrink-0">
-          <div className="flex items-center justify-between text-xs font-extrabold text-slate-800">
-            <div className="flex items-center gap-1.5">
-              <Award className="w-4 h-4 text-slate-300 shrink-0" aria-hidden="true" />
-              <span className="text-slate-500">
-                {t('profile.xp')}: <Empty />
-              </span>
-            </div>
-            <span className="text-slate-500">
-              {t('profile.level')} <Empty />
-            </span>
-          </div>
-
-          <div className="w-full h-3.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/40" />
-        </div>
-      )}
     </div>
   );
 };

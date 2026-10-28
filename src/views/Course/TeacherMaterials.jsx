@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useId, useState } from 'react';
-import { ArrowDown, ArrowUp, BookOpen, FileText, Link2, Pencil, PlayCircle, Plus, RefreshCw, Send, Trash2, Type } from 'lucide-react';
+import { ArrowDown, ArrowUp, BookOpen, FileText, Link2, Pencil, PlayCircle, Plus, Send, Trash2, Type } from 'lucide-react';
 
 import ContentItem from '../../components/content/ContentItem';
+import Button from '../../components/ui/Button';
+import { HomeEmpty, HomeError } from '../Dashboard/components/HomeCard';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import Input from '../../components/ui/Input';
 import { useT } from '../../i18n/LanguageContext';
@@ -172,7 +174,7 @@ const ContentForm = ({ sessionId, editing, onSaved, onCancel }) => {
       {editing?.type === 'FILE' && <p className="text-[11px] font-medium text-slate-500">{t('teach.content.fileFixed')}</p>}
 
       {errors.global && (
-        <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+        <div className="rounded-xl bg-rose-50 p-3.5 text-[13px] text-rose-700 font-semibold" role="alert">
           {errors.global}
         </div>
       )}
@@ -282,6 +284,14 @@ export const TeacherMaterials = ({ session, showToast, readOnly = false }) => {
     }
   };
 
+  const canAdd = !readOnly && !form && !cancelled && list !== undefined && !error;
+  const addButton = (
+    <Button size="sm" variant="outline" onClick={() => setForm('new')}>
+      <Plus className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
+      {t('teach.content.add')}
+    </Button>
+  );
+
   return (
     <section className="space-y-3" aria-labelledby={`materials-${session.id}`}>
       {/* The sub-tab above says "Materi"; the heading stays for screen readers. */}
@@ -289,12 +299,8 @@ export const TeacherMaterials = ({ session, showToast, readOnly = false }) => {
         <h3 id={`materials-${session.id}`} className="sr-only">
           {t('classroom.materials')}
         </h3>
-        {!readOnly && !form && !cancelled && list !== undefined && !error && (
-          <button type="button" onClick={() => setForm('new')} className={`${tool} bg-brand-tint text-brand hover:bg-brand hover:text-white`}>
-            <Plus className="w-3.5 h-3.5" aria-hidden="true" />
-            {t('teach.content.add')}
-          </button>
-        )}
+        {/* Not over an empty list: its empty state carries the same button (owner, 2026-10-28). */}
+        {canAdd && list.length > 0 && addButton}
       </div>
 
       {cancelled && <p className="text-xs font-semibold text-slate-500">{t('teach.content.cancelledMeeting')}</p>}
@@ -302,20 +308,16 @@ export const TeacherMaterials = ({ session, showToast, readOnly = false }) => {
       {form === 'new' && <ContentForm sessionId={session.id} onSaved={onSaved} onCancel={() => setForm(null)} />}
 
       {error ? (
-        <div className="space-y-2" role="alert">
-          <p className="text-sm font-semibold text-rose-700">{error}</p>
-          <button type="button" onClick={reload} className={`${tool} bg-slate-100 text-slate-700 hover:bg-slate-200`}>
-            <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
-            {t('att.error.retry')}
-          </button>
-        </div>
+        <HomeError message={error} retryLabel={t('att.error.retry')} onRetry={reload} />
       ) : list === undefined ? (
         <div className="h-28 rounded-2xl bg-slate-100 animate-pulse" aria-label={t('common.loading')} />
       ) : list.length === 0 && form !== 'new' ? (
-        <div className="rounded-2xl border border-dashed border-slate-200 py-10 px-6 text-center">
-          <BookOpen className="w-9 h-9 text-slate-300 mx-auto" aria-hidden="true" />
-          <p className="mt-2.5 text-sm font-extrabold text-slate-600">{t('teach.content.none')}</p>
-        </div>
+        <HomeEmpty
+          icon={BookOpen}
+          title={t('teach.content.none')}
+          body={!readOnly && !cancelled ? t('teach.content.noneBody') : null}
+          action={canAdd ? addButton : null}
+        />
       ) : (
         <ul className="space-y-4">
           {list.map((item, index) =>

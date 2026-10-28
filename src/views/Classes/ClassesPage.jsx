@@ -5,9 +5,13 @@ import { Check, ChevronRight, Pencil, Plus, School, Search, ShieldOff, Lock, Tra
 import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
+import FactLine from '../../components/ui/FactLine';
+import { HomeEmpty, HomeError } from '../Dashboard/components/HomeCard';
+import { defaultSemesterOf } from '../Subjects/subjects';
 import { AcademicYearForm, SemesterForm } from './components/PeriodForms';
 import ClassForm from './components/ClassForm';
 import ClassDetail from './components/ClassDetail';
+import ClassSummary from '../Homeroom/ClassSummary.jsx';
 import { academicsService } from '../../services/academicsService';
 import { isNotBuiltYet } from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
@@ -78,6 +82,10 @@ import {
 
 const SEMESTER_ORDINALS = [1, 2];
 
+/* A card and its heading, as the dashboards' HomeCard draws them (owner, 2026-10-28). */
+const SECTION = 'bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm space-y-4 min-w-0';
+const HEADING = 'text-base font-extrabold text-slate-900 tracking-tight';
+
 const YEAR_BADGE = {
   ACTIVE: 'bg-emerald-50 text-emerald-700',
   CLOSED: 'bg-slate-100 text-slate-600',
@@ -115,6 +123,13 @@ export const ClassesPage = () => {
   const [notBuilt, setNotBuilt] = useState(false);
   const [error, setError] = useState(null);
   const [classesError, setClassesError] = useState(null);
+  /* "Coba lagi" after a failed read reads both lists again. */
+  const [attempt, setAttempt] = useState(0);
+  const retry = () => {
+    setError(null);
+    setClassesError(null);
+    setAttempt((n) => n + 1);
+  };
 
   /* Which inline form is open: 'year', 'semester-1', 'semester-2', 'class', or null. */
   const [openForm, setOpenForm] = useState(null);
@@ -155,7 +170,7 @@ export const ClassesPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [fail]);
+  }, [fail, attempt]);
 
   /*
     Every class of every year, in ONE request. `GET /academics/classes` without a
@@ -172,7 +187,7 @@ export const ClassesPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, [t, attempt]);
 
   /*
     Nothing on this page may describe a year the reader cannot see selected. So
@@ -304,14 +319,24 @@ export const ClassesPage = () => {
     }
   };
 
+  /* The greeting's slash line, as on the dashboards (owner, 2026-10-28): the school,
+     the year on screen with its running semester, its classes and students. */
+  const semester = year?.semesters?.find((entry) => entry.id === defaultSemesterOf(year, new Date().toISOString().slice(0, 10)));
+  const summary = year && classes !== null ? yearSummary(year, classes) : null;
   const title = (
     <div className="select-none">
-      <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+      <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">
         {t('classes.title')}
       </h1>
-      <p className="text-xs sm:text-sm text-slate-500 font-bold mt-1">
-        {school?.name ? t('classes.subtitle', { school: school.name }) : t('classes.subtitleNoSchool')}
-      </p>
+      <FactLine
+        className="mt-2"
+        facts={[
+          school?.name,
+          year && (semester ? t('teacherDash.academicContext', { year: year.label, n: semester.ordinal }) : year.label),
+          summary && t('classes.year.stat.classes', { n: summary.classes }),
+          summary && t('classes.year.stat.students', { n: summary.students }),
+        ]}
+      />
     </div>
   );
 
@@ -319,15 +344,9 @@ export const ClassesPage = () => {
     return (
       <div className="space-y-6">
         {title}
-        <div className="py-16 px-6 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
-          <div className="w-11 h-11 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center mx-auto">
-            <ShieldOff className="w-5 h-5 text-slate-400" aria-hidden="true" />
-          </div>
-          <h2 className="mt-3.5 text-sm font-extrabold text-slate-700">{t('classes.denied.title')}</h2>
-          <p className="mt-1.5 text-xs font-semibold text-slate-500 leading-relaxed max-w-sm mx-auto">
-            {t('classes.denied.body')}
-          </p>
-        </div>
+        <section className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm">
+          <HomeEmpty icon={ShieldOff} title={t('classes.denied.title')} body={t('classes.denied.body')} />
+        </section>
       </div>
     );
   }
@@ -347,6 +366,9 @@ export const ClassesPage = () => {
         {title}
         <ClassDetail
           classId={selectedClassId}
+          /* "Ringkasan kelas", which the Principal and Vice Principals read too (backend
+             7ee7857; owner 2026-10-27: after the homeroom teacher's). */
+          summary={<ClassSummary key={`sum-${selectedClassId}`} classId={selectedClassId} />}
           onBack={() => setSelectedClassId(null)}
           onChanged={handleClassChanged}
           onDeleted={handleClassDeleted}
@@ -383,9 +405,7 @@ export const ClassesPage = () => {
       {title}
 
       {error ? (
-        <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700" role="alert">
-          {error}
-        </div>
+        <HomeError message={error} retryLabel={t('att.error.retry')} onRetry={retry} />
       ) : years === null ? (
         <div className="space-y-4" aria-label={t('common.loading')}>
           <div className="h-36 bg-white border border-slate-100 rounded-2xl animate-pulse" />
@@ -394,9 +414,9 @@ export const ClassesPage = () => {
       ) : years.length === 0 ? (
         /* An empty school starts here: nothing else on this page can exist
            before a year does. */
-        <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
+        <section className={SECTION}>
           <div className="min-w-0">
-            <h2 className="text-base font-extrabold text-slate-900">{t('classes.year.firstTitle')}</h2>
+            <h2 className={HEADING}>{t('classes.year.firstTitle')}</h2>
             <p className="text-xs font-semibold text-slate-500 leading-relaxed mt-0.5">
               {t('classes.year.firstBody')}
             </p>
@@ -408,9 +428,9 @@ export const ClassesPage = () => {
       ) : (
         <>
           {/* ---------------- the academic year ---------------- */}
-          <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
+          <section className={SECTION}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <h2 className="text-base font-extrabold text-slate-900">{t('classes.year.heading')}</h2>
+              <h2 className={HEADING}>{t('classes.year.heading')}</h2>
               {openForm !== 'year' && (
                 <Button size="sm" variant="outline" className="shrink-0" onClick={() => setOpenForm('year')}>
                   <Plus className="w-4 h-4 mr-1" aria-hidden="true" />
@@ -427,7 +447,8 @@ export const ClassesPage = () => {
 
             {/* Tabs by status — the backend sends every year and filters none, so
                 this is done here — then one card per year on the tab. */}
-            <div className="border-b border-slate-100 flex gap-6 select-none overflow-x-auto">
+            {/* Text tabs with a counter, as on the dashboards (the skill's recipe). */}
+            <div className="flex gap-0.5 select-none overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shadow-[inset_0_-1px_0_var(--color-slate-100)]">
               {YEAR_TABS.map((tab) => {
                 const isActive = yearTab === tab;
                 const count = yearsInTab(years, tab).length;
@@ -437,13 +458,13 @@ export const ClassesPage = () => {
                     type="button"
                     onClick={() => selectTab(tab)}
                     aria-pressed={isActive}
-                    className={`pb-3 text-sm font-extrabold transition-all border-b-2 cursor-pointer focus:outline-none focus-visible:text-brand flex items-center gap-2 shrink-0 whitespace-nowrap ${
-                      isActive ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-600'
+                    className={`px-2.5 py-2 text-sm font-bold border-b-2 whitespace-nowrap transition-colors cursor-pointer focus:outline-none focus-visible:text-brand ${
+                      isActive ? 'text-brand border-brand' : 'text-slate-500 border-transparent hover:text-slate-700'
                     }`}
                   >
                     {t(`classes.year.tab.${tab}`)}
                     <span
-                      className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold tabular-nums ${
+                      className={`ml-1.5 px-1.5 rounded-full text-[11px] tabular-nums ${
                         isActive ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-600'
                       }`}
                     >
@@ -686,9 +707,9 @@ export const ClassesPage = () => {
 
           {/* ---------------- its classes ---------------- */}
           {year && (
-            <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
+            <section className={SECTION}>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <h2 className="text-base font-extrabold text-slate-900">
+                <h2 className={HEADING}>
                   {t('classes.class.heading', { label: year.label })}
                 </h2>
                 {yearOpen && openForm !== 'class' && (
@@ -765,52 +786,51 @@ export const ClassesPage = () => {
               )}
 
               {classesError ? (
-                <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
-                  {classesError}
-                </div>
+                <HomeError message={classesError} retryLabel={t('att.error.retry')} onRetry={retry} />
               ) : shownClasses === null ? (
-                <div className="h-24 bg-slate-50 rounded-2xl animate-pulse" aria-label={t('common.loading')} />
+                <div aria-busy="true" aria-label={t('common.loading')}>
+                  {[0, 1, 2].map((n) => (
+                    <div key={n} className="py-3">
+                      <div className="h-3.5 w-24 animate-pulse bg-slate-100 rounded-[10px]" />
+                      <div className="h-3 w-56 mt-2 animate-pulse bg-slate-100 rounded-[10px]" />
+                    </div>
+                  ))}
+                </div>
               ) : yearClasses.length > 0 && shownClasses.length === 0 ? (
-                <div className="py-8 text-center border border-dashed border-slate-200 rounded-2xl select-none">
-                  <Search className="w-7 h-7 text-slate-300 mx-auto" aria-hidden="true" />
-                  <p className="mt-2 text-xs font-extrabold text-slate-500">{t('classes.class.noMatch')}</p>
-                </div>
+                <HomeEmpty icon={Search} title={t('classes.class.noMatch')} />
               ) : shownClasses.length === 0 ? (
-                <div className="py-10 text-center border border-dashed border-slate-200 rounded-2xl select-none">
-                  <School className="w-8 h-8 text-slate-300 mx-auto" aria-hidden="true" />
-                  <p className="mt-2 text-xs font-extrabold text-slate-500">{t('classes.class.empty')}</p>
-                  <p className="mt-1 text-[11px] font-semibold text-slate-500 max-w-sm mx-auto leading-relaxed">
-                    {t(yearOpen ? 'classes.class.emptyHint' : 'classes.class.emptyClosed')}
-                  </p>
-                </div>
+                <HomeEmpty
+                  icon={School}
+                  title={t('classes.class.empty')}
+                  body={t(yearOpen ? 'classes.class.emptyHint' : 'classes.class.emptyClosed')}
+                />
               ) : (
-                <ul className="divide-y divide-slate-100 -mx-2">
+                /* A class as one grey line under its name (owner, 2026-10-28): the
+                   grade and student chips went. */
+                <ul className="-mx-2">
                   {shownClasses.map((entry) => (
-                    <li key={entry.id}>
+                    <li key={entry.id} className="border-b border-slate-100 last:border-0">
                       <button
                         type="button"
                         onClick={() => setSelectedClassId(entry.id)}
-                        className="w-full px-2 py-3 flex items-center justify-between gap-3 text-left rounded-xl hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                        className="group w-full px-2 py-3 flex items-center justify-between gap-3 text-left rounded-xl hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                       >
                         <span className="min-w-0">
-                          <span className="flex flex-wrap items-center gap-2">
-                            <span className="text-sm font-extrabold text-slate-800 break-words">{entry.name}</span>
-                            <span className="px-2 py-0.5 bg-brand-tint text-brand text-[10px] font-extrabold rounded-md">
-                              {t('classes.grade', { n: entry.gradeLevel })}
-                            </span>
-                            {/* Beside the grade, not in the line under it (owner, 2026-10-03). */}
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-extrabold rounded-md">
-                              <Users className="w-3 h-3" aria-hidden="true" />
-                              {t('classes.class.studentCount', { n: entry.studentCount ?? 0 })}
-                            </span>
-                          </span>
-                          <span className="block text-[11px] font-semibold text-slate-500 mt-1 break-words">
-                            {t('classes.class.homeroomLine', {
-                              name: entry.homeroomTeacher?.fullName ?? t('classes.detail.noHomeroom'),
-                            })}
-                          </span>
+                          <span className="block text-sm font-bold text-slate-900 break-words">{entry.name}</span>
+                          <FactLine
+                            size="xs"
+                            wrap
+                            className="mt-0.5"
+                            facts={[
+                              t('classes.grade', { n: entry.gradeLevel }),
+                              t('classes.class.studentCount', { n: entry.studentCount ?? 0 }),
+                              t('classes.class.homeroomLine', {
+                                name: entry.homeroomTeacher?.fullName ?? t('classes.detail.noHomeroom'),
+                              }),
+                            ]}
+                          />
                         </span>
-                        <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
+                        <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
                       </button>
                     </li>
                   ))}

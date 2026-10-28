@@ -4,6 +4,9 @@ import { ChevronRight, DoorOpen, Search, ShieldCheck, ShieldOff, ShieldX, UserMi
 import { sortByRole } from './members';
 
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
+import FactLine from '../../components/ui/FactLine';
+import EmptyCard from '../../components/ui/EmptyCard';
+import { HomeError } from '../Dashboard/components/HomeCard';
 import RemoveMemberDialog from '../../components/RemoveMemberDialog';
 import PersonDetailDialog from '../../components/PersonDetailDialog';
 import { initialsOf } from '../../utils/names';
@@ -190,12 +193,19 @@ export const MembersPage = () => {
     }
   };
 
+  /* The slash line, as on the dashboards (owner, 2026-10-28): the school, who is here,
+     who has left; the roles are counted on the tabs. */
   const title = (
     <div className="select-none">
-      <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('members.title')}</h1>
-      <p className="text-xs sm:text-sm text-slate-500 font-bold mt-1">
-        {t('members.subtitle', { school: membership?.school?.name ?? membership?.schoolName ?? '' })}
-      </p>
+      <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('members.title')}</h1>
+      <FactLine
+        className="mt-2"
+        facts={[
+          membership?.school?.name ?? membership?.schoolName,
+          active && t('members.subtitle.active', { n: active.length }),
+          left && t('members.subtitle.left', { n: left.length }),
+        ]}
+      />
     </div>
   );
 
@@ -203,15 +213,7 @@ export const MembersPage = () => {
     return (
       <div className="space-y-6">
         {title}
-        <div className="py-16 px-6 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
-          <div className="w-11 h-11 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center mx-auto">
-            <ShieldOff className="w-5 h-5 text-slate-400" aria-hidden="true" />
-          </div>
-          <h2 className="mt-3.5 text-sm font-extrabold text-slate-700">{t('classes.denied.title')}</h2>
-          <p className="mt-1.5 text-xs font-semibold text-slate-500 leading-relaxed max-w-sm mx-auto">
-            {t('classes.denied.body')}
-          </p>
-        </div>
+        <EmptyCard icon={ShieldOff} title={t('classes.denied.title')} body={t('classes.denied.body')} />
       </div>
     );
   }
@@ -231,7 +233,9 @@ export const MembersPage = () => {
     <div className="space-y-6">
       {title}
 
-      <div className="border-b border-slate-100 flex gap-6 select-none overflow-x-auto">
+      {/* Text tabs with a counter, as on the dashboards (the skill's recipe): no icon in a
+          tab, and the leave count amber while anything waits. */}
+      <div className="flex gap-0.5 select-none overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shadow-[inset_0_-1px_0_var(--color-slate-100)]">
         {TABS.map((name) => {
           const isActive = tab === name;
           const count = inTab(name).length;
@@ -241,14 +245,14 @@ export const MembersPage = () => {
               type="button"
               onClick={() => setTab(name)}
               aria-pressed={isActive}
-              className={`pb-3 text-sm font-extrabold transition-all border-b-2 cursor-pointer focus:outline-none flex items-center gap-2 shrink-0 whitespace-nowrap ${
-                isActive ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-600'
+              className={`px-2.5 py-2 text-sm font-bold border-b-2 whitespace-nowrap transition-colors cursor-pointer focus:outline-none focus-visible:text-brand ${
+                isActive ? 'text-brand border-brand' : 'text-slate-500 border-transparent hover:text-slate-700'
               }`}
             >
               {t(`members.tab.${name}`)}
               {!loading && count > 0 && (
                 <span
-                  className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold tabular-nums ${
+                  className={`ml-1.5 px-1.5 rounded-full text-[11px] tabular-nums ${
                     isActive ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-600'
                   }`}
                 >
@@ -263,14 +267,13 @@ export const MembersPage = () => {
           type="button"
           onClick={() => setTab('LEAVE')}
           aria-pressed={tab === 'LEAVE'}
-          className={`pb-3 text-sm font-extrabold transition-all border-b-2 cursor-pointer focus:outline-none flex items-center gap-2 shrink-0 whitespace-nowrap ${
-            tab === 'LEAVE' ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-600'
+          className={`px-2.5 py-2 text-sm font-bold border-b-2 whitespace-nowrap transition-colors cursor-pointer focus:outline-none focus-visible:text-brand ${
+            tab === 'LEAVE' ? 'text-brand border-brand' : 'text-slate-500 border-transparent hover:text-slate-700'
           }`}
         >
-          <DoorOpen className="w-4 h-4" aria-hidden="true" />
           {t('members.tab.leave')}
           {leaveRequests?.length > 0 && (
-            <span className="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold tabular-nums bg-amber-100 text-amber-800">
+            <span className="ml-1.5 px-1.5 rounded-full text-[11px] tabular-nums bg-amber-50 text-amber-700">
               {leaveRequests.length}
             </span>
           )}
@@ -300,18 +303,14 @@ export const MembersPage = () => {
       </div>
 
       {error ? (
-        <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700" role="alert">
-          {error}
-        </div>
+        <HomeError message={error} />
       ) : loading ? (
         <div className="h-48 bg-white border border-slate-100 rounded-2xl animate-pulse" aria-label={t('common.loading')} />
       ) : rows.length === 0 ? (
-        <div className="py-16 text-center border border-dashed border-slate-200 rounded-2xl bg-white select-none">
-          <Users className="w-9 h-9 text-slate-300 mx-auto" aria-hidden="true" />
-          <p className="mt-2.5 text-xs font-extrabold text-slate-500">
-            {query.trim() ? t('members.empty.search') : t(tab === 'LEFT' ? 'members.empty.left' : 'members.empty.active')}
-          </p>
-        </div>
+        <EmptyCard
+          icon={query.trim() ? Search : Users}
+          title={query.trim() ? t('members.empty.search') : t(tab === 'LEFT' ? 'members.empty.left' : 'members.empty.active')}
+        />
       ) : (
         <ul className="bg-white border border-slate-100 rounded-2xl shadow-sm divide-y divide-slate-100">
           {rows.map((member) => {
@@ -341,7 +340,7 @@ export const MembersPage = () => {
                   aria-label={t('members.openMember', { name: member.fullName })}
                   className="group min-w-0 flex-1 flex items-center gap-3 text-left rounded-xl p-1.5 -m-1.5 hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                 >
-                <span className="w-10 h-10 rounded-xl bg-brand-tint text-brand text-xs font-extrabold flex items-center justify-center shrink-0 select-none">
+                <span className="w-10 h-10 rounded-full bg-brand-tint text-brand text-xs font-extrabold flex items-center justify-center shrink-0 select-none">
                   {initialsOf(member.fullName)}
                 </span>
                 <div className="min-w-0 flex-1 space-y-0.5">
@@ -369,12 +368,13 @@ export const MembersPage = () => {
                 </button>
 
                 {(removable || appointable || revocable) && (
-                <div className="self-start sm:self-center shrink-0 flex flex-wrap gap-2">
+                /* Text buttons, no frames (owner, 2026-10-28): the list was a wall of boxes. */
+                <div className="self-start sm:self-center shrink-0 flex flex-wrap gap-1">
                 {appointable && (
                   <button
                     type="button"
                     onClick={() => setViceChange({ member, action: 'appoint' })}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-brand hover:bg-brand-tint text-xs font-extrabold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand text-brand hover:bg-brand-tint"
                   >
                     <ShieldCheck className="w-4 h-4 shrink-0" aria-hidden="true" />
                     {t('members.vice.appoint')}
@@ -384,7 +384,7 @@ export const MembersPage = () => {
                   <button
                     type="button"
                     onClick={() => setViceChange({ member, action: 'revoke' })}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-extrabold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand text-slate-600 hover:bg-slate-100"
                   >
                     <ShieldX className="w-4 h-4 shrink-0" aria-hidden="true" />
                     {t('members.vice.revoke')}
@@ -394,7 +394,7 @@ export const MembersPage = () => {
                   <button
                     type="button"
                     onClick={() => setRemoving(member)}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-extrabold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand text-rose-700 hover:bg-rose-50"
                   >
                     <UserMinus className="w-4 h-4 shrink-0" aria-hidden="true" />
                     {t('members.remove')}

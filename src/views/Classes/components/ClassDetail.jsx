@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRightLeft, ChevronRight, Clock, Pencil, Search, Trash2, UserMinus } from 'lucide-react';
 
 import Button from '../../../components/ui/Button';
+import FactLine from '../../../components/ui/FactLine';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import SelectField from '../../../components/ui/SelectField';
 import RemoveMemberDialog from '../../../components/RemoveMemberDialog';
@@ -13,6 +14,7 @@ import { academicsService } from '../../../services/academicsService';
 import { useT } from '../../../i18n/LanguageContext';
 import { academicsErrorMessage } from '../../../i18n/apiError';
 import { formatDay } from '../format';
+import { HomeEmpty } from '../../Dashboard/components/HomeCard';
 
 /*
   One class: who holds it, and who is in it.
@@ -57,10 +59,15 @@ import { formatDay } from '../format';
   a teaching assignment or a class move is refused by the server, and that
   refusal is said (`classes.error.classNotEmpty`). `onDeleted` hands the page
   the class that went.
+
+  `summary` (owner, 2026-10-27) is "Ringkasan kelas" (Homeroom/ClassSummary), drawn
+  between the class's own card and its roster on both pages that open a class, so
+  the way back and the class's name still come first.
 */
 export const ClassDetail = ({
   classId,
   onBack,
+  summary = null,
   onChanged,
   showToast,
   readOnly = false,
@@ -168,7 +175,7 @@ export const ClassDetail = ({
     return (
       <div className="space-y-4">
         {back}
-        <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700" role="alert">
+        <div className="flex items-start gap-2.5 rounded-xl bg-rose-50 p-3.5 text-[13px] font-semibold text-rose-700" role="alert">
           {error}
         </div>
       </div>
@@ -197,16 +204,16 @@ export const ClassDetail = ({
     <div className="space-y-4">
       {back}
 
-      <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
+      <section className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2 min-w-0">
+          {/* The grade and year as one grey line, not chips (owner, 2026-10-28). */}
+          <div className="min-w-0">
             <h2 className="text-xl font-extrabold text-slate-900 tracking-tight break-words">{target.name}</h2>
-            <span className="px-2 py-0.5 bg-brand-tint text-brand text-[10px] font-extrabold rounded-md">
-              {t('classes.grade', { n: target.gradeLevel })}
-            </span>
-            <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-extrabold rounded-md">
-              {target.academicYear?.label}
-            </span>
+            <FactLine
+              size="xs"
+              className="mt-1"
+              facts={[t('classes.grade', { n: target.gradeLevel }), target.academicYear?.label]}
+            />
           </div>
           {open && !readOnly && !isEditing && (
             <div className="flex flex-wrap gap-2 shrink-0">
@@ -225,7 +232,7 @@ export const ClassDetail = ({
         </div>
 
         {deleteError && (
-          <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+          <div className="flex items-start gap-2.5 rounded-xl bg-rose-50 p-3.5 text-[13px] font-semibold text-rose-700" role="alert">
             {deleteError}
           </div>
         )}
@@ -288,7 +295,7 @@ export const ClassDetail = ({
             ) : null}
 
             {saveError && (
-              <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+              <div className="flex items-start gap-2.5 rounded-xl bg-rose-50 p-3.5 text-[13px] font-semibold text-rose-700" role="alert">
                 {saveError}
               </div>
             )}
@@ -305,8 +312,10 @@ export const ClassDetail = ({
         )}
       </section>
 
-      <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
-        <h3 className="text-base font-extrabold text-slate-900">
+      {summary}
+
+      <section className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm">
+        <h3 className="text-base font-extrabold text-slate-900 tracking-tight">
           {t('classes.detail.students', { n: students.length })}
         </h3>
 
@@ -329,9 +338,7 @@ export const ClassDetail = ({
             {t('classes.detail.noStudents')}
           </p>
         ) : shownStudents.length === 0 ? (
-          <p className="mt-4 py-6 text-center text-xs font-extrabold text-slate-500 border border-dashed border-slate-200 rounded-2xl">
-            {t('classes.detail.noMatch')}
-          </p>
+          <HomeEmpty icon={Search} title={t('classes.detail.noMatch')} />
         ) : (
           <ul className="mt-3 divide-y divide-slate-100">
             {shownStudents.map((student) => (

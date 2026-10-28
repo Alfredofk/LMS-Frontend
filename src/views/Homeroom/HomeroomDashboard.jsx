@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
-import { ChevronRight, Inbox, School, NotebookPen } from 'lucide-react';
+import { ChevronRight, School } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
+import EmptyCard from '../../components/ui/EmptyCard';
+import FactLine from '../../components/ui/FactLine';
 import ClassDetail from '../Classes/components/ClassDetail';
 import ClassMovesSection from './ClassMovesSection';
+import ClassSummary from './ClassSummary.jsx';
 import HomeroomAttendance from './HomeroomAttendance.jsx';
 import HomeroomNotes from './HomeroomNotes';
 import HomeroomPromotions from './HomeroomPromotions';
@@ -41,15 +44,20 @@ import { notifyPendingChanged } from '../../hooks/usePendingCounts';
   release its students' join requests — which happens on /join-requests, so the
   page points there.
 
+  **"Ringkasan kelas" opens the class** (backend 7ee7857; owner, 2026-10-27):
+  ClassSummary, above everything else - each student's attendance, grades against
+  each subject's KKTP and Support Signals, those needing attention first.
+
   **Attendance is read here** (backend deb95e8; owner, 2026-10-02): below the
   opened class, HomeroomAttendance — its subjects, their meetings, each meeting's
   roster. Read only; confirming is the subject teacher's. Under it the report
   card's Notes per semester (HomeroomNotes, backend 483be5a; owner 2026-10-18),
-  which this teacher writes, and in Semester 2 the Promotion Outcomes
-  (HomeroomPromotions, backend 4dae152; owner 2026-10-22); "back to the class list"
-  asks first while either is unsaved. Report cards themselves are not here yet (ticket 05). The old page carried a whole report modal built on a guessed
-  contract; it went with the guess. The notice says it is coming rather than
-  leaving a gap nobody explains.
+  which this teacher writes, in Semester 2 the Promotion Outcomes
+  (HomeroomPromotions, backend 4dae152; owner 2026-10-22), and the class's report
+  cards (ClassReportCards); "back to the class list" asks first while either form
+  is unsaved. The old page carried a whole report modal built on a guessed
+  contract; it went with the guess, and the line saying report cards were not
+  built went on 2026-10-28, once they were.
 */
 export const HomeroomDashboard = () => {
   const { showToast } = useOutletContext();
@@ -123,18 +131,57 @@ export const HomeroomDashboard = () => {
         a.name.localeCompare(b.name, 'id')
     );
 
-  const students = mine
-    .filter((entry) => entry.academicYear?.status === 'ACTIVE')
-    .reduce((sum, entry) => sum + (entry.studentCount ?? 0), 0);
+  /* Open years first, closed ones under their own small heading (owner, 2026-10-28). */
+  const live = mine.filter((entry) => entry.academicYear?.status === 'ACTIVE');
+  const closed = mine.filter((entry) => entry.academicYear?.status !== 'ACTIVE');
+  const students = live.reduce((sum, entry) => sum + (entry.studentCount ?? 0), 0);
 
+  /* School / classes in an open year / their students, one grey line (owner, 2026-10-28,
+     the reviewed mockup); it replaced a sentence and the list heading's own count. */
   const title = (
     <div className="select-none">
-      <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+      <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">
         {t('shell.homeroom')}
       </h1>
-      <p className="text-xs sm:text-sm text-slate-500 font-bold mt-1">{t('homeroom.subtitle')}</p>
+      <FactLine
+        className="mt-2"
+        facts={[
+          membership?.school?.name ?? membership?.schoolName,
+          classes !== null && !error && t('homeroom.subtitle.classes', { n: live.length }),
+          classes !== null && !error && t('classes.class.studentCount', { n: students }),
+        ]}
+      />
     </div>
   );
+
+  const classRows = (list, past = false) =>
+    list.length > 0 && (
+      <ul className="divide-y divide-slate-100 -mx-2">
+        {list.map((entry) => (
+          <li key={entry.id}>
+            <button
+              type="button"
+              onClick={() => setSelectedId(entry.id)}
+              className="group w-full px-2 py-3 flex items-center justify-between gap-3 text-left rounded-xl hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+              <span className="min-w-0">
+                <span className={`block text-sm font-extrabold break-words ${past ? 'text-slate-600' : 'text-slate-800'}`}>{entry.name}</span>
+                <FactLine
+                  className="mt-0.5"
+                  wrap
+                  facts={[
+                    t('classes.grade', { n: entry.gradeLevel }),
+                    entry.academicYear?.label,
+                    t('classes.class.studentCount', { n: entry.studentCount ?? 0 }),
+                  ]}
+                />
+              </span>
+              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    );
 
   const selectedYearId = (classes ?? []).find((entry) => entry.id === selectedId)?.academicYear?.id ?? null;
 
@@ -144,6 +191,8 @@ export const HomeroomDashboard = () => {
         {title}
         <ClassDetail
           classId={selectedId}
+          /* The class at a glance, under its own card (owner, 2026-10-27; backend 7ee7857). */
+          summary={<ClassSummary key={`sum-${selectedId}`} classId={selectedId} />}
           readOnly
           canMove
           pendingMoves={pendingMoves}
@@ -199,7 +248,7 @@ export const HomeroomDashboard = () => {
       {title}
 
       {error ? (
-        <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700" role="alert">
+        <div className="rounded-xl bg-rose-50 p-3.5 text-[13px] text-rose-700 font-semibold" role="alert">
           {error}
         </div>
       ) : classes === null ? (
@@ -208,62 +257,20 @@ export const HomeroomDashboard = () => {
           <div className="h-40 bg-white border border-slate-100 rounded-2xl animate-pulse" />
         </div>
       ) : mine.length === 0 ? (
-        <div className="py-16 px-6 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
-          <School className="w-9 h-9 text-slate-300 mx-auto" aria-hidden="true" />
-          <h2 className="mt-2.5 text-sm font-extrabold text-slate-700">{t('homeroom.none.title')}</h2>
-          <p className="mt-1.5 text-xs font-semibold text-slate-500 leading-relaxed max-w-sm mx-auto">
-            {t('homeroom.none.body')}
-          </p>
-        </div>
+        <EmptyCard icon={School} title={t('homeroom.none.title')} body={t('homeroom.none.body')} />
       ) : (
         <>
-          {/* The two counts sit in the list's heading line, not in two big cards
-              with icon tiles (owner, 2026-10-07: too much room, too "AI"). */}
-          <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-3">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-              <h2 className="text-base font-extrabold text-slate-900">{t('homeroom.list.heading')}</h2>
-              <p className="text-xs font-semibold text-slate-500 tabular-nums">
-                {t('homeroom.list.summary', { classes: mine.length, students })}
-              </p>
-            </div>
-            <ul className="divide-y divide-slate-100 -mx-2">
-              {mine.map((entry) => {
-                const open = entry.academicYear?.status === 'ACTIVE';
-                return (
-                  <li key={entry.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedId(entry.id)}
-                      className="w-full px-2 py-3 flex items-center justify-between gap-3 text-left rounded-xl hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                    >
-                      <span className="min-w-0">
-                        <span className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-extrabold text-slate-800 break-words">{entry.name}</span>
-                          <span className="px-2 py-0.5 bg-brand-tint text-brand text-[10px] font-extrabold rounded-md">
-                            {t('classes.grade', { n: entry.gradeLevel })}
-                          </span>
-                          <span
-                            className={`px-2 py-0.5 text-[10px] font-extrabold rounded-md ${
-                              open ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
-                            {/* Sentence case, as in the year dropdowns (owner, 2026-10-07). */}
-                            {t('subjects.board.yearOption', {
-                              label: entry.academicYear?.label ?? '',
-                              status: t(`subjects.board.yearStatus.${open ? 'ACTIVE' : 'CLOSED'}`),
-                            })}
-                          </span>
-                        </span>
-                        <span className="block text-[11px] font-semibold text-slate-500 mt-0.5">
-                          {t('classes.class.studentCount', { n: entry.studentCount ?? 0 })}
-                        </span>
-                      </span>
-                      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+          {/* A class is its name over one grey line (grade / year / students), as on
+              /headmaster/classes; the chips went (owner, 2026-10-28). */}
+          <section className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm space-y-3">
+            <h2 className="text-base font-extrabold text-slate-900">{t('homeroom.list.heading')}</h2>
+            {classRows(live)}
+            {closed.length > 0 && (
+              <>
+                <h3 className="pt-3 text-[13px] font-extrabold text-slate-600">{t('homeroom.list.closed')}</h3>
+                {classRows(closed, true)}
+              </>
+            )}
           </section>
 
           <ClassMovesSection
@@ -275,25 +282,16 @@ export const HomeroomDashboard = () => {
           />
 
           {/* What a homeroom teacher actually does here today: let students in. */}
-          <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-start gap-3 min-w-0">
-              <Inbox className="w-5 h-5 text-brand shrink-0 mt-0.5" aria-hidden="true" />
-              <div className="min-w-0">
-                <p className="text-sm font-extrabold text-slate-800">{t('homeroom.requests.title')}</p>
-                <p className="text-xs font-semibold text-slate-500 leading-relaxed mt-0.5">
-                  {t('homeroom.requests.body')}
-                </p>
-              </div>
+          <section className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="text-base font-extrabold text-slate-900">{t('homeroom.requests.title')}</h2>
+              <p className="text-[13px] text-slate-500 leading-relaxed mt-0.5">{t('homeroom.requests.body')}</p>
             </div>
             <Button size="sm" variant="outline" className="shrink-0" onClick={() => navigate('/join-requests')}>
               {t('shell.joinRequests')}
             </Button>
           </section>
 
-          <p className="flex items-start gap-2 text-[11px] font-semibold text-slate-500 leading-relaxed">
-            <NotebookPen className="w-4 h-4 shrink-0 text-slate-400" aria-hidden="true" />
-            {t('homeroom.reportsLater')}
-          </p>
         </>
       )}
     </div>

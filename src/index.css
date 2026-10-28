@@ -55,6 +55,75 @@
 }
 
 /*
+  The toast (components/ui/Toast.jsx), as the owner approved it on 2026-10-27:
+  it rises into the bottom right, its icon's halo swells once, the check draws
+  itself, and a line along its foot runs down the time left.
+
+  The time line is the toast's clock — Toast.jsx closes on its `animationend` —
+  so hovering or focusing the toast pauses both the line and the closing. That is
+  also why `animate-toast-time` stays out of the reduced-motion block below: cut
+  to 0.01ms it would close every toast the instant it opened.
+
+  `--halo` is set by the toast to its tone, so one keyframe serves all three.
+*/
+@keyframes toastIn {
+  0% { transform: translateY(18px) scale(0.96); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+@keyframes toastOut {
+  to { transform: translateY(10px) scale(0.98); opacity: 0; }
+}
+@keyframes toastTime {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+@keyframes halo {
+  from { box-shadow: 0 0 0 0 var(--halo); }
+  to { box-shadow: 0 0 0 4px var(--halo); }
+}
+@keyframes draw {
+  from { stroke-dashoffset: 24; }
+  to { stroke-dashoffset: 0; }
+}
+
+.animate-toast-in { animation: toastIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-toast-out { animation: toastOut 0.22s ease-in forwards; }
+.animate-toast-time {
+  transform-origin: left;
+  animation: toastTime var(--toast-ms, 4500ms) linear forwards;
+}
+.group:hover .animate-toast-time,
+.group:focus-within .animate-toast-time { animation-play-state: paused; }
+.animate-halo { animation: halo 0.9s 0.1s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-draw { stroke-dasharray: 24; animation: draw 0.4s 0.15s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/*
+  The student dashboard's answers to an action (owner, 2026-10-27): a new state
+  block settles in (`rise`), a number that just changed swells once (`bump`), and
+  dots burst once from the Konsistensi ring (`burst`, each dot sets `--a`).
+*/
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes bump {
+  40% { transform: scale(1.35); }
+}
+@keyframes burst {
+  0% { opacity: 1; transform: rotate(var(--a)) translateY(0); }
+  100% { opacity: 0; transform: rotate(var(--a)) translateY(-66px); }
+}
+.animate-rise { animation: rise 0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-bump { display: inline-block; animation: bump 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+.animate-burst { animation: burst 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-toast-in, .animate-toast-out, .animate-halo, .animate-draw,
+  .animate-rise, .animate-bump, .animate-burst { animation-duration: 0.01ms; animation-delay: 0s; }
+}
+
+/*
   The entrance the auth shell replays whenever its contents change — moving
   between /login, /select-role and /get-started, and between the three steps
   of /login itself.

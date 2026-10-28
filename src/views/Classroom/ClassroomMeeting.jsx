@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, BookOpen, CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, FileText, Link2, Loader2, MapPin, PlayCircle, RefreshCw, Type } from 'lucide-react';
+import { BookOpen, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, FileText, Link2, Loader2, MapPin, PlayCircle, Type } from 'lucide-react';
 
 import ContentItem from '../../components/content/ContentItem';
 import { useContentTracker } from '../../components/content/contentTracking';
-import InfoChips from '../../components/ui/InfoChips';
+import Button from '../../components/ui/Button';
+import FactLine from '../../components/ui/FactLine';
+import { HomeEmpty, HomeError } from '../Dashboard/components/HomeCard';
 import { useT } from '../../i18n/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { apiErrorMessage, checkInErrorMessage, isStaleCheckIn } from '../../i18n/apiError';
@@ -44,7 +46,8 @@ import { firstUndone, isTracked, materialState, mergeProgress, progressById, pro
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm';
-const TONE = { PRESENT: 'emerald', SICK: 'amber', EXCUSED: 'sky', ABSENT: 'rose' };
+/* The attendance state is a coloured word, not a chip (owner, 2026-10-28, the reviewed mockup). */
+const STATE_WORD = { PRESENT: 'text-emerald-700', SICK: 'text-amber-700', EXCUSED: 'text-sky-700', ABSENT: 'text-rose-700' };
 const TYPE_ICON = { VIDEO: PlayCircle, TEXT: Type, LINK: Link2, FILE: FileText };
 
 const CheckIn = ({ meeting, attendance, onAttendance, readOnly }) => {
@@ -134,16 +137,23 @@ const CheckIn = ({ meeting, attendance, onAttendance, readOnly }) => {
     body = (
       <div className="space-y-1.5">
         {state && (
-          <InfoChips
-            size="xs"
-            items={[
-              {
-                label: t(state.key),
-                tone: meeting.status === 'CANCELLED' ? 'rose' : state.status ? TONE[state.status] : 'slate',
-              },
-              state.status && !state.final && { label: t('classroom.pendingConfirm') },
-            ]}
-          />
+          <p className="text-[13px] text-slate-500 flex flex-wrap items-baseline">
+            <span
+              className={`font-bold ${
+                meeting.status === 'CANCELLED' ? 'text-rose-700' : state.status ? STATE_WORD[state.status] : 'text-slate-600'
+              }`}
+            >
+              {t(state.key)}
+            </span>
+            {state.status && !state.final && (
+              <>
+                <span className="mx-1.5 text-slate-300" aria-hidden="true">
+                  /
+                </span>
+                <span>{t('classroom.pendingConfirm')}</span>
+              </>
+            )}
+          </p>
         )}
         {upcoming && (
           <p className="text-[11px] font-semibold text-slate-500">
@@ -263,20 +273,23 @@ export const ClassroomMeeting = ({ meeting, attendance, onAttendance, onMaterial
         <div className="space-y-2">
           <h2 className="flex flex-wrap items-center gap-2 text-xl font-extrabold text-slate-900 tracking-tight">
             {t('meeting.title', { n: meeting.number })}
+            {/* Green words with a tick, as "Tuntas" on the cards, not a pill (owner, 2026-10-28). */}
             {allDone && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-extrabold tracking-normal">
-                <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
+              <span className="inline-flex items-center gap-1 text-emerald-700 text-[13px] font-bold tracking-normal">
+                <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
                 {t('meeting.done')}
               </span>
             )}
           </h2>
-          <p className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-700 tabular-nums">
-            <CalendarClock className="w-4 h-4 sm:w-5 sm:h-5 text-brand shrink-0" aria-hidden="true" />
-            {meetingWhen(meeting, lang, { withEnd: true, weekday: 'long' })}
-          </p>
-          {meeting.topic && (
-            <p className="text-sm font-semibold text-slate-600">{t('classroom.topic', { topic: meeting.topic })}</p>
-          )}
+          {/* When / its topic, one grey line in place of a purple calendar icon (owner, 2026-10-28). */}
+          <FactLine
+            wrap
+            className="tabular-nums"
+            facts={[
+              meetingWhen(meeting, lang, { withEnd: true, weekday: 'long' }),
+              meeting.topic && t('classroom.topic', { topic: meeting.topic }),
+            ]}
+          />
           {meeting.status === 'CANCELLED' && (
             <p className="text-sm font-semibold text-rose-700">{t(`timetable.session.cancelled.${meeting.cancelReason ?? 'OTHER'}`)}</p>
           )}
@@ -379,30 +392,20 @@ export const ClassroomMeeting = ({ meeting, attendance, onAttendance, onMaterial
               ))}
             </div>
           ) : content.error ? (
-            <div className="space-y-3" role="alert">
-              <p className="flex items-start gap-2 text-sm font-extrabold text-rose-700">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
-                {content.gone ? t('content.error.gone') : content.error}
-              </p>
-              {!content.gone && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setContent(undefined);
-                    setAttempt((n) => n + 1);
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-extrabold text-brand bg-brand-tint hover:bg-brand hover:text-white rounded-xl transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
-                  {t('att.error.retry')}
-                </button>
-              )}
-            </div>
+            <HomeError
+              message={content.gone ? t('content.error.gone') : content.error}
+              retryLabel={t('att.error.retry')}
+              onRetry={
+                content.gone
+                  ? undefined
+                  : () => {
+                      setContent(undefined);
+                      setAttempt((n) => n + 1);
+                    }
+              }
+            />
           ) : content.contents.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 py-10 px-6 text-center">
-              <BookOpen className="w-9 h-9 text-slate-300 mx-auto" aria-hidden="true" />
-              <p className="mt-2.5 text-sm font-extrabold text-slate-600">{t('content.empty')}</p>
-            </div>
+            <HomeEmpty icon={BookOpen} title={t('meeting.materialsNone')} body={t('content.empty')} />
           ) : (
             <>
               {shown && (
@@ -419,27 +422,22 @@ export const ClassroomMeeting = ({ meeting, attendance, onAttendance, onMaterial
               )}
               {contents.length > 1 && (
                 <nav className="flex items-center justify-between gap-2" aria-label={t('classroom.materials')}>
-                  <button
-                    type="button"
-                    disabled={shownIndex === 0}
-                    onClick={() => goToContent(contents[shownIndex - 1].id)}
-                    className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 text-xs font-extrabold text-slate-700 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />
+                  <Button size="sm" variant="outline" isDisabled={shownIndex === 0} onClick={() => goToContent(contents[shownIndex - 1].id)}>
+                    <ChevronLeft className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
                     {t('meeting.prevMaterial')}
-                  </button>
+                  </Button>
                   <span className="text-[11px] font-bold text-slate-500 tabular-nums">
                     {t('meeting.materialPosition', { i: shownIndex + 1, n: contents.length })}
                   </span>
-                  <button
-                    type="button"
-                    disabled={shownIndex === contents.length - 1}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    isDisabled={shownIndex === contents.length - 1}
                     onClick={() => goToContent(contents[shownIndex + 1].id)}
-                    className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-brand-tint text-xs font-extrabold text-brand hover:bg-brand hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                   >
                     {t('meeting.nextMaterial')}
-                    <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
-                  </button>
+                    <ChevronRight className="w-3.5 h-3.5 ml-1" aria-hidden="true" />
+                  </Button>
                 </nav>
               )}
               {tracker && <p className="text-[11px] font-medium text-slate-500 leading-relaxed">{t('content.trackingNote')}</p>}

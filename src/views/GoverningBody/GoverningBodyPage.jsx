@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { Check, Copy } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
@@ -12,7 +13,9 @@ import { schoolAddressOf, schoolUrl } from '../../constants/subdomain';
 import { copyText } from '../../utils/copyText';
 import { addressLineOf, kindKeyOf } from './governingBody';
 import GoverningBodyProfileForm from './GoverningBodyProfileForm';
-import SchoolsOverview from './SchoolsOverview';
+import { AttentionCard, SchoolsSummary } from './SchoolsOverview';
+import useSchoolsOverview from './useSchoolsOverview';
+import HomeCard from '../Dashboard/components/HomeCard';
 
 /*
   /governing-body, where a Governing Body seat's sign-in lands (backend b5cfffd;
@@ -33,44 +36,54 @@ import SchoolsOverview from './SchoolsOverview';
 
   At the top since 2026-10-26 (owner, 1-8): the body's Schools summed and what needs the
   admins (SchoolsOverview), read on its own beside `GET /governing-body`.
+
+  The look since 2026-10-27 (owner approved the yayasan mockup; the skill
+  `.claude/skills/eduforid-design`): stat cards and "Kesiapan sekolah" first, then
+  "Perlu perhatian" beside the code, the identity beside the site address. The code
+  sits large on a pale purple panel with Salin as the one main button; a copy answers
+  on the button ("Tersalin", green) and in a toast.
 */
 
 const localeOf = (lang) => (lang === 'en' ? 'en-GB' : 'id-ID');
 
 const Fact = ({ label, children }) => (
   <div className="min-w-0">
-    <p className="text-[11px] font-semibold text-slate-500">{label}</p>
+    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</p>
     <p className="text-sm font-bold text-slate-900 break-words">{children}</p>
   </div>
 );
 
-/* A value to hand out, with a copy button that says how it went. */
-const CopyRow = ({ label, value, copyValue, hint, mono = false, children }) => {
+/*
+  A copy button that answers where it was pressed: "Tersalin" with a check, green, for
+  2.5 s, and a toast; "Gagal menyalin" when the browser refused.
+*/
+const CopyButton = ({ value, toastKey, primary = false }) => {
   const { t } = useT();
+  const { showToast } = useOutletContext() ?? {};
   const [copied, setCopied] = useState(null);
   const copy = async () => {
-    setCopied((await copyText(copyValue ?? value)) ? 'ok' : 'failed');
+    const ok = await copyText(value);
+    setCopied(ok ? 'ok' : 'failed');
+    showToast?.(ok ? t(toastKey) : t('gb.copyFailed'), ok ? 'success' : 'error');
     setTimeout(() => setCopied(null), 2500);
   };
+  const done = copied === 'ok';
   return (
-    <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold text-slate-500">{label}</p>
-          <p className={`text-sm font-bold text-slate-900 break-all ${mono ? 'font-mono tracking-wider text-base' : ''}`}>{value}</p>
-        </div>
-        <button
-          type="button"
-          onClick={copy}
-          aria-live="polite"
-          className="shrink-0 px-3.5 py-1.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-        >
-          {copied === 'ok' ? t('gb.copied') : copied === 'failed' ? t('gb.copyFailed') : t('gb.copy')}
-        </button>
-      </div>
-      {hint && <p className="text-xs font-medium text-slate-500 leading-relaxed">{hint}</p>}
-      {children}
-    </section>
+    <button
+      type="button"
+      onClick={copy}
+      aria-live="polite"
+      className={`shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-colors cursor-pointer active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+        done
+          ? 'bg-emerald-600 text-white'
+          : primary
+            ? 'bg-brand hover:bg-brand-deep text-white shadow-md shadow-brand/30'
+            : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
+      }`}
+    >
+      {done ? <Check className="w-4 h-4" aria-hidden="true" /> : <Copy className="w-4 h-4" aria-hidden="true" />}
+      {done ? t('gb.copied') : copied === 'failed' ? t('gb.copyFailed') : t('gb.copy')}
+    </button>
   );
 };
 
@@ -135,6 +148,7 @@ export const GoverningBodyPage = () => {
     }
   };
 
+  const overview = useSchoolsOverview();
   const name = body?.name ?? cached?.name ?? '';
   const kindKey = kindKeyOf(body?.kind ?? cached?.kind);
   const siteAddress = schoolAddressOf(body?.subdomain ?? null);
@@ -143,14 +157,20 @@ export const GoverningBodyPage = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight break-words">{name || t('gb.nav.home')}</h1>
-        <p className="text-sm font-semibold text-slate-500 mt-1">
+        <p className="text-sm font-medium text-slate-500 mt-2">
           {kindKey && (
             <>
-              {t(kindKey)}
-              <span className="text-slate-300"> / </span>
+              {t(kindKey)}{' '}
+              <span className="mx-1 text-slate-300" aria-hidden="true">/</span>{' '}
             </>
           )}
           {t('place.governingBodyAdmin')}
+          {body?.npyp && (
+            <>
+              {' '}
+              <span className="mx-1 text-slate-300" aria-hidden="true">/</span> {t('gb.npyp')} {body.npyp}
+            </>
+          )}
         </p>
       </div>
 
@@ -175,15 +195,51 @@ export const GoverningBodyPage = () => {
         </section>
       )}
 
-      {/* Two columns from lg (owner, 2026-10-24): the identity wide on the left, the
-          two things to hand out stacked on the right; one column below lg. */}
-      {state === 'ready' && body && <SchoolsOverview />}
+      {state === 'ready' && body && <SchoolsSummary read={overview.read} failed={overview.failed} onRetry={overview.retry} />}
+
+      {/* "Perlu perhatian" beside the code, the identity beside the address (owner,
+          2026-10-27); one column below lg. */}
+      {state === 'ready' && body && (
+        <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-5">
+          <AttentionCard read={overview.read} failed={overview.failed} onRetry={overview.retry} />
+          {body.code && (
+            <HomeCard id="gb-code" title={t('gb.code')}>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-brand-tint p-4">
+                <code key={body.code} className="animate-rise font-mono text-2xl max-sm:text-xl font-bold tracking-[0.18em] text-brand break-all">
+                  {body.code}
+                </code>
+                <CopyButton value={body.code} toastKey="gb.copied.code" primary />
+              </div>
+              <p className="mt-3 text-[12.5px] text-slate-500 leading-relaxed">{t('gb.code.hint')}</p>
+              {rotated && (
+                <p className="mt-2 text-xs font-semibold text-emerald-700" role="status">
+                  {t('gb.rotate.done')}
+                </p>
+              )}
+              {rotateError && (
+                <p className="mt-2 text-xs font-semibold text-rose-700" role="alert">
+                  {rotateError}
+                </p>
+              )}
+              <div className="mt-2.5">
+                <button
+                  type="button"
+                  onClick={() => setAskRotate(true)}
+                  className="text-xs font-bold text-slate-500 hover:text-slate-700 underline underline-offset-2 cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                >
+                  {t('gb.rotate')}
+                </button>
+              </div>
+            </HomeCard>
+          )}
+        </div>
+      )}
 
       {state === 'ready' && body && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-          <section className="lg:col-span-2 bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-5">
+          <section aria-labelledby="gb-identity" className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm space-y-4">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-base font-extrabold text-slate-900">{editing ? t('gb.profile.title') : t('gb.identity')}</h2>
+              <h2 id="gb-identity" className="text-base font-extrabold text-slate-900 tracking-tight">{editing ? t('gb.profile.title') : t('gb.identity')}</h2>
               {!editing && (
                 <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
                   {t('gb.profile.edit')}
@@ -191,7 +247,7 @@ export const GoverningBodyPage = () => {
               )}
             </div>
             {editing ? (
-              <>
+              <div className="animate-rise space-y-4">
                 <p className="text-xs font-medium text-slate-500 leading-relaxed">{t('gb.profile.lead')}</p>
                 <GoverningBodyProfileForm
                   body={body}
@@ -207,49 +263,34 @@ export const GoverningBodyPage = () => {
                     load();
                   }}
                 />
-              </>
-            ) : (
-            <div className="grid sm:grid-cols-2 gap-4">
-              {kindKey && <Fact label={t('gb.kind')}>{t(kindKey)}</Fact>}
-              {body.npyp && <Fact label={t('gb.npyp')}>{body.npyp}</Fact>}
-              {body.skNumber && <Fact label={t('gb.skNumber')}>{body.skNumber}</Fact>}
-              {body.createdAt && (
-                <Fact label={t('gb.since')}>
-                  {new Date(body.createdAt).toLocaleDateString(localeOf(lang), { day: 'numeric', month: 'long', year: 'numeric' })}
-                </Fact>
-              )}
-              <Fact label={t('gb.phone')}>{body.phone || '-'}</Fact>
-              <div className="sm:col-span-2">
-                <Fact label={t('gb.address')}>{addressLineOf(body.address) || '-'}</Fact>
               </div>
-            </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-x-6 gap-y-4">
+                {kindKey && <Fact label={t('gb.kind')}>{t(kindKey)}</Fact>}
+                {body.npyp && <Fact label={t('gb.npyp')}>{body.npyp}</Fact>}
+                {body.skNumber && <Fact label={t('gb.skNumber')}>{body.skNumber}</Fact>}
+                {body.createdAt && (
+                  <Fact label={t('gb.since')}>
+                    {new Date(body.createdAt).toLocaleDateString(localeOf(lang), { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </Fact>
+                )}
+                <Fact label={t('gb.phone')}>{body.phone || '-'}</Fact>
+                <div className="sm:col-span-2">
+                  <Fact label={t('gb.address')}>{addressLineOf(body.address) || '-'}</Fact>
+                </div>
+              </div>
             )}
           </section>
 
-          <div className="space-y-6">
-            {body.code && (
-              <CopyRow label={t('gb.code')} value={body.code} hint={t('gb.code.hint')} mono>
-                {rotated && (
-                  <p className="text-xs font-semibold text-emerald-700" role="status">
-                    {t('gb.rotate.done')}
-                  </p>
-                )}
-                {rotateError && (
-                  <p className="text-xs font-semibold text-rose-700" role="alert">
-                    {rotateError}
-                  </p>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setAskRotate(true)}
-                  className="text-xs font-bold text-slate-500 hover:text-slate-700 underline underline-offset-2 cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                >
-                  {t('gb.rotate')}
-                </button>
-              </CopyRow>
-            )}
-            {siteAddress && <CopyRow label={t('gb.siteAddress')} value={siteAddress} copyValue={schoolUrl(body.subdomain, '/')} hint={t('gb.siteAddress.hint')} />}
-          </div>
+          {siteAddress && (
+            <HomeCard id="gb-site" title={t('gb.siteAddress')}>
+              <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-dashed border-slate-200 px-3.5 py-3">
+                <span className="min-w-0 text-sm font-bold text-slate-900 break-all">{siteAddress}</span>
+                <CopyButton value={schoolUrl(body.subdomain, '/')} toastKey="gb.copied.site" />
+              </div>
+              <p className="mt-3 text-[12.5px] text-slate-500 leading-relaxed">{t('gb.siteAddress.hint')}</p>
+            </HomeCard>
+          )}
         </div>
       )}
 

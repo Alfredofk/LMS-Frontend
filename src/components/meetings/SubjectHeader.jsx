@@ -9,6 +9,8 @@ import { BookOpen } from 'lucide-react';
   @param code, name
   @param facts     [{ label, value: ReactNode }] - two to four cells
   @param progress  { label, percent } or null
+  @param tile      the book tile beside the name; the student's page leaves it out
+                   (owner, 2026-10-28, the reviewed mockup: no pastel tile on a heading)
 */
 
 const Fact = ({ label, children }) => (
@@ -36,12 +38,14 @@ export const PersonFact = ({ name }) => (
   </span>
 );
 
-export const SubjectHeader = ({ code, name, facts, progress = null }) => (
+export const SubjectHeader = ({ code, name, facts, progress = null, tile = true }) => (
   <section className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
     <div className="p-5 sm:p-6 flex items-center gap-4">
-      <span className="w-12 h-12 sm:w-14 sm:h-14 bg-brand-tint text-brand rounded-2xl flex items-center justify-center shrink-0">
-        <BookOpen className="w-6 h-6 sm:w-7 sm:h-7" aria-hidden="true" />
-      </span>
+      {tile && (
+        <span className="w-12 h-12 sm:w-14 sm:h-14 bg-brand-tint text-brand rounded-2xl flex items-center justify-center shrink-0">
+          <BookOpen className="w-6 h-6 sm:w-7 sm:h-7" aria-hidden="true" />
+        </span>
+      )}
       <div className="min-w-0 flex-1">
         {code && <p className="text-[11px] font-extrabold uppercase tracking-wider text-brand">{code}</p>}
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight break-words">{name}</h1>

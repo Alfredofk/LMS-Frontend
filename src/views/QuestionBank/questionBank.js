@@ -45,6 +45,22 @@ export function taughtPairs(rows, years = null) {
   );
 }
 
+/*
+  A question's body as one line of plain text, for its row in the bank's list
+  (owner, 2026-10-28: rows that open in place): tags dropped, the common entities
+  read, whitespace folded. Display only - the body itself is the server's
+  sanitised HTML and is rendered as such when the row opens. Not bodyText below,
+  which mirrors the server's own check and must stay as it is.
+*/
+const ENTITIES = { '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" };
+export const plainTextOf = (html) =>
+  String(html ?? '')
+    .replace(/<\/?(br|p|li|ul|ol|div|h[1-6]|blockquote|table|tr|td|th)\b[^>]*>/gi, ' ')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&(nbsp|amp|lt|gt|quot|#39);/g, (entity) => ENTITIES[entity])
+    .replace(/\s+/g, ' ')
+    .trim();
+
 export const pairKey = (subjectId, gradeLevel) => `${subjectId}:${gradeLevel}`;
 
 /** The grade levels a question may be duplicated into: its subject's, among what the reader teaches now. */

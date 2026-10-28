@@ -6,6 +6,8 @@ import ModalHeading from '../../components/ui/ModalHeading';
 import { Check, DoorOpen, FileText, X, XCircle } from 'lucide-react';
 
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import EmptyCard from '../../components/ui/EmptyCard';
+import { HomeError } from '../Dashboard/components/HomeCard';
 import { leaveRequestsService } from '../../services/leaveRequestsService';
 import { useT } from '../../i18n/LanguageContext';
 import { leaveDecisionErrorMessage } from '../../i18n/apiError';
@@ -208,9 +210,7 @@ export const LeaveRequestsPanel = ({ requests, error, onChanged, showToast }) =>
 
   if (error) {
     return (
-      <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700" role="alert">
-        {error}
-      </div>
+      <HomeError message={error} />
     );
   }
 
@@ -220,10 +220,7 @@ export const LeaveRequestsPanel = ({ requests, error, onChanged, showToast }) =>
 
   if (requests.length === 0) {
     return (
-      <div className="py-16 text-center border border-dashed border-slate-200 rounded-2xl bg-white select-none">
-        <DoorOpen className="w-9 h-9 text-slate-300 mx-auto" aria-hidden="true" />
-        <p className="mt-2.5 text-xs font-extrabold text-slate-500">{t('members.leave.empty')}</p>
-      </div>
+      <EmptyCard icon={DoorOpen} title={t('members.leave.empty')} />
     );
   }
 

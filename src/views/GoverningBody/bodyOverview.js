@@ -76,3 +76,18 @@ export function attentionOf(schools, { affiliationRequests = null, admins = null
 
   return items;
 }
+
+/*
+  "Kesiapan sekolah" (owner, 2026-10-27, the skill `.claude/skills/eduforid-design`): of
+  the body's Schools, how many have a Principal, how many are switched on, and how many
+  are both - ready for their people. From the same rows; no list of Schools.
+*/
+
+/** `{ total, led, active, ready }` over the body's Schools. */
+export function readinessOf(schools) {
+  const rows = Array.isArray(schools) ? schools : [];
+  const led = rows.filter((school) => school?.hasPrincipal).length;
+  const active = rows.filter((school) => !school?.deactivatedAt).length;
+  const ready = rows.filter((school) => school?.hasPrincipal && !school?.deactivatedAt).length;
+  return { total: rows.length, led, active, ready };
+}

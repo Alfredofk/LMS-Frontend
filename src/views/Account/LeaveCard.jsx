@@ -37,7 +37,7 @@ import { openFileInNewTab } from '../../utils/openFile';
 const Shell = ({ children }) => (
   <section
     aria-labelledby="leave-school-card"
-    className="border border-rose-200 rounded-2xl p-5 bg-white shadow-sm text-left space-y-4"
+    className="border border-rose-200 rounded-2xl p-6 max-sm:p-[18px] bg-white shadow-sm text-left space-y-4"
   >
     {children}
   </section>
@@ -94,7 +94,7 @@ export const LeaveCard = ({ onToast }) => {
       : '';
 
   const heading = (
-    <h2 id="leave-school-card" className="text-sm font-extrabold text-slate-900 tracking-tight">
+    <h2 id="leave-school-card" className="text-base font-extrabold text-slate-900 tracking-tight">
       {t('account.leave.title')}
     </h2>
   );
@@ -332,7 +332,7 @@ export const LeaveCard = ({ onToast }) => {
               </div>
 
               {errors.global && (
-                <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+                <div className="rounded-xl bg-rose-50 p-3.5 text-[13px] text-rose-700 font-semibold" role="alert">
                   {errors.global}
                 </div>
               )}

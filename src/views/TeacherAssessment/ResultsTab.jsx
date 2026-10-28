@@ -4,6 +4,7 @@ import { AlertCircle, RefreshCw, Send } from 'lucide-react';
 
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import FactLine from '../../components/ui/FactLine';
+import { initialsOf } from '../../utils/names';
 import { useT } from '../../i18n/LanguageContext';
 import { assessmentErrorMessage } from '../../i18n/apiError';
 import { assessmentService } from '../../services/assessmentService';
@@ -444,18 +445,20 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
     );
   };
 
+  /* The waiting counts as tiles: a practice has nothing to release, an offline one nobody answering. */
+  const tiles = [
+    { key: practice ? 'comment' : 'marking', n: waiting.marking },
+    !practice && { key: 'release', n: waiting.release },
+    !offline && { key: 'inProgress', n: waiting.inProgress },
+  ].filter(Boolean);
+
   return (
     <section className={`${frame} space-y-4`} aria-label={t('tasm.tab.results')}>
       {/* Two columns from sm up, never wrapping: a long stats line once threw the release block onto its own line, where it floated mid-left (owner, 2026-10-18). */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1 min-w-0 sm:flex-1">
           <h2 className="text-base font-extrabold text-slate-900">{t('tasm.results.title', { n: students.length })}</h2>
-          <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-slate-500">
-            <span>{t(practice ? 'tasm.results.waitingComment' : 'tasm.results.waitingMarking', { n: waiting.marking })}</span>
-            {!practice && <span>{t('tasm.results.waitingRelease', { n: waiting.release })}</span>}
-            {!offline && <span>{t('tasm.results.inProgress', { n: waiting.inProgress })}</span>}
-            {flagged > 0 && <span className="text-slate-700">{t('tasm.results.flagged', { n: flagged })}</span>}
-          </p>
+          {flagged > 0 && <p className="text-xs font-semibold text-slate-700">{t('tasm.results.flagged', { n: flagged })}</p>}
           {flagged > 0 && (
             <button
               type="button"
@@ -487,6 +490,17 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
         )}
       </div>
 
+      {/* What waits as numbered tiles, amber while anything does (the reviewed mockup,
+          owner 2026-10-28), as on the Principal's subjects card. */}
+      <dl className={`grid gap-2.5 ${tiles.length === 3 ? 'grid-cols-3' : tiles.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        {tiles.map(({ key, n }) => (
+          <div key={key} className="rounded-[14px] border border-slate-100 bg-slate-50 px-3.5 py-2.5 min-w-0">
+            <dt className="text-xs font-semibold text-slate-600">{t(`tasm.results.tile.${key}`)}</dt>
+            <dd className={`mt-0.5 text-[22px] font-extrabold tracking-tight tabular-nums ${n > 0 && key !== 'inProgress' ? 'text-amber-700' : 'text-slate-900'}`}>{n}</dd>
+          </div>
+        ))}
+      </dl>
+
       {practice && <p className="text-[11px] font-medium text-slate-500">{t('tasm.results.practiceNote')}</p>}
       {!practice && typeof kktp === 'number' && students.length > 0 && (
         <p className="text-xs font-semibold text-slate-500">
@@ -502,7 +516,7 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
       {current.releasedAt && <p className="text-[11px] font-medium text-slate-500">{t('tasm.results.releasedNote')}</p>}
 
       {failure && (
-        <p className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+        <p className="rounded-xl bg-rose-50 p-3.5 text-[13px] text-rose-700 font-semibold" role="alert">
           {failure}
         </p>
       )}
@@ -512,7 +526,12 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
       ) : (
         <ul className="divide-y divide-slate-100">
           {listed.map((student) => (
-            <li key={student.studentProfileId} className="py-3 space-y-2">
+            <li key={student.studentProfileId} className="py-3.5 flex items-start gap-3">
+              {/* Round initials, as on the dashboards (the reviewed mockup, owner 2026-10-28). */}
+              <span className="grid place-items-center w-[34px] h-[34px] rounded-full bg-brand-tint text-brand text-[11px] font-extrabold shrink-0" aria-hidden="true">
+                {initialsOf(student.fullName ?? '')}
+              </span>
+              <div className="flex-1 min-w-0 space-y-2">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 space-y-0.5">
                   <p className="text-sm font-bold text-slate-900 break-words">{student.fullName ?? t('tasm.results.unnamed')}</p>
@@ -574,6 +593,7 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
               )}
 
               {!entering && student.attempts.length > 0 && renderAttempts(student)}
+              </div>
             </li>
           ))}
         </ul>

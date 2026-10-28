@@ -8,6 +8,9 @@ import { useT } from '../../i18n/LanguageContext';
 import { subjectsErrorMessage, isStaleTeaching } from '../../i18n/apiError';
 import SubjectLabel from '../../components/ui/SubjectLabel';
 import { bulkOutcome, isOwnRequest } from './subjects';
+import FactLine from '../../components/ui/FactLine';
+import EmptyCard from '../../components/ui/EmptyCard';
+import { HomeError } from '../Dashboard/components/HomeCard';
 
 /*
   Teachers asking to teach a subject in a class — the Principal's queue,
@@ -103,9 +106,7 @@ export const TeachingQueue = ({ requests, error, onChanged, showToast, selfId = 
 
   if (error) {
     return (
-      <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700" role="alert">
-        {error}
-      </div>
+      <HomeError message={error} />
     );
   }
 
@@ -134,10 +135,7 @@ export const TeachingQueue = ({ requests, error, onChanged, showToast, selfId = 
       )}
 
       {requests.length === 0 ? (
-        <div className="py-16 text-center border border-dashed border-slate-200 rounded-2xl bg-white select-none">
-          <ClipboardCheck className="w-9 h-9 text-slate-300 mx-auto" aria-hidden="true" />
-          <p className="mt-2.5 text-xs font-extrabold text-slate-500">{t('subjects.queue.empty')}</p>
-        </div>
+        <EmptyCard icon={ClipboardCheck} title={t('subjects.queue.empty')} />
       ) : (
         <>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -182,17 +180,22 @@ export const TeachingQueue = ({ requests, error, onChanged, showToast, selfId = 
                   )}
                   <div className="min-w-0 space-y-1">
                     <p className="text-sm font-extrabold text-slate-800 break-words">{request.teacher.fullName}</p>
-                    <p className="text-xs font-bold text-slate-700 break-words flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <p className="text-xs font-bold text-slate-700 break-words">
                       <SubjectLabel code={request.subject.code} name={request.subject.name} />
-                      <span className="px-1.5 py-0.5 rounded-md bg-brand-tint text-brand text-[10px] font-extrabold">{request.class.name}</span>
                     </p>
-                    <p className="text-[11px] font-semibold text-slate-500">
-                      {t('subjects.queue.when', {
-                        n: request.semester.ordinal,
-                        year: request.semester.academicYear,
-                        date: day(request.requestedAt),
-                      })}
-                    </p>
+                    {/* The class in the grey line, not a chip (owner, 2026-10-28). */}
+                    <FactLine
+                      size="xs"
+                      wrap
+                      facts={[
+                        request.class.name,
+                        t('subjects.queue.when', {
+                          n: request.semester.ordinal,
+                          year: request.semester.academicYear,
+                          date: day(request.requestedAt),
+                        }),
+                      ]}
+                    />
                     {own && (
                       <p className="text-[11px] font-semibold text-amber-800">{t('subjects.queue.own')}</p>
                     )}

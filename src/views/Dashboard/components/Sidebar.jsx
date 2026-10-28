@@ -7,6 +7,7 @@ import { useT } from '../../../i18n/LanguageContext';
 import { academicsService } from '../../../services/academicsService';
 import {
   LayoutGrid,
+  BarChart3,
   BookOpen,
   Award,
   FileText,
@@ -280,6 +281,17 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
                 )}
                 {t(role === ROLES.GUARDIAN ? 'shell.myChildren' : 'shell.dashboard')}
               </button>
+
+              {/* The School seen whole, from the nightly rollup (backend 1a1eed7; owner, 2026-10-28). */}
+              {isPrincipalDesk(role) && (
+                <button
+                  onClick={() => handleLinkClick('shell.overview', '/headmaster/overview')}
+                  className={isActive('/headmaster/overview') ? activeBtnClass : inactiveBtnClass}
+                >
+                  <BarChart3 className={`w-4 h-4 shrink-0 transition-colors ${isActive('/headmaster/overview') ? 'text-white' : 'text-brand'}`} />
+                  {t('shell.overview')}
+                </button>
+              )}
 
               {(role === ROLES.STUDENT || role === ROLES.TEACHER) && (
                 <button

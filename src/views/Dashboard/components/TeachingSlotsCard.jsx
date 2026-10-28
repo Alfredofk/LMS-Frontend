@@ -1,163 +1,260 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ChevronDown } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { CheckCheck, ChevronRight, School } from 'lucide-react';
 
 import { useT } from '../../../i18n/LanguageContext';
-import SubjectLabel from '../../../components/ui/SubjectLabel';
+import Button from '../../../components/ui/Button';
 import { formatNumber } from '../../TeacherAssessment/results';
-import { barWidth, signalPath, signalView } from '../teachingDashboard';
+import { initialsOf } from '../../Homeroom/homeroomSummary';
+import { barWidth, signalPath, signalView, slotsForCard } from '../teachingDashboard';
+import { Bone, HomeCard, HomeEmpty, HomeError, Unfold } from './HomeCard';
 
 /*
   "Kelas semester ini" on the teacher's dashboard (owner 2026-10-27, items B and
   C): one row per subject taught this semester, from `GET /dashboard/teaching`'s
   slots - its students placed now, materials completed of those possible and
-  attendance at confirmed sessions, each with a bar - and under it the students
-  needing support, opened in place. Each signal is one grey line leading to the
-  subject page's tab that shows its evidence (signalView). The subject's name
-  opens its page.
+  attendance at confirmed sessions - and the students needing support, opened in
+  place, each signal leading to the subject page's tab with its evidence
+  (signalView).
+
+  The look since 2026-10-27 (the approved teacher mockup; the skill
+  `.claude/skills/eduforid-design`), as "Kemajuan mapel" and "Ringkasan kelas": a row
+  per subject with two bars and their numbers, and an amber chip counting the
+  students needing support. Subjects with such students first, a subject with no
+  students last, in words and without bars (slotsForCard). Text tabs: all, or only
+  those with students needing support. A row opens in place.
 
   @param board      readTeachingDashboard's answer: undefined while reading, null
                     when it could not be read
   @param className  the grid placement
 */
 
-const card = 'bg-white border border-slate-100 rounded-2xl p-5 sm:p-6 shadow-sm text-left';
+const EASE = 'transition-[width] duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none';
 
-const Metric = ({ label, value, percent, bar }) => (
-  <div className="space-y-1">
-    <p className="flex flex-wrap justify-between gap-x-3 text-xs">
-      <span className="font-semibold text-slate-500">{label}</span>
-      <span className="font-bold text-slate-700 tabular-nums">{value}</span>
-    </p>
-    <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden" aria-hidden="true">
-      <div className={`h-full rounded-full ${bar}`} style={{ width: `${barWidth(percent)}%` }} />
-    </div>
-  </div>
-);
+/* A labelled bar, filled one frame after it appears. */
+const Metric = ({ label, value, percent, empty }) => {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setShown(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  if (empty) return <span className="block text-xs text-slate-500">{empty}</span>;
+  return (
+    <span className="block">
+      <span className="flex justify-between gap-2 text-[11.5px] text-slate-500">
+        {label}
+        <b className="font-extrabold text-slate-700 tabular-nums">{value}</b>
+      </span>
+      <span className="block h-1.5 mt-1.5 rounded-full bg-slate-100 overflow-hidden" aria-hidden="true">
+        <i className={`block h-full rounded-full ${percent >= 100 ? 'bg-emerald-600' : 'bg-brand'} ${EASE}`} style={{ width: `${shown ? barWidth(percent) : 0}%` }} />
+      </span>
+    </span>
+  );
+};
 
-const SlotRow = ({ slot, thresholds }) => {
+const SlotRow = ({ slot, thresholds, open, onToggle }) => {
   const { t, lang } = useT();
-  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
   const { classSubject, content, attendance, studentsNeedingSupport: support = [] } = slot;
-  const panelId = `slot-support-${classSubject.id}`;
+  const placed = slot.studentsPlacedNow ?? 0;
 
   return (
-    <li className="py-4 first:pt-0 last:pb-0 space-y-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <Link
-          to={`/teacher/courses/${classSubject.id}`}
-          className="min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+    <li className="border-b border-slate-100 last:border-0">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={onToggle}
+        className={`group w-full grid grid-cols-[minmax(0,1fr)_auto_auto] lg:grid-cols-[minmax(0,1.4fr)_1fr_1fr_auto_auto] items-center gap-x-[18px] gap-y-2.5 px-2 py-3.5 text-left rounded-xl transition-colors cursor-pointer hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+          open ? 'bg-slate-50' : ''
+        }`}
+      >
+        <span className="min-w-0">
+          <b className="block text-sm font-bold text-slate-900 break-words">
+            {classSubject.subject?.code && <span className="mr-1.5 text-[11px] text-brand">{classSubject.subject.code}</span>}
+            {classSubject.subject?.name}
+          </b>
+          <span className="block text-xs text-slate-500">
+            {classSubject.class?.name}{' '}
+            <span className="mx-1 text-slate-300" aria-hidden="true">
+              /
+            </span>{' '}
+            {placed ? t('teacherDash.slots.students', { n: placed }) : t('teacherDash.slots.noStudents')}
+          </span>
+        </span>
+        <span className="col-span-3 row-start-2 lg:col-span-1 lg:row-start-auto">
+          <Metric
+            label={t('teacherDash.slots.content')}
+            value={content?.possible ? `${content.percent}%` : ''}
+            percent={content?.percent}
+            empty={content?.possible ? null : t('teacherDash.slots.contentNone')}
+          />
+        </span>
+        <span className="col-span-3 row-start-3 lg:col-span-1 lg:row-start-auto">
+          <Metric
+            label={t('teacherDash.slots.attendance')}
+            value={attendance?.counted ? `${attendance.percent}%` : ''}
+            percent={attendance?.percent}
+            empty={attendance?.counted ? null : t('teacherDash.slots.attendanceNone')}
+          />
+        </span>
+        <span
+          className={`min-w-[26px] px-2 py-0.5 rounded-full text-xs text-center tabular-nums row-start-1 col-start-2 lg:row-start-auto lg:col-start-auto ${
+            support.length ? 'bg-amber-50 text-amber-700 font-extrabold' : 'text-slate-300 font-semibold'
+          }`}
+          title={t('teacherDash.slots.support', { n: support.length })}
         >
-          <SubjectLabel code={classSubject.subject?.code} name={classSubject.subject?.name} />
-          <span className="text-slate-300" aria-hidden="true">/</span>
-          <span className="font-semibold text-slate-600">{classSubject.class?.name}</span>
-        </Link>
-        <span className="text-xs font-semibold text-slate-500">{t('teacherDash.slots.students', { n: slot.studentsPlacedNow })}</span>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Metric
-          label={t('teacherDash.slots.content')}
-          value={
-            content?.possible
-              ? t('teacherDash.slots.contentValue', { done: content.completed, total: content.possible, p: content.percent })
-              : t('teacherDash.slots.contentNone')
-          }
-          percent={content?.percent}
-          bar="bg-brand"
+          {support.length || '-'}
+          <span className="sr-only"> {t('teacherDash.slots.support', { n: support.length })}</span>
+        </span>
+        <ChevronRight
+          className={`w-4 h-4 shrink-0 text-slate-400 transition-transform duration-300 row-start-1 col-start-3 lg:row-start-auto lg:col-start-auto ${open ? 'rotate-90' : ''}`}
+          aria-hidden="true"
         />
-        <Metric
-          label={t('teacherDash.slots.attendance')}
-          value={attendance?.counted ? `${attendance.percent}%` : t('teacherDash.slots.attendanceNone')}
-          percent={attendance?.percent}
-          bar="bg-emerald-500"
-        />
-      </div>
+      </button>
 
-      {support.length === 0 ? (
-        <p className="text-xs font-semibold text-slate-500">{t('teacherDash.slots.supportNone')}</p>
-      ) : (
-        <div>
-          <button
-            type="button"
-            onClick={() => setOpen((value) => !value)}
-            aria-expanded={open}
-            aria-controls={panelId}
-            className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 hover:underline cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
-          >
-            {t('teacherDash.slots.support', { n: support.length })}
-            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
-          </button>
-          {open && (
-            <ul id={panelId} className="mt-2 space-y-2">
-              {support.map((student) => (
-                <li key={student.studentProfileId} className="rounded-lg bg-slate-50 px-3 py-2">
-                  <p className="text-xs font-bold text-slate-800 break-words">{student.fullName ?? '-'}</p>
-                  <ul className="mt-0.5 space-y-0.5">
-                    {student.signals.map((signal) => {
-                      const view = signalView(signal, thresholds);
-                      if (!view) return null;
-                      const vars = view.number ? { ...view.vars, n: formatNumber(view.vars.n, lang) } : view.vars;
-                      return (
-                        <li key={signal.type}>
-                          <Link
-                            to={signalPath(classSubject.id, view.tab)}
-                            className="text-[11px] font-semibold text-slate-600 hover:text-brand hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
-                          >
-                            {t(view.key, vars)}
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </li>
-              ))}
-            </ul>
+      <Unfold open={open}>
+        <div className="px-2 pt-1 pb-4">
+          {support.length > 0 ? (
+            <>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{t('teacherDash.slots.supportTitle')}</p>
+              <ul className="mt-2.5 space-y-2.5">
+                {support.map((student) => (
+                  <li key={student.studentProfileId} className="flex gap-3">
+                    <span className="grid place-items-center w-[34px] h-[34px] rounded-full bg-brand-tint text-brand text-[11px] font-extrabold shrink-0">
+                      {initialsOf(student.fullName)}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-bold text-slate-900 break-words">{student.fullName ?? '-'}</p>
+                      <ul className="mt-0.5 space-y-0.5">
+                        {student.signals.map((signal) => {
+                          const view = signalView(signal, thresholds);
+                          if (!view) return null;
+                          const vars = view.number ? { ...view.vars, n: formatNumber(view.vars.n, lang) } : view.vars;
+                          return (
+                            <li key={signal.type} className="flex items-baseline gap-2 text-[12.5px] text-slate-600">
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full shrink-0 -translate-y-px ${signal.type === 'BELOW_KKTP' ? 'bg-rose-600' : 'bg-amber-600'}`}
+                                aria-hidden="true"
+                              />
+                              <Link
+                                to={signalPath(classSubject.id, view.tab)}
+                                className="hover:text-brand hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+                              >
+                                {t(view.key, vars)}
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="text-[13px] text-slate-500">{placed ? t('teacherDash.slots.supportNone') : t('teacherDash.slots.noStudentsBody')}</p>
           )}
+          <div className="mt-3.5">
+            <Button size="sm" variant="outline" onClick={() => navigate(`/teacher/courses/${classSubject.id}`)}>
+              {t('teacherDash.slots.open')}
+            </Button>
+          </div>
         </div>
-      )}
+      </Unfold>
     </li>
   );
 };
 
 export const TeachingSlotsCard = ({ board, className = '' }) => {
   const { t } = useT();
+  const [filter, setFilter] = useState('ALL');
+  const [openId, setOpenId] = useState(null);
   const reading = board === undefined;
   const semester = board?.semester ?? null;
 
-  let body;
+  const card = (body, sub = null) => (
+    <HomeCard id="teacher-slots-heading" title={t('teacherDash.slots.title')} linkLabel={t('shell.myCourses')} linkTo="/teacher/courses" className={className}>
+      {sub && <p className="-mt-3 mb-4 text-xs text-slate-500">{sub}</p>}
+      {body}
+    </HomeCard>
+  );
+
   if (reading) {
-    body = <div className="h-32 rounded-xl bg-slate-50 animate-pulse" aria-label={t('common.loading')} />;
-  } else if (board === null) {
-    body = <p className="text-xs font-semibold text-rose-700" role="alert">{t('teacherDash.slots.failed')}</p>;
-  } else if (!semester) {
-    body = <p className="text-xs font-semibold text-slate-500">{t('teacherDash.slots.noSemester')}</p>;
-  } else if ((board.slots ?? []).length === 0) {
-    body = <p className="text-xs font-semibold text-slate-500">{t('teacherDash.slots.none')}</p>;
-  } else {
-    body = (
-      <ul className="divide-y divide-slate-100">
-        {board.slots.map((slot) => (
-          <SlotRow key={slot.classSubject.id} slot={slot} thresholds={board.thresholds} />
+    return card(
+      <div aria-busy="true" className="space-y-4">
+        {[0, 1, 2, 3].map((n) => (
+          <div key={n} className="grid grid-cols-3 gap-4">
+            <Bone className="h-8" />
+            <Bone className="h-8" />
+            <Bone className="h-8" />
+          </div>
         ))}
-      </ul>
+      </div>
     );
   }
+  if (board === null) return card(<HomeError message={t('teacherDash.slots.failed')} />);
+  if (!semester) return card(<HomeEmpty icon={School} title={t('teacherDash.slots.noSemester')} />);
+  const slots = slotsForCard(board.slots);
+  if (slots.length === 0) return card(<HomeEmpty icon={School} title={t('teacherDash.slots.none')} />);
 
-  return (
-    <section className={`${card} ${className}`} aria-labelledby="teacher-slots-heading" aria-busy={reading}>
-      <div className="mb-4">
-        <h2 id="teacher-slots-heading" className="text-base font-extrabold text-slate-800 tracking-tight">
-          {t('teacherDash.slots.title')}
-        </h2>
-        {semester && (
-          <p className="mt-0.5 text-xs font-semibold text-slate-500">
-            {t('teacherDash.slots.semester', { n: semester.ordinal, year: semester.academicYear?.label })}
-          </p>
-        )}
+  const flagged = slots.filter((slot) => (slot.studentsNeedingSupport ?? []).length > 0);
+  const shown = filter === 'SUPPORT' ? flagged : slots;
+  const tabs = [
+    ['ALL', t('teacherDash.slots.tab.all'), slots.length, false],
+    ['SUPPORT', t('teacherDash.slots.tab.support'), flagged.length, flagged.length > 0],
+  ];
+  const sub = (
+    <>
+      {t('teacherDash.slots.semester', { n: semester.ordinal, year: semester.academicYear?.label })}{' '}
+      <span className="mx-1 text-slate-300" aria-hidden="true">
+        /
+      </span>{' '}
+      {t('homeroom.sum.subjects', { n: slots.length })}
+    </>
+  );
+
+  return card(
+    <>
+      <div role="tablist" className="flex gap-0.5 mb-1.5 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shadow-[inset_0_-1px_0_var(--color-slate-100)]">
+        {tabs.map(([key, label, count, urgent]) => {
+          const on = filter === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              onClick={() => {
+                setFilter(key);
+                setOpenId(null);
+              }}
+              className={`px-2.5 py-2 text-sm font-bold border-b-2 whitespace-nowrap transition-colors cursor-pointer rounded-t-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+                on ? 'text-brand border-brand' : 'text-slate-500 border-transparent hover:text-slate-700'
+              }`}
+            >
+              {label}
+              <span className={`ml-1.5 px-1.5 rounded-full text-[11px] ${urgent ? 'bg-amber-50 text-amber-700' : on ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-600'}`}>{count}</span>
+            </button>
+          );
+        })}
       </div>
-      {body}
-    </section>
+      {shown.length === 0 ? (
+        <HomeEmpty icon={CheckCheck} title={t('teacherDash.slots.noneSupport')} body={t('homeroom.sum.none.signalBody')} />
+      ) : (
+        <ul>
+          {shown.map((slot) => (
+            <SlotRow
+              key={slot.classSubject.id}
+              slot={slot}
+              thresholds={board.thresholds}
+              open={openId === slot.classSubject.id}
+              onToggle={() => setOpenId(openId === slot.classSubject.id ? null : slot.classSubject.id)}
+            />
+          ))}
+        </ul>
+      )}
+    </>,
+    sub
   );
 };
 

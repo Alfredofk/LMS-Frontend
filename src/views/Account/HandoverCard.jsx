@@ -1,6 +1,5 @@
 import React, { startTransition, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Crown } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -117,21 +116,19 @@ const HandoverCard = () => {
   };
 
   return (
-    <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-4 text-left">
-      <div className="flex items-start gap-3">
-        <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-          <Crown className="w-4 h-4" aria-hidden="true" />
-        </div>
+    <section className="border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] bg-white shadow-sm space-y-4 text-left">
+      {/* No icon tile beside the title (owner, 2026-10-28). */}
+      <div>
         <div className="min-w-0">
-          <h2 className="text-sm font-extrabold text-slate-900 tracking-tight">{t('handover.title')}</h2>
-          <p className="text-xs text-slate-500 font-medium leading-relaxed mt-0.5">
+          <h2 className="text-base font-extrabold text-slate-900 tracking-tight">{t('handover.title')}</h2>
+          <p className="text-[13px] text-slate-500 leading-relaxed mt-0.5">
             {t('handover.body', { school: schoolName })}
           </p>
         </div>
       </div>
 
       {loadError ? (
-        <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+        <div className="rounded-xl bg-rose-50 p-3.5 text-[13px] text-rose-700 font-semibold" role="alert">
           {loadError}
         </div>
       ) : teachers === null ? (
@@ -215,7 +212,7 @@ const HandoverCard = () => {
           )}
 
           {errors.global && (
-            <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+            <div className="rounded-xl bg-rose-50 p-3.5 text-[13px] text-rose-700 font-semibold" role="alert">
               {errors.global}
             </div>
           )}

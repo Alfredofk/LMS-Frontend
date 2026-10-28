@@ -56,6 +56,7 @@ const TITLES = {
 
   '/headmaster/dashboard': { key: 'shell.title.principalDashboard' },
   '/vice/dashboard': { key: 'shell.title.viceDashboard' },
+  '/headmaster/overview': { key: 'shell.overview', back: true },
   '/headmaster/classes': { key: 'shell.classes', back: true },
   '/headmaster/members': { key: 'shell.members', back: true },
   '/headmaster/subjects': { key: 'shell.subjects', back: true },
@@ -327,7 +328,8 @@ export const Navbar = ({ showToast, onOpenNav }) => {
             {t(copyPage ? 'tasm.pageTitle' : 'teach.section.penilaian')}
           </button>
           <span className="hidden sm:inline text-slate-300" aria-hidden="true">/</span>
-          <span className="truncate text-slate-900">{t(copyPage ? 'tasm.editCopy.open' : assessmentPage[2] === 'new' ? 'tasm.newTitle' : 'tasm.pageTitle')}</span>
+          {/* "Detail Penilaian" beside "Penilaian", as "Detail Mata Pelajaran" beside "Kelas Saya" (owner, 2026-10-28: it read "Penilaian / Penilaian"). */}
+          <span className="truncate text-slate-900">{t(copyPage ? 'tasm.editCopy.open' : assessmentPage[2] === 'new' ? 'tasm.newTitle' : 'tasm.detailTitle')}</span>
         </div>
       );
     }

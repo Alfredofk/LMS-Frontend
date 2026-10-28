@@ -1,24 +1,29 @@
-import React, { useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ChevronRight, ClipboardList } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronRight, ClipboardCheck } from 'lucide-react';
 
 import { useT } from '../../../i18n/LanguageContext';
 import StateWord from '../../TeacherAssessment/StateWord';
-import { dashboardAssessments, shortWhen, waitingSinceText, windowText } from '../../TeacherAssessment/teacherAssessment';
+import { DASHBOARD_LIMIT, dashboardAssessments, shortWhen, waitingSinceText, windowText } from '../../TeacherAssessment/teacherAssessment';
+import { Bone, HomeCard, HomeEmpty, HomeError } from './HomeCard';
 
 /*
   The teacher's assessments on the dashboard (owner, 2026-10-08), in the place
-  "Pengumpulan terbaru" held while it had no route: what is open now, what opens
-  next and drafts not yet published, across every subject taught now
-  (dashboardAssessments). The lists come from markingQueue.js (one GET
-  /assessments/class-subjects/:id per live assignment, a list that fails left out),
-  and what waits from `GET /dashboard/teaching`'s queue (owner, 2026-10-10 and
-  2026-10-27): an assessment with attempts to mark or release comes first, under
-  "Perlu dinilai", whatever its window, the longest waiting first with how long,
-  and opens on its "Hasil" tab. A release not open yet says when it opens. The
-  queue failing leaves the other groups and says so in one line. At most five rows, the rest counted with a way to
-  "Kelas Saya". A row opens the assessment's page through the teacher's own class
-  subject.
+  "Pengumpulan terbaru" held while it had no route: what waits to be marked or
+  released, what is open now, what opens next and drafts not yet published, across
+  every subject taught now (dashboardAssessments). The lists come from
+  markingQueue.js (one GET /assessments/class-subjects/:id per live assignment, a
+  list that fails left out), and what waits from `GET /dashboard/teaching`'s queue
+  (owner, 2026-10-10 and 2026-10-27).
+
+  The look since 2026-10-27 (the approved teacher mockup; the skill
+  `.claude/skills/eduforid-design`): one text tab per group with its count - "Perlu
+  ditinjau" amber while anything waits - opening on the first group that has any.
+  A row is the title and its state pill, one grey slash line (class / subject /
+  type / how long it has waited), then chips saying what to do: to mark (amber), to
+  release now (purple) or from when (grey), or its window. A review row opens on
+  the "Hasil" tab. Five rows a tab, the rest counted. The queue failing leaves the
+  other groups and says so in one line.
 
   @param queue      readMarkingQueue's answer: undefined while reading, null when
                     it could not be read
@@ -27,112 +32,146 @@ import { dashboardAssessments, shortWhen, waitingSinceText, windowText } from '.
   @param className  the grid placement
 */
 
-const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm text-left';
+const GROUPS = ['review', 'open', 'upcoming', 'draft'];
+
+const chip = 'px-2 py-0.5 rounded-lg text-[11.5px] font-bold';
 
 export const AssessmentsCard = ({ queue, lists, zone, className = '' }) => {
   const { t, lang } = useT();
   const navigate = useNavigate();
-  /* { items, more, counts }, or what the lists are: undefined reading, null failed. */
-  const data = useMemo(() => (lists ? dashboardAssessments(lists, { waitingById: queue?.waitingById ?? {} }) : lists), [lists, queue]);
+  /* Every item, grouped; `{ items, counts }`, or what the lists are: undefined reading, null failed. */
+  const data = useMemo(
+    () => (lists ? dashboardAssessments(lists, { waitingById: queue?.waitingById ?? {}, limit: Infinity }) : lists),
+    [lists, queue]
+  );
+  const [chosen, setChosen] = useState(null);
 
   const reading = lists === undefined || queue === undefined;
-  const queueFailed = queue === null;
-  const empty = data?.items.length === 0;
+  const card = (body) => (
+    <HomeCard id="teacher-asm-heading" title={t('teacherDash.asm.title')} linkLabel={t('common.seeAll')} linkTo="/teacher/courses" className={className}>
+      {queue === null && data && (
+        <p className="mb-3 text-xs font-semibold text-rose-700" role="alert">
+          {t('teacherDash.asm.queueFailed')}
+        </p>
+      )}
+      {body}
+    </HomeCard>
+  );
 
-  let body;
   if (reading) {
-    body = <div className="h-40 rounded-xl bg-slate-50 animate-pulse" aria-label={t('common.loading')} />;
-  } else if (data === null) {
-    body = <p className="text-xs font-semibold text-rose-700" role="alert">{t('teacherDash.asm.failed')}</p>;
-  } else if (empty) {
-    body = (
-      <div className="py-10 px-4 flex flex-col items-center justify-center text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/40">
-        <ClipboardList className="w-7 h-7 text-slate-300 mb-2" aria-hidden="true" />
-        <p className="text-xs font-semibold text-slate-600">{t('teacherDash.asm.empty')}</p>
-        <p className="mt-1 text-[11px] font-medium text-slate-500 max-w-xs">{t('teacherDash.asm.emptyHint')}</p>
+    return card(
+      <div aria-busy="true">
+        <Bone className="h-8 w-4/5" />
+        {[0, 1, 2].map((n) => (
+          <div key={n} className="mt-4">
+            <Bone className="h-3.5 w-3/4" />
+            <Bone className="h-3 w-1/2 mt-2" />
+            <Bone className="h-4 w-2/5 mt-2" />
+          </div>
+        ))}
       </div>
     );
-  } else {
-    body = (
-      <div className="space-y-1">
-        <ul className="space-y-1">
-          {data.items.map(({ assessment, row, group, waiting }, i) => {
-            /* A group is named above its first row. */
-            const heading = i === 0 || data.items[i - 1].group !== group ? group : null;
+  }
+  if (data === null) return card(<HomeError message={t('teacherDash.asm.failed')} />);
+  if (data.items.length === 0) return card(<HomeEmpty icon={ClipboardCheck} title={t('teacherDash.asm.empty')} body={t('teacherDash.asm.emptyHint')} />);
+
+  /* The chosen tab, else the first group with anything in it. */
+  const tab = chosen ?? GROUPS.find((group) => data.counts[group] > 0) ?? 'review';
+  const inTab = data.items.filter((item) => item.group === tab);
+
+  return card(
+    <>
+      <div role="tablist" className="flex gap-0.5 mb-1.5 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shadow-[inset_0_-1px_0_var(--color-slate-100)]">
+        {GROUPS.map((group) => {
+          const on = tab === group;
+          const urgent = group === 'review' && data.counts.review > 0;
+          return (
+            <button
+              key={group}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              onClick={() => setChosen(group)}
+              className={`px-2 py-2 text-sm font-bold border-b-2 whitespace-nowrap transition-colors cursor-pointer rounded-t-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+                on ? 'text-brand border-brand' : 'text-slate-500 border-transparent hover:text-slate-700'
+              }`}
+            >
+              {t(`teacherDash.asm.tab.${group}`)}
+              <span
+                className={`ml-1.5 px-1.5 rounded-full text-[11px] ${
+                  urgent ? 'bg-amber-50 text-amber-700' : on ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {data.counts[group]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {inTab.length === 0 ? (
+        <HomeEmpty icon={ClipboardCheck} title={t(`teacherDash.asm.none.${tab}`)} />
+      ) : (
+        <ul className="divide-y divide-slate-100">
+          {inTab.slice(0, DASHBOARD_LIMIT).map(({ assessment, row, waiting }) => {
             const since = waiting ? waitingSinceText(waiting.since, zone) : null;
+            const facts = [row.class?.name, row.subject?.code, t(`tasm.type.${assessment.type}`), since ? t(since.key, since.vars) : null].filter(Boolean);
             return (
               <li key={assessment.id}>
-                {heading && (
-                  <p className="px-1 pt-2 pb-1 text-[11px] font-bold text-slate-500">
-                    {t(`teacherDash.asm.group.${heading}`, { n: data.counts[heading] })}
-                  </p>
-                )}
                 <button
                   type="button"
                   onClick={() => navigate(`/teacher/courses/${row.id}/penilaian/${assessment.id}${waiting ? '?tab=hasil' : ''}`)}
-                  className="w-full text-left px-3 py-2.5 rounded-xl flex items-center gap-2 hover:bg-slate-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                  className="group w-full text-left px-2 py-3 rounded-xl flex items-center gap-3 hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                 >
-                  <span className="min-w-0 flex-1 space-y-0.5">
+                  <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="min-w-0 text-sm font-bold text-slate-800 break-words">{assessment.title}</span>
+                      <span className="min-w-0 text-sm font-bold text-slate-900 break-words">{assessment.title}</span>
                       <StateWord assessment={assessment} t={t} />
                     </span>
-                    <span className="flex flex-wrap gap-x-2.5 gap-y-0.5 text-[11px] font-semibold text-slate-500">
-                      <span>{row.class?.name}</span>
-                      <span>{row.subject?.code}</span>
-                      <span>{t(`tasm.type.${assessment.type}`)}</span>
+                    <span className="block text-xs text-slate-500">
+                      {facts.map((fact, i) => (
+                        <React.Fragment key={`${fact}-${i}`}>
+                          {i > 0 && (
+                            <>
+                              {' '}
+                              <span className="mx-1 text-slate-300" aria-hidden="true">
+                                /
+                              </span>{' '}
+                            </>
+                          )}
+                          {fact}
+                        </React.Fragment>
+                      ))}
                     </span>
-                    {waiting ? (
-                      <span className="flex flex-wrap gap-x-2.5 gap-y-0.5 text-[11px] font-bold">
-                        {waiting.marking > 0 && <span className="text-amber-700">{t('teacherDash.asm.toMark', { n: waiting.marking })}</span>}
-                        {waiting.release > 0 && (waiting.releasableAt ? (
-                          <span className="text-slate-500">
-                            {t('teacherDash.asm.releaseFrom', { n: waiting.release, when: shortWhen(waiting.releasableAt, zone, lang) })}
-                          </span>
-                        ) : (
-                          <span className="text-brand">{t('teacherDash.asm.toRelease', { n: waiting.release })}</span>
-                        ))}
-                        {since && <span className="font-semibold text-slate-500">{t(since.key, since.vars)}</span>}
-                      </span>
-                    ) : (
-                      <span className="block text-[11px] font-semibold text-slate-500 tabular-nums">{windowText(assessment, zone, lang)}</span>
-                    )}
+                    <span className="mt-1.5 flex flex-wrap gap-1.5">
+                      {waiting ? (
+                        <>
+                          {waiting.marking > 0 && <span className={`${chip} bg-amber-50 text-amber-700`}>{t('teacherDash.asm.toMark', { n: waiting.marking })}</span>}
+                          {waiting.release > 0 &&
+                            (waiting.releasableAt ? (
+                              <span className={`${chip} bg-slate-100 text-slate-600`}>
+                                {t('teacherDash.asm.releaseFrom', { n: waiting.release, when: shortWhen(waiting.releasableAt, zone, lang) })}
+                              </span>
+                            ) : (
+                              <span className={`${chip} bg-brand-tint text-brand`}>{t('teacherDash.asm.toRelease', { n: waiting.release })}</span>
+                            ))}
+                        </>
+                      ) : (
+                        <span className={`${chip} bg-slate-100 text-slate-600 tabular-nums`}>{windowText(assessment, zone, lang)}</span>
+                      )}
+                    </span>
                   </span>
-                  <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
+                  <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
                 </button>
               </li>
             );
           })}
         </ul>
-        {data.more > 0 && (
-          <Link to="/teacher/courses" className="block px-1 pt-2 text-xs font-semibold text-brand hover:underline">
-            {t('teacherDash.asm.more', { n: data.more })}
-          </Link>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <section className={`${card} flex flex-col ${className}`} aria-labelledby="teacher-asm-heading" aria-busy={reading}>
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className="w-9 h-9 rounded-xl bg-brand-tint text-brand flex items-center justify-center shrink-0">
-            <ClipboardList className="w-4.5 h-4.5" aria-hidden="true" />
-          </span>
-          <h2 id="teacher-asm-heading" className="text-base font-extrabold text-slate-800 tracking-tight">
-            {t('teacherDash.asm.title')}
-          </h2>
-        </div>
-        <Link to="/teacher/courses" className="shrink-0 text-xs font-semibold text-brand hover:underline">
-          {t('common.seeAll')}
-        </Link>
-      </div>
-      {queueFailed && data && (
-        <p className="mb-2 text-xs font-semibold text-rose-700" role="alert">{t('teacherDash.asm.queueFailed')}</p>
       )}
-      {body}
-    </section>
+      {inTab.length > DASHBOARD_LIMIT && (
+        <p className="mt-2 px-2 text-xs font-semibold text-slate-500">{t('teacherDash.asm.moreInTab', { n: inTab.length - DASHBOARD_LIMIT })}</p>
+      )}
+    </>
   );
 };
 

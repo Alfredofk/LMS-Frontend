@@ -161,9 +161,9 @@ describe('every expansion of a dynamic key exists', () => {
     expectEvery(tabs.map((s) => `requests.tab.${s}`));
     expectEvery(tabs.map((s) => `requests.status.${s}`));
     expectEvery(tabs.map((s) => `requests.queue.empty.${s}`));
-    /* The subtitle and the empty-queue hint differ by the desk the reader sits at. */
+    /* The slash line's desk and the empty-queue hint differ by the desk the reader sits at. */
     for (const pov of ['PRINCIPAL', 'TEACHER']) {
-      expectEvery([`requests.subtitle.${pov}`, `requests.queue.empty.hint.${pov}`]);
+      expectEvery([`requests.pov.${pov}`, `requests.queue.empty.hint.${pov}`]);
     }
   });
 
@@ -287,10 +287,10 @@ describe('every expansion of a dynamic key exists', () => {
     expectEvery([...presets, 'OTHER'].map((s) => `getStarted.join.relationship.option.${s}`));
   });
 
-  it('guardian: a label for every child-link status that draws a badge', () => {
-    /* GuardianPage's STATUS_BADGE is the set; the review screen names the same
+  it('guardian: a label for every child-link status that draws a coloured word', () => {
+    /* GuardianPage's STATUS_WORD is the set; the review screen names the same
        four for a link that is not the reader's to decide. */
-    const statuses = keysOf('views/Guardian/GuardianPage.jsx', /const STATUS_BADGE = \{([\s\S]*?)\};/);
+    const statuses = keysOf('views/Guardian/GuardianPage.jsx', /const STATUS_WORD = \{([\s\S]*?)\};/);
     expect(statuses).toEqual(['ACTIVE', 'PENDING', 'REJECTED', 'CANCELLED']);
     expectEvery(statuses.map((s) => `guardian.status.${s}`));
     expectEvery(statuses.map((s) => `requests.link.status.${s}`));

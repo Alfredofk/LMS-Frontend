@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { UserX } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -67,6 +66,8 @@ const DeleteAccountCard = () => {
   const { t } = useT();
 
   const [open, setOpen] = useState(false);
+  /* What goes, folded under one sentence (owner, 2026-10-28, the reviewed mockup). */
+  const [details, setDetails] = useState(false);
   const [mode, setMode] = useState('password'); // 'password' | 'google'
   const [password, setPassword] = useState('');
   const [typed, setTyped] = useState('');
@@ -135,14 +136,28 @@ const DeleteAccountCard = () => {
   };
 
   return (
-    <section className="border border-rose-200 rounded-2xl p-5 bg-white shadow-sm space-y-4 text-left">
-      <div className="flex items-start gap-3">
-        <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-          <UserX className="w-4 h-4" aria-hidden="true" />
-        </div>
+    <section className="border border-rose-200 rounded-2xl p-6 max-sm:p-[18px] bg-white shadow-sm space-y-4 text-left">
+      {/* No icon tile beside the title (owner, 2026-10-28). */}
+      <div>
         <div className="min-w-0">
-          <h2 className="text-sm font-extrabold text-slate-900 tracking-tight">{t('account.delete.title')}</h2>
-          <p className="text-xs text-slate-500 font-medium leading-relaxed mt-0.5">{t('account.delete.body')}</p>
+          <h2 className="text-base font-extrabold text-slate-900 tracking-tight">{t('account.delete.title')}</h2>
+          <p className="text-[13px] text-slate-500 leading-relaxed mt-0.5">{t('account.delete.body')}</p>
+          <button
+            type="button"
+            aria-expanded={details}
+            aria-controls="delete-account-details"
+            onClick={() => setDetails((value) => !value)}
+            className="mt-1.5 text-[13px] font-bold text-brand hover:text-brand-deep cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          >
+            {t(details ? 'account.delete.less' : 'account.delete.more')}
+          </button>
+          {details && (
+            <ul id="delete-account-details" className="mt-1.5 list-disc pl-5 space-y-1 text-[13px] text-slate-600 leading-relaxed">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <li key={n}>{t(`account.delete.what.${n}`)}</li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 
@@ -230,7 +245,7 @@ const DeleteAccountCard = () => {
               )}
 
               {error && (
-                <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+                <div className="rounded-xl bg-rose-50 p-3.5 text-[13px] text-rose-700 font-semibold" role="alert">
                   {error}
                 </div>
               )}

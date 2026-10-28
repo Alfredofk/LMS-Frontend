@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, CalendarClock, Clock, School } from 'lucide-react';
 
 import SelectField from '../../components/ui/SelectField';
+import Button from '../../components/ui/Button';
+import EmptyCard from '../../components/ui/EmptyCard';
+import SemesterSegments from './SemesterSegments';
 import { formatDay } from '../Classes/format';
 import ScheduleDialog from './ScheduleDialog';
 import { academicsService } from '../../services/academicsService';
@@ -72,21 +75,16 @@ export const TimetableTab = ({ years, showToast, activeRole }) => {
   }, [activeIds, t]);
 
   const noSemester = (
-    <div className="py-14 px-6 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
-      <CalendarClock className="w-9 h-9 text-slate-300 mx-auto" aria-hidden="true" />
-      <h2 className="mt-2.5 text-sm font-extrabold text-slate-700">
-        {year ? t('subjects.board.noSemester.titleOf', { label: year.label }) : t('subjects.board.noSemester.title')}
-      </h2>
-      <p className="mt-1.5 text-xs font-semibold text-slate-500 leading-relaxed max-w-sm mx-auto">{t('subjects.board.noSemester.body')}</p>
-      <button
-        type="button"
-        onClick={() => navigate('/headmaster/classes')}
-        className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand hover:bg-brand-deep text-white text-xs font-extrabold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-      >
-        <School className="w-4 h-4" aria-hidden="true" />
-        {t('subjects.board.noSemester.go')}
-      </button>
-    </div>
+    <EmptyCard
+      icon={CalendarClock}
+      title={year ? t('subjects.board.noSemester.titleOf', { label: year.label }) : t('subjects.board.noSemester.title')}
+      body={t('subjects.board.noSemester.body')}
+      action={
+        <Button size="sm" onClick={() => navigate('/headmaster/classes')}>
+          {t('subjects.board.noSemester.go')}
+        </Button>
+      }
+    />
   );
 
   if (!slot) return noSemester;
@@ -143,29 +141,12 @@ export const TimetableTab = ({ years, showToast, activeRole }) => {
           </SelectField>
         </div>
         {(year?.semesters ?? []).length > 0 && (
-          <div className="flex flex-col gap-1.5">
-            <span id="timetable-semester-label" className="text-sm font-semibold text-slate-700 select-none">
-              {t('subjects.board.semester')}
-            </span>
-            <div className="flex gap-2" role="group" aria-labelledby="timetable-semester-label">
-              {(year?.semesters ?? []).map((entry) => {
-                const on = entry.id === slot.semesterId;
-                return (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => setSlot({ yearId: slot.yearId, semesterId: entry.id })}
-                    className={`px-5 py-2.5 md:py-3 rounded-xl text-base font-bold border transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
-                      on ? 'bg-brand text-white border-brand' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    {t('classes.semester.name', { n: entry.ordinal })}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <SemesterSegments
+            id="timetable-semester-label"
+            semesters={year.semesters}
+            value={slot.semesterId}
+            onChange={(id) => setSlot({ yearId: slot.yearId, semesterId: id })}
+          />
         )}
         {classes.length > 0 && (
           <div className="sm:w-56">
@@ -241,21 +222,15 @@ export const TimetableTab = ({ years, showToast, activeRole }) => {
       )}
 
       {!semesterId ? null : error ? (
-        <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700" role="alert">
+        <div className="flex items-start gap-2.5 rounded-xl bg-rose-50 p-3.5 text-[13px] font-semibold text-rose-700" role="alert">
           {error}
         </div>
       ) : board === null ? (
         loadingBox
       ) : classes.length === 0 ? (
-        <div className="py-12 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
-          <School className="w-9 h-9 text-slate-300 mx-auto" aria-hidden="true" />
-          <p className="mt-2.5 text-xs font-extrabold text-slate-500">{t('subjects.board.noClasses')}</p>
-        </div>
+        <EmptyCard icon={School} title={t('subjects.board.noClasses')} />
       ) : active.length === 0 && pending.length === 0 ? (
-        <div className="py-12 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
-          <Clock className="w-9 h-9 text-slate-300 mx-auto" aria-hidden="true" />
-          <p className="mt-2.5 text-xs font-extrabold text-slate-500">{t('timetable.noSubjects', { className: boardClass.name })}</p>
-        </div>
+        <EmptyCard icon={Clock} title={t('timetable.noSubjects', { className: boardClass.name })} />
       ) : (
         <>
           <ul className={`grid grid-cols-1 sm:grid-cols-2 gap-3 ${week.length === 7 ? 'xl:grid-cols-7' : 'lg:grid-cols-3 xl:grid-cols-6'}`}>
@@ -291,7 +266,7 @@ export const TimetableTab = ({ years, showToast, activeRole }) => {
                     {!state ? (
                       <div className="h-14 bg-slate-50 rounded-xl animate-pulse" aria-label={t('common.loading')} />
                     ) : state.error ? (
-                      <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-700" role="alert">
+                      <div className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700" role="alert">
                         <span className="block font-extrabold">
                           <SubjectLabel code={row.subject.code} name={row.subject.name} />
                         </span>

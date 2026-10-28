@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { AlertCircle, BookOpen, CalendarClock, CalendarDays, CalendarX2, Clock, Loader2, MapPin, MapPinOff, RefreshCw } from 'lucide-react';
-
+import { useNavigate, useOutletContext } from 'react-router-dom';
+import { AlertCircle, BookOpen, CalendarClock, CalendarX2, ChevronRight, Clock, MapPin, MapPinOff, RefreshCw } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -14,6 +13,7 @@ import { meetingWhen, nextMeetingAcross } from '../Classroom/myClasses';
 import { PositionError, checkInOpensClock, focusOf, nextReadIn, readPosition, rowState, withCheckIn } from './checkIn';
 import { withoutExamWeekCancelled } from '../Schedule/lessonCalendar';
 import ExamRows from '../Schedule/ExamRows';
+import Button from '../../components/ui/Button';
 
 /*
   Today's meetings, with the check-in button (owner, 2026-10-03) — on the
@@ -34,9 +34,14 @@ import ExamRows from '../Schedule/ExamRows';
   - `examWeek` and `exams` (the dashboard, owner 2026-10-18): on a day of the
     student's Exam Week the meetings cancelled for it are left out and today's
     UTS and UAS (`examsByDay`) are the day, or "no exam today".
+  - The look (owner, 2026-10-27, the skill `.claude/skills/eduforid-design`): on
+    the dashboard the one meeting is laid out large - eyebrow, subject, time - with
+    a single purple Check-in. A check-in answers in three places: the button says
+    what it is doing, a green line with a check that draws itself replaces it, and
+    a toast says so. The day and the class are one grey line, not two pills.
 */
 
-const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm text-left';
+const card = 'bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm text-left';
 const pill = 'px-2 py-0.5 rounded-md text-[10px] font-extrabold whitespace-nowrap';
 
 const STATUS_PILL = {
@@ -63,6 +68,8 @@ export const TodaySessionsCard = ({ onCheckedIn, focus = false, examWeek = null,
   const { t, lang } = useT();
   const navigate = useNavigate();
   const { membership } = useAuth();
+  /* The shell's toast, when this sits under MainLayout (the dashboard and /attendance). */
+  const showToast = useOutletContext()?.showToast;
   /* The dashboard's empty day says when the next meeting is (owner, 2026-10-04),
      from what "Kelas Saya" reads; null until read, false when there is none. */
   const [nextAcross, setNextAcross] = useState(null);
@@ -146,7 +153,8 @@ export const TodaySessionsCard = ({ onCheckedIn, focus = false, examWeek = null,
       const lines = [t('checkin.done', { time: at?.time ?? '' })];
       if (attendance?.late) lines.push(t('checkin.done.late'));
       if (attendance?.outsideSchool) lines.push(t('checkin.done.outside'));
-      setNotice({ sessionId: session.id, tone: 'ok', lines });
+      setNotice({ sessionId: session.id, tone: 'ok', lines, time: at?.time ?? '' });
+      showToast?.(t('checkin.toast', { subject: session.subject?.name ?? '', time: at?.time ?? '' }), 'success');
       onCheckedIn?.();
     } catch (err) {
       const text =
@@ -161,9 +169,19 @@ export const TodaySessionsCard = ({ onCheckedIn, focus = false, examWeek = null,
   const heading = (
     <div className="flex items-start justify-between gap-3 pb-4">
       <div className="min-w-0">
-        <h2 id="today-sessions" className="text-sm font-extrabold text-slate-800 tracking-tight">{t('checkin.title')}</h2>
-        {day && <DayChips day={day} lang={lang} className="mt-1.5" />}
+        <h2 id="today-sessions" className="text-base font-extrabold text-slate-900 tracking-tight">{t('checkin.title')}</h2>
+        {day && <DayLine day={day} lang={lang} className="mt-0.5" />}
       </div>
+      {focus && !(day && failed) && (
+        <button
+          type="button"
+          onClick={() => navigate('/schedule')}
+          className="group shrink-0 inline-flex items-center gap-1 text-sm font-bold text-brand cursor-pointer rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        >
+          {t('dash.today.schedule')}
+          <ChevronRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
+        </button>
+      )}
       {day && failed && (
         <button
           type="button"
@@ -218,15 +236,15 @@ export const TodaySessionsCard = ({ onCheckedIn, focus = false, examWeek = null,
   const slim = (message, action) => (
     /* Top-aligned from lg up, where the dashboard stretches it beside the progress board. */
     <section className="bg-white border border-slate-100 rounded-2xl px-5 py-3.5 shadow-sm text-left flex items-center lg:items-start gap-3" aria-labelledby="today-sessions">
-      <span className="w-9 h-9 bg-brand-tint text-brand rounded-xl flex items-center justify-center shrink-0">
+      <span className="w-9 h-9 bg-slate-100 text-slate-500 rounded-xl flex items-center justify-center shrink-0">
         <CalendarClock className="w-4.5 h-4.5" aria-hidden="true" />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <h2 id="today-sessions" className="text-xs font-extrabold text-slate-800">
+          <h2 id="today-sessions" className="text-sm font-extrabold text-slate-900">
             {t('checkin.title')}
           </h2>
-          <DayChips day={day} lang={lang} />
+          <DayLine day={day} lang={lang} />
         </div>
         <p className="text-xs font-semibold text-slate-600 mt-0.5 leading-relaxed">{message}</p>
         {action}
@@ -251,11 +269,11 @@ export const TodaySessionsCard = ({ onCheckedIn, focus = false, examWeek = null,
     <section className={`${card} h-full flex flex-col`} aria-labelledby="today-sessions">
       {heading}
       <div className="flex-1 flex flex-col items-center justify-center text-center py-6">
-        <span className="w-14 h-14 bg-brand-tint text-brand rounded-2xl flex items-center justify-center mb-3">
-          <CalendarX2 className="w-7 h-7" aria-hidden="true" />
+        <span className="w-11 h-11 bg-slate-100 text-slate-500 rounded-[14px] flex items-center justify-center mb-2.5">
+          <CalendarX2 className="w-5 h-5" aria-hidden="true" />
         </span>
-        <p className="text-sm font-extrabold text-slate-800">{title}</p>
-        {message && <p className="mt-1 max-w-xs text-xs font-semibold text-slate-500 leading-relaxed">{message}</p>}
+        <p className="text-sm font-extrabold text-slate-900">{title}</p>
+        {message && <p className="mt-1 max-w-[34ch] text-[13px] text-slate-500 leading-relaxed">{message}</p>}
         {action && <div className="mt-2 flex flex-col items-center gap-1">{action}</div>}
       </div>
     </section>
@@ -333,6 +351,89 @@ export const TodaySessionsCard = ({ onCheckedIn, focus = false, examWeek = null,
 
   const shown = view ? [view.session] : sessions;
 
+  const checkInButton = (session, size = 'md') => {
+    const running = busy?.sessionId === session.id;
+    return (
+      <Button size={size} onClick={() => checkIn(session)} isDisabled={Boolean(busy) && !running} isLoading={running}>
+        {running ? (
+          t(`checkin.step.${busy.step}`)
+        ) : (
+          <span className="inline-flex items-center gap-2">
+            <MapPin className="w-4 h-4" aria-hidden="true" />
+            {t('checkin.action')}
+          </span>
+        )}
+      </Button>
+    );
+  };
+
+  /* The meeting's materials (backend bf6e9b5); a previous class's answers 404. */
+  const materialsButton = (session, size = 'md') =>
+    rowState(session, context) !== 'otherClass' && (
+      <Button
+        size={size}
+        variant="outline"
+        onClick={() => navigate(`/classroom/${session.classSubjectId}?pertemuan=${session.id}`)}
+        ariaLabel={t('content.openNamed', { subject: session.subject?.name ?? '', n: session.number })}
+      >
+        <span className="inline-flex items-center gap-2">
+          <BookOpen className="w-4 h-4" aria-hidden="true" />
+          {t('content.open')}
+        </span>
+      </Button>
+    );
+
+  /* The dashboard's one meeting, laid out large. */
+  if (view) {
+    const session = view.session;
+    const state = rowState(session, context);
+    const attendance = session.attendance;
+    const checkedAt = attendance?.checkedInAt ? localOf(attendance.checkedInAt, day.timeZone) : null;
+    const own = notice?.sessionId === session.id ? notice : null;
+    const landed = own?.tone === 'ok';
+    return (
+      <section className={card} aria-labelledby="today-sessions">
+        {heading}
+        {todayExams.length > 0 && (
+          <ul className="space-y-2 mb-4">
+            <ExamRows rows={todayExams} />
+          </ul>
+        )}
+        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{t(`checkin.focus.${view.kind}`)}</p>
+        {session.subject?.code && <p className="mt-3 text-xs font-bold text-brand">{session.subject.code}</p>}
+        <p className="mt-0.5 text-xl font-extrabold text-slate-900 tracking-tight break-words">{session.subject?.name}</p>
+        <p className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+          <span className="inline-flex items-center gap-1.5 tabular-nums">
+            <Clock className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
+            {session.local?.start} - {session.local?.end}
+          </span>
+          <span>{t('timetable.session.number', { n: session.number })}</span>
+          {state === 'otherClass' && <span>{session.class}</span>}
+        </p>
+        {!landed && <SessionStatusLine state={state} session={session} checkedAt={checkedAt} t={t} />}
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          {landed ? (
+            <CheckedInLine notice={own} t={t} />
+          ) : (
+            <>
+              {state === 'open' && checkInButton(session)}
+              {materialsButton(session)}
+            </>
+          )}
+        </div>
+        {own && (own.tone === 'error' || own.lines.length > 1) && (
+          <NoticeLines notice={landed ? { ...own, lines: own.lines.slice(1) } : own} className="mt-3" />
+        )}
+        {view.others > 0 && (
+          <div className="mt-5 pt-3.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+            <span>{t('checkin.focus.others', { n: view.others })}</span>
+            {toggle(t('checkin.focus.seeAll', { n: sessions.length }), true)}
+          </div>
+        )}
+      </section>
+    );
+  }
+
   return (
     <section className={card} aria-labelledby="today-sessions">
       {heading}
@@ -341,95 +442,48 @@ export const TodaySessionsCard = ({ onCheckedIn, focus = false, examWeek = null,
           <ExamRows rows={todayExams} />
         </ul>
       )}
-      {view && (
-        <p className="text-[10px] font-extrabold uppercase tracking-wider text-brand mb-2">
-          {t(`checkin.focus.${view.kind}`)}
-        </p>
-      )}
       <ul className="divide-y divide-slate-100">
         {shown.map((session) => {
           const state = rowState(session, context);
           const attendance = session.attendance;
           const checkedAt = attendance?.checkedInAt ? localOf(attendance.checkedInAt, day.timeZone) : null;
-          const running = busy?.sessionId === session.id;
           const own = notice?.sessionId === session.id ? notice : null;
+          const landed = own?.tone === 'ok';
           return (
-            <li key={session.id} className="py-3 first:pt-0 last:pb-0">
+            <li key={session.id} className="py-3.5 first:pt-0 last:pb-0">
               <div className="flex items-start gap-3">
                 <span className="w-14 shrink-0 tabular-nums">
-                  <span className="block text-xs font-extrabold text-slate-800">{session.local?.start}</span>
-                  <span className="block text-[11px] font-semibold text-slate-500">{session.local?.end}</span>
+                  <span className="block text-sm font-extrabold text-slate-900">{session.local?.start}</span>
+                  <span className="block text-xs text-slate-500">{session.local?.end}</span>
                 </span>
                 <span className="w-px self-stretch bg-slate-100 shrink-0" aria-hidden="true" />
                 <span className="min-w-0 flex-1">
-                  <span className="block text-xs font-extrabold text-slate-800 break-words">{session.subject?.name}</span>
-                  <span className="block text-[11px] font-semibold text-slate-500">
+                  <span className="block text-sm font-bold text-slate-900 break-words">{session.subject?.name}</span>
+                  <span className="block text-xs text-slate-500">
                     {t('timetable.session.number', { n: session.number })}
-                    {state === 'otherClass' && (
-                      <span className="ml-1.5 px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold">{session.class}</span>
-                    )}
+                    {state === 'otherClass' && <span className="ml-3">{session.class}</span>}
                   </span>
-                  <SessionStatusLine state={state} session={session} checkedAt={checkedAt} t={t} />
-                  <span className="mt-2 flex flex-wrap items-center gap-2">
-                    {state === 'open' && (
-                      <button
-                        type="button"
-                        onClick={() => checkIn(session)}
-                        disabled={Boolean(busy)}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-extrabold text-white bg-brand hover:bg-brand-deep rounded-xl transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                      >
-                        {running ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
-                        ) : (
-                          <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
-                        )}
-                        {running ? t(`checkin.step.${busy.step}`) : t('checkin.action')}
-                      </button>
-                    )}
-                    {/* The meeting's materials (backend bf6e9b5); a previous class's answers 404. */}
-                    {state !== 'otherClass' && (
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/classroom/${session.classSubjectId}?pertemuan=${session.id}`)}
-                        aria-label={t('content.openNamed', { subject: session.subject?.name ?? '', n: session.number })}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-brand-tint text-brand text-xs font-extrabold hover:bg-brand hover:text-white transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                      >
-                        <BookOpen className="w-3.5 h-3.5" aria-hidden="true" />
-                        {t('content.open')}
-                      </button>
-                    )}
+                  {!landed && <SessionStatusLine state={state} session={session} checkedAt={checkedAt} t={t} />}
+                  <span className="mt-2.5 flex flex-wrap items-center gap-2">
+                    {landed ? <CheckedInLine notice={own} t={t} /> : state === 'open' && checkInButton(session, 'sm')}
+                    {materialsButton(session, 'sm')}
                   </span>
                 </span>
                 <span className="shrink-0 flex flex-col items-end gap-1">
-                  {(state === 'final' || state === 'checkedIn') && (
+                  {(state === 'final' || state === 'checkedIn') && !landed && (
                     <span className={`${pill} ${STATUS_PILL[attendance.status] ?? 'bg-slate-100 text-slate-600'}`}>
                       {t(`att.status.${attendance.status}`)}
                     </span>
                   )}
                 </span>
               </div>
-              {own && (
-                <div
-                  role={own.tone === 'error' ? 'alert' : 'status'}
-                  className={`mt-2 ml-[4.25rem] rounded-xl px-3 py-2 text-[11px] font-semibold leading-relaxed ${
-                    own.tone === 'error' ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-800'
-                  }`}
-                >
-                  {own.lines.map((line) => (
-                    <p key={line}>{line}</p>
-                  ))}
-                </div>
+              {own && (own.tone === 'error' || own.lines.length > 1) && (
+                <NoticeLines notice={landed ? { ...own, lines: own.lines.slice(1) } : own} className="mt-2 ml-[4.25rem]" />
               )}
             </li>
           );
         })}
       </ul>
-      {view && view.others > 0 && (
-        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold text-slate-500">
-          <span>{t('checkin.focus.others', { n: view.others })}</span>
-          {toggle(t('checkin.focus.seeAll', { n: sessions.length }), true)}
-        </div>
-      )}
       {focus && expanded && (
         <div className="mt-3 pt-3 border-t border-slate-100">{toggle(t('checkin.focus.less'), false)}</div>
       )}
@@ -437,17 +491,46 @@ export const TodaySessionsCard = ({ onCheckedIn, focus = false, examWeek = null,
   );
 };
 
-/* The day and the class as two small pills under the heading, instead of "date · class" (owner, 2026-10-03). */
-const DayChips = ({ day, lang, className = '' }) => (
-  <span className={`flex flex-wrap items-center gap-1.5 ${className}`}>
-    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold">
-      <CalendarDays className="w-3 h-3" aria-hidden="true" />
-      {headingDate(day.from, lang)}
+/* A check-in that landed: a green line whose check draws itself, in place of the button. */
+const CheckedInLine = ({ notice, t }) => (
+  <div role="status" className="animate-rise flex items-center gap-3 rounded-xl bg-emerald-50 px-3.5 py-3 text-sm font-bold text-emerald-700">
+    <span className="grid place-items-center w-7 h-7 rounded-full bg-emerald-600 text-white shrink-0">
+      <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path className="animate-draw" d="M20 6L9 17l-5-5" />
+      </svg>
     </span>
+    {t('checkin.doneLine', { time: notice.time })}
+  </div>
+);
+
+/* What else a check-in said (late, outside the school's area), or why it failed. */
+const NoticeLines = ({ notice, className = '' }) => (
+  <div
+    role={notice.tone === 'error' ? 'alert' : 'status'}
+    className={`rounded-xl px-3.5 py-2.5 text-xs font-semibold leading-relaxed ${
+      notice.tone === 'error' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'
+    } ${className}`}
+  >
+    {notice.lines.map((line) => (
+      <p key={line}>{line}</p>
+    ))}
+  </div>
+);
+
+/* The day and the class as one grey line (owner, 2026-10-27; two pills before). */
+const DayLine = ({ day, lang, className = '' }) => (
+  <p className={`text-xs text-slate-500 ${className}`}>
+    {headingDate(day.from, lang)}
     {day.class?.name && (
-      <span className="px-1.5 py-0.5 rounded-md bg-brand-tint text-brand text-[10px] font-extrabold">{day.class.name}</span>
+      <>
+        {' '}
+        <span className="mx-1 text-slate-300" aria-hidden="true">
+          /
+        </span>{' '}
+        {day.class.name}
+      </>
     )}
-  </span>
+  </p>
 );
 
 /* The line under a meeting's name: what happened, or what will. Also the lesson calendar's (/schedule). */

@@ -244,8 +244,8 @@ export const ExceptionDialog = ({ assessment, student, zone, span = null, onDone
         )}
 
         {failure && (
-          <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl space-y-2" role="alert">
-            <p className="text-xs text-red-700 font-semibold">{failure.text}</p>
+          <div className="rounded-xl bg-rose-50 p-3.5 space-y-2" role="alert">
+            <p className="text-[13px] text-rose-700 font-semibold">{failure.text}</p>
             {failure.stale && (
               <button type="button" onClick={onStale} className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer">
                 {t('tasm.reload')}

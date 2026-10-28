@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { progressFor, progressTotals, rateOf } from './myProgress.js';
+import { materialsOf, progressFor, progressTotals, rateOf } from './myProgress.js';
 
 /* Rows shaped as tracking.service.js ownProgress answers them. */
 const row = (classSubjectId, contents, lastActivityAt = null) => ({
@@ -62,5 +62,29 @@ describe('progressTotals', () => {
   });
   it('reads a missing answer as nothing', () => {
     expect(progressTotals(null)).toMatchObject({ subjects: 0, published: 0, completedRate: null });
+  });
+});
+
+describe('materialsOf', () => {
+  const answer = {
+    classSubjects: [
+      { classSubjectId: 'mtk', contents: { published: 4, opened: 4, completed: 4 } },
+      { classSubjectId: 'bio', contents: { published: 8, opened: 5, completed: 3 } },
+      { classSubjectId: 'odd', contents: { published: 2, opened: 1, completed: 5 } },
+    ],
+  };
+
+  it('reads a subject as published, done and opened', () => {
+    expect(materialsOf(answer, 'mtk')).toEqual({ published: 4, done: 4, opened: 4 });
+    expect(materialsOf(answer, 'bio')).toEqual({ published: 8, done: 3, opened: 5 });
+  });
+
+  it('keeps done inside opened and both inside published', () => {
+    expect(materialsOf(answer, 'odd')).toEqual({ published: 2, done: 2, opened: 2 });
+  });
+
+  it('answers zeros for a subject with no row', () => {
+    expect(materialsOf(answer, 'fis')).toEqual({ published: 0, done: 0, opened: 0 });
+    expect(materialsOf(null, 'fis')).toEqual({ published: 0, done: 0, opened: 0 });
   });
 });

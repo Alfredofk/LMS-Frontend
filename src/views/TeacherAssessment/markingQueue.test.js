@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { markingQueueOf } from './markingQueue';
+import { markingQueueOf, waitingInSlot } from './markingQueue';
 
 describe('markingQueue - what waits on the teacher (GET /dashboard/teaching queue)', () => {
   const entry = (id, marking, release, over = {}) => ({
@@ -32,5 +32,20 @@ describe('markingQueue - what waits on the teacher (GET /dashboard/teaching queu
   it('an empty or missing queue is all zeros', () => {
     expect(markingQueueOf([])).toEqual({ waitingById: {}, marking: 0, release: 0, releasable: 0 });
     expect(markingQueueOf(undefined)).toEqual({ waitingById: {}, marking: 0, release: 0, releasable: 0 });
+  });
+});
+
+describe('waitingInSlot - the Penilaian count on a subject page', () => {
+  const entry = (id, slot, marking, release) => ({ assessment: { id }, classSubject: { id: slot }, marking, release });
+  const queue = [entry('a1', 'mtk', 1, 3), entry('a2', 'mtk', 2, 0), entry('a3', 'bio', 0, 1), entry('a4', 'mtk', 0, 0)];
+
+  it('counts the assessments of one slot with anything waiting', () => {
+    expect(waitingInSlot(queue, 'mtk')).toBe(2);
+    expect(waitingInSlot(queue, 'bio')).toBe(1);
+    expect(waitingInSlot(queue, 'fis')).toBe(0);
+  });
+
+  it('answers 0 for no queue', () => {
+    expect(waitingInSlot(null, 'mtk')).toBe(0);
   });
 });

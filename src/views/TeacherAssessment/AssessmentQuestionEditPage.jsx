@@ -252,10 +252,10 @@ const AssessmentQuestionEditor = () => {
       )}
 
       {failure && (
-        <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold space-y-2" role="alert">
+        <div className="rounded-xl bg-rose-50 p-3.5 text-[13px] text-rose-700 font-semibold space-y-2" role="alert">
           <p>{failure.message}</p>
           {failure.stale && (
-            <button type="button" onClick={() => setAttempt((n) => n + 1)} className={`${tool} bg-white border border-red-200 text-red-700 hover:bg-red-50`}>
+            <button type="button" onClick={() => setAttempt((n) => n + 1)} className={`${tool} bg-white border border-rose-200 text-rose-700 hover:bg-rose-100`}>
               <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
               {t('tasm.reload')}
             </button>

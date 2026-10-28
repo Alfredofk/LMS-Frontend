@@ -1,10 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { AlertCircle, BookOpen, CalendarClock, ChevronRight, ClipboardList, RefreshCw, UserRound } from 'lucide-react';
+import { BookOpen, Check, ChevronRight, ClipboardList, Search } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import Select from '../../components/ui/Select';
+import EmptyCard from '../../components/ui/EmptyCard';
+import FactLine from '../../components/ui/FactLine';
+import ThreePartBar from '../../components/ThreePartBar';
+import { Bone, HomeError } from '../Dashboard/components/HomeCard';
+import { readMyProgress } from './readMyProgress';
+import { materialsOf, rateOf } from './myProgress';
 import ClassroomSubject from './ClassroomSubject';
 import { readMyClasses } from './readMyClasses';
 import { readMyMenu } from '../StudentAssessment/readMyMenu';
@@ -41,7 +47,7 @@ import { defaultSemesterId, isCurrentClass, listedClassSubjects, matchesSearch, 
   title, each opening that subject's "Nilai" tab.
 */
 
-const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm';
+const card = 'bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm min-w-0';
 
 /*
   Up to three cards to a row, each at least 17.5rem so no line inside a card wraps
@@ -53,27 +59,37 @@ const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm';
 */
 const cardGrid = 'grid grid-cols-[repeat(auto-fill,minmax(max(17.5rem,calc((100%-2rem)/3)),1fr))] gap-4';
 
-const SubjectCard = ({ entry, sessions, todo, onOpen }) => {
+/*
+  A subject as a card (the look since 2026-10-28, the mockup the owner reviewed):
+  the dashboards' frame, lifting with its arrow on hover; the teacher as plain grey
+  text; the materials the student has finished as the three-part bar of "Kemajuan
+  mapel" (owner's pick B, from GET /tracking/me/progress), or "Belum ada materi";
+  and the next meeting as one grey line on the card's floor.
+
+  @param materials  materialsOf's row; undefined while reading, null when the read failed
+*/
+const SubjectCard = ({ entry, sessions, materials, todo, onOpen }) => {
   const { t, lang } = useT();
   const progress = progressOf(sessions);
-  const percent = progress?.total ? Math.round((progress.held / progress.total) * 100) : 0;
 
   let line;
   if (progress === null) line = <span className="text-amber-700">{t('classroom.meetingsFailed')}</span>;
-  else if (progress.total === 0) line = <span className="text-slate-500">{t('classroom.noMeetings')}</span>;
-  else if (progress.current) line = <span className="text-emerald-700">{t('classroom.now')}</span>;
-  else if (progress.next) line = <span className="text-slate-600">{t('classroom.next', { when: meetingWhen(progress.next, lang) })}</span>;
-  else line = <span className="text-slate-500">{t('classroom.done')}</span>;
+  else if (progress.total === 0) line = t('classroom.noMeetings');
+  else if (progress.current) line = <span className="font-bold text-emerald-700">{t('classroom.now')}</span>;
+  else if (progress.next) line = t('classroom.next', { when: meetingWhen(progress.next, lang) });
+  else line = t('classroom.done');
+
+  const full = materials?.published > 0 && materials.done === materials.published;
 
   return (
     <button
       type="button"
       onClick={onOpen}
-      className={`${card} group w-full text-left hover:shadow-md hover:border-brand/30 transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand flex flex-col gap-3`}
+      className={`${card} group w-full text-left hover:shadow-md hover:-translate-y-0.5 motion-reduce:hover:translate-y-0 transition-all duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand flex flex-col gap-3`}
     >
       {/* Code above the name, as on the subject's own page (owner, 2026-10-04). */}
       {/* No icon tile (owner, 2026-10-07), as on the teacher's "Kelas Saya". */}
-      <span className="flex items-center gap-3">
+      <span className="flex items-start gap-3">
         <span className="min-w-0 flex-1">
           {entry.subject.code && (
             <span className="block text-[10px] font-extrabold uppercase tracking-wider text-brand leading-none">
@@ -83,12 +99,9 @@ const SubjectCard = ({ entry, sessions, todo, onOpen }) => {
           <span className="block mt-1 text-base font-extrabold text-slate-900 leading-tight break-words">
             {entry.subject.name}
           </span>
-          <span className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-slate-500 min-w-0">
-            <UserRound className="w-3 h-3 shrink-0" aria-hidden="true" />
-            <span className="truncate">{entry.teacher.fullName}</span>
-          </span>
+          <span className="block mt-1 text-xs font-semibold text-slate-500 truncate">{entry.teacher.fullName}</span>
         </span>
-        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-brand shrink-0" aria-hidden="true" />
+        <ChevronRight className="w-4 h-4 mt-1 text-slate-400 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-brand" aria-hidden="true" />
       </span>
 
       {entry.ended && (
@@ -97,15 +110,33 @@ const SubjectCard = ({ entry, sessions, todo, onOpen }) => {
         </span>
       )}
 
-      {progress?.total > 0 && (
-        <span className="block space-y-1.5">
-          <span className="flex items-center justify-between text-[11px] font-semibold text-slate-500 tabular-nums">
-            <span>{t('classroom.progress', { held: progress.held, total: progress.total })}</span>
-            <span>{percent}%</span>
+      {materials === undefined ? (
+        <span className="block" aria-hidden="true">
+          <Bone className="h-3 w-1/2" />
+          <Bone className="h-2 w-full mt-2.5" />
+        </span>
+      ) : materials === null ? null : materials.published === 0 ? (
+        <span className="block text-[12.5px] text-slate-500">{t('dash.subj.noneYet')}</span>
+      ) : (
+        <span className="block">
+          <span className="flex items-baseline justify-between gap-2 text-[12.5px] text-slate-500 tabular-nums">
+            <span>{t('meeting.materialsDone', { done: materials.done, n: materials.published })}</span>
+            {full ? (
+              <span className="shrink-0 inline-flex items-center gap-1 text-xs font-bold text-emerald-700">
+                <Check className="w-3.5 h-3.5" strokeWidth={3} aria-hidden="true" />
+                {t('dash.subj.full')}
+              </span>
+            ) : (
+              <span className="shrink-0 text-sm font-extrabold text-slate-700">{rateOf(materials.done, materials.published)}%</span>
+            )}
           </span>
-          <span className="block h-1.5 rounded-full bg-slate-100 overflow-hidden" aria-hidden="true">
-            <span className="block h-full rounded-full bg-brand" style={{ width: `${percent}%` }} />
-          </span>
+          <ThreePartBar
+            done={materials.done}
+            opened={materials.opened}
+            total={materials.published}
+            className="mt-1.5"
+            label={t('dash.subj.bar', { done: materials.done, opened: materials.opened - materials.done, none: materials.published - materials.opened })}
+          />
         </span>
       )}
 
@@ -117,10 +148,7 @@ const SubjectCard = ({ entry, sessions, todo, onOpen }) => {
       )}
 
       {/* mt-auto: on the card's floor whatever sits above it, so a row of cards lines up. */}
-      <span className="mt-auto flex items-center gap-1.5 text-xs font-bold">
-        <CalendarClock className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden="true" />
-        {line}
-      </span>
+      <span className="mt-auto block pt-2.5 border-t border-slate-100 text-[12.5px] font-semibold text-slate-600">{line}</span>
     </button>
   );
 };
@@ -138,6 +166,9 @@ export const SubjectList = ({ scores = false }) => {
   const [semesterId, setSemesterId] = useState(null);
   /* The shown semester's assessment menu, for each card's "to do" count: { semesterId, classes }. */
   const [menu, setMenu] = useState(null);
+  /* GET /tracking/me/progress, for each card's materials (owner, 2026-10-28): undefined
+     while reading, null when it failed. Kept a minute, shared with the dashboard. */
+  const [materials, setMaterials] = useState(undefined);
 
   useEffect(() => {
     let cancelled = false;
@@ -148,6 +179,16 @@ export const SubjectList = ({ scores = false }) => {
         setFailed(false);
       })
       .catch(() => !cancelled && setFailed(true));
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt, membership?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    readMyProgress(membership?.id, { fresh: attempt > 0 })
+      .then((answer) => !cancelled && setMaterials(answer))
+      .catch(() => !cancelled && setMaterials(null));
     return () => {
       cancelled = true;
     };
@@ -186,6 +227,7 @@ export const SubjectList = ({ scores = false }) => {
       key={entry.id}
       entry={entry}
       sessions={data.sessionsById[entry.id]}
+      materials={materials === undefined || materials === null ? materials : materialsOf(materials, entry.id)}
       todo={menuClasses ? todoCount(menuClasses, entry.id) : 0}
       onOpen={() => navigate(scores ? `/classroom/${entry.id}?tab=nilai` : `/classroom/${entry.id}`)}
     />
@@ -193,36 +235,29 @@ export const SubjectList = ({ scores = false }) => {
 
   const placed = membership?.student?.class ?? null;
   const first = listed.find(isCurrentClass);
-  const subtitle = first
-    ? t('classroom.subtitle', { class: first.class.name, year: first.semester.academicYear })
-    : placed
-      ? t('classroom.subtitle', { class: placed.name, year: placed.academicYear ?? '' })
-      : null;
+  /* The slash line, as on the dashboards (owner, 2026-10-28, the reviewed mockup): the
+     school, the class, the semester shown, how many subjects it holds. */
+  const shown = semesters.find((semester) => semester.id === shownSemester) ?? null;
+  const facts = [
+    membership?.school?.name ?? membership?.schoolName,
+    first?.class?.name ?? placed?.name,
+    shown && t('teacherDash.academicContext', { year: shown.academicYear, n: shown.ordinal }),
+    data && shown && t('classroom.subjectCount', { n: subjects.length }),
+  ];
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t(scores ? 'shell.scores' : 'shell.myCourses')}</h1>
+      <div>
+        <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">{t(scores ? 'shell.scores' : 'shell.myCourses')}</h1>
         {scores ? (
-          <p className="text-sm text-slate-500 font-medium">{t('scores.pick')}</p>
+          <p className="mt-1 text-sm text-slate-500 font-medium">{t('scores.pick')}</p>
         ) : (
-          subtitle && <p className="text-sm text-slate-500 font-medium">{subtitle}</p>
+          <FactLine className="mt-2" facts={facts} />
         )}
       </div>
 
       {failed && !data ? (
-        <div className={`${card} flex flex-col items-center text-center gap-3 py-10`} role="alert">
-          <AlertCircle className="w-8 h-8 text-rose-500" aria-hidden="true" />
-          <p className="text-sm font-bold text-slate-700">{t('classroom.failed')}</p>
-          <button
-            type="button"
-            onClick={() => setAttempt((n) => n + 1)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-          >
-            <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
-            {t('att.error.retry')}
-          </button>
-        </div>
+        <HomeError message={t('classroom.failed')} retryLabel={t('att.error.retry')} onRetry={() => setAttempt((n) => n + 1)} />
       ) : !data ? (
         <div className={cardGrid} aria-busy="true" aria-label={t('common.loading')}>
           {[0, 1, 2].map((n) => (
@@ -230,12 +265,7 @@ export const SubjectList = ({ scores = false }) => {
           ))}
         </div>
       ) : listed.length === 0 ? (
-        <div className={`${card} flex flex-col items-center text-center gap-3 py-10`}>
-          <BookOpen className="w-8 h-8 text-slate-400" aria-hidden="true" />
-          <p className="text-sm font-semibold text-slate-600 max-w-sm">
-            {t(placed ? 'classroom.empty.none' : 'classroom.empty.noClass')}
-          </p>
-        </div>
+        <EmptyCard icon={BookOpen} title={t('classroom.empty.title')} body={t(placed ? 'classroom.empty.none' : 'classroom.empty.noClass')} />
       ) : (
         <>
           {/* The same plain dropdown as the teacher's, on the left, newest first (owner,
@@ -261,9 +291,7 @@ export const SubjectList = ({ scores = false }) => {
           )}
 
           {visible.length === 0 ? (
-            <p className={`${card} text-sm font-semibold text-slate-600 text-center py-8`}>
-              {t('classroom.empty.search', { q: query.trim() })}
-            </p>
+            <EmptyCard icon={Search} title={t('classroom.empty.search', { q: query.trim() })} />
           ) : (
             <>
               {currentCards.length > 0 && <div className={cardGrid}>{currentCards.map(renderCard)}</div>}

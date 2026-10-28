@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
-import { AlertCircle, BookOpen, RefreshCw, Lock } from 'lucide-react';
+import { BookOpen, Lock } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -14,6 +14,10 @@ import { openSemesterIds } from '../Dashboard/teacherHome';
 import { sessionPhase, unconfirmedCount } from './teaching';
 import TeacherMeeting from './TeacherMeeting';
 import AssessmentsTab from '../TeacherAssessment/AssessmentsTab';
+import { waitingInSlot } from '../TeacherAssessment/markingQueue';
+import { readTeachingDashboard } from '../Dashboard/teachingDashboard';
+import { HomeError } from '../Dashboard/components/HomeCard';
+import EmptyCard from '../../components/ui/EmptyCard';
 import GradebookTable from '../Gradebook/GradebookTable';
 import SlotGradeSettings from '../Grading/SlotGradeSettings';
 import SlotDescriptions from '../Grading/SlotDescriptions';
@@ -99,6 +103,20 @@ export const TeacherClassSubjectDetail = () => {
     };
   }, [attempt, membership?.id]);
 
+  /* Assessments of this slot waiting to be marked or released, for the "Penilaian"
+     tab's amber count (the reviewed mockup, owner 2026-10-28): the dashboard's
+     queue, kept a minute and shared with the sidebar. 0 when it cannot be read. */
+  const [waiting, setWaiting] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    readTeachingDashboard(membership?.id)
+      .then((answer) => !cancelled && setWaiting(waitingInSlot(answer?.queue, classSubjectId)))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [membership?.id, classSubjectId]);
+
   const entry = data?.rows.find((row) => row.id === classSubjectId) ?? null;
   const live = Boolean(entry && entry.status === 'ACTIVE' && !entry.endedAt);
   /* Its year closed: looked back at, nothing changed (no material, confirmation or "not held"). */
@@ -131,18 +149,7 @@ export const TeacherClassSubjectDetail = () => {
 
   if (failed && !data) {
     return (
-      <div className={`${card} flex flex-col items-center text-center gap-3 py-10`} role="alert">
-        <AlertCircle className="w-8 h-8 text-rose-500" aria-hidden="true" />
-        <p className="text-sm font-bold text-slate-700">{t('teach.failed')}</p>
-        <button
-          type="button"
-          onClick={() => setAttempt((n) => n + 1)}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-        >
-          <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
-          {t('att.error.retry')}
-        </button>
-      </div>
+      <HomeError message={t('teach.failed')} retryLabel={t('att.error.retry')} onRetry={() => setAttempt((n) => n + 1)} />
     );
   }
 
@@ -157,17 +164,16 @@ export const TeacherClassSubjectDetail = () => {
 
   if (!live) {
     return (
-      <div className={`${card} flex flex-col items-center text-center gap-3 py-10`}>
-        <BookOpen className="w-8 h-8 text-slate-400" aria-hidden="true" />
-        <p className="text-sm font-semibold text-slate-600 max-w-sm">{t(entry ? 'teach.notLive' : 'teach.notFound')}</p>
-      </div>
+      <EmptyCard icon={BookOpen} title={t(entry ? 'teach.notLive' : 'teach.notFound')} />
     );
   }
 
   return (
     <div className="space-y-6">
       {guard.dialog}
+      {/* No book tile, as on the student's page (the reviewed mockup, owner 2026-10-28). */}
       <SubjectHeader
+        tile={false}
         code={entry.subject.code}
         name={entry.subject.name}
         facts={[
@@ -189,24 +195,30 @@ export const TeacherClassSubjectDetail = () => {
         </p>
       )}
 
-      {/* Four tabs outgrow a phone: the row scrolls by itself, the line under it stays put. */}
-      <div className="border-b border-slate-200">
-        <div role="tablist" aria-label={t('meeting.sections')} className="flex gap-5 sm:gap-6 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {SECTIONS.map((key) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={section === key}
-              onClick={() => goSection(key)}
-              className={`shrink-0 whitespace-nowrap px-1 pb-3 text-sm font-extrabold border-b-2 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-t ${
-                section === key ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              {t(`teach.section.${key}`)}
-            </button>
-          ))}
-        </div>
+      {/* The dashboards' text tabs (the reviewed mockup, owner 2026-10-28): the row swipes
+          on a phone, the line under it an inset shadow; "Penilaian" carries an amber count
+          of assessments waiting to be marked or released. */}
+      <div role="tablist" aria-label={t('meeting.sections')} className="flex gap-0.5 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shadow-[inset_0_-1px_0_var(--color-slate-100)]">
+        {SECTIONS.map((key) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={section === key}
+            onClick={() => goSection(key)}
+            className={`shrink-0 whitespace-nowrap px-2.5 py-2 text-sm font-bold border-b-2 transition-colors cursor-pointer focus:outline-none focus-visible:text-brand ${
+              section === key ? 'text-brand border-brand' : 'text-slate-500 border-transparent hover:text-slate-700'
+            }`}
+          >
+            {t(`teach.section.${key}`)}
+            {key === 'penilaian' && waiting > 0 && (
+              <span className="ml-1.5 px-1.5 rounded-full text-[11px] tabular-nums bg-amber-50 text-amber-700">
+                {waiting}
+                <span className="sr-only"> {t('teach.waitingCount', { n: waiting })}</span>
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
       {section === 'penilaian' ? (

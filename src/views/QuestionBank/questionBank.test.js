@@ -13,6 +13,7 @@ import {
   isPrivateOn,
   markCorrect,
   moveOption,
+  plainTextOf,
   questionErrors,
   questionPayload,
   copyPayload,
@@ -371,5 +372,21 @@ describe('shownChanged (editQuestion: what voids, backend 6380e3e)', () => {
 
   it('is false while either side is missing', () => {
     expect(shownChanged(null, mcq)).toBe(false);
+  });
+});
+
+describe('plainTextOf - a question as one line in the list', () => {
+  it('drops tags, keeping words apart across blocks and breaks', () => {
+    expect(plainTextOf('<p>[Uji] Hasil dari <strong>10</strong> dibagi 2</p><p>adalah ...</p>')).toBe('[Uji] Hasil dari 10 dibagi 2 adalah ...');
+    expect(plainTextOf('satu<br>dua<ul><li>tiga</li><li>empat</li></ul>')).toBe('satu dua tiga empat');
+  });
+
+  it('reads the common entities', () => {
+    expect(plainTextOf('<p>a &amp; b &lt; c&nbsp;&gt; d &quot;e&quot; &#39;f&#39;</p>')).toBe(`a & b < c > d "e" 'f'`);
+  });
+
+  it('answers an empty string for nothing', () => {
+    expect(plainTextOf(null)).toBe('');
+    expect(plainTextOf('<p></p>')).toBe('');
   });
 });

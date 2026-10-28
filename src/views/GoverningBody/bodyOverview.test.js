@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { attentionOf, totalsOf } from './bodyOverview';
+import { attentionOf, readinessOf, totalsOf } from './bodyOverview';
 
 // governingBody.schools.js ownSchoolView (f01cd28 / 227473f): counts, hasPrincipal,
 // principalApplicationsWaiting, deactivatedAt.
@@ -78,5 +78,21 @@ describe('body overview - what needs the admins', () => {
       admins: { youAreSenior: true, applications: [{ id: 's1', status: 'PENDING' }] },
     }).map((item) => item.kind);
     expect(kinds).toEqual(['PRINCIPAL_APPLICATIONS', 'AFFILIATION_REQUESTS', 'ADMIN_APPLICATIONS', 'NO_PRINCIPAL', 'SWITCHED_OFF']);
+  });
+});
+
+describe('readinessOf', () => {
+  it('counts Schools with a Principal, switched on, and both', () => {
+    const schools = [
+      { hasPrincipal: true, deactivatedAt: null },
+      { hasPrincipal: true, deactivatedAt: '2026-10-20T00:00:00Z' },
+      { hasPrincipal: false, deactivatedAt: null },
+    ];
+    expect(readinessOf(schools)).toEqual({ total: 3, led: 2, active: 2, ready: 1 });
+  });
+
+  it('is all zeros with none or an unread list', () => {
+    expect(readinessOf([])).toEqual({ total: 0, led: 0, active: 0, ready: 0 });
+    expect(readinessOf(null)).toEqual({ total: 0, led: 0, active: 0, ready: 0 });
   });
 });

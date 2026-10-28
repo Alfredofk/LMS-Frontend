@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import FactLine from '../../components/ui/FactLine';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, BookOpen, CalendarClock, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 
@@ -321,14 +322,8 @@ export const StudentLessonCalendar = ({ teacher = false }) => {
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-xs font-extrabold text-slate-800 break-words">{session.subject?.name}</span>
-                <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]">
-                  <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 font-bold">
-                    {t('timetable.session.number', { n: session.number })}
-                  </span>
-                  {session.class && (
-                    <span className="px-1.5 py-0.5 rounded-md bg-brand-tint text-brand font-extrabold">{session.class}</span>
-                  )}
-                </span>
+                {/* The meeting and its class as one grey line, not chips (owner, 2026-10-28). */}
+                <FactLine size="xs" className="mt-0.5" facts={[t('timetable.session.number', { n: session.number }), session.class]} />
                 {teacher ? (
                   <span className="block text-[11px] font-semibold mt-1 text-slate-500">{t(sessionState(session))}</span>
                 ) : (

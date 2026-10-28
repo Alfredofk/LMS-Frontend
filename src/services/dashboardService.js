@@ -24,6 +24,30 @@ import { api } from './apiClient';
   save). PUT (Principal or Vice Principal, audited) takes any threshold - a whole
   number, or null back to the built-in one - with that updatedAt, and answers
   `{ settings, message }`; a stale updatedAt is 409. See views/Account/signalSettings.js.
+
+  GET /classes/:id (backend 7ee7857, dashboard ticket 03; its Homeroom Teacher, the
+  Principal, a Vice Principal - anyone else 404) answers, bare:
+    { class: { id, name, academicYear }, semester (as above) | null, thresholds,
+      subjects: [{ classSubjectId, subject: { id, code, name }, kktp }],
+      summary: { studentsPlacedNow, withSignal, belowKktpSomewhere } | null,
+      students: [{ studentProfileId, fullName,
+                   attendance: { counted, present, sick, excused, absent, late, outsideSchool, percent },
+                   grades: [{ classSubjectId, finalGrade, belowKktp, waiting }],
+                   signals: [{ type, value, threshold, subject: { id, code, name } | null }] }] }
+  A Class of another year answers `semester: null` and nothing else. The Students are
+  those placed now, by name; FREQUENT_ABSENCE counts days with an absence, INACTIVE
+  spans every Subject (subject null). See views/Homeroom/homeroomSummary.js.
+
+  GET /marking-by-teacher (backend 0eefba2, dashboard ticket 04; the Principal or a
+  Vice Principal - anyone else 403) answers, bare:
+    { teachers: [{ membershipId, fullName, marking, release }], unanswered: { marking, release } }
+  Slow on the server (3-4 s for a big School), so its card reads it on its own. See
+  views/Dashboard/markingByTeacher.js.
+
+  GET /school?semesterId= (backend 1a1eed7, dashboard ticket 06; the Principal or a
+  Vice Principal - anyone else 403; a Semester neither current nor CLOSED 404): the
+  School, its Classes and its Subjects per grade level as of the nightly rollup. See
+  views/SchoolOverview/schoolOverview.js for the shape.
 */
 export const dashboardService = {
   async teaching() {
@@ -32,6 +56,15 @@ export const dashboardService = {
   async signalSettings() {
     const answer = await api.get('/dashboard/signal-settings');
     return answer.settings;
+  },
+  async classSummary(classId) {
+    return api.get(`/dashboard/classes/${encodeURIComponent(classId)}`);
+  },
+  async markingByTeacher() {
+    return api.get('/dashboard/marking-by-teacher');
+  },
+  async school(semesterId) {
+    return api.get(semesterId ? `/dashboard/school?semesterId=${encodeURIComponent(semesterId)}` : '/dashboard/school');
   },
   async setSignalSettings(body) {
     const answer = await api.put('/dashboard/signal-settings', body);

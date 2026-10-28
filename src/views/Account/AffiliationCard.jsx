@@ -150,10 +150,10 @@ export const AffiliationCard = ({ onToast }) => {
   const ready = loaded && (bodyKnown || meRead);
 
   return (
-    <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-4 text-left">
+    <section className="border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] bg-white shadow-sm space-y-4 text-left">
       <div className="min-w-0">
-        <h2 className="text-sm font-extrabold text-slate-900 tracking-tight">{t('aff.title')}</h2>
-        <p className="text-xs text-slate-500 font-medium leading-relaxed mt-0.5">{t('aff.body')}</p>
+        <h2 className="text-base font-extrabold text-slate-900 tracking-tight">{t('aff.title')}</h2>
+        <p className="text-[13px] text-slate-500 leading-relaxed mt-0.5">{t('aff.body')}</p>
       </div>
 
       {!ready ? (

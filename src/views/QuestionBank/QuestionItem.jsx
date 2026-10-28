@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
-import { Archive, ArchiveRestore, Check, CheckCircle2, Circle, Copy, Lock, Pencil } from 'lucide-react';
+import { Archive, ArchiveRestore, Check, CheckCircle2, ChevronRight, Circle, Copy, Pencil } from 'lucide-react';
 
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import Select from '../../components/ui/Select';
-import SubjectLabel from '../../components/ui/SubjectLabel';
+import FactLine from '../../components/ui/FactLine';
+import { Unfold } from '../Dashboard/components/HomeCard';
 import QuestionImage from '../../components/questionBank/QuestionImage';
 import { questionBankErrorMessage, isStaleQuestion } from '../../i18n/apiError';
 import { assessmentService } from '../../services/assessmentService';
-import { duplicateGrades, formatQuestionDate, formatSchoolDay, isPrivateOn } from './questionBank';
+import { duplicateGrades, formatQuestionDate, formatSchoolDay, isPrivateOn, plainTextOf } from './questionBank';
 
 /*
-  One question in full, with its answer key, straight in the list (owner,
-  2026-10-07: the bank reads like a question sheet, one column scrolled down -
-  no card to open). Whoever sees a question sees its key - the server's rule
+  One question as a row of the bank's list, opened in place (owner, 2026-10-28,
+  the reviewed mockup, choice B; it was every question in full, 2026-10-07). Closed:
+  its number, its first line as plain text, and one grey line (kind / subject /
+  grade / "Soal saya" / with an image). Open: who wrote it and when, the body in
+  full, its image, the answer key and the actions. Whoever sees a question sees its key - the server's rule
   (assessment.bank.js). What may be done here is the reader's: at the Teacher's
   desk the author edits, archives and restores (`canEdit`), and anyone
   duplicates into a grade of the same subject they teach now; at the
@@ -27,6 +30,8 @@ import { duplicateGrades, formatQuestionDate, formatSchoolDay, isPrivateOn } fro
   @param onStale    () => void - the list is behind; read it again
   @param today      the school's date, 'YYYY-MM-DD': a privacy over by then is
                     not shown (backend abbb3d5 sends the day still)
+  @param open       whether the row is open (one at a time, the list's)
+  @param onToggle   () => void
 */
 
 const tool =
@@ -96,7 +101,7 @@ export const QuestionAnswer = ({ question, t, imageSource = null }) => {
   return <p className="text-sm font-semibold text-slate-600">{t('qbank.essay.note')}</p>;
 };
 
-export const QuestionItem = ({ question, number, pairs = [], writable = false, onEdit, onChanged, onStale, today = '', t, lang }) => {
+export const QuestionItem = ({ question, number, pairs = [], writable = false, onEdit, onChanged, onStale, today = '', t, lang, open = false, onToggle }) => {
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
   /* A copy is a permanent row - the bank has no delete (assessment.bank.js
@@ -129,43 +134,56 @@ export const QuestionItem = ({ question, number, pairs = [], writable = false, o
   const titleId = `qbank-${question.id}-title`;
   const keyId = `qbank-${question.id}-key`;
 
+  const facts = [
+    t(`qbank.kind.${question.kind}`),
+    [question.subject?.code, question.subject?.name].filter(Boolean).join(' - '),
+    t('classes.grade', { n: question.gradeLevel }),
+    question.mine && t('qbank.mineBadge'),
+    question.imageId && t('qbank.hasImage'),
+  ];
+  const about = [
+    t(question.author?.left ? 'qbank.byLeft' : 'qbank.by', { name: question.author?.fullName ?? '' }),
+    t('qbank.updated', { date: formatQuestionDate(question.updatedAt, lang) }),
+    question.duplicatedFromId && t('qbank.duplicate.from'),
+    question.archived && t('qbank.archivedOn', { date: formatQuestionDate(question.archivedAt, lang) }),
+    isPrivateOn(question, today) && t('qbank.private.listed', { date: formatSchoolDay(question.privateUntil, lang) }),
+  ];
+  const panelId = `qbank-${question.id}-panel`;
+
   return (
-    <article aria-labelledby={titleId} className="bg-white border border-slate-100 rounded-2xl shadow-sm p-5 sm:p-6 space-y-4">
-      <div className="flex items-start gap-3">
-        <span className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 text-sm font-extrabold flex items-center justify-center shrink-0">
-          {number}
+    <li className="border-b border-slate-100 last:border-0">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-controls={panelId}
+        className={`w-full flex items-start gap-3 px-[18px] py-3.5 text-left transition-colors cursor-pointer hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand ${
+          open ? 'bg-slate-50' : ''
+        }`}
+      >
+        <span className="w-7 h-7 rounded-full bg-slate-100 text-slate-700 text-xs font-extrabold flex items-center justify-center shrink-0">{number}</span>
+        <span className="min-w-0 flex-1">
+          {/* Closed, its first line; open, the body in full below takes its place. */}
+          {!open && (
+            <span id={titleId} className="block text-sm font-bold text-slate-900 truncate">
+              {plainTextOf(question.body) || t('qbank.imageOnly')}
+            </span>
+          )}
+          <FactLine size="xs" wrap facts={facts} className={open ? 'pt-1' : 'mt-0.5'} />
         </span>
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <h2 id={titleId} className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-600">
-            <span className="px-2 py-0.5 rounded-md bg-brand-tint text-brand text-[11px] font-extrabold">{t(`qbank.kind.${question.kind}`)}</span>
-            <SubjectLabel code={question.subject?.code} name={question.subject?.name} />
-            <span className="text-slate-500">{t('classes.grade', { n: question.gradeLevel })}</span>
-            {question.mine && (
-              <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[11px] font-bold">{t('qbank.mineBadge')}</span>
-            )}
-          </h2>
-          <p className="text-[11px] font-semibold text-slate-500">
-            {t(question.author?.left ? 'qbank.byLeft' : 'qbank.by', { name: question.author?.fullName ?? '' })}
-            {' - '}
-            {t('qbank.updated', { date: formatQuestionDate(question.updatedAt, lang) })}
-            {question.duplicatedFromId && ` - ${t('qbank.duplicate.from')}`}
-            {question.archived && ` - ${t('qbank.archivedOn', { date: formatQuestionDate(question.archivedAt, lang) })}`}
-            {isPrivateOn(question, today) && (
-              <>
-                {' - '}
-                <span className="inline-flex items-center gap-1 align-middle">
-                  <Lock className="w-3 h-3" aria-hidden="true" />
-                  {t('qbank.private.listed', { date: formatSchoolDay(question.privateUntil, lang) })}
-                </span>
-              </>
-            )}
-          </p>
-        </div>
-      </div>
+        <ChevronRight
+          className={`w-4 h-4 mt-1.5 shrink-0 text-slate-400 transition-transform duration-300 ${open ? 'rotate-90' : ''}`}
+          aria-hidden="true"
+        />
+      </button>
+
+      <Unfold open={open}>
+      <article id={panelId} aria-labelledby={open ? keyId : undefined} className="pl-[58px] max-sm:pl-[18px] pr-[18px] pb-5 space-y-4 bg-slate-50">
+      <FactLine size="xs" wrap facts={about} />
 
       <div className="space-y-3">
-        <div className="content-html text-sm text-slate-800 break-words" dangerouslySetInnerHTML={{ __html: question.body ?? '' }} />
-        {question.imageId && <QuestionImage imageId={question.imageId} questionId={question.id} className="max-h-72" />}
+        <div id={open ? titleId : undefined} className="content-html text-sm text-slate-800 break-words" dangerouslySetInnerHTML={{ __html: question.body ?? '' }} />
+        {question.imageId && open && <QuestionImage imageId={question.imageId} questionId={question.id} className="max-h-72" />}
       </div>
 
       <section className="space-y-2" aria-labelledby={keyId}>
@@ -176,13 +194,13 @@ export const QuestionItem = ({ question, number, pairs = [], writable = false, o
       </section>
 
       {error && (
-        <p className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+        <p className="rounded-xl bg-rose-50 p-3.5 text-[13px] text-rose-700 font-semibold" role="alert">
           {error}
         </p>
       )}
 
       {(canEdit || canDuplicate) && (
-        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100">
+        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-200">
           {canEdit && !question.archived && (
             <button type="button" onClick={onEdit} disabled={Boolean(busy)} className={`${tool} bg-brand text-white hover:bg-brand-deep`}>
               <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
@@ -235,7 +253,9 @@ export const QuestionItem = ({ question, number, pairs = [], writable = false, o
         onConfirm={() => act('duplicate')}
         onCancel={() => setConfirming(false)}
       />
-    </article>
+      </article>
+      </Unfold>
+    </li>
   );
 };
 

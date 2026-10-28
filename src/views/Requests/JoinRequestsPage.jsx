@@ -3,6 +3,10 @@ import { useNavigate, useOutletContext } from 'react-router-dom';
 import { ShieldOff, Inbox, ChevronRight, Search, SearchX } from 'lucide-react';
 
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
+import Button from '../../components/ui/Button';
+import EmptyCard from '../../components/ui/EmptyCard';
+import FactLine from '../../components/ui/FactLine';
+import { HomeError } from '../Dashboard/components/HomeCard';
 import { initialsOf } from '../../utils/names';
 import JoinRequestReview from './JoinRequestReview';
 import BulkApproveDialog from './BulkApproveDialog';
@@ -12,8 +16,8 @@ import { isNotBuiltYet } from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import {
   ROLES,
-  ROLE_LABEL_KEY,
   heldRolesOf,
+  roleTitleKey,
   requestInPov,
   releasableInPov,
   releasableLinksInPov,
@@ -193,15 +197,7 @@ export const JoinRequestsPage = () => {
 
   if (denied) {
     return (
-      <div className="py-16 px-6 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
-        <div className="w-11 h-11 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center mx-auto">
-          <ShieldOff className="w-5 h-5 text-slate-400" aria-hidden="true" />
-        </div>
-        <h2 className="mt-3.5 text-sm font-extrabold text-slate-700">{t('requests.denied.title')}</h2>
-        <p className="mt-1.5 text-xs font-semibold text-slate-500 leading-relaxed max-w-sm mx-auto">
-          {t('requests.denied.body')}
-        </p>
-      </div>
+      <EmptyCard icon={ShieldOff} title={t('requests.denied.title')} body={t('requests.denied.body')} />
     );
   }
 
@@ -211,11 +207,20 @@ export const JoinRequestsPage = () => {
 
   return (
     <div className="space-y-6">
+      {/* The slash line, as on the dashboards (owner, 2026-10-28, the reviewed mockup):
+          the school, whose requests this desk decides, how many wait. */}
       <div className="select-none">
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+        <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">
           {t('requests.title')}
         </h1>
-        <p className="text-xs sm:text-sm text-slate-500 font-bold mt-1">{t(`requests.subtitle.${povKey}`)}</p>
+        <FactLine
+          className="mt-2"
+          facts={[
+            membership?.school?.name ?? membership?.schoolName,
+            t(`requests.pov.${povKey}`),
+            !isLoading && !error && t('requests.waitingCount', { n: (inPov.PENDING ?? NO_ROWS).length }),
+          ]}
+        />
       </div>
 
       {/* The School Code used to sit here too. It now lives on the dashboard as a
@@ -232,7 +237,8 @@ export const JoinRequestsPage = () => {
         />
       ) : (
         <>
-          <div className="border-b border-slate-100 flex gap-6 select-none">
+          {/* Text tabs with a counter, as on the dashboards; the waiting count amber. */}
+          <div className="flex gap-0.5 select-none overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shadow-[inset_0_-1px_0_var(--color-slate-100)]">
             {TABS.map((tab) => {
               const isActive = status === tab;
               /* The count is of the queue, not of what the search leaves behind.
@@ -248,17 +254,15 @@ export const JoinRequestsPage = () => {
                     setStatus(tab);
                     setTicked(new Set());
                   }}
-                  className={`pb-3 text-sm font-extrabold transition-all border-b-2 cursor-pointer focus:outline-none flex items-center gap-2 ${
-                    isActive
-                      ? 'border-brand text-brand'
-                      : 'border-transparent text-slate-500 hover:text-slate-600'
+                  className={`px-2.5 py-2 text-sm font-bold border-b-2 whitespace-nowrap transition-colors cursor-pointer focus:outline-none focus-visible:text-brand ${
+                    isActive ? 'text-brand border-brand' : 'text-slate-500 border-transparent hover:text-slate-700'
                   }`}
                 >
                   {t(`requests.tab.${tab}`)}
                   {count > 0 && (
                     <span
-                      className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold tabular-nums ${
-                        isActive ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-600'
+                      className={`ml-1.5 px-1.5 rounded-full text-[11px] tabular-nums ${
+                        tab === 'PENDING' ? 'bg-amber-50 text-amber-700' : isActive ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-600'
                       }`}
                     >
                       {count}
@@ -270,9 +274,7 @@ export const JoinRequestsPage = () => {
           </div>
 
           {error ? (
-            <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700" role="alert">
-              {error}
-            </div>
+            <HomeError message={error} retryLabel={t('att.error.retry')} onRetry={load} />
           ) : isLoading ? (
             <div className="h-40 bg-white border border-slate-100 rounded-2xl animate-pulse" />
           ) : rows.length === 0 ? (
@@ -282,37 +284,20 @@ export const JoinRequestsPage = () => {
               screen has, and "nothing is waiting" has to be legible as an answer
               rather than as an error nobody explained.
             */
-            <div className="py-16 text-center border border-dashed border-slate-200 rounded-2xl bg-white select-none">
-              <Inbox className="w-9 h-9 text-slate-300 mx-auto" aria-hidden="true" />
-              <p className="mt-2.5 text-xs font-extrabold text-slate-500">
-                {t(`requests.queue.empty.${status}`)}
-              </p>
-              <p className="mt-1.5 text-[11px] font-semibold text-slate-500 leading-relaxed max-w-sm mx-auto">
-                {t(`requests.queue.empty.hint.${povKey}`)}
-              </p>
-
-              {/*
-                Only in the waiting tab, and only for somebody who has a code.
-
-                This is where "why has nobody asked?" occurs to a principal who has
-                just had their school approved — and the answer is that they have not
-                handed the code out yet. An empty Accepted or Turned down tab is a
-                different question, and a teacher has no code to share, so neither
-                gets the sentence.
-              */}
-              {status === 'PENDING' && hasSchoolCode && povKey === 'PRINCIPAL' && (
-                <p className="mt-3 text-[11px] font-semibold text-slate-500 leading-relaxed max-w-sm mx-auto">
-                  {t('requests.queue.empty.shareCode')}{' '}
-                  <button
-                    type="button"
-                    onClick={() => navigate('/profile')}
-                    className="font-extrabold text-brand hover:text-brand-deep underline underline-offset-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
-                  >
-                    {t('requests.queue.empty.shareCode.link')}
-                  </button>
-                </p>
-              )}
-            </div>
+            /* The code's way out is a button now, not a link in a sentence (the reviewed
+               mockup): only in the waiting tab, only for somebody who has a code. */
+            <EmptyCard
+              icon={Inbox}
+              title={t(`requests.queue.empty.${status}`)}
+              body={t(status === 'PENDING' && hasSchoolCode && povKey === 'PRINCIPAL' ? 'requests.queue.empty.hintCode' : `requests.queue.empty.hint.${povKey}`)}
+              action={
+                status === 'PENDING' && hasSchoolCode && povKey === 'PRINCIPAL' ? (
+                  <Button size="sm" variant="outline" onClick={() => navigate('/profile')}>
+                    {t('requests.queue.empty.shareCode.button')}
+                  </Button>
+                ) : null
+              }
+            />
           ) : (
             <>
               <div className="relative w-full sm:max-w-sm select-none">
@@ -333,21 +318,43 @@ export const JoinRequestsPage = () => {
               {visible.length === 0 ? (
                 /* Not the same as an empty queue: there are rows here, the search
                    simply hid them. Without a way back the page looks broken. */
-                <div className="py-16 text-center border border-dashed border-slate-200 rounded-2xl bg-white select-none">
-                  <SearchX className="w-9 h-9 text-slate-300 mx-auto" aria-hidden="true" />
-                  <p className="mt-2.5 text-xs font-extrabold text-slate-500">{t('requests.search.empty')}</p>
-                  <button
-                    type="button"
-                    onClick={() => setQuery('')}
-                    className="mt-3 text-xs font-bold text-brand hover:text-brand-deep underline underline-offset-4 cursor-pointer focus:outline-none"
-                  >
-                    {t('requests.search.clear')}
-                  </button>
-                </div>
+                <EmptyCard
+                  icon={SearchX}
+                  title={t('requests.search.empty')}
+                  action={
+                    <Button size="sm" variant="outline" onClick={() => setQuery('')}>
+                      {t('requests.search.clear')}
+                    </Button>
+                  }
+                />
               ) : (
-                <div className="space-y-2.5">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-extrabold text-slate-800 select-none">
+                /* One card of rows, as on Members (owner, 2026-10-28, the reviewed mockup):
+                   the "N dipilih" bar sits on its top edge, the count under it, and a
+                   row's box inside the row, beside the button that opens it (a control
+                   inside a <button> is not valid). */
+                <div className="bg-white border border-slate-100 rounded-2xl shadow-sm min-w-0">
+                  {tickedRows.length > 0 && (
+                    <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 bg-brand-tint rounded-t-2xl border-b border-slate-100 px-[18px] py-2.5" aria-live="polite">
+                      <span className="text-[13px] font-bold text-brand">
+                        {t('requests.bulk.ticked', { n: tickedRows.length })}
+                      </span>
+                      <span className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setTicked(new Set())}
+                          className="text-xs font-bold text-slate-600 hover:text-slate-800 cursor-pointer focus:outline-none focus-visible:underline"
+                        >
+                          {t('requests.bulk.clear')}
+                        </button>
+                        <Button size="sm" onClick={() => setIsBulkOpen(true)}>
+                          {t('requests.bulk.open', { n: tickedRows.length })}
+                        </Button>
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 px-[18px] py-3 border-b border-slate-100">
+                    <p className="text-[13px] font-extrabold text-slate-900 select-none">
                       {t('requests.queue.count', { n: visible.length })}
                     </p>
                     {bulkable.length > 1 && (
@@ -363,32 +370,7 @@ export const JoinRequestsPage = () => {
                     )}
                   </div>
 
-                  {/* The action, once something is ticked. Sticky, so it stays in
-                      reach at the bottom of a long list. */}
-                  {tickedRows.length > 0 && (
-                    <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 bg-brand-tint border border-brand/30 rounded-2xl px-4 py-2.5" aria-live="polite">
-                      <span className="text-xs font-extrabold text-brand">
-                        {t('requests.bulk.ticked', { n: tickedRows.length })}
-                      </span>
-                      <span className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setTicked(new Set())}
-                          className="text-xs font-bold text-slate-600 hover:text-slate-800 cursor-pointer focus:outline-none focus-visible:underline"
-                        >
-                          {t('requests.bulk.clear')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setIsBulkOpen(true)}
-                          className="px-4 py-2 rounded-xl text-xs font-extrabold text-white bg-brand hover:bg-brand-deep shadow-sm cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-                        >
-                          {t('requests.bulk.open', { n: tickedRows.length })}
-                        </button>
-                      </span>
-                    </div>
-                  )}
-
+                  <ul>
                   {visible.map((row) => {
                     const roles = row.roles ?? [];
                     const links = releasableLinksInPov(row, activeRole);
@@ -399,28 +381,24 @@ export const JoinRequestsPage = () => {
 
                     const canTick = status === 'PENDING' && isBulkable(row, activeRole);
 
-                    /* The box sits beside the row, not inside it: the row is a
-                       <button>, and a control inside a button is not valid. */
                     return (
-                      <div key={row.id} className="flex items-stretch gap-2">
+                      <li key={row.id} className="flex items-center gap-3 px-[18px] py-3 border-b border-slate-100 last:border-0">
                       {canTick && (
-                        <label className="shrink-0 flex items-center px-3.5 bg-white border border-slate-100 rounded-2xl shadow-sm cursor-pointer hover:border-brand/40">
-                          <input
-                            type="checkbox"
-                            checked={ticked.has(row.id)}
-                            onChange={() => toggle(row.id)}
-                            aria-label={t('requests.bulk.tickOne', { name: row.applicant?.fullName ?? t('requests.applicant.unnamed') })}
-                            className="w-4 h-4 rounded accent-brand cursor-pointer"
-                          />
-                        </label>
+                        <input
+                          type="checkbox"
+                          checked={ticked.has(row.id)}
+                          onChange={() => toggle(row.id)}
+                          aria-label={t('requests.bulk.tickOne', { name: row.applicant?.fullName ?? t('requests.applicant.unnamed') })}
+                          className="w-4 h-4 shrink-0 rounded accent-brand cursor-pointer"
+                        />
                       )}
                       <button
                         type="button"
                         onClick={() => setSelectedId(row.id)}
-                        className="flex-1 min-w-0 bg-white border border-slate-100 hover:border-brand/40 hover:shadow-md rounded-2xl p-4 shadow-sm flex items-center justify-between gap-4 text-left transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                        className="group flex-1 min-w-0 flex items-center justify-between gap-3 text-left rounded-xl p-1.5 -m-1.5 hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                       >
                         <div className="min-w-0 flex items-center gap-3">
-                          <span className="w-10 h-10 rounded-xl bg-brand-tint text-brand text-xs font-extrabold flex items-center justify-center shrink-0 select-none">
+                          <span className="w-10 h-10 rounded-full bg-brand-tint text-brand text-xs font-extrabold flex items-center justify-center shrink-0 select-none">
                             {initialsOf(row.applicant?.fullName)}
                           </span>
                           {/* Plain text like the member rows (owner, 2026-10-07): what is
@@ -434,7 +412,7 @@ export const JoinRequestsPage = () => {
                                 ? t('requests.link.row', {
                                     names: row.children.filter((link) => link.status === 'PENDING').map((link) => link.student?.fullName).join(', '),
                                   })
-                                : roles.map((entry) => t(ROLE_LABEL_KEY[entry.role] ?? 'requests.role.unknown')).join(', ')}
+                                : roles.map((entry) => t(roleTitleKey(entry.role))).join(', ')}
                             </p>
                             <p className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs font-medium text-slate-500 tabular-nums">
                               {row.student?.gradeLevel != null && <span>{t('requests.field.grade', { n: row.student.gradeLevel })}</span>}
@@ -453,18 +431,18 @@ export const JoinRequestsPage = () => {
 
                         <div className="flex items-center gap-2 shrink-0">
                           {/* Only in the waiting tab: once a request is decided,
-                              whose decision it was stops being the question. */}
+                              whose decision it was stops being the question. Words,
+                              not a chip (the reviewed mockup). */}
                           {mine && status === 'PENDING' && (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-brand-tint text-brand">
-                              {t('requests.role.yours')}
-                            </span>
+                            <span className="text-xs font-bold text-brand whitespace-nowrap">{t('requests.decide.yours')}</span>
                           )}
-                          <ChevronRight className="w-4 h-4 text-slate-300" aria-hidden="true" />
+                          <ChevronRight className="w-4 h-4 text-slate-400 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
                         </div>
                       </button>
-                      </div>
+                      </li>
                     );
                   })}
+                  </ul>
                 </div>
               )}
             </>

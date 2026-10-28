@@ -4,7 +4,6 @@ import { useAuth } from '../../context/AuthContext';
 import { ROLES, heldRolesOf } from '../../constants/roles';
 import ProfileHeader from './components/ProfileHeader';
 import BadgeCase from './components/BadgeCase';
-import LeaderboardWidget from './components/LeaderboardWidget';
 import SchoolCodeCard from '../../components/SchoolCodeCard';
 import AddRoleCard from './components/AddRoleCard';
 import OtherSchoolsCard from './components/OtherSchoolsCard';
@@ -66,15 +65,10 @@ export const ProfilePage = () => {
       {/* The school's own address, for every member (backend a577abd). */}
       <SchoolAddressLine />
 
+      {/* A learner's achievements; the leaderboard and the XP bar went (owner, 2026-10-28:
+          the skill turns down points, levels and leaderboards, and nothing records them). */}
       {isLearner ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-8">
-            <BadgeCase />
-          </div>
-          <div className="lg:col-span-4">
-            <LeaderboardWidget />
-          </div>
-        </div>
+        <BadgeCase />
       ) : (
         <>
           <SchoolCodeCard />

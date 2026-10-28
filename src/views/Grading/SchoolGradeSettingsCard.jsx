@@ -89,10 +89,10 @@ const SchoolGradeSettingsCard = ({ onToast }) => {
   };
 
   return (
-    <section className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-4 text-left">
+    <section className="border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] bg-white shadow-sm space-y-4 text-left">
       <div className="min-w-0">
-        <h2 className="text-sm font-extrabold text-slate-900 tracking-tight">{t('grading.school.title')}</h2>
-        <p className="text-xs text-slate-500 font-medium leading-relaxed mt-0.5">{t('grading.school.body')}</p>
+        <h2 className="text-base font-extrabold text-slate-900 tracking-tight">{t('grading.school.title')}</h2>
+        <p className="text-[13px] text-slate-500 leading-relaxed mt-0.5">{t('grading.school.body')}</p>
       </div>
 
       {failed && !settings ? (
@@ -168,7 +168,7 @@ const SchoolGradeSettingsCard = ({ onToast }) => {
           </fieldset>
 
           {errors.global && (
-            <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+            <div className="rounded-xl bg-rose-50 p-3.5 text-[13px] text-rose-700 font-semibold" role="alert">
               {errors.global}
             </div>
           )}

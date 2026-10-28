@@ -2,6 +2,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation, useOutletContext } from 'react-router-dom';
 
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
+import FactLine from '../../components/ui/FactLine';
+import { HomeError } from '../Dashboard/components/HomeCard';
+import { currentYear } from '../Dashboard/setup';
 import SubjectBoard from './SubjectBoard';
 import TeachingQueue from './TeachingQueue';
 import SubjectCatalog from './SubjectCatalog';
@@ -12,7 +15,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ROLES } from '../../constants/roles';
 import { useT } from '../../i18n/LanguageContext';
 import { subjectsErrorMessage } from '../../i18n/apiError';
-import { SUBJECT_TABS } from './subjects';
+import { SUBJECT_TABS, defaultSemesterOf, subjectsInUse } from './subjects';
 import { notifyPendingChanged } from '../../hooks/usePendingCounts';
 
 /*
@@ -51,6 +54,9 @@ export const SubjectsPage = () => {
   const [catalog, setCatalog] = useState(null);
   const [queue, setQueue] = useState(null);
   const [teachers, setTeachers] = useState(null);
+  /* Every ACTIVE assignment, for the title's count; read again after the board changes one.
+     An ended one keeps status ACTIVE with `endedAt` set, so it is left out. */
+  const [assignments, setAssignments] = useState(null);
   const [errors, setErrors] = useState({});
   const [notBuilt, setNotBuilt] = useState(false);
 
@@ -76,11 +82,21 @@ export const SubjectsPage = () => {
     [fail]
   );
 
+  const loadAssignments = useCallback(
+    () =>
+      academicsService
+        .classSubjects('ACTIVE')
+        .then(setAssignments)
+        .catch(() => setAssignments(null)),
+    []
+  );
+
   useEffect(() => {
     academicsService.academicYears().then(setYears).catch(fail('years'));
+    loadAssignments();
     academicsService.subjects().then(setCatalog).catch(fail('catalog'));
     loadQueue();
-  }, [fail, loadQueue]);
+  }, [fail, loadQueue, loadAssignments]);
 
   const loadTeachers = () => {
     if (teachers !== null) return;
@@ -90,12 +106,25 @@ export const SubjectsPage = () => {
       .catch(() => setTeachers([]));
   };
 
+  /* The slash line, as on the dashboards and Classes (owner, 2026-10-28): the school,
+     the current year and semester, what is taught in it, and the subjects in use. */
+  const today = new Date().toISOString().slice(0, 10);
+  const year = years ? currentYear(years, today) : null;
+  const semesterId = year ? defaultSemesterOf(year, today) : null;
+  const semester = year?.semesters?.find((entry) => entry.id === semesterId) ?? null;
+  const taught = assignments && semesterId ? assignments.filter((entry) => entry.semester?.id === semesterId && !entry.endedAt).length : null;
   const title = (
     <div className="select-none">
-      <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('subjects.title')}</h1>
-      <p className="text-xs sm:text-sm text-slate-500 font-bold mt-1">
-        {t('subjects.subtitle', { school: membership?.school?.name ?? membership?.schoolName ?? '' })}
-      </p>
+      <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('subjects.title')}</h1>
+      <FactLine
+        className="mt-2"
+        facts={[
+          membership?.school?.name ?? membership?.schoolName,
+          year && (semester ? t('teacherDash.academicContext', { year: year.label, n: semester.ordinal }) : year.label),
+          taught !== null && t('subjects.subtitle.taught', { n: taught }),
+          catalog && t('subjects.subtitle.catalog', { n: subjectsInUse(catalog).length }),
+        ]}
+      />
     </div>
   );
 
@@ -108,11 +137,7 @@ export const SubjectsPage = () => {
     );
   }
 
-  const failed = (message) => (
-    <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700" role="alert">
-      {message}
-    </div>
-  );
+  const failed = (message) => <HomeError message={message} />;
   const loading = <div className="h-48 bg-white border border-slate-100 rounded-2xl animate-pulse" aria-label={t('common.loading')} />;
 
   const count = { PENDING: queue?.length ?? 0, CATALOG: catalog?.length ?? 0 };
@@ -121,7 +146,9 @@ export const SubjectsPage = () => {
     <div className="space-y-6">
       {title}
 
-      <div className="border-b border-slate-100 flex gap-6 select-none overflow-x-auto">
+      {/* Text tabs with a counter, as on the dashboards (the skill's recipe); the
+          waiting count stays amber while anything waits. */}
+      <div className="flex gap-0.5 select-none overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shadow-[inset_0_-1px_0_var(--color-slate-100)]">
         {SUBJECT_TABS.map((name) => {
           const isActive = tab === name;
           return (
@@ -130,15 +157,15 @@ export const SubjectsPage = () => {
               type="button"
               onClick={() => setTab(name)}
               aria-pressed={isActive}
-              className={`pb-3 text-sm font-extrabold transition-all border-b-2 cursor-pointer focus:outline-none flex items-center gap-2 shrink-0 whitespace-nowrap ${
-                isActive ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-600'
+              className={`px-2.5 py-2 text-sm font-bold border-b-2 whitespace-nowrap transition-colors cursor-pointer focus:outline-none focus-visible:text-brand ${
+                isActive ? 'text-brand border-brand' : 'text-slate-500 border-transparent hover:text-slate-700'
               }`}
             >
               {t(`subjects.tab.${name}`)}
               {count[name] > 0 && (
                 <span
-                  className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold tabular-nums ${
-                    name === 'PENDING' ? 'bg-amber-100 text-amber-800' : isActive ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-600'
+                  className={`ml-1.5 px-1.5 rounded-full text-[11px] tabular-nums ${
+                    name === 'PENDING' ? 'bg-amber-50 text-amber-700' : isActive ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-600'
                   }`}
                 >
                   {count[name]}
@@ -162,6 +189,7 @@ export const SubjectsPage = () => {
                 loadTeachers={loadTeachers}
                 showToast={showToast}
                 selfId={selfId}
+                onChanged={loadAssignments}
               />
             ))}
 
@@ -178,6 +206,7 @@ export const SubjectsPage = () => {
           error={errors.queue}
           onChanged={() => {
             loadQueue();
+            loadAssignments();
             notifyPendingChanged();
           }}
           showToast={showToast}

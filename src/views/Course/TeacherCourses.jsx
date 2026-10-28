@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
-import { AlertCircle, BookOpen, BookPlus, CalendarClock, ChevronRight, ClipboardCheck, Hourglass, Lock, RefreshCw, School } from 'lucide-react';
+import { BookOpen, BookPlus, ChevronRight, Hourglass, Lock, Search } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -8,6 +8,11 @@ import { academicsService } from '../../services/academicsService';
 import { subjectsErrorMessage } from '../../i18n/apiError';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import Select from '../../components/ui/Select';
+import EmptyCard from '../../components/ui/EmptyCard';
+import FactLine from '../../components/ui/FactLine';
+import { HomeError } from '../Dashboard/components/HomeCard';
+import { readTeachingDashboard } from '../Dashboard/teachingDashboard';
+import { waitingInSlot } from '../TeacherAssessment/markingQueue';
 import { formatDay } from '../Classes/format';
 import { defaultSemesterId, matchesSearch, meetingWhen, progressOf } from '../Classroom/myClasses';
 import { readMyTeaching, forgetMyTeaching } from './readMyTeaching';
@@ -33,13 +38,19 @@ import RequestSubjectDialog from './RequestSubjectDialog';
   `gradebook` (owner, 2026-10-11): the sidebar's "Buku Nilai" - the same cards and
   semester dropdown under its own title, no requests; a card opens the subject's
   "Nilai" tab (/teacher/courses/:id?tab=nilai).
+
+  The look since 2026-10-28 (the mockup the owner reviewed): the slash line, the
+  dashboards' text tabs, a card in the dashboards' frame with the class as grey text,
+  what waits as one amber line - meetings unconfirmed, and assessments waiting to be
+  marked or released (`waitingInSlot` over the teaching dashboard's queue) - and the
+  next meeting on the card's floor; the dashboards' failed and empty states.
 */
 
-const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm';
+const card = 'bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm min-w-0';
 const cardGrid = 'grid grid-cols-[repeat(auto-fill,minmax(max(17.5rem,calc((100%-2rem)/3)),1fr))] gap-4';
 const TABS = ['taught', 'requests'];
 
-const TeachingCard = ({ entry, sessions, onOpen, closed = false }) => {
+const TeachingCard = ({ entry, sessions, waiting = 0, onOpen, closed = false }) => {
   const { t, lang } = useT();
   const progress = progressOf(sessions);
   const percent = progress?.total ? Math.round((progress.held / progress.total) * 100) : 0;
@@ -49,55 +60,60 @@ const TeachingCard = ({ entry, sessions, onOpen, closed = false }) => {
   let line;
   if (closed) line = <span className="text-slate-500">{t('teach.card.yearClosed')}</span>;
   else if (progress === null) line = <span className="text-amber-700">{t('classroom.meetingsFailed')}</span>;
-  else if (progress.total === 0) line = <span className="text-slate-500">{t('teach.noTimetable')}</span>;
-  else if (progress.current) line = <span className="text-emerald-700">{t('classroom.now')}</span>;
-  else if (progress.next) line = <span className="text-slate-600">{t('classroom.next', { when: meetingWhen(progress.next, lang) })}</span>;
-  else line = <span className="text-slate-500">{t('classroom.done')}</span>;
+  else if (progress.total === 0) line = t('teach.noTimetable');
+  else if (progress.current) line = <span className="font-bold text-emerald-700">{t('classroom.now')}</span>;
+  else if (progress.next) line = t('classroom.next', { when: meetingWhen(progress.next, lang) });
+  else line = t('classroom.done');
+  /* What waits on the teacher, as words on one amber line (the reviewed mockup). */
+  const todo = [owed > 0 && t('teach.unconfirmed', { n: owed }), !closed && waiting > 0 && t('teach.card.waiting', { n: waiting })].filter(Boolean);
 
   return (
     <button
       type="button"
       onClick={onOpen}
-      className={`${card} group w-full text-left hover:shadow-md hover:border-brand/30 transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand flex flex-col gap-3`}
+      className={`${card} group w-full text-left hover:shadow-md hover:-translate-y-0.5 motion-reduce:hover:translate-y-0 transition-all duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand flex flex-col gap-3`}
     >
       {/* No icon tile (owner, 2026-10-07): the code above the name already says "subject". */}
-      <span className="flex items-center gap-3">
+      <span className="flex items-start gap-3">
         <span className="min-w-0 flex-1">
           {entry.subject.code && (
             <span className="block text-[10px] font-extrabold uppercase tracking-wider text-brand leading-none">{entry.subject.code}</span>
           )}
           <span className="block mt-1 text-base font-extrabold text-slate-900 leading-tight break-words">{entry.subject.name}</span>
-          <span className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-slate-500 min-w-0">
-            <School className="w-3 h-3 shrink-0" aria-hidden="true" />
-            <span className="break-words">{entry.class.name}</span>
-          </span>
+          <span className="block mt-1 text-xs font-semibold text-slate-500 break-words">{entry.class.name}</span>
         </span>
-        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-brand shrink-0" aria-hidden="true" />
+        <ChevronRight className="w-4 h-4 mt-1 text-slate-400 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-brand" aria-hidden="true" />
       </span>
 
       {progress?.total > 0 && (
-        <span className="block space-y-1.5">
-          <span className="flex items-center justify-between text-[11px] font-semibold text-slate-500 tabular-nums">
+        <span className="block">
+          <span className="flex items-baseline justify-between gap-2 text-[12.5px] text-slate-500 tabular-nums">
             <span>{t('classroom.progress', { held: progress.held, total: progress.total })}</span>
-            <span>{percent}%</span>
+            <span className="shrink-0 text-sm font-extrabold text-slate-700">{percent}%</span>
           </span>
-          <span className="block h-1.5 rounded-full bg-slate-100 overflow-hidden" aria-hidden="true">
+          <span className="block mt-1.5 h-2 rounded-full bg-slate-100 overflow-hidden" aria-hidden="true">
             <span className="block h-full rounded-full bg-brand" style={{ width: `${percent}%` }} />
           </span>
         </span>
       )}
 
-      {owed > 0 && (
-        <span className="inline-flex w-fit items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-50 text-amber-700 text-[11px] font-extrabold">
-          <ClipboardCheck className="w-3.5 h-3.5" aria-hidden="true" />
-          {t('teach.unconfirmed', { n: owed })}
+      {todo.length > 0 && (
+        <span className="flex flex-wrap items-baseline text-[12.5px] font-bold text-amber-700">
+          {todo.map((part, i) => (
+            <React.Fragment key={part}>
+              {i > 0 && (
+                <span className="mx-1.5 font-medium text-slate-300" aria-hidden="true">
+                  /
+                </span>
+              )}
+              <span>{part}</span>
+            </React.Fragment>
+          ))}
         </span>
       )}
 
-      <span className="mt-auto flex items-center gap-1.5 text-xs font-bold">
-        <CalendarClock className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden="true" />
-        {line}
-      </span>
+      {/* mt-auto: on the card's floor whatever sits above it, so a row of cards lines up. */}
+      <span className="mt-auto block pt-2.5 border-t border-slate-100 text-[12.5px] font-semibold text-slate-600">{line}</span>
     </button>
   );
 };
@@ -120,10 +136,12 @@ const RequestRow = ({ entry, onWithdraw }) => {
           <span className="text-sm font-extrabold text-slate-800 break-words">{entry.subject.name}</span>
           <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold ${STATUS_PILL[kind]}`}>{t(`teach.status.${kind}`)}</span>
         </span>
-        <span className="block mt-0.5 text-[11px] font-semibold text-slate-500">
-          {t('teach.requestLine', { className: entry.class.name, n: entry.semester.ordinal, year: entry.semester.academicYear })}
-          {when ? `, ${formatDay(when, lang)}` : ''}
-        </span>
+        <FactLine
+          size="xs"
+          wrap
+          className="mt-0.5"
+          facts={[entry.class.name, `${t('classes.semester.name', { n: entry.semester.ordinal })} ${entry.semester.academicYear}`, when && formatDay(when, lang)]}
+        />
         {(entry.rejectionReason || entry.endReason) && (
           <span className="block mt-1 text-[11px] font-semibold text-slate-600 leading-relaxed">
             {t('teach.reason', { reason: entry.rejectionReason ?? entry.endReason })}
@@ -173,6 +191,19 @@ export const TeacherCourses = ({ gradebook = false }) => {
       cancelled = true;
     };
   }, [attempt, membership?.id]);
+
+  /* Assessments waiting per slot, from the teaching dashboard's queue (kept a minute,
+     shared with the sidebar); none when it cannot be read. */
+  const [queue, setQueue] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    readTeachingDashboard(membership?.id)
+      .then((answer) => !cancelled && setQueue(answer?.queue ?? null))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [membership?.id]);
 
   const reload = () => {
     forgetMyTeaching();
@@ -235,9 +266,21 @@ export const TeacherCourses = ({ gradebook = false }) => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-        <div className="space-y-1 min-w-0">
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t(gradebook ? 'teacherGradebook.title' : 'shell.myCourses')}</h1>
-          <p className="text-sm text-slate-500 font-medium">{t(gradebook ? 'gradebook.pickIntro' : 'teach.subtitle')}</p>
+        <div className="min-w-0">
+          <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">{t(gradebook ? 'teacherGradebook.title' : 'shell.myCourses')}</h1>
+          {gradebook ? (
+            <p className="mt-1 text-sm text-slate-500 font-medium">{t('gradebook.pickIntro')}</p>
+          ) : (
+            /* The slash line (the reviewed mockup): school / the semester shown / subjects in it. */
+            <FactLine
+              className="mt-2"
+              facts={[
+                membership?.school?.name ?? membership?.schoolName,
+                shownSemesterInfo && t('teacherDash.academicContext', { year: shownSemesterInfo.academicYear, n: shownSemesterInfo.ordinal }),
+                data && t('subjects.subtitle.taught', { n: shownCount }),
+              ]}
+            />
+          )}
         </div>
         {!gradebook && (
           <button
@@ -252,7 +295,7 @@ export const TeacherCourses = ({ gradebook = false }) => {
       </div>
 
       {!gradebook && (
-        <div role="tablist" aria-label={t('shell.myCourses')} className="flex gap-6 border-b border-slate-200">
+        <div role="tablist" aria-label={t('shell.myCourses')} className="flex gap-0.5 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shadow-[inset_0_-1px_0_var(--color-slate-100)]">
           {TABS.map((key) => {
             const count = key === 'taught' ? shownCount : groups.waiting.length;
             return (
@@ -262,13 +305,13 @@ export const TeacherCourses = ({ gradebook = false }) => {
                 role="tab"
                 aria-selected={tab === key}
                 onClick={() => setTab(key)}
-                className={`inline-flex items-center gap-2 px-1 pb-3 -mb-px text-sm font-extrabold border-b-2 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-t ${
-                  tab === key ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-800'
+                className={`shrink-0 whitespace-nowrap px-2.5 py-2 text-sm font-bold border-b-2 transition-colors cursor-pointer focus:outline-none focus-visible:text-brand ${
+                  tab === key ? 'text-brand border-brand' : 'text-slate-500 border-transparent hover:text-slate-700'
                 }`}
               >
                 {t(`teach.tab.${key}`)}
                 {data && count > 0 && (
-                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] tabular-nums ${key === 'requests' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                  <span className={`ml-1.5 px-1.5 rounded-full text-[11px] tabular-nums ${key === 'requests' ? 'bg-amber-50 text-amber-700' : tab === key ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-600'}`}>
                     {count}
                   </span>
                 )}
@@ -279,18 +322,7 @@ export const TeacherCourses = ({ gradebook = false }) => {
       )}
 
       {failed && !data ? (
-        <div className={`${card} flex flex-col items-center text-center gap-3 py-10`} role="alert">
-          <AlertCircle className="w-8 h-8 text-rose-500" aria-hidden="true" />
-          <p className="text-sm font-bold text-slate-700">{t('teach.failed')}</p>
-          <button
-            type="button"
-            onClick={reload}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-          >
-            <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
-            {t('att.error.retry')}
-          </button>
-        </div>
+        <HomeError message={t('teach.failed')} retryLabel={t('att.error.retry')} onRetry={reload} />
       ) : !data ? (
         <div className={cardGrid} aria-busy="true" aria-label={t('common.loading')}>
           {[0, 1, 2].map((n) => (
@@ -299,15 +331,11 @@ export const TeacherCourses = ({ gradebook = false }) => {
         </div>
       ) : tab === 'taught' ? (
         groups.taught.length === 0 ? (
-          <div className={`${card} flex flex-col items-center text-center gap-3 py-10`}>
-            <span className="w-14 h-14 rounded-2xl bg-brand-tint text-brand flex items-center justify-center">
-              <BookOpen className="w-7 h-7" aria-hidden="true" />
-            </span>
-            <p className="text-sm font-extrabold text-slate-800">{t('teach.empty.title')}</p>
-            <p className="text-xs font-semibold text-slate-500 max-w-sm leading-relaxed">
-              {t(groups.waiting.length ? 'teach.empty.waiting' : 'teach.empty.body', { n: groups.waiting.length })}
-            </p>
-          </div>
+          <EmptyCard
+            icon={BookOpen}
+            title={t('teach.empty.title')}
+            body={t(groups.waiting.length ? 'teach.empty.waiting' : 'teach.empty.body', { n: groups.waiting.length })}
+          />
         ) : (
           <>
             {/* A plain dropdown, newest first (owner, 2026-10-05: the toolbar with groups
@@ -336,7 +364,7 @@ export const TeacherCourses = ({ gradebook = false }) => {
               </p>
             )}
             {taught.length === 0 ? (
-              <p className={`${card} text-sm font-semibold text-slate-600 text-center py-8`}>{t('classroom.empty.search', { q: query.trim() })}</p>
+              <EmptyCard icon={Search} title={t('classroom.empty.search', { q: query.trim() })} />
             ) : (
               <div className={cardGrid}>
                 {taught.map((entry) => (
@@ -344,6 +372,7 @@ export const TeacherCourses = ({ gradebook = false }) => {
                     key={entry.id}
                     entry={entry}
                     sessions={data.sessionsById[entry.id]}
+                    waiting={waitingInSlot(queue, entry.id)}
                     closed={shownClosed}
                     onOpen={() => navigate(gradebook ? `/teacher/courses/${entry.id}?tab=nilai` : `/teacher/courses/${entry.id}`)}
                   />
@@ -355,12 +384,12 @@ export const TeacherCourses = ({ gradebook = false }) => {
       ) : (
         <div className="space-y-5">
           <section className={card} aria-labelledby="teach-waiting">
-            <h2 id="teach-waiting" className="flex items-center gap-2 text-sm font-extrabold text-slate-800">
-              <Hourglass className="w-4 h-4 text-amber-600" aria-hidden="true" />
+            {/* A heading is words, no icon (the reviewed mockup). */}
+            <h2 id="teach-waiting" className="text-base font-extrabold text-slate-900 tracking-tight">
               {t('teach.waitingTitle')}
             </h2>
             {groups.waiting.length === 0 ? (
-              <p className="mt-2 text-xs font-semibold text-slate-500">{t('teach.waitingNone')}</p>
+              <p className="mt-1.5 text-[13px] text-slate-500">{t('teach.waitingNone')}</p>
             ) : (
               <ul className="mt-1 divide-y divide-slate-100">
                 {groups.waiting.map((entry) => (
@@ -371,7 +400,7 @@ export const TeacherCourses = ({ gradebook = false }) => {
           </section>
           {groups.past.length > 0 && (
             <section className={card} aria-labelledby="teach-history">
-              <h2 id="teach-history" className="text-sm font-extrabold text-slate-800">{t('teach.historyTitle')}</h2>
+              <h2 id="teach-history" className="text-base font-extrabold text-slate-900 tracking-tight">{t('teach.historyTitle')}</h2>
               <ul className="mt-1 divide-y divide-slate-100">
                 {groups.past.map((entry) => (
                   <RequestRow key={entry.id} entry={entry} />

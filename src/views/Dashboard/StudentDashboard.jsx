@@ -1,7 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, CalendarCheck, CalendarDays, ListTodo, School, Star, FileText } from 'lucide-react';
-import InfoChips from '../../components/ui/InfoChips';
+import { CalendarCheck, FileText, ListTodo, Star } from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
@@ -14,10 +13,12 @@ import { currentSubjects } from '../Classroom/myClasses';
 import { readMyProgress } from '../Classroom/readMyProgress';
 import { progressTotals } from '../Classroom/myProgress';
 import { readMyMenu } from '../StudentAssessment/readMyMenu';
-import { handedInOf, nextUpcoming, onTimeOf, todoAcross } from '../StudentAssessment/studentMenu';
-import { ActiveAssessment, CourseProgress } from './components/Widgets';
+import { todoAcross } from '../StudentAssessment/studentMenu';
 import PinnedAnnouncements from './components/PinnedAnnouncements';
-import ProgressBoard from './components/ProgressBoard';
+import ConsistencyCard from './components/ConsistencyCard';
+import TodoCard from './components/TodoCard';
+import SubjectProgressCard from './components/SubjectProgressCard';
+import { streakOf, weekAssessmentsOf, weekOf } from './studentHome';
 import { useSchoolToday } from '../../hooks/useSchoolToday';
 import { useMyExamWeek } from '../Schedule/useMyExamWeek';
 import ExamWeekLine from '../Schedule/ExamWeekLine';
@@ -28,28 +29,25 @@ import { latestAverageOf } from '../ReportCards/reportCards';
 /*
   A student's home screen: the full layout, with nothing invented in it.
 
-  Real on screen (owner, 2026-10-02 to 10-04):
-  - the person's name and their school (`/users/me` through AuthContext);
-  - today's meetings with the check-in button (`TodaySessionsCard`,
-    `GET /sessions/mine`, backend 87f2670), first;
-  - the progress board: materials opened and completed this semester and the
-    last activity (`GET /tracking/me/progress`, backend 0dd8b44);
-  - the attendance stat card (`GET /attendance/me`, backend deb95e8), counted over
-    confirmed meetings as on /attendance, where it leads;
-  - the subjects stat card and "Mata Pelajaran & Kemajuan" (readMyClasses);
-  - the assessments to do, as a stat card and a widget (GET /assessments/mine
-    through readMyMenu, the server's default semester; backend 113ae37, owner
-    2026-10-12), both leading to /assessment.
+  The design the owner approved on 2026-10-27 (the skill
+  `.claude/skills/eduforid-design`, its mockup `examples/dashboard-siswa.html`),
+  in this order:
+  - the greeting and one grey line placing the student (school / class /
+    semester / date);
+  - pinned announcements, kept at the top (owner, 2026-10-27), then the Exam Week
+    line (owner 2026-10-18);
+  - "today" with the check-in (`TodaySessionsCard`, `GET /sessions/mine`) beside
+    Konsistensi - this week's assessments handed in, meetings attended in a row,
+    a dot per day (`studentHome.js`, from `GET /attendance/me` and the menu);
+  - four stat cards: attendance (`GET /attendance/me`), assessments to do
+    (`GET /assessments/mine`), materials not opened (`GET /tracking/me/progress`)
+    and the newest report card's average (`GET /report-cards/mine`, owner
+    2026-10-20); the subjects card went with the old layout (owner, 2026-10-27);
+  - "Perlu dikerjakan" (`TodoCard`) beside "Kemajuan mapel" (`SubjectProgressCard`).
 
-  - the average: the newest report card's (latestAverageOf, GET /report-cards/mine;
-    owner 2026-10-20), leading to it; "-" until a semester closes.
-
-  Everything else - pinned announcements - has no backend route yet, so it renders
-  `notBuilt` / "-", the same "not available yet" the pages behind it show. It used
-  to be sample data under a banner, until the dashboard claimed three active
-  assignments the Assessment page said did not exist. When a route lands, feed the
-  widget its payload and drop `notBuilt`. No record yet, or a failed read, reads
-  "-" with a line saying which - never a 0 nobody counted.
+  Pinned announcements have no backend route yet, so they render `notBuilt`. A
+  read that failed reads "-" or says so in its card with a way to read again -
+  never a 0 nobody counted.
 
   Only one state is worth rendering. A member still waiting on approval never
   arrives here — `activeRolesOf` returns no roles for a membership that is not
@@ -73,12 +71,16 @@ export const StudentDashboard = () => {
   const { user, membership } = useAuth();
   const { t, lang } = useT();
   const navigate = useNavigate();
+  const zone = membership?.school?.timeZone ?? null;
+  const schoolToday = useSchoolToday();
 
   /* undefined → reading; an array → read; null with `failed` → the read failed. */
   const [rows, setRows] = useState(undefined);
   const [failed, setFailed] = useState(false);
-  /* Bumped by a check-in, so the rate card counts the new record. */
+  /* Bumped by a check-in, so the rate card counts the new record and Konsistensi celebrates. */
   const [recorded, setRecorded] = useState(0);
+  /* Bumped by "Coba lagi" on a card that failed. */
+  const [retried, setRetried] = useState(0);
   useEffect(() => {
     let cancelled = false;
     attendanceService
@@ -96,37 +98,40 @@ export const StudentDashboard = () => {
     return () => {
       cancelled = true;
     };
-  }, [recorded]);
+  }, [recorded, retried]);
   const attendance = attendanceStat(rows, failed);
 
-  /* The student's subjects this semester (owner, 2026-10-04): the stat card and
-     the progress widget, from what "Kelas Saya" reads. null while reading. */
-  const [subjects, setSubjects] = useState(null);
+  /* The student's subjects this semester and their meetings (readMyClasses): Kemajuan
+     mapel's rows and the meeting each carries on with. null while reading. */
+  const [classes, setClasses] = useState(null);
   const [subjectsFailed, setSubjectsFailed] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    readMyClasses(membership?.id)
-      .then(({ classSubjects, sessionsById }) => !cancelled && setSubjects(currentSubjects(classSubjects, sessionsById)))
+    readMyClasses(membership?.id, { fresh: retried > 0 })
+      .then(({ classSubjects, sessionsById }) => {
+        if (cancelled) return;
+        setClasses({ subjects: currentSubjects(classSubjects, sessionsById), sessionsById });
+        setSubjectsFailed(false);
+      })
       .catch(() => !cancelled && setSubjectsFailed(true));
     return () => {
       cancelled = true;
     };
-  }, [membership?.id]);
-  const semester = subjects?.[0]?.entry.semester;
+  }, [membership?.id, retried]);
+  const subjects = classes?.subjects ?? null;
 
-  /* The student's own materials progress (backend 0dd8b44, owner 2026-10-04), added
-     up over this semester's subjects once they are known. undefined while reading,
-     null when it failed. */
+  /* The student's own materials progress (backend 0dd8b44, owner 2026-10-04). undefined
+     while reading, null when it failed. */
   const [progress, setProgress] = useState(undefined);
   useEffect(() => {
     let cancelled = false;
-    readMyProgress(membership?.id)
+    readMyProgress(membership?.id, { fresh: retried > 0 })
       .then((answer) => !cancelled && setProgress(answer))
       .catch(() => !cancelled && setProgress(null));
     return () => {
       cancelled = true;
     };
-  }, [membership?.id]);
+  }, [membership?.id, retried]);
   const totals =
     progress === undefined || (subjects === null && !subjectsFailed)
       ? undefined
@@ -149,102 +154,96 @@ export const StudentDashboard = () => {
   }, []);
   const latest = Array.isArray(reportCards) ? latestAverageOf(reportCards) : null;
 
-  /* The assessments to do across every subject: undefined while reading, null when it failed. */
+  /* The semester's assessments: undefined while reading, null when it failed. */
   const [menu, setMenu] = useState(undefined);
   useEffect(() => {
     let cancelled = false;
-    readMyMenu(membership?.id)
+    readMyMenu(membership?.id, null, { fresh: retried > 0 })
       .then((answer) => !cancelled && setMenu(answer))
       .catch(() => !cancelled && setMenu(null));
     return () => {
       cancelled = true;
     };
-  }, [membership?.id]);
+  }, [membership?.id, retried]);
   const todo = menu === undefined ? undefined : menu === null ? null : todoAcross(menu.classes);
-  const handedIn = menu === undefined ? undefined : menu === null ? null : handedInOf(menu.classes);
-  const onTime = menu === undefined ? undefined : menu === null ? null : onTimeOf(menu.classes);
+
+  /* Konsistensi: meetings in a row, this week's days, this week's assessments handed in. */
+  const streak = rows === undefined ? undefined : failed ? null : streakOf(rows);
+  const week = useMemo(() => (Array.isArray(rows) ? weekOf(rows, schoolToday, zone) : []), [rows, schoolToday, zone]);
+  const handed = menu === undefined ? undefined : menu === null ? null : weekAssessmentsOf(menu.classes, schoolToday, zone);
+
   /* The Exam Week of the student's grade (owner 2026-10-18): a line from 14 days
      before, and while it runs the today card holds that day's UTS and UAS. */
-  const schoolToday = useSchoolToday();
   const grade = membership?.student?.class?.gradeLevel ?? null;
   const myGrades = useMemo(() => (grade ? [grade] : membership?.student ? [] : null), [grade, membership?.student]);
   const examReminder = useMyExamWeek(myGrades, schoolToday);
   const examWeekToday = examReminder?.kind === 'running' ? examReminder.week : null;
   const examsToday = useMemo(
-    () => (examWeekToday && menu ? examsByDay(menu.classes, membership?.school?.timeZone ?? null).get(schoolToday) ?? [] : []),
-    [examWeekToday, menu, membership?.school?.timeZone, schoolToday]
+    () => (examWeekToday && menu ? examsByDay(menu.classes, zone).get(schoolToday) ?? [] : []),
+    [examWeekToday, menu, zone, schoolToday]
   );
 
   /* Materials not opened yet, of those published in this semester's subjects (owner, 2026-10-14). */
   const unopened = totals ? Math.max(0, totals.published - totals.opened) : totals;
 
+  const retry = useCallback(() => setRetried((n) => n + 1), []);
+
   const name = user?.fullName || t('dash.greeting.fallback');
   const schoolName = membership?.school?.name ?? membership?.schoolName ?? '';
-
+  const className = membership?.student?.class?.name ?? '';
+  const semester = subjects?.[0]?.entry.semester;
   const today = new Date().toLocaleDateString(lang === 'id' ? 'id-ID' : 'en-GB', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   });
+  const facts = [schoolName, className, semester && t('dash.subjects.semester', { n: semester.ordinal, year: semester.academicYear }), today].filter(Boolean);
 
   return (
     <div className="space-y-6">
-      <div className="select-none text-left">
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+      <div className="text-left">
+        <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight select-none">
           {t(greetingKeyFor(new Date().getHours()), { name })}
         </h1>
-        <InfoChips
-          className="mt-2"
-          items={[schoolName && { icon: School, label: schoolName }, { icon: CalendarDays, label: today }]}
-        />
+        {/* One grey line, the slashes lighter (FactLine's look), in place of the icon chips.
+            The spaces around a slash are where the line may break on a phone: without them
+            the parts, each kept whole, ran off the screen as one word (2026-10-27, 513px). */}
+        <p className="mt-2 text-sm font-medium text-slate-500">
+          {facts.map((fact, i) => (
+            <React.Fragment key={fact}>
+              {i > 0 && (
+                <>
+                  {' '}
+                  <span className="mx-1 text-slate-300" aria-hidden="true">
+                    /
+                  </span>{' '}
+                </>
+              )}
+              <span className="whitespace-nowrap">{fact}</span>
+            </React.Fragment>
+          ))}
+        </p>
       </div>
 
-      {/* Pinned announcements first, then today's schedule beside the progress
-          board, half and half (owner, 2026-10-03). The next-holiday card and the
-          school-announcements widget at the foot of the page went the same day. */}
-      {/* The Exam Week line first: it is about the next days, the announcements are not built yet. */}
+      {/* Pinned announcements stay at the top (owner, 2026-10-27), the Exam Week line under them. */}
+      <PinnedAnnouncements notBuilt />
       <ExamWeekLine reminder={examReminder} />
 
-      <PinnedAnnouncements notBuilt />
-
-      {/* Both cards share the row's height (owner, 2026-10-04): a day with nothing on
-          keeps the full card, its empty state centred. */}
+      {/* Check-in is the one thing here bound to the clock: on now, else next. */}
+      {/* Both rows stretch, so the cards side by side end level (owner, 2026-10-27). */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Check-in is the one thing here bound to the clock. It shows one meeting
-            (on now, else next), and a day with none, or already over, folds to one line. */}
         <TodaySessionsCard focus examWeek={examWeekToday} exams={examsToday} onCheckedIn={() => setRecorded((n) => n + 1)} />
-        <ProgressBoard totals={totals} zone={membership?.school?.timeZone ?? null} handedIn={handedIn} onTime={onTime} />
+        <ConsistencyCard streak={streak} week={week} handed={handed} celebrate={recorded} onRetry={retry} />
       </div>
 
-      {/* The attendance card leads to /attendance and the subjects card to /classroom
-          (2026-10-04); the other three have no onClick:
-          an inert card, not a button that leads nowhere. Five cards leave a hole in
-          two or three columns, so the one with real data spans: the full row in two
-          columns, two of three in three — no hole at any width (owner, 2026-10-03). */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 max-sm:gap-3">
         <StatCard
           title={t('dash.stat.attendance')}
           value={attendance.value}
           subtext={attendance.lines.map((line) => t(line.key, line.vars)).join(', ')}
           icon={CalendarCheck}
           onClick={() => navigate('/attendance')}
-          className="sm:col-span-2 xl:col-span-1"
-        />
-        <StatCard
-          title={t('dash.stat.subjects')}
-          value={subjectsFailed ? '-' : subjects === null ? '…' : String(subjects.length)}
-          subtext={
-            subjectsFailed
-              ? t('dash.att.failed')
-              : semester
-                ? t('dash.subjects.semester', { n: semester.ordinal, year: semester.academicYear })
-                : subjects === null
-                  ? ''
-                  : t('dash.progress.empty')
-          }
-          icon={BookOpen}
-          onClick={() => navigate('/classroom')}
         />
         <StatCard
           title={t('dash.stat.assessments')}
@@ -285,10 +284,15 @@ export const StudentDashboard = () => {
         />
       </div>
 
-      {/* Two cards since the announcements moved to the top (owner, 2026-10-03). */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ActiveAssessment todo={todo} next={menu ? nextUpcoming(menu.classes) : null} zone={membership?.school?.timeZone ?? null} />
-        <CourseProgress subjects={subjects} failed={subjectsFailed} />
+      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-5">
+        <TodoCard todo={todo} zone={zone} today={schoolToday} onRetry={retry} />
+        <SubjectProgressCard
+          subjects={subjects}
+          subjectsFailed={subjectsFailed}
+          progress={progress}
+          sessionsById={classes?.sessionsById}
+          onRetry={retry}
+        />
       </div>
     </div>
   );

@@ -18,6 +18,22 @@ export function progressFor(progress, classSubjectId) {
   return progress?.classSubjects?.find((row) => row.classSubjectId === classSubjectId) ?? null;
 }
 
+/**
+ * One subject's materials as a three-part bar shows them: `published`, `done`
+ * (completed) and `opened` (any progress, the completed ones included), each held
+ * inside what is published. Zeros when the answer has no row for it. The
+ * dashboard's "Kemajuan mapel" and the "Kelas Saya" cards (owner, 2026-10-28).
+ */
+export function materialsOf(progress, classSubjectId) {
+  const contents = progressFor(progress, classSubjectId)?.contents ?? {};
+  const published = contents.published ?? 0;
+  return {
+    published,
+    done: Math.min(contents.completed ?? 0, published),
+    opened: Math.min(Math.max(contents.opened ?? 0, contents.completed ?? 0), published),
+  };
+}
+
 /** A whole percentage of `part` in `whole`, or null when there is nothing to count. */
 export const rateOf = (part, whole) => (whole > 0 ? Math.round((part / whole) * 100) : null);
 

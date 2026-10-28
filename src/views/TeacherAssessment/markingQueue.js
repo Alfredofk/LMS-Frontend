@@ -63,6 +63,16 @@ export function markingQueueOf(queue) {
   return { waitingById, marking, release, releasable };
 }
 
+/**
+ * How many assessments of one slot wait on its teacher - to mark or to release -
+ * for the amber count on the subject page's "Penilaian" tab (owner, 2026-10-28,
+ * the reviewed mockup). The queue holds only what waits, one entry per assessment.
+ *
+ * @param queue  `GET /dashboard/teaching`'s `queue`
+ */
+export const waitingInSlot = (queue, classSubjectId) =>
+  (queue ?? []).filter((entry) => entry.classSubject?.id === classSubjectId && (entry.marking ?? 0) + (entry.release ?? 0) > 0).length;
+
 export function readMarkingQueue(membershipId, { fresh = false } = {}) {
   return readTeachingDashboard(membershipId, { fresh }).then((answer) => markingQueueOf(answer?.queue));
 }

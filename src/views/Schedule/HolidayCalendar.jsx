@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarOff, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
+import EmptyCard from '../../components/ui/EmptyCard';
+import { HomeError } from '../Dashboard/components/HomeCard';
 import Input from '../../components/ui/Input';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import Select from '../../components/ui/Select';
@@ -71,7 +73,7 @@ const emptyExamForm = (semesterId, grades) => ({
   touchedGrades: false,
 });
 
-const HolidayCalendar = ({ canManage = false, showToast }) => {
+const HolidayCalendar = ({ canManage = false, showToast, onSummary }) => {
   const { t, lang } = useT();
   const { membership, refreshMe } = useAuth();
   const today = todayIso();
@@ -117,6 +119,12 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
   const items = useMemo(() => calendarItems(data), [data]);
   const exams = useMemo(() => examWeekItems(data), [data]);
   const shown = useMemo(() => [...items, ...exams].sort((a, b) => a.start.localeCompare(b.start)), [items, exams]);
+
+  /* The page's slash line names the year and its school holidays (owner, 2026-10-28). */
+  const schoolCount = data ? items.filter((item) => item.source === 'SCHOOL').length : null;
+  useEffect(() => {
+    onSummary?.(schoolCount === null ? null : { year, school: schoolCount });
+  }, [onSummary, year, schoolCount]);
 
   /* Holidays first, so a day both a holiday and an Exam Week is painted a holiday. */
   const index = useMemo(() => daysIndex([...items, ...exams]), [items, exams]);
@@ -331,9 +339,7 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
       </div>
 
       {error ? (
-        <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
-          {error}
-        </div>
+        <HomeError message={error} retryLabel={t('att.error.retry')} onRetry={load} />
       ) : data === null ? (
         <div className="space-y-3" aria-label={t('common.loading')}>
           <div className="h-24 bg-white border border-slate-100 rounded-2xl animate-pulse" />
@@ -387,7 +393,7 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
                 semestersError || semesters?.length === 0 ? (
                   <div className="space-y-3 pt-1">
                     {semestersError ? (
-                      <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+                      <div className="rounded-xl bg-rose-50 p-3.5 text-[13px] text-rose-700 font-semibold" role="alert">
                         {semestersError}
                       </div>
                     ) : (
@@ -490,7 +496,7 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
                     </fieldset>
                     <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{t('exam.hint')}</p>
                     {examErrors.global && (
-                      <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+                      <div className="rounded-xl bg-rose-50 p-3.5 text-[13px] text-rose-700 font-semibold" role="alert">
                         {examErrors.global}
                       </div>
                     )}
@@ -539,7 +545,7 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
                   </div>
                   <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{t('holiday.school.hint')}</p>
                   {formErrors.global && (
-                    <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+                    <div className="rounded-xl bg-rose-50 p-3.5 text-[13px] text-rose-700 font-semibold" role="alert">
                       {formErrors.global}
                     </div>
                   )}
@@ -567,11 +573,7 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
           )}
 
           {shown.length === 0 ? (
-            <div className="py-10 text-center border border-dashed border-slate-200 rounded-2xl bg-white select-none">
-              <CalendarOff className="w-7 h-7 text-slate-300 mx-auto" aria-hidden="true" />
-              <p className="mt-2 text-xs font-extrabold text-slate-500">{t('holiday.empty', { year })}</p>
-              <p className="mt-1 text-[11px] font-semibold text-slate-500 max-w-sm mx-auto leading-relaxed">{t('holiday.empty.hint')}</p>
-            </div>
+            <EmptyCard icon={CalendarOff} title={t('holiday.empty', { year })} body={t('holiday.empty.hint')} />
           ) : (
             <>
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -590,7 +592,8 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
                       <h3 className="text-sm font-extrabold text-slate-900 capitalize">{monthName(month)}</h3>
                       <span className="h-px flex-1 bg-slate-100" aria-hidden="true" />
                     </div>
-                    <ul className="space-y-2">
+                    {/* One card of rows per month (owner, 2026-10-28, the reviewed mockup). */}
+                    <ul className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
                       {entries.map((entry) => {
                         const past = entry.end < today;
                         const days = entry.start === entry.end ? entry.start : `${entry.start} ${entry.end}`;
@@ -604,29 +607,34 @@ const HolidayCalendar = ({ canManage = false, showToast }) => {
                                withdraw button used to drop under the row, so that card
                                stood taller and lopsided beside the others). Only the
                                joint-leave picker wraps under, at full width, on a phone. */
-                            className={`rounded-2xl border bg-white p-3 flex flex-wrap sm:flex-nowrap items-center gap-3 transition-shadow ${
-                              isHit ? 'border-brand ring-2 ring-brand/20 shadow-md' : 'border-slate-100 shadow-sm'
+                            className={`px-4 py-3 border-b border-slate-100 last:border-0 flex flex-wrap sm:flex-nowrap items-center gap-3 transition-colors ${
+                              isHit ? 'bg-brand-tint' : ''
                             } ${past ? 'opacity-70' : ''}`}
                           >
                             <div className="flex items-center gap-3 min-w-0 flex-1 basis-56">
                               <DateChip start={entry.start} end={entry.end} lang={lang} past={past} />
                               <div className="min-w-0">
                                 <p className="text-sm font-bold text-slate-800 break-words">{entry.name}</p>
-                                <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-slate-500">
-                                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${KIND_STYLE[entry.kind].soft}`}>
-                                    {t(`holiday.kind.${entry.kind}`)}
-                                  </span>
-                                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600">{when(entry)}</span>
-                                  {entry.source === 'EXAM_WEEK' && (
-                                    <span>
-                                      {entry.type}
-                                      <span className="text-slate-300 font-normal" aria-hidden="true"> / </span>
-                                      {t('exam.forGrades', { grades: entry.gradeLevels.join(', ') })}
-                                    </span>
-                                  )}
-                                  {entry.source === 'JOINT_LEAVE' && entry.choice !== null && entry.choice !== undefined && (
-                                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600">{t('holiday.joint.chosen')}</span>
-                                  )}
+                                {/* The kind as a coloured word, the rest grey with slashes (the reviewed mockup): no chips. */}
+                                <p className="mt-0.5 flex flex-wrap items-baseline text-[12.5px] font-medium text-slate-500">
+                                  {[
+                                    <span key="kind" className={`font-bold ${KIND_STYLE[entry.kind].word}`}>{t(`holiday.kind.${entry.kind}`)}</span>,
+                                    when(entry),
+                                    entry.source === 'EXAM_WEEK' && entry.type,
+                                    entry.source === 'EXAM_WEEK' && t('exam.forGrades', { grades: entry.gradeLevels.join(', ') }),
+                                    entry.source === 'JOINT_LEAVE' && entry.choice !== null && entry.choice !== undefined && t('holiday.joint.chosen'),
+                                  ]
+                                    .filter(Boolean)
+                                    .map((part, i) => (
+                                      <React.Fragment key={i}>
+                                        {i > 0 && (
+                                          <span className="mx-1.5 text-slate-300" aria-hidden="true">
+                                            /
+                                          </span>
+                                        )}
+                                        <span className="whitespace-nowrap">{part}</span>
+                                      </React.Fragment>
+                                    ))}
                                 </p>
                               </div>
                             </div>

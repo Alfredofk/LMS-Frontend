@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { CalendarClock, Pencil, Plus, School } from 'lucide-react';
 
 import SelectField from '../../components/ui/SelectField';
+import Button from '../../components/ui/Button';
+import FactLine from '../../components/ui/FactLine';
+import EmptyCard from '../../components/ui/EmptyCard';
+import SemesterSegments from './SemesterSegments';
 import AssignTeacherDialog from './AssignTeacherDialog';
 import ChangeAssignmentDialog from './ChangeAssignmentDialog';
 import { academicsService } from '../../services/academicsService';
@@ -34,7 +38,7 @@ import { defaultSlot, defaultSemesterOf, freeSubjects, boardWritable, boardAssig
   its teacher stays (backend 85bc687; ChangeAssignmentDialog). Offered where
   "assign" is, and never to a Vice Principal on their own row (`selfId`).
 */
-export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast, selfId = null }) => {
+export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast, selfId = null, onChanged: onBoardChanged = () => {} }) => {
   const { t, lang } = useT();
   const navigate = useNavigate();
   const today = new Date().toISOString().slice(0, 10);
@@ -69,23 +73,16 @@ export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast
 
   /* No year at all, or the chosen one has no semester yet. */
   const noSemester = (
-    <div className="py-14 px-6 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
-      <CalendarClock className="w-9 h-9 text-slate-300 mx-auto" aria-hidden="true" />
-      <h2 className="mt-2.5 text-sm font-extrabold text-slate-700">
-        {year ? t('subjects.board.noSemester.titleOf', { label: year.label }) : t('subjects.board.noSemester.title')}
-      </h2>
-      <p className="mt-1.5 text-xs font-semibold text-slate-500 leading-relaxed max-w-sm mx-auto">
-        {t('subjects.board.noSemester.body')}
-      </p>
-      <button
-        type="button"
-        onClick={() => navigate('/headmaster/classes')}
-        className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand hover:bg-brand-deep text-white text-xs font-extrabold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-      >
-        <School className="w-4 h-4" aria-hidden="true" />
-        {t('subjects.board.noSemester.go')}
-      </button>
-    </div>
+    <EmptyCard
+      icon={CalendarClock}
+      title={year ? t('subjects.board.noSemester.titleOf', { label: year.label }) : t('subjects.board.noSemester.title')}
+      body={t('subjects.board.noSemester.body')}
+      action={
+        <Button size="sm" onClick={() => navigate('/headmaster/classes')}>
+          {t('subjects.board.noSemester.go')}
+        </Button>
+      }
+    />
   );
 
   if (!slot) return noSemester;
@@ -133,29 +130,12 @@ export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast
           </SelectField>
         </div>
         {(year?.semesters ?? []).length > 0 && (
-        <div className="flex flex-col gap-1.5">
-        <span id="board-semester-label" className="text-sm font-semibold text-slate-700 select-none">
-          {t('subjects.board.semester')}
-        </span>
-        <div className="flex gap-2" role="group" aria-labelledby="board-semester-label">
-          {(year?.semesters ?? []).map((entry) => {
-            const active = entry.id === slot.semesterId;
-            return (
-              <button
-                key={entry.id}
-                type="button"
-                aria-pressed={active}
-                onClick={() => setSlot({ yearId: slot.yearId, semesterId: entry.id })}
-                className={`px-5 py-2.5 md:py-3 rounded-xl text-base font-bold border transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
-                  active ? 'bg-brand text-white border-brand' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                {t('classes.semester.name', { n: entry.ordinal })}
-              </button>
-            );
-          })}
-        </div>
-        </div>
+          <SemesterSegments
+            id="board-semester-label"
+            semesters={year.semesters}
+            value={slot.semesterId}
+            onChange={(id) => setSlot({ yearId: slot.yearId, semesterId: id })}
+          />
         )}
       </div>
 
@@ -183,31 +163,30 @@ export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast
       )}
 
       {!semesterId ? null : error ? (
-        <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700" role="alert">
+        <div className="flex items-start gap-2.5 rounded-xl bg-rose-50 p-3.5 text-[13px] font-semibold text-rose-700" role="alert">
           {error}
         </div>
       ) : board === null ? (
         <div className="h-48 bg-white border border-slate-100 rounded-2xl animate-pulse" aria-label={t('common.loading')} />
       ) : board.classes.length === 0 ? (
-        <div className="py-12 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
-          <School className="w-9 h-9 text-slate-300 mx-auto" aria-hidden="true" />
-          <p className="mt-2.5 text-xs font-extrabold text-slate-500">{t('subjects.board.noClasses')}</p>
-        </div>
+        <EmptyCard icon={School} title={t('subjects.board.noClasses')} />
       ) : (
         <ul className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {board.classes.map((entry) => (
-            <li key={entry.id} className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-3">
+            <li key={entry.id} className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm space-y-3 min-w-0">
               <div className="flex items-start justify-between gap-3">
+                {/* The grade as part of one grey line, not a chip (owner, 2026-10-28). */}
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-sm font-extrabold text-slate-800 break-words">{entry.name}</h3>
-                    <span className="px-2 py-0.5 bg-brand-tint text-brand text-[10px] font-extrabold rounded-md">
-                      {t('classes.grade', { n: entry.gradeLevel })}
-                    </span>
-                  </div>
-                  <p className="text-[11px] font-semibold text-slate-500 mt-0.5">
-                    {t('subjects.board.homeroom', { name: entry.homeroomTeacher?.fullName ?? t('classes.detail.noHomeroom') })}
-                  </p>
+                  <h3 className="text-base font-extrabold text-slate-900 tracking-tight break-words">{entry.name}</h3>
+                  <FactLine
+                    size="xs"
+                    wrap
+                    className="mt-0.5"
+                    facts={[
+                      t('classes.grade', { n: entry.gradeLevel }),
+                      t('subjects.board.homeroom', { name: entry.homeroomTeacher?.fullName ?? t('classes.detail.noHomeroom') }),
+                    ]}
+                  />
                 </div>
                 {assignable && (
                   <button
@@ -277,6 +256,7 @@ export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast
               'success'
             );
             load();
+            onBoardChanged();
           }}
         />
       )}
@@ -294,6 +274,7 @@ export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast
             setChanging(null);
             showToast(message, 'success');
             load();
+            onBoardChanged();
           }}
           onStale={(message) => {
             setChanging(null);

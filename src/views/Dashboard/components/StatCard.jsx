@@ -1,4 +1,5 @@
 import React from 'react';
+import { ArrowRight } from 'lucide-react';
 
 /**
  * One metric, with an icon square in the top right - always the brand's pale
@@ -14,7 +15,12 @@ import React from 'react';
  * `className` is for the card's place in a grid (a column span) only — never its
  * look, which this component owns (see CLAUDE.md, "A component's own class beats
  * its caller's").
+ *
+ * A card that leads somewhere says so on hover (owner, 2026-10-27, the skill
+ * `.claude/skills/eduforid-design`): it lifts 2px, its shadow deepens and an
+ * arrow slides in at the end of the subtext. An inert card does none of it.
  */
+
 export const StatCard = ({
   title,
   value,
@@ -31,7 +37,7 @@ export const StatCard = ({
       onClick={onClick}
       className={`${className} w-full text-left bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col justify-between select-none transition-all duration-200 ${
         onClick
-          ? 'cursor-pointer hover:shadow-md hover:border-purple-100/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand'
+          ? 'group cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-brand/20 motion-reduce:hover:translate-y-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand'
           : ''
       }`}
     >
@@ -49,7 +55,15 @@ export const StatCard = ({
         <div className="text-2xl font-extrabold text-slate-900 tracking-tight leading-none">
           {value}
         </div>
-        <p className="text-[11px] text-slate-500 font-normal mt-2">{subtext}</p>
+        <p className="flex items-end justify-between gap-1.5 text-[11px] text-slate-500 font-normal mt-2">
+          <span className="min-w-0">{subtext}</span>
+          {onClick && (
+            <ArrowRight
+              className="w-3.5 h-3.5 shrink-0 text-brand opacity-0 -translate-x-1 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0"
+              aria-hidden="true"
+            />
+          )}
+        </p>
       </div>
     </Tag>
   );

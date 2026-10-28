@@ -1,6 +1,32 @@
 import { describe, expect, it } from 'vitest';
 
-import { barWidth, signalPath, signalView, studentsAcrossClasses } from './teachingDashboard';
+import { barWidth, signalPath, signalView, slotsForCard, studentsAcrossClasses, studentsNeedingSupportAcross } from './teachingDashboard';
+
+describe('studentsNeedingSupportAcross - the "Perlu perhatian" number', () => {
+  it('counts a student flagged in two subjects once', () => {
+    const slots = [
+      { studentsNeedingSupport: [{ studentProfileId: 'a' }, { studentProfileId: 'b' }] },
+      { studentsNeedingSupport: [{ studentProfileId: 'a' }] },
+      { studentsNeedingSupport: [] },
+      {},
+    ];
+    expect(studentsNeedingSupportAcross(slots)).toBe(2);
+    expect(studentsNeedingSupportAcross(null)).toBe(0);
+  });
+});
+
+describe('slotsForCard - the order of "Kelas semester ini"', () => {
+  it('puts slots with support first and empty ones last, keeping the order within', () => {
+    const slots = [
+      { id: 'empty', studentsPlacedNow: 0, studentsNeedingSupport: [] },
+      { id: 'quiet', studentsPlacedNow: 30, studentsNeedingSupport: [] },
+      { id: 'flag1', studentsPlacedNow: 30, studentsNeedingSupport: [{ studentProfileId: 'a' }] },
+      { id: 'quiet2', studentsPlacedNow: 28 },
+      { id: 'flag2', studentsPlacedNow: 30, studentsNeedingSupport: [{ studentProfileId: 'b' }] },
+    ];
+    expect(slotsForCard(slots).map((slot) => slot.id)).toEqual(['flag1', 'flag2', 'quiet', 'quiet2', 'empty']);
+  });
+});
 
 const slot = (id, classId, n) => ({ classSubject: { id, class: { id: classId, name: classId } }, studentsPlacedNow: n });
 

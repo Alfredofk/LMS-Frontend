@@ -57,6 +57,13 @@ export const ROLE_LABEL_KEY = {
   [ROLES.VICE_PRINCIPAL]: 'role.VICE_PRINCIPAL.label',
 };
 
+/*
+  A role as the school names its holder - "Kepala Sekolah" - where a request or a
+  member lists what somebody holds. Not ROLE_LABEL_KEY: that is the picker card's
+  word, "Sekolah" for PRINCIPAL, which /join-requests showed until 2026-10-28.
+*/
+export const roleTitleKey = (role) => (Object.values(ROLES).includes(role) ? `roleTitle.${role}` : 'requests.role.unknown');
+
 /** The one-line pitch under each label on the role picker. */
 export const ROLE_TAGLINE_KEY = {
   [ROLES.STUDENT]: 'role.STUDENT.tagline',

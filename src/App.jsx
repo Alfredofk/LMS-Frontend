@@ -70,6 +70,7 @@ const QuestionBankPage = lazy(() => import('./views/QuestionBank/QuestionBankPag
 const QuestionEditorPage = lazy(() => import('./views/QuestionBank/QuestionEditorPage'));
 const SubjectsPage = lazy(() => import('./views/Subjects/SubjectsPage'));
 const FinalisingPage = lazy(() => import('./views/Grading/FinalisingPage'));
+const SchoolOverviewPage = lazy(() => import('./views/SchoolOverview/SchoolOverviewPage'));
 const MyReportCardsPage = lazy(() => import('./views/ReportCards/MyReportCardsPage'));
 const ReportCardPage = lazy(() => import('./views/ReportCards/ReportCardPage'));
 
@@ -298,6 +299,7 @@ const router = createBrowserRouter(
             <Route path="/headmaster/members" element={<MembersPage />} />
             <Route path="/headmaster/subjects" element={<SubjectsPage />} />
             <Route path="/headmaster/finalising" element={<FinalisingPage />} />
+            <Route path="/headmaster/overview" element={<SchoolOverviewPage />} />
           </Route>
 
           {/*

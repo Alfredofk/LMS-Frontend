@@ -132,7 +132,7 @@ export const PasswordForm = ({ onChanged }) => {
     <form onSubmit={handleSubmit} className="space-y-4 text-left flex-1 flex flex-col">
       {errors.global && (
         <div
-          className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700"
+          className="rounded-xl bg-rose-50 p-3.5 text-[13px] text-rose-700 font-semibold"
           role="alert"
         >
           {errors.global}

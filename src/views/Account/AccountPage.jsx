@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 
 import AuthLayout from '../../layouts/AuthLayout';
 import Toast from '../../components/ui/Toast';
 import LanguageSwitch from '../../components/ui/LanguageSwitch';
+import FactLine from '../../components/ui/FactLine';
 import { useTheme } from '../../theme/useTheme';
 import ProfileForm from './ProfileForm';
 import PasswordForm from './PasswordForm';
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
-import { GOVERNING_BODY_HOME, homeFor, ROLES } from '../../constants/roles';
+import { GOVERNING_BODY_HOME, homeFor, roleTitleKey, ROLES } from '../../constants/roles';
 import LeaveCard from './LeaveCard';
 import SchoolPlaceCard from './SchoolPlaceCard';
 import SchoolGradeSettingsCard from '../Grading/SchoolGradeSettingsCard';
@@ -43,18 +44,31 @@ import DeleteAccountCard from './DeleteAccountCard';
   sidebar is the way out, and a second copy of each would compete with them.
 */
 
+/* The dashboards' card frame since 2026-10-28 (owner, the reviewed mockup); every card on
+   this page wears it, the ones in their own files too. */
 const Card = ({ title, children, className = '' }) => (
-  <section className={`border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-4 text-left ${className}`}>
-    <h2 className="text-sm font-extrabold text-slate-900 tracking-tight">{title}</h2>
+  <section className={`border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] bg-white shadow-sm space-y-4 text-left ${className}`}>
+    <h2 className="text-base font-extrabold text-slate-900 tracking-tight">{title}</h2>
     {children}
   </section>
 );
 
+/* A leader's twelve cards ran 5,776px on a phone, so they sit on three text tabs, kept in
+   `?tab=` (owner, 2026-10-28, choice A). Everybody else has six and no tabs. */
+const TABS = ['account', 'school', 'leave'];
+
 export const AccountPage = () => {
   const navigate = useNavigate();
-  const { user, activeRole, governingBody } = useAuth();
+  const { user, membership, activeRole, governingBody } = useAuth();
   const { t } = useT();
   const { isDark, followsDevice, setDark } = useTheme();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const leads = activeRole === ROLES.PRINCIPAL || activeRole === ROLES.VICE_PRINCIPAL;
+  const tab = leads && TABS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'account';
+  /* With no tabs every part shows. */
+  const shows = (part) => !leads || tab === part;
+  const toast_ = (message, type) => setToast({ message, type });
 
   const [toast, setToast] = useState(null);
 
@@ -98,12 +112,36 @@ export const AccountPage = () => {
             about where it had landed. Slate rather than brand: the purple title
             belongs to the purple column, and there is no purple column here.
           */}
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
-            {t('account.title')}
-          </h1>
-          <p className="text-xs font-semibold text-slate-500 break-all">
-            {user?.email ? t('account.subtitle', { email: user.email }) : ''}
-          </p>
+          {/* School / the role in use / the email, one grey line (owner, 2026-10-28). */}
+          <div>
+            <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">
+              {t('account.title')}
+            </h1>
+            <FactLine
+              className="mt-2"
+              wrap
+              facts={[membership?.school?.name ?? membership?.schoolName, t(roleTitleKey(activeRole)), user?.email]}
+            />
+          </div>
+
+          {leads && (
+            <div role="tablist" className="flex gap-0.5 select-none overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shadow-[inset_0_-1px_0_var(--color-slate-100)]">
+              {TABS.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === name}
+                  onClick={() => setSearchParams(name === 'account' ? {} : { tab: name }, { replace: true })}
+                  className={`px-2.5 py-2 text-sm font-bold border-b-2 whitespace-nowrap transition-colors cursor-pointer focus:outline-none focus-visible:text-brand ${
+                    tab === name ? 'text-brand border-brand' : 'text-slate-500 border-transparent hover:text-slate-700'
+                  }`}
+                >
+                  {t(`account.tab.${name}`)}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/*
             Two columns, because every other page inside this shell fills its
@@ -129,6 +167,8 @@ export const AccountPage = () => {
           */}
           {/* Language and theme side by side on a wide screen: each is one line,
               and at full width they were two long, nearly empty bars (2026-10-08). */}
+          {shows('account') && (
+          <>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card title={t('account.language.title')}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -178,37 +218,33 @@ export const AccountPage = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {body}
           </div>
+          </>
+          )}
 
           {/* The school's point and time zone — the Principal's to set (SchoolPlaceCard). */}
-          {activeRole === ROLES.PRINCIPAL && (
-            <SchoolPlaceCard onToast={(message, type) => setToast({ message, type })} />
-          )}
+          {shows('school') && activeRole === ROLES.PRINCIPAL && <SchoolPlaceCard onToast={toast_} />}
 
           {/* The school's grade weights, KKTP and remedial rule - the Principal's and a
               Vice Principal's to set (backend 5d42af6, SchoolGradeSettingsCard). */}
-          {(activeRole === ROLES.PRINCIPAL || activeRole === ROLES.VICE_PRINCIPAL) && (
-            <SchoolGradeSettingsCard onToast={(message, type) => setToast({ message, type })} />
-          )}
+          {shows('school') && leads && <SchoolGradeSettingsCard onToast={toast_} />}
 
           {/* When a teacher's dashboard flags a student as needing support - the Principal's
               and a Vice Principal's to set (backend 002298e, SignalSettingsCard). */}
-          {(activeRole === ROLES.PRINCIPAL || activeRole === ROLES.VICE_PRINCIPAL) && (
-            <SignalSettingsCard onToast={(message, type) => setToast({ message, type })} />
-          )}
+          {shows('school') && leads && <SignalSettingsCard onToast={toast_} />}
 
           {/* The report card's letterhead - the Principal's alone (backend 4dae152, LetterheadCard). */}
-          {activeRole === ROLES.PRINCIPAL && <LetterheadCard onToast={(message, type) => setToast({ message, type })} />}
+          {shows('school') && activeRole === ROLES.PRINCIPAL && <LetterheadCard onToast={toast_} />}
 
           {/* Asking a foundation to take an independent school in - the Principal's alone (backend 261a9c7, AffiliationCard). */}
-          {activeRole === ROLES.PRINCIPAL && <AffiliationCard onToast={(message, type) => setToast({ message, type })} />}
+          {shows('school') && activeRole === ROLES.PRINCIPAL && <AffiliationCard onToast={toast_} />}
 
           {/* Handing the school to a new Principal — the only way a Principal leaves. */}
-          {activeRole === ROLES.PRINCIPAL && <HandoverCard />}
+          {shows('leave') && activeRole === ROLES.PRINCIPAL && <HandoverCard />}
 
-          <LeaveCard onToast={(message, type) => setToast({ message, type })} />
+          {shows('leave') && <LeaveCard onToast={toast_} />}
 
           {/* Last, and apart: deleting the account itself (DeleteAccountCard). */}
-          <DeleteAccountCard />
+          {shows('leave') && <DeleteAccountCard />}
 
         </div>
       </>

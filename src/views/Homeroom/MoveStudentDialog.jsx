@@ -122,7 +122,7 @@ export const MoveStudentDialog = ({ student, fromClass, onClose, onRequested }) 
         </div>
 
         {loadError ? (
-          <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+          <div className="rounded-xl bg-rose-50 p-3.5 text-[13px] text-rose-700 font-semibold" role="alert">
             {loadError}
           </div>
         ) : targets === null ? (
@@ -148,8 +148,8 @@ export const MoveStudentDialog = ({ student, fromClass, onClose, onRequested }) 
                   {group.classes.map((target) => (
                     <option key={target.id} value={target.id} disabled={!target.acceptsMoves}>
                       {target.acceptsMoves
-                        ? `${target.name} — ${target.homeroomTeacher.fullName}`
-                        : `${target.name} — ${t('moves.request.noHomeroom')}`}
+                        ? `${target.name} - ${target.homeroomTeacher.fullName}`
+                        : `${target.name} - ${t('moves.request.noHomeroom')}`}
                     </option>
                   ))}
                 </optgroup>
@@ -197,7 +197,7 @@ export const MoveStudentDialog = ({ student, fromClass, onClose, onRequested }) 
         )}
 
         {errors.global && (
-          <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+          <div className="rounded-xl bg-rose-50 p-3.5 text-[13px] text-rose-700 font-semibold" role="alert">
             {errors.global}
           </div>
         )}

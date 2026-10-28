@@ -35,6 +35,27 @@ export function forgetTeachingDashboard() {
 }
 
 /**
+ * Students needing support across the slots, each counted once however many of
+ * the teacher's subjects flag them: the dashboard's "Perlu perhatian" card (owner
+ * 2026-10-27, the approved teacher mockup).
+ */
+export function studentsNeedingSupportAcross(slots) {
+  const ids = new Set();
+  for (const slot of slots ?? []) for (const student of slot.studentsNeedingSupport ?? []) ids.add(student.studentProfileId);
+  return ids.size;
+}
+
+/**
+ * The slots in the order "Kelas semester ini" lists them: those with students
+ * needing support first, then the rest with students, then those with none -
+ * each group in the server's order.
+ */
+export function slotsForCard(slots) {
+  const rank = (slot) => ((slot.studentsNeedingSupport ?? []).length > 0 ? 0 : (slot.studentsPlacedNow ?? 0) > 0 ? 1 : 2);
+  return [...(slots ?? [])].map((slot, i) => ({ slot, i })).sort((a, b) => rank(a.slot) - rank(b.slot) || a.i - b.i).map(({ slot }) => slot);
+}
+
+/**
  * Students placed now across the slots, each class counted once: its subjects
  * share its roster, so two of them are the same students.
  */

@@ -1,6 +1,8 @@
 import React from 'react';
 import { Trophy, Lock } from 'lucide-react';
 
+import { HomeEmpty } from '../../Dashboard/components/HomeCard';
+
 import { useT } from '../../../i18n/LanguageContext';
 
 /*
@@ -12,12 +14,13 @@ import { useT } from '../../../i18n/LanguageContext';
   Badge, Achievement, Xp, Level, Point or Streak model, and nothing in the
   backend counts logins, streaks or submissions.
 
-  So the list is empty rather than fabricated, matching LeaderboardWidget beside
-  it. The badge *rules* were the invented part — a locked badge still promises
+  So the list is empty rather than fabricated. The badge *rules* were the invented part — a locked badge still promises
   that finishing five modules earns something, and nothing does.
 
   When the models land, fill `badges` from the API; the card below already
-  renders a list and an empty state.
+  renders a list and an empty state. The card stays meanwhile (owner, 2026-10-28):
+  a student should know achievements exist and they have none yet; its empty state
+  is the dashboards' since that day, and the leaderboard beside it went.
 */
 
 export const BadgeCase = () => {
@@ -26,19 +29,14 @@ export const BadgeCase = () => {
   const badges = [];
 
   return (
-    <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm flex flex-col justify-between text-left select-none hover:shadow-md transition-shadow duration-200">
+    <div className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm flex flex-col justify-between text-left select-none">
       <div>
-        <h3 className="text-base font-extrabold text-slate-900 tracking-tight pb-6">
+        <h3 className="text-base font-extrabold text-slate-900 tracking-tight pb-4">
           {t('profile.achievements')}
         </h3>
 
         {badges.length === 0 ? (
-          <div className="py-10 flex flex-col items-center justify-center text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/40">
-            <Trophy className="w-7 h-7 text-slate-300 mb-2" aria-hidden="true" />
-            <p className="text-xs font-semibold text-slate-600">
-              {t('profile.achievements.empty')}
-            </p>
-          </div>
+          <HomeEmpty icon={Trophy} title={t('profile.achievements.empty')} body={t('profile.achievements.emptyBody')} />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
             {badges.map((badge) => {

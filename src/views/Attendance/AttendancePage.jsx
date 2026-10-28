@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, CalendarCheck, Clock, MapPinOff, RefreshCw } from 'lucide-react';
+import { CalendarCheck, Clock } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -9,6 +9,9 @@ import { STATUSES, STATUS_DOT, localOf, summarize, bySubject, historyOf } from '
 import TodaySessionsCard from './TodaySessionsCard';
 import AttendanceSummaryCard from './AttendanceSummaryCard';
 import Select from '../../components/ui/Select';
+import EmptyCard from '../../components/ui/EmptyCard';
+import FactLine from '../../components/ui/FactLine';
+import { Bone, HomeError } from '../Dashboard/components/HomeCard';
 
 /*
   A student's own attendance (owner, 2026-10-02), from `GET /attendance/me`
@@ -30,6 +33,11 @@ import Select from '../../components/ui/Select';
   - Today's meetings and the check-in button sit on top (`TodaySessionsCard`,
     the same card as on the dashboard; backend 87f2670, owner 2026-10-03). A
     check-in reads the history again, so the new record is counted at once.
+  - The look since 2026-10-28 (the mockup the owner reviewed): no padding of its
+    own inside MainLayout's (its title sat 32px in from every other page's), the
+    slash line, a history row's facts as one grey line with "Terlambat" and "Di luar
+    area sekolah" as words, a class named in grey rather than a chip, and the
+    dashboards' failed, loading and empty states.
 */
 
 const STATUS_PILL = {
@@ -40,7 +48,7 @@ const STATUS_PILL = {
 };
 
 const pill = 'px-2 py-0.5 rounded-md text-[10px] font-extrabold whitespace-nowrap';
-const card = 'bg-white border border-slate-100 rounded-2xl p-5 shadow-sm';
+const card = 'bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm min-w-0';
 
 export const AttendancePage = () => {
   const { t, lang } = useT();
@@ -87,15 +95,22 @@ export const AttendancePage = () => {
 
   const heading = (
     <div>
-      <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{t('att.title')}</h1>
-      <p className="text-sm text-slate-500 font-semibold mt-1">{t('att.subtitle')}</p>
+      <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('att.title')}</h1>
+      <FactLine
+        className="mt-2"
+        facts={[
+          membership?.school?.name ?? membership?.schoolName,
+          membership?.student?.class?.name,
+          total.confirmed > 0 && t('att.confirmedCount', { n: total.confirmed }),
+        ]}
+      />
     </div>
   );
 
   const today = <TodaySessionsCard onCheckedIn={() => setAttempt((n) => n + 1)} />;
 
   const shell = (body) => (
-    <div className="flex-1 overflow-y-auto bg-canvas p-4 sm:p-8 font-sans flex flex-col gap-5">
+    <div className="w-full flex flex-col gap-5 text-left">
       {heading}
       {today}
       {body}
@@ -104,37 +119,31 @@ export const AttendancePage = () => {
 
   if (failed) {
     return shell(
-      <div className={`${card} flex flex-col items-start gap-3`} role="alert">
-        <p className="flex items-center gap-2 text-sm font-extrabold text-rose-700">
-          <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
-          {t('att.error.title')}
-        </p>
-        <p className="text-xs font-semibold text-slate-500">{t('att.error.body')}</p>
-        <button
-          type="button"
-          onClick={() => setAttempt((n) => n + 1)}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-extrabold text-brand bg-brand-tint hover:bg-brand hover:text-white rounded-xl transition-all cursor-pointer"
-        >
-          <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
-          {t('att.error.retry')}
-        </button>
-      </div>
+      <HomeError
+        message={`${t('att.error.title')}. ${t('att.error.body')}`}
+        retryLabel={t('att.error.retry')}
+        onRetry={() => setAttempt((n) => n + 1)}
+      />
     );
   }
 
   if (rows === null) {
-    return shell(<p className="text-xs font-semibold text-slate-500 animate-pulse">{t('att.loading')}</p>);
+    return shell(
+      <div className={card} aria-busy="true" aria-label={t('att.loading')}>
+        <div className="flex items-center gap-4">
+          <Bone className="w-20 h-20 rounded-full shrink-0" />
+          <div className="flex-1">
+            <Bone className="h-3.5 w-2/5" />
+            <Bone className="h-3 w-3/5 mt-2" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (rows.length === 0) {
     return shell(
-      <div className={`${card} py-12 flex flex-col items-center text-center`}>
-        <span className="w-12 h-12 bg-brand-tint text-brand rounded-2xl flex items-center justify-center mb-3">
-          <CalendarCheck className="w-6 h-6" aria-hidden="true" />
-        </span>
-        <h2 className="text-sm font-extrabold text-slate-800">{t('att.empty.title')}</h2>
-        <p className="text-xs font-semibold text-slate-500 mt-1 max-w-sm leading-relaxed">{t('att.empty.body')}</p>
-      </div>
+      <EmptyCard icon={CalendarCheck} title={t('att.empty.title')} body={t('att.empty.body')} />
     );
   }
 
@@ -146,7 +155,7 @@ export const AttendancePage = () => {
       <AttendanceSummaryCard total={total} />
 
       {/* The same per subject: a bar split by status, with the counts in words under it. */}
-      <section className={`${card} sm:p-6`} aria-labelledby="att-subjects">
+      <section className={card} aria-labelledby="att-subjects">
         <h2 id="att-subjects" className="text-base font-extrabold text-slate-800 tracking-tight mb-1">
           {t('att.subjects.title')}
         </h2>
@@ -162,7 +171,7 @@ export const AttendancePage = () => {
                   )}
                   <span className="block mt-1 text-sm font-extrabold text-slate-800 break-words">
                     {group.subject.name}
-                    {manyClasses && group.className && <ClassTag name={group.className} />}
+                    {manyClasses && group.className && <span className="ml-2 text-xs font-semibold text-slate-500">{group.className}</span>}
                   </span>
                 </span>
                 <span className="shrink-0 text-lg font-extrabold text-slate-800 tabular-nums leading-none">
@@ -201,7 +210,7 @@ export const AttendancePage = () => {
       </section>
 
       {/* Every meeting, newest first: a date tile, what it was, and its status. */}
-      <section className={`${card} sm:p-6`} aria-labelledby="att-history">
+      <section className={card} aria-labelledby="att-history">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-1">
           <h2 id="att-history" className="text-base font-extrabold text-slate-800 tracking-tight">
             {t('att.log.title')}
@@ -244,36 +253,27 @@ export const AttendancePage = () => {
                   )}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-extrabold text-slate-800 break-words">
-                    {row.session.subject.name}
-                    {manyClasses && row.session.class && <ClassTag name={row.session.class} />}
-                  </span>
-                  <span className="block text-xs font-semibold text-slate-500 mt-0.5">
-                    {t('timetable.session.number', { n: row.session.number })}
-                  </span>
-                  {start && (
-                    <span className="flex flex-wrap gap-x-2 text-[11px] font-semibold text-slate-500 tabular-nums mt-0.5">
-                      <span>
-                        {dayName(start.dayOfWeek, lang, 'short')}, {timeRange(start.time, end?.time ?? start.time)}
-                      </span>
-                      {checkedIn && <span>{t('att.checkedInAt', { time: checkedIn.time })}</span>}
-                    </span>
-                  )}
+                  <span className="block text-sm font-extrabold text-slate-800 break-words">{row.session.subject.name}</span>
+                  {/* One grey line (the reviewed mockup): the class when there are several,
+                      the meeting, its day and time, the check-in. */}
+                  <SlashLine
+                    className="mt-0.5 tabular-nums"
+                    parts={[
+                      manyClasses && row.session.class,
+                      t('timetable.session.number', { n: row.session.number }),
+                      start && `${dayName(start.dayOfWeek, lang, 'short')}, ${timeRange(start.time, end?.time ?? start.time)}`,
+                      checkedIn && t('att.checkedInAt', { time: checkedIn.time }),
+                    ]}
+                  />
+                  {/* The flags as words, not chips; late stays amber, as a warning. */}
                   {(row.late || row.outsideSchool) && (
-                    <span className="flex flex-wrap gap-1.5 mt-1.5">
-                      {row.late && (
-                        <span className={`${pill} bg-amber-50 text-amber-700 inline-flex items-center gap-1`}>
-                          <Clock className="w-3 h-3" aria-hidden="true" />
-                          {t('att.flag.late')}
-                        </span>
-                      )}
-                      {row.outsideSchool && (
-                        <span className={`${pill} bg-slate-100 text-slate-600 inline-flex items-center gap-1`}>
-                          <MapPinOff className="w-3 h-3" aria-hidden="true" />
-                          {t('att.flag.outside')}
-                        </span>
-                      )}
-                    </span>
+                    <SlashLine
+                      className="mt-0.5"
+                      parts={[
+                        row.late && <span className="font-semibold text-amber-700">{t('att.flag.late')}</span>,
+                        row.outsideSchool && t('att.flag.outside'),
+                      ]}
+                    />
                   )}
                 </span>
                 <span className="flex flex-col items-end gap-1 shrink-0">
@@ -295,8 +295,20 @@ export const AttendancePage = () => {
   );
 };
 
-const ClassTag = ({ name }) => (
-  <span className="ml-2 align-middle px-1.5 py-0.5 rounded-md bg-brand-tint text-brand text-[10px] font-extrabold">{name}</span>
+/* Parts of one grey line, a light " / " between them; a part may be a node (late, in amber). */
+const SlashLine = ({ parts, className = '' }) => (
+  <span className={`flex flex-wrap items-baseline text-[12.5px] font-medium text-slate-500 ${className}`}>
+    {parts.filter(Boolean).map((part, i) => (
+      <React.Fragment key={i}>
+        {i > 0 && (
+          <span className="mx-1.5 text-slate-300" aria-hidden="true">
+            /
+          </span>
+        )}
+        <span className="whitespace-nowrap">{part}</span>
+      </React.Fragment>
+    ))}
+  </span>
 );
 
 /* A meeting's day as a small tile: month and day, and the year when it is not this one. */

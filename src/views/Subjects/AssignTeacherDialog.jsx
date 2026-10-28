@@ -161,7 +161,7 @@ export const AssignTeacherDialog = ({ boardClass, semester, subjects, teachers, 
         )}
 
         {errors.global && (
-          <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+          <div className="flex items-start gap-2.5 rounded-xl bg-rose-50 p-3.5 text-[13px] font-semibold text-rose-700" role="alert">
             {errors.global}
           </div>
         )}

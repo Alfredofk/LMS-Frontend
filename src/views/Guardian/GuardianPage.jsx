@@ -1,15 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Info, Pencil, Plus, Users } from 'lucide-react';
+import { Info, Plus, Users } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import FactLine from '../../components/ui/FactLine';
+import { HomeEmpty } from '../Dashboard/components/HomeCard';
 import ChildFields, { RelationshipField } from '../../components/ChildFields';
 import NextHolidayCard from '../../components/holidays/NextHolidayCard';
 import { membershipService } from '../../services/membershipService';
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
 import { guardianErrorMessage } from '../../i18n/apiError';
+import { initialsOf } from '../../utils/names';
+import { roleTitleKey, ROLES } from '../../constants/roles';
 import { childErrors, childPayload, nestedFieldErrors, validateRelationship } from '../../utils/validation';
 
 /*
@@ -50,12 +54,16 @@ import { childErrors, childPayload, nestedFieldErrors, validateRelationship } fr
   reason ProfilePage and ClassesPage read it once on mount, through a ref.
 */
 
-const STATUS_BADGE = {
-  ACTIVE: 'bg-emerald-50 text-emerald-700',
-  PENDING: 'bg-amber-50 text-amber-700',
-  REJECTED: 'bg-rose-50 text-rose-700',
-  CANCELLED: 'bg-slate-100 text-slate-600',
+/* A link's state is a coloured word in the row's grey line, not a pill (owner, 2026-10-28,
+   the reviewed mockup); an ended link reads as CANCELLED's grey. */
+const STATUS_WORD = {
+  ACTIVE: 'text-emerald-700',
+  PENDING: 'text-amber-700',
+  REJECTED: 'text-rose-700',
+  CANCELLED: 'text-slate-600',
 };
+
+const ERROR_BOX = 'rounded-xl bg-rose-50 p-3.5 text-[13px] text-rose-700 font-semibold';
 
 const OWNED_FIELDS = ['childNisn', 'childFullName', 'relationship'];
 const EMPTY = { childNisn: '', childFullName: '', relationship: '' };
@@ -90,6 +98,9 @@ export const GuardianPage = () => {
   /* The sign-in shape has no children array; until /users/me answers, loading. */
   const children = Array.isArray(membership?.children) ? membership.children : null;
   const schoolName = membership?.school?.name ?? membership?.schoolName ?? '';
+  /* The slash line counts the children linked now, and those waiting (owner, 2026-10-28). */
+  const linked = children?.filter((link) => link.status === 'ACTIVE' && !link.endedAt).length ?? null;
+  const waiting = children?.filter((link) => link.status === 'PENDING').length ?? 0;
 
   const change = (name) => (e) => {
     const { value } = e.target;
@@ -175,22 +186,29 @@ export const GuardianPage = () => {
   return (
     <div className="space-y-6">
       <div className="select-none">
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('guardian.title')}</h1>
-        <p className="text-xs sm:text-sm text-slate-500 font-bold mt-1">
-          {schoolName ? t('guardian.subtitle', { school: schoolName }) : ''}
-        </p>
+        <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('guardian.title')}</h1>
+        <FactLine
+          className="mt-2"
+          facts={[
+            schoolName,
+            t(roleTitleKey(ROLES.GUARDIAN)),
+            linked !== null && t('guardian.subtitle.linked', { n: linked }),
+            waiting > 0 && t('guardian.subtitle.waiting', { n: waiting }),
+          ]}
+        />
       </div>
 
       {/* The school's next day off — a guardian's one view of the calendar, since
           /schedule is not theirs; hence no link (owner, 2026-09-29). */}
       <NextHolidayCard />
 
-      <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
+      <section className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm space-y-4 text-left">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           {/* A section heading in plain case, as the other cards have it - not a
               small uppercase label with an icon (owner, 2026-10-08). */}
-          <h2 className="text-sm font-extrabold text-slate-900 tracking-tight">{t('guardian.list.heading')}</h2>
-          {!isAdding && children !== null && (
+          <h2 className="text-base font-extrabold text-slate-900 tracking-tight">{t('guardian.list.heading')}</h2>
+          {/* Not over an empty list: its empty state carries the same button. */}
+          {!isAdding && children !== null && children.length > 0 && (
             <Button size="sm" variant="outline" className="shrink-0" onClick={() => setIsAdding(true)}>
               <Plus className="w-4 h-4 mr-1" aria-hidden="true" />
               {t('guardian.add.open')}
@@ -207,7 +225,7 @@ export const GuardianPage = () => {
             <p className="text-xs text-slate-500 font-semibold leading-relaxed">{t('guardian.add.hint')}</p>
             <ChildFields values={values} errors={errors} onChange={change} idPrefix="guardian" />
             {errors.global && (
-              <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+              <div className={ERROR_BOX} role="alert">
                 {errors.global}
               </div>
             )}
@@ -224,18 +242,28 @@ export const GuardianPage = () => {
         )}
 
         {loadError && children === null ? (
-          <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+          <div className={ERROR_BOX} role="alert">
             {loadError}
           </div>
         ) : children === null ? (
           <div className="h-24 bg-slate-50 rounded-2xl animate-pulse" aria-label={t('common.loading')} />
         ) : children.length === 0 ? (
-          <div className="py-10 text-center border border-dashed border-slate-200 rounded-2xl select-none">
-            <Users className="w-8 h-8 text-slate-300 mx-auto" aria-hidden="true" />
-            <p className="mt-2 text-xs font-extrabold text-slate-500">{t('guardian.list.empty')}</p>
-          </div>
+          !isAdding && (
+            <HomeEmpty
+              icon={Users}
+              title={t('guardian.list.empty')}
+              body={t('guardian.list.emptyBody')}
+              action={
+                <Button size="sm" variant="outline" onClick={() => setIsAdding(true)}>
+                  <Plus className="w-4 h-4 mr-1" aria-hidden="true" />
+                  {t('guardian.add.open')}
+                </Button>
+              }
+            />
+          )
         ) : (
-          <ul className="divide-y divide-slate-100">
+          /* One bordered box of rows with round initials, as on Members (owner, 2026-10-28). */
+          <ul className="border border-slate-100 rounded-xl divide-y divide-slate-100">
             {children.map((link) => {
               /* "Left" is an ACTIVE link that ended. A cancelled or refused link carries
                  endedAt too (measured: a link withdrawn on 2026-09-27 came back
@@ -245,16 +273,15 @@ export const GuardianPage = () => {
               const live = !ended && (link.status === 'PENDING' || link.status === 'ACTIVE');
               const isEditing = editing?.id === link.id;
               return (
-              <li key={link.id} className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <li key={link.id} className="px-4 py-3.5 max-sm:px-3 flex items-start gap-3">
+                <span className="w-9 h-9 rounded-full bg-brand-tint text-brand text-xs font-extrabold flex items-center justify-center shrink-0 select-none" aria-hidden="true">
+                  {initialsOf(link.student?.fullName)}
+                </span>
+                <div className="min-w-0 flex-1 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                 <div className="min-w-0 space-y-1 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={`text-sm font-extrabold break-words ${link.status === 'CANCELLED' || ended ? 'text-slate-500' : 'text-slate-800'}`}>
-                      {link.student?.fullName}
-                    </span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ended ? STATUS_BADGE.CANCELLED : STATUS_BADGE[link.status] ?? STATUS_BADGE.CANCELLED}`}>
-                      {ended ? t('guardian.status.ENDED') : t(`guardian.status.${link.status}`)}
-                    </span>
-                  </div>
+                  <p className={`text-sm font-extrabold break-words ${link.status === 'CANCELLED' || ended ? 'text-slate-500' : 'text-slate-800'}`}>
+                    {link.student?.fullName}
+                  </p>
                   {isEditing ? (
                     <form onSubmit={handleSaveRelationship} noValidate className="max-w-sm space-y-3 pt-2">
                       <RelationshipField
@@ -276,22 +303,28 @@ export const GuardianPage = () => {
                       </div>
                     </form>
                   ) : (
-                    <p className="text-[11px] font-semibold text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <p className="text-[13px] text-slate-500 flex flex-wrap items-baseline">
+                      <span className={`font-bold ${ended ? STATUS_WORD.CANCELLED : STATUS_WORD[link.status] ?? STATUS_WORD.CANCELLED}`}>
+                        {ended ? t('guardian.status.ENDED') : t(`guardian.status.${link.status}`)}
+                      </span>
+                      <span className="mx-1.5 text-slate-300" aria-hidden="true">/</span>
                       <span>{t('guardian.list.relationship', { relationship: link.relationship })}</span>
                       {live && !editing && (
-                        <button
-                          type="button"
-                          onClick={() => setEditing({ id: link.id, relationship: link.relationship ?? '' })}
-                          className="inline-flex items-center gap-1 font-bold text-slate-500 hover:text-brand cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
-                        >
-                          <Pencil className="w-3 h-3" aria-hidden="true" />
-                          {t('guardian.relationship.edit')}
-                        </button>
+                        <>
+                          <span className="mx-1.5 text-slate-300" aria-hidden="true">/</span>
+                          <button
+                            type="button"
+                            onClick={() => setEditing({ id: link.id, relationship: link.relationship ?? '' })}
+                            className="font-bold text-brand hover:text-brand-deep cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+                          >
+                            {t('guardian.relationship.edit')}
+                          </button>
+                        </>
                       )}
                     </p>
                   )}
                   {ended && (
-                    <p className="text-[11px] font-semibold text-slate-500">{t('guardian.list.endedHint')}</p>
+                    <p className="text-[12.5px] text-slate-500">{t('guardian.list.endedHint')}</p>
                   )}
                   {/* The homeroom teacher's own words, marked as a quotation. */}
                   {link.status === 'REJECTED' && link.rejectionReason && (
@@ -300,18 +333,15 @@ export const GuardianPage = () => {
                     </p>
                   )}
                   {link.status === 'PENDING' && (
-                    <p className="text-[11px] font-semibold text-slate-500">{t('guardian.list.pendingHint')}</p>
+                    <p className="text-[12.5px] text-slate-500">{t('guardian.list.pendingHint')}</p>
                   )}
                 </div>
                 {link.status === 'PENDING' && (
-                  <button
-                    type="button"
-                    onClick={() => setCancelling(link)}
-                    className="self-start sm:self-auto shrink-0 text-xs font-extrabold text-rose-600 hover:text-rose-700 underline underline-offset-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 rounded"
-                  >
+                  <Button size="sm" variant="outline" className="self-start shrink-0" onClick={() => setCancelling(link)}>
                     {t('guardian.cancel.action')}
-                  </button>
+                  </Button>
                 )}
+                </div>
               </li>
               );
             })}
