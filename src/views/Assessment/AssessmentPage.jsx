@@ -141,7 +141,7 @@ export const AssessmentPage = () => {
 
   const groups = useMemo(() => byClassSubject(data?.classes), [data]);
 
-  const heading = <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('shell.assessment')}</h1>;
+  const heading = <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('shell.assessment')}</h1>;
 
   if (data === undefined) {
     return (

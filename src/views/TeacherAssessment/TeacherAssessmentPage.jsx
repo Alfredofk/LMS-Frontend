@@ -25,6 +25,7 @@ import ResultsTab from './ResultsTab';
 import StateWord from './StateWord';
 import CopyToClassesDialog from './CopyToClassesDialog';
 import { useSlotFinalised } from '../Grading/useSlotFinalised';
+import { BusyLabel } from '../../components/ui/ModalHeading';
 import {
   MAX_ATTEMPTS,
   MAX_POINTS,
@@ -395,10 +396,16 @@ const TeacherAssessment = () => {
   return (
     <div className="space-y-6 max-w-3xl">
       <div className="space-y-2">
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight break-words">
+        <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight break-words">
           {creating ? t('tasm.newTitle') : saved.title}
         </h1>
-        <FactLine code={ctx.subject?.code} name={ctx.subject?.name} facts={[ctx.className, t('tasm.semester', { n: ctx.semesterOrdinal })]} />
+        <FactLine code={ctx.subject?.code} name={ctx.subject?.name} facts={[
+            ctx.className,
+            ctx.semester?.academicYear?.label
+              ? t('teacherDash.slots.semester', { n: ctx.semesterOrdinal, year: ctx.semester.academicYear.label })
+              : t('tasm.semester', { n: ctx.semesterOrdinal }),
+          ]}
+        />
         {saved && (
           <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs font-semibold text-slate-500">
             <StateWord assessment={saved} t={t} />
@@ -731,7 +738,7 @@ const TeacherAssessment = () => {
                 disabled={Boolean(busy) || (!creating && !detailsDirty)}
                 className={`${tool} px-5 py-2.5 text-sm bg-brand text-white hover:bg-brand-deep`}
               >
-                {busy === 'details' ? t('common.loading') : t(creating ? 'tasm.createDraft' : 'tasm.saveDetails')}
+                <BusyLabel busy={busy === 'details'}>{t(creating ? 'tasm.createDraft' : 'tasm.saveDetails')}</BusyLabel>
               </button>
             </div>
           )}
@@ -827,7 +834,7 @@ const TeacherAssessment = () => {
                           <p className="text-xs font-semibold text-amber-700 flex-1 min-w-[12rem]">{t('tasm.bank.changed')}</p>
                           {actions.editList && (
                             <button type="button" onClick={() => swapToBank(row)} disabled={Boolean(busy) || swapping === row.key} className={`${tool} bg-white border border-amber-200 text-amber-700 hover:bg-amber-50`}>
-                              {swapping === row.key ? t('common.loading') : t('tasm.bank.use')}
+                              <BusyLabel busy={swapping === row.key}>{t('tasm.bank.use')}</BusyLabel>
                             </button>
                           )}
                         </div>
@@ -869,7 +876,7 @@ const TeacherAssessment = () => {
                     </button>
                   )}
                   <button type="button" onClick={() => saveQuestions()} disabled={Boolean(busy) || !questionsDirty} className={`${tool} px-5 py-2.5 text-sm bg-brand text-white hover:bg-brand-deep`}>
-                    {busy === 'questions' ? t('common.loading') : t('tasm.saveQuestions')}
+                    <BusyLabel busy={busy === 'questions'}>{t('tasm.saveQuestions')}</BusyLabel>
                   </button>
                 </div>
               </div>

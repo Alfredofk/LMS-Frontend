@@ -63,3 +63,19 @@ export function notesBody(rows, drafts) {
       updatedAt: row.saved?.updatedAt ?? null,
     }));
 }
+
+/** The text tabs over the boxes (mockup catatan-kenaikan-wali.html, item 2): by what is saved, so a box being typed in stays put until saved. */
+export const NOTE_TABS = ['all', 'missing', 'filled'];
+
+/** How many rows each tab holds: `{ all, missing, filled }`. */
+export function noteTabCounts(rows) {
+  const filled = notedCount(rows);
+  return { all: rows.length, missing: rows.length - filled, filled };
+}
+
+/** The rows a tab shows. */
+export function rowsInTab(rows, tab) {
+  if (tab === 'missing') return rows.filter((row) => savedText(row) === '');
+  if (tab === 'filled') return rows.filter((row) => savedText(row) !== '');
+  return rows;
+}

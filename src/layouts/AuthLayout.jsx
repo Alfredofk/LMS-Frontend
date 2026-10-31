@@ -104,11 +104,9 @@ export const AuthLayout = ({
       {/* --- WHITE CARD COLUMN --- */}
       <div className="w-full bg-white min-h-screen lg:h-full lg:overflow-y-auto flex flex-col justify-between p-6 sm:p-8 lg:py-8 lg:px-12 relative shrink-0 z-10 shadow-2xl lg:w-[65%] lg:order-2 lg:rounded-l-[48px] lg:rounded-r-none">
 
-        {/* Decorative shapes */}
+        {/* The purple corner under the Back pill. The three small dots that sat around it carried
+            nothing and went (owner, 2026-10-29). */}
         <div className="absolute top-0 left-0 w-28 h-28 bg-brand rounded-br-full pointer-events-none" />
-        <div className="absolute top-10 left-36 w-3 h-3 bg-brand rounded-full opacity-60 pointer-events-none" />
-        <div className="absolute top-1/4 left-[-16px] w-12 h-12 bg-brand-tint rounded-full pointer-events-none" />
-        <div className="absolute top-16 right-10 w-14 h-14 bg-brand-tint rounded-full pointer-events-none opacity-80" />
 
         {/* Back to wherever the caller came from.
 

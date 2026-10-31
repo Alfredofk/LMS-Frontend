@@ -1,26 +1,25 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { Users } from 'lucide-react';
 
-import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
-import SubjectLabel from '../../components/ui/SubjectLabel';
 import { useT } from '../../i18n/LanguageContext';
 import { governingBodySeatErrorMessage } from '../../i18n/apiError';
 import { governingBodyService } from '../../services/governingBodyService';
+import { ADMIN_CARD, SlashFacts } from '../Admin/adminParts';
+import { HomeEmpty, HomeError } from '../Dashboard/components/HomeCard';
+import { Initials, RowsLoading, SearchBox } from './bodyParts';
 import { staffRolesOf, teacherMatches, termOf } from './schoolPeople';
 
 /*
   The "Guru" tab of a School's page (backend f01cd28, ticket 07; owner 2026-10-26, D4):
   `GET .../schools/:id/teachers` once, all of them by name - the Principal and a Vice
-  Principal too when they teach - searched here by name, NIP or NUPTK. Each: the name
-  with NIP / NUPTK, the staff roles, the subjects taught this Semester and the Classes
-  they are homeroom teacher of this year. A table from md, a card per teacher below.
-  Read only: no row opens anything.
+  Principal too when they teach - searched here by name, NIP or NUPTK. Read only: no
+  row opens anything.
+
+  Since 2026-10-29 (owner, mockup yayasan-sekolah-admin.html) a search box above one
+  card of rows, "N guru / the term" at its top: round initials, the name, a grey slash
+  line of the staff roles and NIP / NUPTK, then "Mengajar: ..." with the subjects this
+  Semester and "Wali kelas: ..." with this year's Classes. It was a four-column table.
 */
-
-const COLUMNS = 'md:grid md:grid-cols-[minmax(0,1fr)_9rem_minmax(0,1.3fr)_8rem] md:gap-4 md:items-start';
-
-/* A cell's own label, on a phone only: the table's header row says it from md. */
-const CellLabel = ({ children }) => <span className="md:hidden text-[11px] font-semibold text-slate-500 block">{children}</span>;
 
 export const SchoolTeachersTab = ({ schoolId, onGone }) => {
   const { t } = useT();
@@ -54,112 +53,86 @@ export const SchoolTeachersTab = ({ schoolId, onGone }) => {
   const shown = teachers.filter((teacher) => teacherMatches(teacher, needle));
   const term = termOf(answer);
 
+  if (state === 'loading') return <RowsLoading />;
+
+  if (state === 'failed') {
+    return (
+      <div className={ADMIN_CARD}>
+        <HomeError
+          message={governingBodySeatErrorMessage(error, t)}
+          retryLabel={t('gb.retry')}
+          onRetry={() => {
+            setState('loading');
+            load();
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (teachers.length === 0) {
+    return (
+      <div className={ADMIN_CARD}>
+        <HomeEmpty icon={Users} title={t('gbsp.teachers.emptyTitle')} body={t('gbsp.teachers.empty')} />
+      </div>
+    );
+  }
+
   return (
-    <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
-      {state === 'loading' && <div className="h-32 rounded-2xl bg-slate-50 animate-pulse" aria-busy="true" aria-label={t('common.loading')} />}
-
-      {state === 'failed' && (
-        <div className="space-y-3" role="alert">
-          <p className="text-sm font-semibold text-rose-700">{governingBodySeatErrorMessage(error, t)}</p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setState('loading');
-              load();
-            }}
-          >
-            {t('gb.retry')}
-          </Button>
-        </div>
-      )}
-
-      {state === 'ready' && (
-        <>
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="text-base font-extrabold text-slate-900">{t('gbsp.teachers.title')}</h2>
-              <p className="text-xs font-medium text-slate-500 mt-1">{t(term.key, term.vars)}</p>
-            </div>
-            {teachers.length > 0 && (
-              <div className="w-full sm:max-w-xs">
-                <Input
-                  id="gbspTeacherSearch"
-                  name="search"
-                  type="search"
-                  label={t('gbsp.teachers.search')}
-                  placeholder={t('gbsp.teachers.searchPlaceholder')}
-                  autoComplete="off"
-                  value={needle}
-                  onChange={(e) => setNeedle(e.target.value)}
-                />
-              </div>
-            )}
-          </div>
-
-          {teachers.length === 0 ? (
-            <p className="text-sm font-medium text-slate-500 leading-relaxed max-w-prose">{t('gbsp.teachers.empty')}</p>
-          ) : (
-            <>
-              <p className="text-xs font-semibold text-slate-500" aria-live="polite">
-                {needle.trim() ? t('gbsp.teachers.countFiltered', { shown: shown.length, n: teachers.length }) : t('gbsp.teachers.count', { n: teachers.length })}
-              </p>
-              {shown.length === 0 ? (
-                <p className="text-sm font-medium text-slate-500 py-2">{t('gbsp.teachers.noMatch')}</p>
-              ) : (
-                <div>
-                  <div className={`hidden ${COLUMNS} pb-2 border-b border-slate-100 text-[11px] font-semibold text-slate-500`} aria-hidden="true">
-                    <span>{t('gbsp.col.name')}</span>
-                    <span>{t('gbsp.col.roles')}</span>
-                    <span>{t('gbsp.col.subjects')}</span>
-                    <span>{t('gbsp.col.homeroom')}</span>
-                  </div>
-                  <ul className="divide-y divide-slate-100">
-                    {shown.map((teacher) => (
-                      <li key={teacher.membershipId} className={`py-3.5 grid gap-y-2.5 ${COLUMNS}`}>
-                        <div className="min-w-0">
-                          <p className="text-sm font-bold text-slate-900 break-words">{teacher.fullName}</p>
-                          <p className="flex flex-wrap gap-x-4 text-xs font-medium text-slate-500 mt-0.5">
-                            {teacher.nip && <span className="tabular-nums">{t('gbsp.nip', { nip: teacher.nip })}</span>}
-                            {teacher.nuptk && <span className="tabular-nums">{t('gbsp.nuptk', { nuptk: teacher.nuptk })}</span>}
-                          </p>
-                        </div>
-                        <div className="min-w-0">
-                          <CellLabel>{t('gbsp.col.roles')}</CellLabel>
-                          <p className="text-sm font-semibold text-slate-700">{staffRolesOf(teacher).map((role) => t(`roleTitle.${role}`)).join(', ')}</p>
-                        </div>
-                        <div className="min-w-0">
-                          <CellLabel>{t('gbsp.col.subjects')}</CellLabel>
-                          {teacher.classSubjects.length === 0 ? (
-                            <p className="text-sm font-medium text-slate-500">{t('gbsp.none')}</p>
-                          ) : (
-                            <ul className="space-y-1">
-                              {teacher.classSubjects.map((row) => (
-                                <li key={row.id} className="text-sm font-medium text-slate-700 flex flex-wrap items-center gap-x-1.5">
-                                  <SubjectLabel code={row.subject.code} name={row.subject.name} />
-                                  <span className="text-slate-300">/</span>
-                                  <span>{row.class.name}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <CellLabel>{t('gbsp.col.homeroom')}</CellLabel>
-                          <p className={`text-sm font-medium ${teacher.homeroomOf.length ? 'text-slate-700' : 'text-slate-500'}`}>
-                            {teacher.homeroomOf.length ? teacher.homeroomOf.map((row) => row.name).join(', ') : t('gbsp.none')}
-                          </p>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
+    <div className="space-y-4">
+      <SearchBox
+        id="gbspTeacherSearch"
+        label={t('gbsp.teachers.search')}
+        placeholder={t('gbsp.teachers.searchPlaceholder')}
+        value={needle}
+        onChange={setNeedle}
+      />
+      <div className="bg-white border border-slate-100 rounded-2xl shadow-sm min-w-0">
+        <SlashFacts
+          className="block px-4 sm:px-5 pt-3.5 text-xs font-semibold text-slate-500"
+          parts={[
+            <span aria-live="polite">
+              {needle.trim() ? t('gbsp.teachers.countFiltered', { shown: shown.length, n: teachers.length }) : t('gbsp.teachers.count', { n: teachers.length })}
+            </span>,
+            t(term.key, term.vars),
+          ]}
+        />
+        {shown.length === 0 ? (
+          <p className="px-4 sm:px-5 py-6 text-sm font-medium text-slate-500">{t('gbsp.teachers.noMatch')}</p>
+        ) : (
+          <ul>
+            {shown.map((teacher) => (
+              <li key={teacher.membershipId} className="px-4 sm:px-5 py-3.5 border-b border-slate-100 last:border-0 flex items-start gap-3">
+                <Initials name={teacher.fullName} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-slate-900 break-words">{teacher.fullName}</p>
+                  <SlashFacts
+                    className="block mt-0.5 text-xs font-medium text-slate-500"
+                    parts={[
+                      staffRolesOf(teacher).map((role) => t(`roleTitle.${role}`)).join(', '),
+                      teacher.nip && <span className="tabular-nums">{t('gbsp.nip', { nip: teacher.nip })}</span>,
+                      teacher.nuptk && <span className="tabular-nums">{t('gbsp.nuptk', { nuptk: teacher.nuptk })}</span>,
+                    ]}
+                  />
+                  <p className="mt-1 text-xs font-medium text-slate-600 break-words">
+                    {t('gbsp.teaches', {
+                      list: teacher.classSubjects.length
+                        ? teacher.classSubjects
+                            .map((row) => t('gbsp.subjectIn', { code: row.subject.code, name: row.subject.name, class: row.class.name }))
+                            .join(', ')
+                        : t('gbsp.none'),
+                    })}
+                  </p>
+                  <p className="mt-0.5 text-xs font-medium text-slate-600 break-words">
+                    {t('gbsp.homeroomLine', { list: teacher.homeroomOf.length ? teacher.homeroomOf.map((row) => row.name).join(', ') : t('gbsp.none') })}
+                  </p>
                 </div>
-              )}
-            </>
-          )}
-        </>
-      )}
-    </section>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
   );
 };
 

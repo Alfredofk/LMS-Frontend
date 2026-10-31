@@ -9,6 +9,7 @@ import { useT } from '../../i18n/LanguageContext';
 import { bodyApplicationErrorMessage } from '../../i18n/apiError';
 import { kindKeyOf } from '../GoverningBody/governingBody';
 import { normaliseBodyCode, validateBodyCode } from './bodyApplication';
+import AuthMessageIcon from '../../components/ui/AuthMessageIcon';
 
 /*
   Asking to be an admin of a yayasan, perkumpulan or dinas that already exists
@@ -120,8 +121,9 @@ export const GoverningBodyApplicationForm = ({ doneTo = '/select-role' }) => {
       <p className="text-xs text-slate-500 font-medium leading-relaxed">{t('gbapp.apply.note')}</p>
 
       {error && (
-        <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
-          {error}
+        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-700 text-left flex items-start gap-2.5" role="alert">
+          <AuthMessageIcon tone="error" />
+          <span>{error}</span>
         </div>
       )}
 

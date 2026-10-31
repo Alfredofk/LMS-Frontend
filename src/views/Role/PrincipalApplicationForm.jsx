@@ -13,6 +13,7 @@ import { joinErrorMessage, principalApplicationErrorMessage } from '../../i18n/a
 import { fieldErrorsFrom, normaliseSchoolCode, validateSchoolCode } from '../../utils/validation';
 import { fileError, typeOfFile } from './bodyRegistration';
 import { applicationErrors, applicationFormData, takesApplication } from './principalApplication';
+import AuthMessageIcon from '../../components/ui/AuthMessageIcon';
 
 /*
   Applying to be the Principal of a Governing Body's School (backend e206bd9,
@@ -199,8 +200,9 @@ export const PrincipalApplicationForm = ({ doneTo = '/select-role', teacherPath 
       {schoolCard}
 
       {errors.global && (
-        <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
-          {errors.global}
+        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-700 text-left flex items-start gap-2.5" role="alert">
+          <AuthMessageIcon tone="error" />
+          <span>{errors.global}</span>
         </div>
       )}
 

@@ -60,3 +60,19 @@ export function filterClasses(classes, { query = '', grade = null } = {}) {
     return fold(entry.name).includes(needle) || fold(entry.homeroomTeacher?.fullName).includes(needle);
   });
 }
+
+/**
+ * The classes shown, one group per grade, lowest first, each with its classes in
+ * the order given and the students placed in them (owner, 2026-10-31: the list
+ * groups by grade once two grades are present).
+ */
+export function classGroupsOf(classes) {
+  const groups = new Map();
+  for (const entry of classes ?? []) {
+    const group = groups.get(entry.gradeLevel) ?? { grade: entry.gradeLevel, classes: [], students: 0 };
+    group.classes.push(entry);
+    group.students += entry.studentCount ?? 0;
+    groups.set(entry.gradeLevel, group);
+  }
+  return [...groups.values()].sort((a, b) => a.grade - b.grade);
+}

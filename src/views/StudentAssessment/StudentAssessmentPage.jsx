@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { AlertCircle, ChevronRight, Play, RefreshCw, ShieldAlert } from 'lucide-react';
+import { AlertCircle, ChevronRight, Clock, Info, Lock, Maximize, Play, XCircle } from 'lucide-react';
 
+import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import FactLine from '../../components/ui/FactLine';
 import { useSchoolZone } from '../../hooks/useSchoolToday';
@@ -16,7 +17,7 @@ import { isPractice, typeModeText, windowText } from '../TeacherAssessment/teach
 import { noteAssessmentSubject } from './assessmentBack';
 import { forgetMyMenu } from './readMyMenu';
 import { enterFullscreen, leaveFullscreen } from './useIntegritySignals';
-import { STUDENT_STATE_TONE, attemptState, attemptsLeftText, startState, studentStateOf } from './studentAssessment';
+import { STUDENT_STATE_TONE, attemptState, attemptsLeftText, closingWordsOf, startState, studentStateOf } from './studentAssessment';
 
 /*
   One assessment for a student, before and between attempts (/assessment/:id;
@@ -34,24 +35,72 @@ import { STUDENT_STATE_TONE, attemptState, attemptsLeftText, startState, student
   unlimited attempts, and shows the best attempt's result where the score that
   counts would be (`practice.best`). A graded one's score is red under the KKTP it
   is counted with (`kktp`, backend 3814cf9; owner 2026-10-19), "KKTP 75" under it.
+
+  The look since 2026-10-29 (mockup C:\Thesis\mockups\outline-penilaian.html, all
+  eleven items): the facts as eyebrow cells under "Tentang penilaian ini", how
+  soon it closes (`closingWordsOf`), every note one bordered box with an icon,
+  the reason it cannot start a grey box where the button would be, the score in a
+  panel (rose and said "Di bawah KKTP" below it), the attempts one list of rows
+  with a "Lanjutkan" on the one in progress, the start question in cells.
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 sm:p-6 shadow-sm';
-const tool =
-  'inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50 disabled:cursor-not-allowed';
+const note = 'flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-[13px] font-semibold leading-relaxed';
+const NOTE = {
+  info: `${note} bg-brand-tint border-brand/20 text-brand`,
+  warn: `${note} bg-amber-50 border-amber-100 text-amber-800`,
+  fail: `${note} bg-rose-50 border-rose-100 text-rose-700`,
+  quiet: `${note} bg-slate-50 border-slate-100 text-slate-700`,
+};
+const noteIcon = 'w-4 h-4 shrink-0 mt-0.5';
 
 const ATTEMPT_TONE = {
-  IN_PROGRESS: 'text-sky-700',
-  WAITING: 'text-brand',
+  IN_PROGRESS: 'text-brand',
+  WAITING: 'text-slate-600',
   RELEASED: 'text-emerald-700',
   CHECKED: 'text-emerald-700',
   VOID: 'text-slate-500',
 };
 
-const Fact = ({ label, children }) => (
-  <div className="space-y-0.5">
-    <dt className="text-[11px] font-bold text-slate-500">{label}</dt>
-    <dd className="text-sm font-semibold text-slate-800">{children}</dd>
+/* An eyebrow cell: the label in small capitals sitting on its value, a grey line under it when there is one. */
+const Fact = ({ label, sub, wide = false, children }) => (
+  <div className={`min-w-0 ${wide ? 'col-span-full' : ''}`}>
+    <dt className="text-[10px] font-bold tracking-wider uppercase text-slate-500">{label}</dt>
+    <dd className="mt-0.5 text-sm font-bold text-slate-900 break-words">
+      {children}
+      {sub && <span className="block text-xs font-medium text-slate-500">{sub}</span>}
+    </dd>
+  </div>
+);
+
+/* Facts and pieces joined by the light slash, as FactLine does. */
+const Slashed = ({ parts }) => (
+  <p className="flex flex-wrap items-center text-xs font-semibold text-slate-500">
+    {parts.filter(Boolean).map((part, i) => (
+      <React.Fragment key={i}>
+        {i > 0 && <span className="mx-1.5 text-slate-300" aria-hidden="true">/</span>}
+        {part}
+      </React.Fragment>
+    ))}
+  </p>
+);
+
+const OutlineLoading = ({ label }) => (
+  <div className="space-y-6" aria-busy="true" aria-label={label}>
+    <div className="space-y-2">
+      <div className="h-8 w-3/4 rounded-[10px] bg-slate-100 animate-pulse" />
+      <div className="h-3 w-2/5 rounded-[10px] bg-slate-100 animate-pulse" />
+    </div>
+    <div className={`${card} space-y-4`}>
+      <div className="h-4 w-40 rounded-[10px] bg-slate-100 animate-pulse" />
+      <div className="grid grid-cols-3 gap-4">
+        <div className="col-span-full h-9 rounded-[10px] bg-slate-100 animate-pulse" />
+        <div className="h-9 rounded-[10px] bg-slate-100 animate-pulse" />
+        <div className="h-9 rounded-[10px] bg-slate-100 animate-pulse" />
+        <div className="h-9 rounded-[10px] bg-slate-100 animate-pulse" />
+      </div>
+      <div className="h-10 w-48 rounded-[10px] bg-slate-100 animate-pulse" />
+    </div>
   </div>
 );
 
@@ -88,20 +137,24 @@ export const StudentAssessmentPage = () => {
   };
   const openAttempt = (submissionId) => navigate(`/assessment/${assessmentId}/percobaan/${submissionId}`);
 
-  if (data === undefined) {
-    return <div className="h-72 rounded-2xl bg-white border border-slate-100 animate-pulse" aria-busy="true" aria-label={t('common.loading')} />;
-  }
+  if (data === undefined) return <OutlineLoading label={t('common.loading')} />;
   if (data.error) {
     return (
       <div className="space-y-6">
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">{t('shell.assessment')}</h1>
-        <div className={`${card} flex flex-col items-center text-center gap-3 py-10`} role="alert">
-          <AlertCircle className="w-8 h-8 text-rose-500" aria-hidden="true" />
-          <p className="text-sm font-bold text-slate-700 max-w-sm">{data.error}</p>
-          <button type="button" onClick={() => setAttempt((n) => n + 1)} className={`${tool} bg-slate-100 text-slate-700 hover:bg-slate-200`}>
-            <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+        <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('shell.assessment')}</h1>
+        <div className="flex flex-wrap items-center gap-2.5 rounded-xl border border-rose-100 bg-rose-50 px-3.5 py-3 text-[13px] font-semibold text-rose-700" role="alert">
+          <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+          <span className="flex-1 min-w-[12rem]">{data.error}</span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setData(undefined);
+              setAttempt((n) => n + 1);
+            }}
+          >
             {t('att.error.retry')}
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -115,11 +168,18 @@ export const StudentAssessmentPage = () => {
   /* What heads the attempts: the score that counts, or a LATIHAN's best attempt (backend 026e4f9). */
   const shownScore = practice ? (data.practice?.best?.value ?? null) : data.score;
   const below = !practice && belowKktpOf(data);
+  const hasKktp = !practice && typeof data.kktp === 'number';
   /* A clock that starts, or the integrity notice: worth a question before the first click. */
   const asksFirst = Boolean(assessment.timeLimitMinutes) || assessment.integritySignals;
+  const studentState = studentStateOf(assessment);
+  const closing = studentState === 'OPEN' ? closingWordsOf(assessment.closesAt, zone) : null;
 
   /* An attempt that records integrity signals is done in fullscreen: asked here, inside the click (owner 2026-10-13). */
   const fullscreenFirst = () => assessment.integritySignals && enterFullscreen();
+  const continueAttempt = (submissionId) => {
+    fullscreenFirst();
+    openAttempt(submissionId);
+  };
 
   const start = async () => {
     fullscreenFirst();
@@ -139,16 +199,22 @@ export const StudentAssessmentPage = () => {
   };
 
   const exception = assessment.exception;
+  const questionsFact = t('sasm.questionsN', { n: assessment.questionCount });
+  const pointsFact = t('sasm.pointsN', { points: assessment.totalPoints });
+
+  let scoreLabel;
+  if (practice) scoreLabel = t(shownScore !== null ? 'sasm.practice.best' : assessment.totalPoints === 0 ? 'sasm.practice.noTotal' : 'sasm.noScoreYet');
+  else scoreLabel = data.score !== null ? t('sasm.scoreCounts') : t('sasm.noScoreYet');
 
   return (
     <div className="space-y-6 text-left">
       <div className="space-y-1.5">
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight break-words">
+        <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight break-words">
           {assessment.title}{' '}
           <span
-            className={`inline-flex items-center align-middle ml-1 px-2 py-0.5 rounded-full text-[11px] font-bold uppercase leading-4 whitespace-nowrap ${STUDENT_STATE_TONE[studentStateOf(assessment)]}`}
+            className={`inline-flex items-center align-middle ml-1 px-2 py-0.5 rounded-full text-[11px] font-bold uppercase leading-4 whitespace-nowrap ${STUDENT_STATE_TONE[studentState]}`}
           >
-            {t(`sasm.state.${studentStateOf(assessment)}`)}
+            {t(`sasm.state.${studentState}`)}
           </span>
         </h1>
         <FactLine
@@ -159,25 +225,51 @@ export const StudentAssessmentPage = () => {
       </div>
 
       {assessment.status === 'CANCELLED' && (
-        <div className="rounded-2xl bg-rose-50 px-4 py-3 space-y-1">
-          <p className="text-sm font-bold text-rose-700">{t('sasm.cancelled')}</p>
-          {assessment.cancelReason && <p className="text-xs font-semibold text-rose-700 break-words">{t('sasm.cancelReason', { reason: assessment.cancelReason })}</p>}
+        <div className={NOTE.fail}>
+          <XCircle className={noteIcon} aria-hidden="true" />
+          <div className="min-w-0">
+            <p className="font-bold">{t('sasm.cancelled')}</p>
+            {assessment.cancelReason && <p className="font-medium break-words">{t('sasm.cancelReason', { reason: assessment.cancelReason })}</p>}
+          </div>
         </div>
       )}
 
-      <section className={`${card} space-y-5`} aria-label={t('sasm.about')}>
-        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
-          <Fact label={t('sasm.fact.window')}>{windowText(assessment, zone, lang)}</Fact>
-          {online && <Fact label={t('sasm.fact.timeLimit')}>{assessment.timeLimitMinutes ? t('sasm.minutes', { n: assessment.timeLimitMinutes }) : t('sasm.noLimit')}</Fact>}
+      <section className={`${card} space-y-5`} aria-labelledby="sasm-about">
+        <h2 id="sasm-about" className="text-base font-extrabold text-slate-900 tracking-tight">
+          {t('sasm.about')}
+        </h2>
+        <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4">
+          <Fact wide label={t('sasm.fact.window')} sub={closing ? t(closing.key, closing.vars) : null}>
+            {windowText(assessment, zone, lang)}
+          </Fact>
+          {online && (
+            <Fact label={t('sasm.fact.timeLimit')} sub={assessment.timeLimitMinutes ? t('sasm.sinceStart') : t('sasm.untilClose')}>
+              {assessment.timeLimitMinutes ? t('sasm.minutesN', { n: assessment.timeLimitMinutes }) : t('sasm.noLimitShort')}
+            </Fact>
+          )}
           {online && <Fact label={t('sasm.fact.attempts')}>{t(attemptsLeft.key, attemptsLeft.vars)}</Fact>}
-          {online && <Fact label={t('sasm.fact.questions')}>{t('sasm.questionCount', { n: assessment.questionCount, points: assessment.totalPoints })}</Fact>}
-          {online && assessment.acceptLate && <Fact label={t('sasm.fact.late')}>{t('sasm.lateAccepted')}</Fact>}
+          {online && (
+            <Fact label={t('sasm.fact.questions')} sub={pointsFact}>
+              {questionsFact}
+            </Fact>
+          )}
+          {online && assessment.acceptLate && (
+            <Fact wide label={t('sasm.fact.late')}>
+              {t('sasm.lateAccepted')}
+            </Fact>
+          )}
         </dl>
 
-        {practice && <p className="rounded-xl bg-brand-tint px-3.5 py-2.5 text-xs font-semibold text-brand leading-relaxed">{t('sasm.practice.note')}</p>}
+        {practice && (
+          <p className={NOTE.info}>
+            <Info className={noteIcon} aria-hidden="true" />
+            {t('sasm.practice.note')}
+          </p>
+        )}
 
         {exception && (
-          <p className="rounded-xl bg-brand-tint px-3.5 py-2.5 text-xs font-semibold text-brand leading-relaxed">
+          <p className={NOTE.info}>
+            <Info className={noteIcon} aria-hidden="true" />
             {exception.remedial
               ? t('sasm.exception.remedial', { n: exception.extraAttempts })
               : exception.makeUp
@@ -187,8 +279,8 @@ export const StudentAssessmentPage = () => {
         )}
 
         {online && assessment.integritySignals && (
-          <p className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs font-semibold text-amber-800 leading-relaxed">
-            <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+          <p className={NOTE.warn}>
+            <Maximize className={noteIcon} aria-hidden="true" />
             {t('sasm.integrity')}
           </p>
         )}
@@ -201,90 +293,105 @@ export const StudentAssessmentPage = () => {
         )}
 
         {failure && (
-          <p className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
+          <p className={NOTE.fail} role="alert">
+            <AlertCircle className={noteIcon} aria-hidden="true" />
             {failure}
           </p>
         )}
 
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 border-t border-slate-100 pt-4">
+        <div className="border-t border-slate-100 pt-4">
           {state.action === 'continue' && (
-            <button type="button" onClick={() => {
-                fullscreenFirst();
-                openAttempt(data.inProgressId);
-              }} className={`${tool} px-5 py-2.5 text-sm bg-brand text-white hover:bg-brand-deep`}>
-              <Play className="w-4 h-4" aria-hidden="true" />
+            <Button onClick={() => continueAttempt(data.inProgressId)}>
+              <Play className="w-4 h-4 mr-2" aria-hidden="true" />
               {t('sasm.continue')}
-            </button>
+            </Button>
           )}
           {state.action === 'start' && (
-            <button
-              type="button"
-              onClick={() => (asksFirst ? setAsking(true) : start())}
-              disabled={busy}
-              className={`${tool} px-5 py-2.5 text-sm bg-brand text-white hover:bg-brand-deep`}
-            >
-              <Play className="w-4 h-4" aria-hidden="true" />
-              {busy ? t('common.loading') : submissions.length ? t('sasm.startAgain') : t('sasm.start')}
-            </button>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <Button onClick={() => (asksFirst ? setAsking(true) : start())} isLoading={busy}>
+                {!busy && <Play className="w-4 h-4 mr-2" aria-hidden="true" />}
+                {submissions.length ? t('sasm.startAgain') : t('sasm.start')}
+              </Button>
+              {online && typeof data.attemptsLeft === 'number' && (
+                <p className="text-xs font-semibold text-slate-500">{t('sasm.attemptsLeftHint', attemptsLeft.vars)}</p>
+              )}
+            </div>
           )}
-          {state.why && <p className="text-xs font-semibold text-slate-500">{t(`sasm.why.${state.why}`, { date: when(assessment.opensAt) })}</p>}
+          {state.why && (
+            <p className={NOTE.quiet}>
+              {state.why === 'notOpen' ? <Clock className={noteIcon} aria-hidden="true" /> : <Lock className={noteIcon} aria-hidden="true" />}
+              {t(`sasm.why.${state.why}`, { date: when(assessment.opensAt) })}
+            </p>
+          )}
         </div>
       </section>
 
       {(data.score !== null || submissions.length > 0) && (
         <section className={`${card} space-y-4`} aria-labelledby="sasm-attempts">
-          <div className="flex items-start justify-between gap-3">
-            <h2 id="sasm-attempts" className="text-base font-extrabold text-slate-900">
-              {t(online ? 'sasm.attempts' : 'sasm.yourMark')}
-            </h2>
-            <div className="text-right">
-              <p className={`text-2xl font-extrabold tabular-nums leading-tight ${below ? 'text-rose-600' : 'text-slate-900'}`}>
-                {formatNumber(shownScore, lang)}
-                {below && <span className="sr-only"> ({t('gradebook.kktp.below')})</span>}
-              </p>
-              <p className="text-[11px] font-medium text-slate-500">
-                {practice
-                  ? t(shownScore !== null ? 'sasm.practice.best' : assessment.totalPoints === 0 ? 'sasm.practice.noTotal' : 'sasm.noScoreYet')
-                  : data.score !== null
-                    ? t('sasm.scoreCounts')
-                    : t('sasm.noScoreYet')}
-              </p>
-              {!practice && typeof data.kktp === 'number' && <p className="text-[11px] font-medium text-slate-500 tabular-nums">{t('sasm.kktp', { kktp: data.kktp })}</p>}
+          <h2 id="sasm-attempts" className="text-base font-extrabold text-slate-900 tracking-tight">
+            {t(online ? 'sasm.attempts' : 'sasm.yourMark')}
+          </h2>
+          <div className={`flex items-center gap-4 rounded-2xl px-4 py-3.5 ${below ? 'bg-rose-50' : shownScore === null ? 'bg-slate-50' : 'bg-brand-tint'}`}>
+            <p className={`text-[34px] font-extrabold tabular-nums leading-none ${below ? 'text-rose-700' : shownScore === null ? 'text-slate-500' : 'text-brand'}`}>
+              {formatNumber(shownScore, lang)}
+            </p>
+            <div className="text-[12.5px] font-medium text-slate-600 leading-snug">
+              {below && <p className="text-[13px] font-bold text-rose-700">{t('sasm.belowKktp', { kktp: data.kktp })}</p>}
+              <p>{scoreLabel}</p>
+              {hasKktp && !below && <p className="tabular-nums">{t('sasm.kktp', { kktp: data.kktp })}</p>}
             </div>
           </div>
           {/* The score a remedial counts for, where the school's rule moves it (backend 79b319f, owner 2026-10-18): the raw score stays above. */}
           {afterRuleOf(data) && (
             <div className="space-y-1">
-              <p className="text-right text-xs font-semibold text-slate-700 tabular-nums">
+              <p className="text-xs font-semibold text-slate-700 tabular-nums">
                 {t('sasm.afterRule', { score: formatNumber(afterRuleOf(data).score, lang), rule: afterRuleOf(data).rule ? t(`grading.rule.${afterRuleOf(data).rule}`) : '-' })}
               </p>
               {afterRuleOf(data).rule && <p className="text-[11px] font-medium text-slate-500 leading-relaxed">{t(`grading.rule.${afterRuleOf(data).rule}.hint`)}</p>}
             </div>
           )}
           {submissions.length > 0 ? (
-            <ul className="space-y-2">
+            <ul>
               {[...submissions].reverse().map((submission) => {
                 const rowState = attemptState(submission, assessment);
+                /* An offline mark is the teacher's, not an attempt the student made. */
+                const name = submission.closedBy === 'TEACHER' ? t('sasm.teacherMark') : t('tasm.results.attempt', { n: submission.attempt });
+                const facts = (
+                  <Slashed
+                    parts={[
+                      <span key="state" className={`font-bold ${ATTEMPT_TONE[rowState]}`}>{t(`sasm.attemptState.${rowState}`)}</span>,
+                      submission.submittedAt && <span key="at" className="tabular-nums">{when(submission.submittedAt)}</span>,
+                      submission.late && <span key="late" className="font-bold text-amber-700">{t('tasm.results.late')}</span>,
+                      submission.remedial && <span key="remedial" className="font-bold text-brand">{t('tasm.results.remedial')}</span>,
+                    ]}
+                  />
+                );
                 return (
-                  <li key={submission.id}>
-                    <button
-                      type="button"
-                      onClick={() => openAttempt(submission.id)}
-                      className="group w-full flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-xl bg-slate-50 px-3.5 py-2.5 text-left text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                    >
-                      {/* An offline mark is the teacher's, not an attempt the student made. */}
-                      <span className="font-bold text-slate-800">
-                        {submission.closedBy === 'TEACHER' ? t('sasm.teacherMark') : t('tasm.results.attempt', { n: submission.attempt })}
-                      </span>
-                      <span className={ATTEMPT_TONE[rowState]}>{t(`sasm.attemptState.${rowState}`)}</span>
-                      {submission.submittedAt && <span className="tabular-nums">{when(submission.submittedAt)}</span>}
-                      {submission.late && <span className="text-amber-700">{t('tasm.results.late')}</span>}
-                      {submission.remedial && <span className="text-brand">{t('tasm.results.remedial')}</span>}
-                      <span className="ml-auto flex items-center gap-2">
-                        {submission.score && <span className="text-sm font-extrabold text-slate-900 tabular-nums">{formatNumber(submission.score.value, lang)}</span>}
-                        <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-brand" aria-hidden="true" />
-                      </span>
-                    </button>
+                  <li key={submission.id} className="border-b border-slate-100 last:border-0">
+                    {rowState === 'IN_PROGRESS' ? (
+                      <div className="flex items-center gap-3 px-2 py-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-slate-900">{name}</p>
+                          {facts}
+                        </div>
+                        <Button size="sm" variant="outline" onClick={() => continueAttempt(submission.id)}>
+                          {t('sasm.continueShort')}
+                        </Button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => openAttempt(submission.id)}
+                        className="group w-full flex items-center gap-3 rounded-xl px-2 py-3 text-left hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-bold text-slate-900">{name}</span>
+                          {facts}
+                        </span>
+                        {submission.score && <span className="text-[15px] font-extrabold text-slate-900 tabular-nums">{formatNumber(submission.score.value, lang)}</span>}
+                        <ChevronRight className="w-4 h-4 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-brand" aria-hidden="true" />
+                      </button>
+                    )}
                   </li>
                 );
               })}
@@ -300,12 +407,26 @@ export const StudentAssessmentPage = () => {
         tone="brand"
         icon={Play}
         title={t('sasm.startConfirm.title')}
-        body={[
-          assessment.timeLimitMinutes ? t('sasm.startConfirm.clock', { n: assessment.timeLimitMinutes }) : t('sasm.startConfirm.noClock', { date: when(assessment.closesAt) }),
-          assessment.integritySignals ? t('sasm.startConfirm.integrity') : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
+        body={
+          <div className="space-y-2.5">
+            {online && (
+              <dl className="flex flex-wrap gap-x-7 gap-y-2 pt-1">
+                {assessment.timeLimitMinutes ? (
+                  <div>
+                    <dt className="text-[10px] font-bold tracking-wider uppercase text-slate-500">{t('sasm.yourTime')}</dt>
+                    <dd className="text-sm font-extrabold text-slate-900">{t('sasm.minutesN', { n: assessment.timeLimitMinutes })}</dd>
+                  </div>
+                ) : null}
+                <div>
+                  <dt className="text-[10px] font-bold tracking-wider uppercase text-slate-500">{t('sasm.fact.questions')}</dt>
+                  <dd className="text-sm font-extrabold text-slate-900">{`${questionsFact}, ${pointsFact}`}</dd>
+                </div>
+              </dl>
+            )}
+            <p>{assessment.timeLimitMinutes ? t('sasm.startConfirm.clockNote') : t('sasm.startConfirm.noClock', { date: when(assessment.closesAt) })}</p>
+            {assessment.integritySignals && <p className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 font-semibold text-amber-800">{t('sasm.startConfirm.integrity')}</p>}
+          </div>
+        }
         confirmLabel={t('sasm.start')}
         cancelLabel={t('common.cancel')}
         busy={busy}

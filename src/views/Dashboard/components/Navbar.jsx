@@ -261,35 +261,11 @@ export const Navbar = ({ showToast, onOpenNav }) => {
     }
   };
 
-  // Get type icon
+  /* One tone for every kind, the title tells them apart (owner, 2026-10-31,
+     sidebar-navbar.html item 8): it was violet, emerald, blue and pink tiles. */
   const getNotifIcon = (type) => {
-    switch (type) {
-      case 'tugas_baru':
-        return <BookOpen className="w-4 h-4 text-brand" />;
-      case 'nilai_masuk':
-        return <Award className="w-4 h-4 text-emerald-500" />;
-      case 'sanggahan_selesai':
-        return <MessageSquare className="w-4 h-4 text-blue-500" />;
-      case 'pengumuman':
-        return <Megaphone className="w-4 h-4 text-pink-500" />;
-      default:
-        return <Bell className="w-4 h-4 text-slate-500" />;
-    }
-  };
-
-  const getNotifBg = (type) => {
-    switch (type) {
-      case 'tugas_baru':
-        return 'bg-violet-50';
-      case 'nilai_masuk':
-        return 'bg-emerald-50';
-      case 'sanggahan_selesai':
-        return 'bg-blue-50';
-      case 'pengumuman':
-        return 'bg-pink-50';
-      default:
-        return 'bg-slate-50';
-    }
+    const Icon = { tugas_baru: BookOpen, nilai_masuk: Award, sanggahan_selesai: MessageSquare, pengumuman: Megaphone }[type] ?? Bell;
+    return <Icon className="w-4 h-4 text-brand" aria-hidden="true" />;
   };
 
   // Get dynamic title based on active location pathname
@@ -447,12 +423,14 @@ export const Navbar = ({ showToast, onOpenNav }) => {
       because they were simply missing from the list — so /attendance announced
       itself as "Dashboard" while the sidebar highlighted Attendance.
     */
+    /* One size on every page, 20px as beside a back arrow: the homes were 18px, so the
+       title jumped on the way in and out (owner, 2026-10-31, sidebar-navbar.html item 6). */
     if (!entry) {
-      return <span className="text-lg font-bold text-slate-900">{t('shell.dashboard')}</span>;
+      return <span className="truncate text-xl font-bold text-slate-900 tracking-tight">{t('shell.dashboard')}</span>;
     }
 
     if (!entry.back) {
-      return <span className="text-lg font-bold text-slate-900">{t(entry.key)}</span>;
+      return <span className="truncate text-xl font-bold text-slate-900 tracking-tight">{t(entry.key)}</span>;
     }
 
     return (
@@ -527,7 +505,7 @@ export const Navbar = ({ showToast, onOpenNav }) => {
             <Bell className="w-5 h-5" />
             {/* Red indicator dot if unread notifications exist */}
             {unreadCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
             )}
           </button>
 
@@ -541,7 +519,7 @@ export const Navbar = ({ showToast, onOpenNav }) => {
               
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-2 border-b border-slate-50">
-                <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">{t('shell.notifications')}</h3>
+                <h3 className="text-sm font-extrabold text-slate-900">{t('shell.notifications')}</h3>
                 {unreadCount > 0 && (
                   <button 
                     onClick={handleMarkAllAsRead}
@@ -554,7 +532,18 @@ export const Navbar = ({ showToast, onOpenNav }) => {
 
               {/* List */}
               <div className="max-h-96 overflow-y-auto divide-y divide-slate-50">
-                {notifications.length === 0 ? (
+                {/* While /api/notifications answers 404 the panel says the feature is not
+                    there yet, as the Pengumuman card does, not "no notifications": nothing
+                    was looked at (owner, 2026-10-31, sidebar-navbar.html item 7). */}
+                {notificationsNotBuilt ? (
+                  <div className="px-5 pt-5 pb-4 text-center">
+                    <span className="mx-auto mb-2.5 grid place-items-center w-10 h-10 rounded-xl bg-slate-100 text-slate-500" aria-hidden="true">
+                      <Bell className="w-5 h-5" />
+                    </span>
+                    <p className="text-[13.5px] font-bold text-slate-900">{t('common.notBuilt.title')}</p>
+                    <p className="mt-0.5 text-xs text-slate-500">{t('shell.notificationsNotBuilt.body')}</p>
+                  </div>
+                ) : notifications.length === 0 ? (
                   <div className="py-8 text-center text-slate-500 font-semibold text-xs">
                     {t('shell.noNotifications')}
                   </div>
@@ -568,7 +557,7 @@ export const Navbar = ({ showToast, onOpenNav }) => {
                       `}
                     >
                       {/* Icon */}
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${getNotifBg(notif.type)}`}>
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-brand-tint">
                         {getNotifIcon(notif.type)}
                       </div>
 

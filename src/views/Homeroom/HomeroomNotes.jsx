@@ -1,13 +1,18 @@
 import React, { useEffect, useState } from 'react';
+import { Info } from 'lucide-react';
 
+import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import Select from '../../components/ui/Select';
 import { useUnsavedGuard } from '../../hooks/useUnsavedGuard';
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage, isNotesLocked, isStaleNotes, notesErrorMessage } from '../../i18n/apiError';
 import { academicsService } from '../../services/academicsService';
 import { gradingService } from '../../services/gradingService';
 import { defaultSemesterOf } from '../Subjects/subjects';
-import { NOTE_MAX, notedCount, noteChanged, noteErrors, noteRows, notesBody, noteTextOf, willClear } from './notes';
+import { RosterError } from '../Attendance/RosterParts';
+import { CardSkeleton, SaveBar, StudentHead, ToneWord } from './HomeroomCardParts';
+import { NOTE_MAX, NOTE_TABS, noteChanged, noteErrors, noteRows, notesBody, noteTabCounts, noteTextOf, rowsInTab, willClear } from './notes';
 
 /*
   "Catatan wali kelas" (owner, 2026-10-18; backend 483be5a): the Homeroom Teacher's
@@ -27,6 +32,12 @@ import { NOTE_MAX, notedCount, noteChanged, noteErrors, noteRows, notesBody, not
   class's homeroom teacher, as at every leader's desk. A closed semester or year is
   read only too.
 
+  The look is the mockup catatan-kenaikan-wali.html (owner, 2026-10-30, items 1-7):
+  a slash line under the title, the count over a green bar, text tabs Semua / Belum
+  diisi / Sudah diisi (by what is saved), a row's state as a coloured word at the
+  right, the save bar sticking to the bottom while anything waits, rose error boxes
+  with "Coba lagi", a saved Note read in a pale box.
+
   @param classId         the class
   @param academicYearId  its year, for the semesters
   @param canEdit         the homeroom teacher's desk
@@ -35,12 +46,15 @@ import { NOTE_MAX, notedCount, noteChanged, noteErrors, noteRows, notesBody, not
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 sm:p-6 shadow-sm';
-const button =
-  'inline-flex items-center justify-center px-4 py-2 rounded-xl text-sm font-bold cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50 disabled:cursor-not-allowed';
+const tabClass = (on) =>
+  `shrink-0 whitespace-nowrap px-2.5 py-2 text-sm font-bold border-b-2 transition-colors cursor-pointer focus:outline-none focus-visible:text-brand ${
+    on ? 'text-brand border-brand' : 'text-slate-500 border-transparent hover:text-slate-700'
+  }`;
 
 export const HomeroomNotes = ({ classId, academicYearId, canEdit = false, onDirty, onToast }) => {
   const { t } = useT();
   const [year, setYear] = useState(undefined);
+  const [yearAttempt, setYearAttempt] = useState(0);
   const [semesterId, setSemesterId] = useState(null);
   /* undefined reading · the read · { error } */
   const [read, setRead] = useState(undefined);
@@ -54,6 +68,8 @@ export const HomeroomNotes = ({ classId, academicYearId, canEdit = false, onDirt
   const [saving, setSaving] = useState(false);
   /* A semester asked for while typing waits unsaved: held until the dialog answers. */
   const [askedSemester, setAskedSemester] = useState(null);
+  /* The text tab over the boxes (NOTE_TABS). */
+  const [tab, setTab] = useState('all');
 
   useEffect(() => {
     let cancelled = false;
@@ -70,7 +86,7 @@ export const HomeroomNotes = ({ classId, academicYearId, canEdit = false, onDirt
     return () => {
       cancelled = true;
     };
-  }, [academicYearId, t]);
+  }, [academicYearId, yearAttempt, t]);
 
   useEffect(() => {
     if (!semesterId) return undefined;
@@ -101,6 +117,9 @@ export const HomeroomNotes = ({ classId, academicYearId, canEdit = false, onDirt
   const editing = canEdit && !locked && !closed;
   const nameOf = new Map(rows.map((row) => [row.studentProfileId, row.fullName ?? t('tasm.results.unnamed')]));
   const semesters = year && !year.error ? (year.semesters ?? []) : [];
+  const semester = semesters.find((entry) => entry.id === semesterId) ?? null;
+  const counts = noteTabCounts(rows);
+  const shownRows = rowsInTab(rows, tab);
 
   const switchTo = (id) => {
     setRead(undefined);
@@ -108,6 +127,7 @@ export const HomeroomNotes = ({ classId, academicYearId, canEdit = false, onDirt
     setErrors({});
     setMessage(null);
     setLocked(false);
+    setTab('all');
     setSemesterId(id);
   };
   const pickSemester = (id) => (dirty ? setAskedSemester(id) : switchTo(id));
@@ -160,118 +180,164 @@ export const HomeroomNotes = ({ classId, academicYearId, canEdit = false, onDirt
     }
   };
 
+  /* A row's state at the right (item 3): what saving would do first, then what is saved. */
+  const stateOf = (row) => {
+    if (editing && willClear(row, drafts)) return { tone: 'rose', key: 'homeroom.notes.state.clear' };
+    if (editing && noteChanged(row, drafts)) return { tone: 'brand', key: 'homeroom.changed' };
+    if ((row.saved?.text ?? '').trim()) return editing ? { tone: 'emerald', key: 'homeroom.notes.state.filled' } : null;
+    return { tone: 'amber', key: 'homeroom.notes.missing' };
+  };
+
+  const retry = (onClick) => (
+    <Button size="sm" variant="outline" onClick={onClick}>
+      {t('att.error.retry')}
+    </Button>
+  );
+
   const heading = (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-      <h3 id={`notes-${classId}`} className="text-base font-extrabold text-slate-900">
-        {t('homeroom.notes.title')}
-      </h3>
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="min-w-0">
+        <h3 id={`notes-${classId}`} className="text-base font-extrabold text-slate-900 tracking-tight">
+          {t('homeroom.notes.title')}
+        </h3>
+        {semester && year && !year.error && (
+          <p className="mt-0.5 text-[13px] font-medium text-slate-500">
+            <span className="whitespace-nowrap">{t('grading.fin.semesterOption', { n: semester.ordinal, year: year.label })}</span>
+            {rows.length > 0 && (
+              <>
+                {' '}
+                <span className="mx-1 text-slate-300" aria-hidden="true">
+                  /
+                </span>{' '}
+                <span className="whitespace-nowrap">{t('homeroom.notes.count', { n: counts.filled, total: counts.all })}</span>
+              </>
+            )}
+          </p>
+        )}
+      </div>
       {semesters.length > 1 && (
-        <label className="flex items-center gap-2">
-          <span className="sr-only">{t('homeroom.att.semester')}</span>
-          <select
-            value={semesterId ?? ''}
-            onChange={(e) => pickSemester(e.target.value)}
-            className="w-full sm:w-44 rounded-xl border border-slate-200 bg-white py-2 px-3 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand cursor-pointer"
-          >
-            {semesters.map((semester) => (
-              <option key={semester.id} value={semester.id}>
-                {t('classes.semester.name', { n: semester.ordinal })}
+        <div className="w-full sm:w-44">
+          <Select value={semesterId ?? ''} onChange={(e) => pickSemester(e.target.value)} aria-label={t('homeroom.att.semester')}>
+            {semesters.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {t('classes.semester.name', { n: entry.ordinal })}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </div>
       )}
     </div>
   );
 
   let body;
-  if (year?.error) body = <p className="text-sm font-semibold text-amber-700">{year.error}</p>;
-  else if (year !== undefined && !semesterId) body = <p className="text-sm font-semibold text-slate-600">{t('homeroom.notes.noSemester')}</p>;
-  else if (read === undefined) body = <div className="h-32 rounded-xl bg-slate-50 animate-pulse" aria-busy="true" aria-label={t('common.loading')} />;
-  else if (read.error) body = <p className="text-sm font-semibold text-amber-700">{read.error}</p>;
-  else if (rows.length === 0) body = <p className="text-sm font-semibold text-slate-600">{t('homeroom.notes.none')}</p>;
+  if (year?.error) {
+    body = (
+      <RosterError
+        action={retry(() => {
+          setYear(undefined);
+          setYearAttempt((n) => n + 1);
+        })}
+      >
+        {year.error}
+      </RosterError>
+    );
+  } else if (year !== undefined && !semesterId) body = <p className="text-[13px] font-medium text-slate-600">{t('homeroom.notes.noSemester')}</p>;
+  else if (read === undefined) body = <CardSkeleton />;
+  else if (read.error) {
+    body = (
+      <RosterError
+        action={retry(() => {
+          setRead(undefined);
+          setAttempt((n) => n + 1);
+        })}
+      >
+        {read.error}
+      </RosterError>
+    );
+  } else if (rows.length === 0) body = <p className="text-[13px] font-medium text-slate-600">{t('homeroom.notes.none')}</p>;
   else {
     body = (
       <>
-        <div className="space-y-1">
-          <p className="flex flex-wrap gap-x-4 text-xs font-semibold text-slate-500">
-            <span>{t('homeroom.notes.count', { n: notedCount(rows), total: rows.length })}</span>
-            {editing && dirty && <span className="text-amber-700">{t('homeroom.notes.unsaved', { n: changed.length })}</span>}
+        {/* Summary first (item 2): how many have a Note, over one green bar. */}
+        <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3.5">
+          <p className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+            <b className="text-2xl font-extrabold tracking-tight leading-none tabular-nums text-slate-900">
+              {t('homeroom.notes.summary', { n: counts.filled, total: counts.all })}
+            </b>
+            <span className="text-[13px] font-semibold text-slate-600">{t('homeroom.notes.summaryOf')}</span>
+            {counts.missing > 0 && <span className="text-[13px] font-bold text-amber-700">{t('homeroom.notes.missingCount', { n: counts.missing })}</span>}
           </p>
-          <p className="text-xs font-medium text-slate-500 leading-relaxed">
-            {canEdit && closed ? t('homeroom.notes.closed') : t(canEdit ? 'homeroom.notes.intro' : 'homeroom.notes.readIntro')}
-          </p>
+          <div className="mt-2.5 flex h-2 rounded-full overflow-hidden bg-slate-200" aria-hidden="true">
+            <span className="h-full bg-emerald-500" style={{ width: `${counts.all ? (counts.filled / counts.all) * 100 : 0}%` }} />
+          </div>
         </div>
 
-        <ul className="divide-y divide-slate-100">
-          {rows.map((row) => {
-            const id = row.studentProfileId;
-            const text = noteTextOf(row, drafts);
-            const length = text.trim().length;
-            const error = errors[id];
-            const clearing = willClear(row, drafts);
-            return (
-              <li key={id} className="py-3 first:pt-0 last:pb-0 space-y-1.5">
-                <label htmlFor={`note-${id}`} className="block text-sm font-bold text-slate-900 break-words">
-                  {nameOf.get(id)}
-                </label>
-                {editing ? (
-                  <>
-                    <textarea
-                      id={`note-${id}`}
-                      rows={3}
-                      value={text}
-                      onChange={(event) => type(id, event.target.value)}
-                      placeholder={t('homeroom.notes.placeholder')}
-                      aria-invalid={Boolean(error)}
-                      aria-describedby={`note-${id}-hint`}
-                      className={`block w-full field-sizing-content min-h-[4.5rem] px-3 py-2 rounded-xl border bg-white text-sm text-slate-800 leading-relaxed resize-y placeholder:text-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${error ? 'border-rose-300' : 'border-slate-200'}`}
-                    />
-                    <div id={`note-${id}-hint`} className="flex flex-wrap justify-between gap-x-4 text-[11px] font-semibold">
-                      <span className={error ? 'text-rose-700' : 'text-amber-700'}>
-                        {error
-                          ? t(`homeroom.notes.error.${error}`)
-                          : clearing
-                            ? t('homeroom.notes.willClear')
-                            : length === 0
-                              ? t('homeroom.notes.missing')
-                              : ''}
-                      </span>
-                      <span className={`tabular-nums ${length > NOTE_MAX ? 'text-rose-700' : 'text-slate-500'}`}>
-                        {t('homeroom.notes.counter', { n: length, max: NOTE_MAX })}
-                      </span>
+        <div role="tablist" aria-label={t('homeroom.notes.title')} className="flex gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shadow-[inset_0_-1px_0_var(--color-slate-100)]">
+          {NOTE_TABS.map((key) => (
+            <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)} className={tabClass(tab === key)}>
+              {t(`homeroom.notes.tab.${key}`)}
+              <span
+                className={`ml-1.5 px-1.5 rounded-full text-[11px] tabular-nums ${
+                  tab === key ? 'bg-brand-tint text-brand' : key === 'missing' && counts.missing > 0 ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {counts[key]}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <p className="flex items-start gap-2 text-[13px] font-medium text-slate-600 leading-relaxed">
+          <Info className="w-4 h-4 shrink-0 mt-0.5 text-slate-500" aria-hidden="true" />
+          {canEdit && closed ? t('homeroom.notes.closed') : t(canEdit ? 'homeroom.notes.intro' : 'homeroom.notes.readIntro')}
+        </p>
+
+        {shownRows.length === 0 ? (
+          <p className="text-[13px] font-medium text-slate-500">{t(`homeroom.notes.tabEmpty.${tab}`)}</p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {shownRows.map((row) => {
+              const id = row.studentProfileId;
+              const text = noteTextOf(row, drafts);
+              const length = text.trim().length;
+              const error = errors[id];
+              const state = stateOf(row);
+              return (
+                <li key={id} className="py-3.5 px-1">
+                  <StudentHead name={nameOf.get(id)} nameAs={editing ? 'label' : 'p'} nameProps={editing ? { htmlFor: `note-${id}` } : {}}>
+                    {state && <ToneWord tone={state.tone}>{t(state.key)}</ToneWord>}
+                  </StudentHead>
+                  {editing ? (
+                    <div className="mt-2.5 sm:ml-[46px]">
+                      <textarea
+                        id={`note-${id}`}
+                        rows={3}
+                        value={text}
+                        onChange={(event) => type(id, event.target.value)}
+                        placeholder={t('homeroom.notes.placeholder')}
+                        aria-invalid={Boolean(error)}
+                        aria-describedby={`note-${id}-hint`}
+                        className={`block w-full field-sizing-content min-h-[4.5rem] px-3 py-2 rounded-xl border bg-white text-[13.5px] text-slate-800 leading-relaxed resize-y placeholder:text-slate-400 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 ${error ? 'border-rose-300' : 'border-slate-200'}`}
+                      />
+                      <div id={`note-${id}-hint`} className="mt-1 flex flex-wrap justify-between gap-x-4 text-xs font-semibold">
+                        <span className="text-rose-700">{error ? t(`homeroom.notes.error.${error}`) : ''}</span>
+                        <span className={`tabular-nums ${length > NOTE_MAX ? 'text-rose-700' : 'text-slate-500'}`}>{t('homeroom.notes.counter', { n: length, max: NOTE_MAX })}</span>
+                      </div>
                     </div>
-                  </>
-                ) : row.saved?.text ? (
-                  <p id={`note-${id}`} className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">
-                    {row.saved.text}
-                  </p>
-                ) : (
-                  <p id={`note-${id}`} className="text-xs font-semibold text-amber-700">
-                    {t('homeroom.notes.missing')}
-                  </p>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-
-        {message && (
-          <p className="text-xs font-semibold text-rose-700 leading-relaxed" role="alert">
-            {message}
-          </p>
+                  ) : row.saved?.text ? (
+                    <p className="mt-2.5 sm:ml-[46px] rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5 text-[13.5px] text-slate-700 leading-relaxed whitespace-pre-wrap break-words">
+                      {row.saved.text}
+                    </p>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
         )}
 
-        {editing && (
-          <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
-            <button type="button" onClick={cancel} disabled={saving || !dirty} className={`${button} bg-slate-100 text-slate-700 hover:bg-slate-200`}>
-              {t('common.cancel')}
-            </button>
-            <button type="button" onClick={save} disabled={saving || !dirty} className={`${button} bg-brand text-white hover:bg-brand-deep`}>
-              {t('homeroom.notes.save')}
-            </button>
-          </div>
-        )}
+        {message && <RosterError>{message}</RosterError>}
+
+        {editing && <SaveBar count={changed.length} saveLabel={t('homeroom.notes.save')} onCancel={cancel} onSave={save} saving={saving} />}
       </>
     );
   }

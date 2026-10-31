@@ -7,6 +7,7 @@ import {
   attemptsLeftText,
   choose,
   clockText,
+  closingWordsOf,
   countsDown,
   draftChanged,
   draftError,
@@ -165,5 +166,22 @@ describe('LATIHAN - backend 026e4f9', () => {
     expect(waitsForComment([essay(null)])).toBe(true);
     expect(waitsForComment([essay('Bagus')])).toBe(false);
     expect(waitsForComment([{ ...essay(null), answer: null }])).toBe(false);
+  });
+});
+
+describe('closingWordsOf', () => {
+  // 2026-10-13T16:59Z is 23:59 WIB on the 13th.
+  const closesAt = '2026-10-13T16:59:00Z';
+  it('counts school days, not 24-hour spans', () => {
+    expect(closingWordsOf(closesAt, 'WIB', new Date('2026-10-13T01:00:00Z'))).toEqual({ key: 'sasm.closes.today', vars: { time: '23:59' } });
+    // 23:00 WIB on the 12th: under a day away, still "tomorrow" by the calendar.
+    expect(closingWordsOf(closesAt, 'WIB', new Date('2026-10-12T16:00:00Z'))).toEqual({ key: 'sasm.closes.tomorrow', vars: {} });
+    // 06:00 WIB on the 13th is still the 12th in UTC; the school's date decides.
+    expect(closingWordsOf(closesAt, 'WIB', new Date('2026-10-12T23:00:00Z')).key).toBe('sasm.closes.today');
+    expect(closingWordsOf(closesAt, 'WIB', new Date('2026-10-10T05:00:00Z'))).toEqual({ key: 'sasm.closes.inDays', vars: { n: 3 } });
+  });
+  it('says nothing once closed or without a date', () => {
+    expect(closingWordsOf(closesAt, 'WIB', new Date('2026-10-13T16:59:00Z'))).toBeNull();
+    expect(closingWordsOf(null, 'WIB')).toBeNull();
   });
 });

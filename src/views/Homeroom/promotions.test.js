@@ -6,6 +6,7 @@ import {
   decidedCount,
   evenSemesterOf,
   notDecidableView,
+  outcomeCounts,
   promotionChanged,
   promotionsBody,
   promotionsShown,
@@ -80,5 +81,23 @@ describe('promotions - why not now', () => {
       vars: { subjects: 'MTK, BIO' },
     });
     expect(notDecidableView(read({}))).toEqual({ key: 'homeroom.promo.notYet.yearClosed', vars: { year: '2026/2027' } });
+  });
+});
+
+describe('promotions - the summary counts (2026-10-30)', () => {
+  const students = [
+    { studentProfileId: 'a', outcome: null, automatic: true },
+    { studentProfileId: 'b', outcome: 'RETAINED', automatic: false },
+    { studentProfileId: 'c', outcome: null, automatic: false },
+    { studentProfileId: 'd', outcome: null, automatic: null },
+  ];
+
+  it('counts going up, staying and undecided with the choices on screen', () => {
+    expect(outcomeCounts(students, {}, 'PROMOTED')).toEqual({ advance: 1, RETAINED: 1, undecided: 2 });
+    expect(outcomeCounts(students, { c: 'PROMOTED', a: 'RETAINED' }, 'PROMOTED')).toEqual({ advance: 1, RETAINED: 2, undecided: 1 });
+  });
+
+  it('counts graduating as going up', () => {
+    expect(outcomeCounts(students, { d: 'GRADUATED' }, 'GRADUATED')).toEqual({ advance: 2, RETAINED: 1, undecided: 1 });
   });
 });

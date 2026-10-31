@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage } from '../../i18n/apiError';
 import { heldRolesOf, isSchoolDeactivated, ROLES } from '../../constants/roles';
+import { BusyLabel } from '../../components/ui/ModalHeading';
 
 /*
   Deleting one's own account — backend 7d4b196 (ticket 11, ADR-0007). The last
@@ -260,7 +261,7 @@ const DeleteAccountCard = () => {
                     disabled={!confirmed || busy}
                     className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
                   >
-                    {busy ? t('common.loading') : t('account.delete.confirm.go')}
+                    <BusyLabel busy={busy}>{t('account.delete.confirm.go')}</BusyLabel>
                   </button>
                 )}
               </div>

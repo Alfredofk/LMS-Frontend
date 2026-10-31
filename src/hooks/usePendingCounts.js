@@ -8,6 +8,8 @@ import { academicsService } from '../services/academicsService';
 import { ROLES, requestInPov } from '../constants/roles';
 import { isOwnRequest } from '../views/Subjects/subjects';
 import { readMarkingQueue } from '../views/TeacherAssessment/markingQueue';
+import { readMyMenu } from '../views/StudentAssessment/readMyMenu';
+import { todoAcross } from '../views/StudentAssessment/studentMenu';
 
 /*
   How many things wait for this person's decision, for the numbers beside the
@@ -24,6 +26,9 @@ import { readMarkingQueue } from '../views/TeacherAssessment/markingQueue';
     TEACHER   — joinRequests · classMoves · marking (attempts to mark + to release,
                 GET /dashboard/teaching's queue through markingQueue.js: read at most
                 once a minute, shared with the dashboard)
+    STUDENT   - todo (assessments still to do: the dashboard's "Perlu dikerjakan",
+                GET /assessments/mine through readMyMenu, kept a minute; owner,
+                2026-10-31, mockup sidebar-navbar.html question 3)
 
   Read on arrival, again on navigation at most every 20 seconds (the backend
   rate-limits), and at once when a page reports a decision through
@@ -49,7 +54,7 @@ export const notifyPendingChanged = () => window.dispatchEvent(new Event(EVENT))
 const soft = (promise) => promise.catch(() => null);
 
 /* The desks with anything waiting on them. */
-const COUNTED = [ROLES.PRINCIPAL, ROLES.VICE_PRINCIPAL, ROLES.TEACHER];
+const COUNTED = [ROLES.PRINCIPAL, ROLES.VICE_PRINCIPAL, ROLES.TEACHER, ROLES.STUDENT];
 
 async function countsFor(role, selfId) {
   /* A Vice Principal decides teaching requests — never their own (ticket 19) —
@@ -83,6 +88,10 @@ async function countsFor(role, selfId) {
       classMoves: moves ? moves.filter((move) => move.canDecide).length : null,
       marking: queue ? queue.marking + queue.release : null,
     };
+  }
+  if (role === ROLES.STUDENT) {
+    const menu = await soft(readMyMenu(selfId));
+    return { todo: menu ? todoAcross(menu.classes).length : null };
   }
   return {};
 }

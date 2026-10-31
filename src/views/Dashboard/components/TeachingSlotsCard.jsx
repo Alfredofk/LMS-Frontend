@@ -97,14 +97,21 @@ const SlotRow = ({ slot, thresholds, open, onToggle }) => {
             empty={attendance?.counted ? null : t('teacherDash.slots.attendanceNone')}
           />
         </span>
+        {/* The count in words, as the Penilaian card's chips (owner, 2026-10-31, mockup
+            dasbor-ringkasan.html item 11); none is still a quiet dash. */}
         <span
-          className={`min-w-[26px] px-2 py-0.5 rounded-full text-xs text-center tabular-nums row-start-1 col-start-2 lg:row-start-auto lg:col-start-auto ${
+          className={`min-w-[26px] px-2 py-0.5 rounded-full text-xs text-center tabular-nums whitespace-nowrap row-start-1 col-start-2 lg:row-start-auto lg:col-start-auto ${
             support.length ? 'bg-amber-50 text-amber-700 font-extrabold' : 'text-slate-300 font-semibold'
           }`}
-          title={t('teacherDash.slots.support', { n: support.length })}
         >
-          {support.length || '-'}
-          <span className="sr-only"> {t('teacherDash.slots.support', { n: support.length })}</span>
+          {support.length ? (
+            t('teacherDash.slots.supportShort', { n: support.length })
+          ) : (
+            <>
+              <span aria-hidden="true">-</span>
+              <span className="sr-only">{t('teacherDash.slots.support', { n: 0 })}</span>
+            </>
+          )}
         </span>
         <ChevronRight
           className={`w-4 h-4 shrink-0 text-slate-400 transition-transform duration-300 row-start-1 col-start-3 lg:row-start-auto lg:col-start-auto ${open ? 'rotate-90' : ''}`}

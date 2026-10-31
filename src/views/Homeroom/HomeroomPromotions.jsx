@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { Clock, Info } from 'lucide-react';
 
+import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
 import { useUnsavedGuard } from '../../hooks/useUnsavedGuard';
 import { useT } from '../../i18n/LanguageContext';
@@ -12,11 +14,14 @@ import {
   decidedCount,
   evenSemesterOf,
   notDecidableView,
+  outcomeCounts,
   promotionChanged,
   promotionsBody,
   promotionsShown,
   resultShown,
 } from './promotions';
+import { RosterError } from '../Attendance/RosterParts';
+import { CardSkeleton, SaveBar, StudentHead, ToneWord } from './HomeroomCardParts';
 
 /*
   "Kenaikan kelas" (owner, 2026-10-22; backend 4dae152, ticket 09): the Homeroom
@@ -35,6 +40,11 @@ import {
   class list" through `onDirty`. The Principal and the Vice Principals read the same
   card on /headmaster/classes, read only.
 
+  The look is the mockup catatan-kenaikan-wali.html (owner, 2026-10-30, items 8-13):
+  the count in a slash line, the results as cells over a bar, the KKTP line under a
+  name coloured, why it cannot be decided in an amber box, a result read as a
+  coloured word (staying rose), the Notes' save bar and error boxes.
+
   @param classId         the class
   @param academicYearId  its year, for Semester 2
   @param canEdit         the homeroom teacher's desk
@@ -43,13 +53,14 @@ import {
 */
 
 const card = 'bg-white border border-slate-100 rounded-2xl p-5 sm:p-6 shadow-sm';
-const button =
-  'inline-flex items-center justify-center px-4 py-2 rounded-xl text-sm font-bold cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50 disabled:cursor-not-allowed';
+/* A result's colour (item 12): going up green, staying rose, none yet amber. */
+const toneOf = (result) => (!result ? 'amber' : result === 'RETAINED' ? 'rose' : 'emerald');
 
 export const HomeroomPromotions = ({ classId, academicYearId, canEdit = false, onDirty, onToast }) => {
   const { t } = useT();
   /* undefined reading · Semester 2 (or null) · { error } */
   const [semester, setSemester] = useState(undefined);
+  const [yearAttempt, setYearAttempt] = useState(0);
   /* undefined reading · the read · { error } */
   const [read, setRead] = useState(undefined);
   const [attempt, setAttempt] = useState(0);
@@ -67,7 +78,7 @@ export const HomeroomPromotions = ({ classId, academicYearId, canEdit = false, o
     return () => {
       cancelled = true;
     };
-  }, [academicYearId, t]);
+  }, [academicYearId, yearAttempt, t]);
 
   const shown = Boolean(semester?.error) || promotionsShown(semester);
 
@@ -99,6 +110,7 @@ export const HomeroomPromotions = ({ classId, academicYearId, canEdit = false, o
   const why = notDecidableView(read && !read.error ? read : null);
   const nameOf = new Map(students.map((student) => [student.studentProfileId, student.fullName ?? t('tasm.results.unnamed')]));
   const outcomeWord = (outcome) => t(`homeroom.promo.outcome.${outcome}`);
+  const counts = outcomeCounts(students, drafts, automaticOutcome);
 
   const pick = (studentProfileId, value) => setDrafts((now) => ({ ...now, [studentProfileId]: value }));
 
@@ -131,90 +143,136 @@ export const HomeroomPromotions = ({ classId, academicYearId, canEdit = false, o
     }
   };
 
+  const retry = (onClick) => (
+    <Button size="sm" variant="outline" onClick={onClick}>
+      {t('att.error.retry')}
+    </Button>
+  );
+
   const heading = (
-    <div className="space-y-1">
-      <h3 id={`promo-${classId}`} className="text-base font-extrabold text-slate-900">
+    <div className="min-w-0">
+      <h3 id={`promo-${classId}`} className="text-base font-extrabold text-slate-900 tracking-tight">
         {t('homeroom.promo.title')}
       </h3>
       {read && !read.error && (
-        <p className="text-xs sm:text-sm text-slate-500 font-bold">
-          {t('classes.semester.name', { n: 2 })}
-          <span className="font-light text-slate-300"> / </span>
-          {read.academicYear}
+        <p className="mt-0.5 text-[13px] font-medium text-slate-500">
+          <span className="whitespace-nowrap">{t('grading.fin.semesterOption', { n: 2, year: read.academicYear })}</span>
+          {students.length > 0 && (
+            <>
+              {' '}
+              <span className="mx-1 text-slate-300" aria-hidden="true">
+                /
+              </span>{' '}
+              <span className="whitespace-nowrap">{t('homeroom.promo.count', { n: decidedCount(students, drafts, automaticOutcome), total: students.length })}</span>
+            </>
+          )}
         </p>
       )}
     </div>
   );
 
   let body;
-  if (semester?.error) body = <p className="text-sm font-semibold text-amber-700">{semester.error}</p>;
-  else if (read === undefined) body = <div className="h-32 rounded-xl bg-slate-50 animate-pulse" aria-busy="true" aria-label={t('common.loading')} />;
-  else if (read.error) body = <p className="text-sm font-semibold text-amber-700">{read.error}</p>;
-  else if (students.length === 0) body = <p className="text-sm font-semibold text-slate-600">{t('homeroom.promo.none')}</p>;
+  if (semester?.error) {
+    body = (
+      <RosterError
+        action={retry(() => {
+          setSemester(undefined);
+          setYearAttempt((n) => n + 1);
+        })}
+      >
+        {semester.error}
+      </RosterError>
+    );
+  } else if (read === undefined) body = <CardSkeleton />;
+  else if (read.error) {
+    body = (
+      <RosterError
+        action={retry(() => {
+          setRead(undefined);
+          setAttempt((n) => n + 1);
+        })}
+      >
+        {read.error}
+      </RosterError>
+    );
+  } else if (students.length === 0) body = <p className="text-[13px] font-medium text-slate-600">{t('homeroom.promo.none')}</p>;
   else {
+    const cells = [
+      { key: 'advance', label: outcomeWord(automaticOutcome), n: counts.advance, tone: 'text-emerald-700' },
+      { key: 'RETAINED', label: outcomeWord('RETAINED'), n: counts.RETAINED, tone: 'text-rose-700' },
+      { key: 'undecided', label: t('homeroom.promo.undecided'), n: counts.undecided, tone: 'text-amber-700' },
+    ];
     body = (
       <>
-        <div className="space-y-1">
-          <p className="flex flex-wrap gap-x-4 text-xs font-semibold text-slate-500">
-            <span>{t('homeroom.promo.count', { n: decidedCount(students, drafts, automaticOutcome), total: students.length })}</span>
-            {editing && dirty && <span className="text-amber-700">{t('homeroom.promo.unsaved', { n: changed.length })}</span>}
+        {/* Summary first (item 9): the results as they stand with the choices on screen. */}
+        <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3.5">
+          <dl className="grid grid-cols-3 gap-2">
+            {cells.map((cell) => (
+              <div key={cell.key} className="min-w-0">
+                <dt className="block text-[10px] font-bold tracking-wider uppercase text-slate-500">{cell.label}</dt>
+                <dd className={`text-[22px] font-extrabold tracking-tight leading-tight tabular-nums ${cell.tone}`}>{cell.n}</dd>
+              </div>
+            ))}
+          </dl>
+          <div className="mt-3 flex h-2 rounded-full overflow-hidden bg-slate-200" aria-hidden="true">
+            <span className="h-full bg-emerald-500" style={{ width: `${(counts.advance / students.length) * 100}%` }} />
+            <span className="h-full bg-rose-500" style={{ width: `${(counts.RETAINED / students.length) * 100}%` }} />
+          </div>
+        </div>
+
+        {why ? (
+          <p className="flex items-start gap-2.5 rounded-xl border border-amber-100 bg-amber-50 px-3.5 py-3 text-[13px] font-semibold leading-relaxed text-amber-800" role="status">
+            <Clock className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+            {t(why.key, why.vars)}
           </p>
-          <p className="text-xs font-medium text-slate-500 leading-relaxed">
+        ) : (
+          <p className="flex items-start gap-2 text-[13px] font-medium text-slate-600 leading-relaxed">
+            <Info className="w-4 h-4 shrink-0 mt-0.5 text-slate-500" aria-hidden="true" />
             {t(canEdit ? 'homeroom.promo.intro' : 'homeroom.promo.readIntro', { outcome: outcomeWord(automaticOutcome).toLowerCase() })}
           </p>
-          {why && (
-            <p className="text-xs font-semibold text-amber-700 leading-relaxed" role="status">
-              {t(why.key, why.vars)}
-            </p>
-          )}
-        </div>
+        )}
 
         <ul className="divide-y divide-slate-100">
           {students.map((student) => {
             const id = student.studentProfileId;
             const result = resultShown(student, drafts, automaticOutcome);
-            const hint = student.automatic === true ? t('homeroom.promo.reached') : student.automatic === false ? t('homeroom.promo.notReached') : null;
+            const hint =
+              student.automatic === true ? (
+                <span className="block text-[12.5px] font-semibold text-emerald-700">{t('homeroom.promo.reached')}</span>
+              ) : student.automatic === false ? (
+                <span className="block text-[12.5px] font-semibold text-amber-700">{t('homeroom.promo.notReached')}</span>
+              ) : null;
             return (
-              <li key={id} className="py-3 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p id={`promo-${id}`} className="text-sm font-bold text-slate-900 break-words">
-                    {nameOf.get(id)}
-                  </p>
-                  {hint && <p className="text-xs font-medium text-slate-500">{hint}</p>}
-                </div>
-                {editing ? (
-                  <Select size="sm" value={choiceOf(student, drafts)} onChange={(e) => pick(id, e.target.value)} aria-label={t('homeroom.promo.choiceFor', { name: nameOf.get(id) })} className="w-full sm:w-56 shrink-0">
-                    <option value={AUTOMATIC}>{student.automatic ? t('homeroom.promo.auto', { outcome: outcomeWord(automaticOutcome) }) : t('homeroom.promo.undecided')}</option>
-                    {(read.choices ?? []).map((choice) => (
-                      <option key={choice} value={choice}>
-                        {outcomeWord(choice)}
-                      </option>
-                    ))}
-                  </Select>
-                ) : (
-                  <p className={`text-sm font-bold shrink-0 ${result ? 'text-slate-900' : 'text-amber-700'}`}>{result ? outcomeWord(result) : t('homeroom.promo.undecided')}</p>
-                )}
+              <li key={id} className="py-3.5 px-1">
+                <StudentHead
+                  name={nameOf.get(id)}
+                  nameProps={{ id: `promo-${id}` }}
+                  below={hint}
+                  marker={editing && promotionChanged(student, drafts) && <span className="ml-1.5 text-[11.5px] font-bold text-brand">{t('homeroom.changed')}</span>}
+                >
+                  {editing ? (
+                    <div className="w-full sm:w-56 shrink-0">
+                      <Select size="sm" value={choiceOf(student, drafts)} onChange={(e) => pick(id, e.target.value)} aria-label={t('homeroom.promo.choiceFor', { name: nameOf.get(id) })}>
+                        <option value={AUTOMATIC}>{student.automatic ? t('homeroom.promo.auto', { outcome: outcomeWord(automaticOutcome) }) : t('homeroom.promo.undecided')}</option>
+                        {(read.choices ?? []).map((choice) => (
+                          <option key={choice} value={choice}>
+                            {outcomeWord(choice)}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                  ) : (
+                    <ToneWord tone={toneOf(result)}>{result ? outcomeWord(result) : t('homeroom.promo.undecided')}</ToneWord>
+                  )}
+                </StudentHead>
               </li>
             );
           })}
         </ul>
 
-        {message && (
-          <p className="text-xs font-semibold text-rose-700 leading-relaxed" role="alert">
-            {message}
-          </p>
-        )}
+        {message && <RosterError>{message}</RosterError>}
 
-        {editing && (
-          <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
-            <button type="button" onClick={cancel} disabled={saving || !dirty} className={`${button} bg-slate-100 text-slate-700 hover:bg-slate-200`}>
-              {t('common.cancel')}
-            </button>
-            <button type="button" onClick={save} disabled={saving || !dirty} className={`${button} bg-brand text-white hover:bg-brand-deep`}>
-              {t('homeroom.promo.save')}
-            </button>
-          </div>
-        )}
+        {editing && <SaveBar count={changed.length} saveLabel={t('homeroom.promo.save')} onCancel={cancel} onSave={save} saving={saving} />}
       </>
     );
   }

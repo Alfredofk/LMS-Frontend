@@ -25,6 +25,7 @@ import {
   yearAhead,
 } from './questionBank';
 import QuestionContentFields from './QuestionContentFields';
+import { BusyLabel } from '../../components/ui/ModalHeading';
 
 /*
   Writing or editing one question (backend ed46340; owner 2026-10-07: a full page,
@@ -180,7 +181,7 @@ const QuestionEditor = () => {
   return (
     <div className="space-y-6 max-w-3xl">
       <div className="space-y-1">
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+        <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">
           {t(editing ? 'qbank.editor.editTitle' : 'qbank.editor.newTitle')}
         </h1>
         {editing && (
@@ -333,7 +334,7 @@ const QuestionEditor = () => {
           {t('common.cancel')}
         </button>
         <button type="button" onClick={save} disabled={busy} className={`${tool} px-5 py-2.5 text-sm bg-brand text-white hover:bg-brand-deep`}>
-          {busy ? t('common.loading') : t(editing ? 'qbank.editor.saveChanges' : 'qbank.editor.save')}
+          <BusyLabel busy={busy}>{t(editing ? 'qbank.editor.saveChanges' : 'qbank.editor.save')}</BusyLabel>
         </button>
       </div>
       {guard.dialog}

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { changeText, changeToneOf, firstDirOf, isCounted, sortRows, valueOf, valueText } from './schoolOverview.js';
+import { SORTS, changeText, changeToneOf, isCounted, isEmptyRow, sortRows, valueOf, valueText } from './schoolOverview.js';
 
 /* A Class row as schoolDashboard answers one (dashboard.school.js, 1a1eed7). */
 const klass = (name, gradeLevel, { placed = 0, attendance = null, withSignal = null } = {}) => ({
@@ -80,10 +80,21 @@ describe('sortRows', () => {
   });
 });
 
-describe('firstDirOf / isCounted', () => {
-  it('starts names A-Z and numbers from the largest', () => {
-    expect(firstDirOf('name')).toBe('asc');
-    expect(firstDirOf('withSignal')).toBe('desc');
+describe('SORTS / isEmptyRow / isCounted', () => {
+  it('offers names A-Z, the weakest figures first and the most students in trouble first', () => {
+    expect(SORTS[0]).toEqual({ id: 'name', key: 'name', dir: 'asc' });
+    expect(SORTS.find((sort) => sort.key === 'attendance').dir).toBe('asc');
+    expect(SORTS.find((sort) => sort.key === 'averageGrade').dir).toBe('asc');
+    expect(SORTS.find((sort) => sort.key === 'belowKktp').dir).toBe('desc');
+    expect(SORTS.find((sort) => sort.key === 'withSignal').dir).toBe('desc');
+    expect(SORTS.map((sort) => sort.key)).not.toContain('studentsPlacedNow');
+  });
+
+  it('calls a row empty only when nobody is placed, not when nothing was counted', () => {
+    expect(isEmptyRow({ studentsPlacedNow: 0 })).toBe(true);
+    expect(isEmptyRow({ studentsPlacedNow: 2 })).toBe(false);
+    expect(isEmptyRow({ studentsPlacedNow: null })).toBe(false);
+    expect(isEmptyRow(null)).toBe(false);
   });
 
   it('is counted once the rollup has a row', () => {

@@ -2,7 +2,7 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { UserCheck } from 'lucide-react';
 
-import ModalHeading from '../../components/ui/ModalHeading';
+import ModalHeading, { BusyLabel, ModalError } from '../../components/ui/ModalHeading';
 import SelectField from '../../components/ui/SelectField';
 import { modalActions, modalCancelClass, modalConfirmClass } from '../../components/ui/modalStyles';
 import { useT } from '../../i18n/LanguageContext';
@@ -135,9 +135,7 @@ export const AppointPrincipalDialog = ({ school, teachers, onClose, onSubmit, de
                 className="block w-full rounded-xl border border-slate-200 hover:border-slate-300 bg-white py-2.5 px-4 text-sm text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand disabled:bg-slate-50"
               />
               {errors.reason ? (
-                <p id={ids.hint} className="text-xs text-red-600 font-semibold leading-relaxed" role="alert">
-                  {errors.reason}
-                </p>
+                <ModalError id={ids.hint}>{errors.reason}</ModalError>
               ) : (
                 <p id={ids.hint} className="text-[11px] text-slate-500 font-medium leading-relaxed">
                   {t('gbpw.reason.hint')}
@@ -148,9 +146,7 @@ export const AppointPrincipalDialog = ({ school, teachers, onClose, onSubmit, de
         )}
 
         {errors.global && (
-          <p className="text-xs text-red-600 font-semibold leading-relaxed" role="alert">
-            {errors.global}
-          </p>
+          <ModalError>{errors.global}</ModalError>
         )}
 
         <div className={modalActions}>
@@ -159,7 +155,7 @@ export const AppointPrincipalDialog = ({ school, teachers, onClose, onSubmit, de
           </button>
           {candidates.length > 0 && (
             <button type="button" onClick={submit} disabled={busy} className={modalConfirmClass('brand', busy)}>
-              {busy ? t('common.loading') : t(replacing ? 'gbpw.appoint.confirmReplace' : 'gbpw.appoint.confirm')}
+              <BusyLabel busy={busy}>{t(replacing ? 'gbpw.appoint.confirmReplace' : 'gbpw.appoint.confirm')}</BusyLabel>
             </button>
           )}
         </div>

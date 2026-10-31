@@ -97,10 +97,10 @@ export const ForgotPasswordPage = () => {
         <SentMark />
 
         <div>
-          <h2 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
-            {t('forgot.sent.title')} <span className="text-brand">{t('forgot.sent.titleAccent')}</span>
+          <h2 className="text-[26px] font-extrabold text-slate-800 leading-tight select-none">
+            {t('forgot.sent.title')}
           </h2>
-          <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold break-all">
+          <p className="text-slate-500 text-sm mt-2 font-medium break-all">
             {email.trim()}
           </p>
         </div>
@@ -135,10 +135,10 @@ export const ForgotPasswordPage = () => {
       <KeyMark />
 
       <div>
-        <h2 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
-          {t('forgot.title')} <span className="text-brand">{t('forgot.titleAccent')}</span>
+        <h2 className="text-[26px] font-extrabold text-slate-800 leading-tight select-none">
+          {t('forgot.title')}
         </h2>
-        <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold">
+        <p className="text-slate-500 text-sm mt-2 font-medium">
           {t('forgot.subtitle')}
         </p>
       </div>
@@ -147,8 +147,10 @@ export const ForgotPasswordPage = () => {
         <Input
           id="email"
           type="email"
-          placeholder={t('auth.field.email')}
+          label={t('auth.label.email')}
+          placeholder={t('auth.example.email')}
           required
+          markRequired={false}
           value={email}
           onChange={(e) => {
             setEmail(e.target.value);
@@ -163,12 +165,7 @@ export const ForgotPasswordPage = () => {
           isLoading={isLoading}
           className="w-full py-3.5 rounded-2xl justify-center text-base active:scale-95 transition-transform shadow-lg shadow-brand/20 select-none"
         >
-          <span className="flex items-center gap-1">
-            {t('forgot.action')}
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 mt-0.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-            </svg>
-          </span>
+          {t('forgot.action')}
         </Button>
       </form>
     </AuthLayout>

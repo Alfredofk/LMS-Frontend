@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { RotateCcw } from 'lucide-react';
+import { AlertCircle, RotateCcw } from 'lucide-react';
 
 import ModalHeading from '../../components/ui/ModalHeading';
 import { modalActions, modalCancelClass, modalConfirmClass } from '../../components/ui/modalStyles';
@@ -113,10 +113,10 @@ export const ReopenSemesterDialog = ({ title, classes, onClose, onSubmit, descri
             }}
             aria-invalid={!!error}
             aria-describedby={ids.hint}
-            className="block w-full rounded-xl border border-slate-200 hover:border-slate-300 bg-white py-2.5 px-4 text-sm text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand disabled:bg-slate-50"
+            className={`block w-full rounded-xl border ${error ? 'border-rose-300' : 'border-slate-200 hover:border-slate-300'} bg-white py-2.5 px-4 text-sm text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand disabled:bg-slate-50`}
           />
           {error ? (
-            <p id={ids.hint} className="text-xs text-red-600 font-semibold leading-relaxed" role="alert">
+            <p id={ids.hint} className="text-xs text-rose-700 font-semibold leading-relaxed" role="alert">
               {error}
             </p>
           ) : (
@@ -136,7 +136,7 @@ export const ReopenSemesterDialog = ({ title, classes, onClose, onSubmit, descri
               {withSlots.map((entry) => {
                 const all = entry.slots.every((slot) => ticked.has(slot.classSubjectId));
                 return (
-                  <li key={entry.class.id} className="rounded-xl border border-slate-200 px-3.5 py-2.5 space-y-1.5">
+                  <li key={entry.class.id} className="rounded-xl border border-slate-200 px-3.5 py-2.5 space-y-2">
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-sm font-extrabold text-slate-900 break-words">{entry.class.name}</span>
                       <label className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 cursor-pointer">
@@ -155,7 +155,15 @@ export const ReopenSemesterDialog = ({ title, classes, onClose, onSubmit, descri
                               className="w-4 h-4 mt-0.5 shrink-0 accent-brand cursor-pointer"
                             />
                             <span className="min-w-0 break-words">
-                              <span className="font-bold text-slate-900">{slot.subject.code}</span> {slot.subject.name}
+                              <span className="font-bold text-slate-900">{`${slot.subject.code} - ${slot.subject.name}`}</span>
+                              {slot.teacher?.fullName && (
+                                <span className="text-slate-500">
+                                  <span className="mx-1.5 text-slate-300" aria-hidden="true">
+                                    /
+                                  </span>
+                                  {slot.teacher.fullName}
+                                </span>
+                              )}
                             </span>
                           </label>
                         </li>
@@ -170,7 +178,8 @@ export const ReopenSemesterDialog = ({ title, classes, onClose, onSubmit, descri
         </fieldset>
 
         {failed && (
-          <p className="text-xs font-semibold text-rose-700 leading-relaxed" role="alert">
+          <p className="flex items-start gap-2.5 rounded-xl border border-rose-100 bg-rose-50 px-3.5 py-3 text-[12.5px] font-semibold text-rose-700 leading-relaxed" role="alert">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
             {failed}
           </p>
         )}

@@ -12,8 +12,12 @@ import { useT } from '../../i18n/LanguageContext';
   so a student whose browser refuses fullscreen is never stuck. Escape and the
   backdrop do nothing - Escape is what left fullscreen in the first place. The
   attempt page makes what is behind inert while this is open.
+
+  `facts` (since 2026-10-29, mockup mengerjakan-penilaian.html item 9) are the
+  time left and the questions answered, already translated, as eyebrow cells:
+  the clock keeps running behind the blur.
 */
-export const FullscreenLockDialog = ({ onBack, onHandIn }) => {
+export const FullscreenLockDialog = ({ facts = [], onBack, onHandIn }) => {
   const { t } = useT();
   const backRef = useRef(null);
 
@@ -38,6 +42,16 @@ export const FullscreenLockDialog = ({ onBack, onHandIn }) => {
           bodyId="fullscreen-lock-body"
           body={t('sasm.fullscreen.body')}
         />
+        {facts.length > 0 && (
+          <dl className="flex flex-wrap gap-x-7 gap-y-2 sm:pl-[60px]">
+            {facts.map((fact) => (
+              <div key={fact.label}>
+                <dt className="text-[10px] font-bold tracking-wider uppercase text-slate-500">{fact.label}</dt>
+                <dd className="text-[15px] font-extrabold text-slate-900 tabular-nums">{fact.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
         <div className={modalActions}>
           <button type="button" onClick={onHandIn} className={modalCancelClass()}>
             {t('sasm.fullscreen.handInNow')}

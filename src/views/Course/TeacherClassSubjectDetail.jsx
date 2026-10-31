@@ -229,6 +229,7 @@ export const TeacherClassSubjectDetail = () => {
           <FinalisingCard
             classSubjectId={entry.id}
             subjectName={entry.subject.name}
+            semester={entry.semester}
             grades={grades}
             canEdit={!readOnly}
             zone={zone}

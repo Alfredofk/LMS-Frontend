@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { XCircle } from 'lucide-react';
 
 import { modalActions, modalCancelClass, modalConfirmClass } from './ui/modalStyles';
-import ModalHeading from './ui/ModalHeading';
+import ModalHeading, { BusyLabel, ModalError } from './ui/ModalHeading';
 
 import { useT } from '../i18n/LanguageContext';
 import { validateLeaveReason } from '../utils/validation';
@@ -111,18 +111,16 @@ export const ReasonDialog = ({ title, body, label, hint, confirmLabel, onClose, 
             }}
             aria-invalid={!!error}
             aria-describedby={ids.hint}
-            className="block w-full rounded-xl border border-slate-200 hover:border-slate-300 bg-white py-2.5 px-4 text-sm text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand disabled:bg-slate-50"
+            className={`block w-full rounded-xl border ${error ? 'border-rose-300' : 'border-slate-200 hover:border-slate-300'} bg-white py-2.5 px-4 text-sm text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand disabled:bg-slate-50`}
           />
-          {error ? (
-            <p id={ids.hint} className="text-xs text-red-600 font-semibold leading-relaxed" role="alert">
-              {error}
-            </p>
-          ) : (
-            <p id={ids.hint} className="text-[11px] text-slate-500 font-medium leading-relaxed">
-              {hint}
-            </p>
-          )}
+          {/* The hint stays with a counter (mockup akses-dialog.html, items 8-9); an error is a rose box under it. */}
+          <p id={ids.hint} className="flex justify-between gap-3 text-xs text-slate-500 font-medium leading-relaxed">
+            <span>{hint}</span>
+            <span className="shrink-0 tabular-nums">{reason.trim().length}/500</span>
+          </p>
         </div>
+
+        {error && <ModalError>{error}</ModalError>}
 
         <div className={modalActions}>
           <button
@@ -139,7 +137,7 @@ export const ReasonDialog = ({ title, body, label, hint, confirmLabel, onClose, 
             disabled={busy}
             className={modalConfirmClass(tone, busy)}
           >
-            {busy ? t('common.loading') : confirmLabel}
+            <BusyLabel busy={busy}>{confirmLabel}</BusyLabel>
           </button>
         </div>
       </div>

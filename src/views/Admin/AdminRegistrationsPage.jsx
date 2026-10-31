@@ -344,7 +344,7 @@ export const AdminRegistrationsPage = () => {
             {rows.length < total && (
               <div className="px-2 pt-2 pb-2.5">
                 <Button size="sm" variant="outline" onClick={() => fetchPage(rows.length)} isLoading={isAppending} className="w-full">
-                  {isAppending ? t('common.loading') : t('admin.queue.loadMore')}
+                  {t('admin.queue.loadMore')}
                 </Button>
               </div>
             )}
@@ -364,7 +364,7 @@ export const AdminRegistrationsPage = () => {
   return (
     <div className="space-y-6">
       <div className="select-none">
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+        <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">
           {t('admin.title')}
         </h1>
         <p className="mt-2 text-sm font-medium text-slate-500">

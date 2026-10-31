@@ -24,3 +24,19 @@ export const sortByRole = (members) =>
     (a, b) =>
       roleRankOf(a) - roleRankOf(b) || byName(a, b) || String(a.membershipId ?? '').localeCompare(String(b.membershipId ?? ''))
   );
+
+/**
+ * The "All" tab's members, already in sortByRole's order, cut into one group per
+ * highest role (owner, 2026-10-31): [{ role, members }]. A member whose roles are
+ * all unknown falls in a group with role null, last.
+ */
+export const roleGroupsOf = (sorted) => {
+  const groups = [];
+  for (const member of sorted ?? []) {
+    const role = ROLE_RANK[roleRankOf(member)] ?? null;
+    const last = groups[groups.length - 1];
+    if (last && last.role === role) last.members.push(member);
+    else groups.push({ role, members: [member] });
+  }
+  return groups;
+};

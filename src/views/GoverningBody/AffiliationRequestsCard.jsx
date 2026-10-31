@@ -6,6 +6,7 @@ import ReasonDialog from '../../components/ReasonDialog';
 import { useT } from '../../i18n/LanguageContext';
 import { affiliationDecisionErrorMessage, isStaleAffiliation } from '../../i18n/apiError';
 import { governingBodyService } from '../../services/governingBodyService';
+import { ADMIN_CARD, CARD_TITLE, SlashFacts } from '../Admin/adminParts';
 
 /*
   Independent Schools asking to join the body (backend 261a9c7, ticket 08; owner
@@ -15,7 +16,9 @@ import { governingBodyService } from '../../services/governingBodyService';
   School yet, which an independent School may still ask to join. Each: the School, "NPSN / type / city", the Principal who
   asked and the day. Setujui (asked: the School joins; its Principal is the body's to
   make from then) or Tolak (a reason of 3-500 the Principal reads). "Lihat riwayat
-  permintaan" lists the decided ones with who and why.
+  permintaan" lists the decided ones with who and why. Since 2026-10-29 (the reviewed
+  mockup) in the dashboards' frame, each row's facts one slash line, the outcome a
+  coloured word, Tolak `dangerOutline`.
 
   Out of date (decided elsewhere, the School joined another body or was switched off) is
   a toast and a fresh read; an approval also reads the Schools again (`onJoined`). A 403
@@ -109,16 +112,16 @@ export const AffiliationRequestsCard = ({ showToast, onJoined, onGone }) => {
   }
 
   return (
-    <section className="bg-white border border-amber-200 rounded-2xl p-5 shadow-sm space-y-3">
+    <section className={`${ADMIN_CARD} space-y-3`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <h2 className="text-base font-extrabold text-slate-900">{t('gbaf.title')}</h2>
-          <p className="text-xs font-medium text-slate-500 mt-1 leading-relaxed">{t('gbaf.body')}</p>
+          <h2 className={CARD_TITLE}>{t('gbaf.title')}</h2>
+          <p className="text-[13px] text-slate-500 mt-1 leading-relaxed">{t('gbaf.body')}</p>
         </div>
         <button
           type="button"
           onClick={() => setHistory((was) => !was)}
-          className="text-xs font-extrabold text-brand hover:text-brand-deep underline underline-offset-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+          className="text-[13px] font-bold text-brand hover:text-brand-deep underline underline-offset-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
         >
           {history ? t('gbaf.history.hide') : t('gbaf.history.show')}
         </button>
@@ -132,23 +135,20 @@ export const AffiliationRequestsCard = ({ showToast, onJoined, onGone }) => {
             <li key={row.id} className="py-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div className="min-w-0 space-y-0.5">
                 <p className="text-sm font-bold text-slate-900 break-words">{row.school.name}</p>
-                <p className="text-xs font-medium text-slate-500 break-words">
-                  {t('gbpa.npsn', { npsn: row.school.npsn })}
-                  <span className="text-slate-300"> / </span>
-                  {row.school.schoolType}
-                  {row.school.city && (
-                    <>
-                      <span className="text-slate-300"> / </span>
-                      {row.school.city}
-                    </>
-                  )}
-                </p>
-                <p className="text-xs font-medium text-slate-500">{t('gbaf.requestedBy', { name: row.requestedBy.fullName, date: asDate(row.requestedAt) })}</p>
-                {row.status !== 'PENDING' && (
-                  <p className={`text-xs font-semibold ${OUTCOME[row.status] ?? 'text-slate-600'}`}>
-                    {t(`gbaf.outcome.${row.status}`, { by: row.decidedBy?.fullName ?? '', date: asDate(row.decidedAt) })}
-                  </p>
-                )}
+                {/* One grey slash line; a decided one opens with its outcome as a coloured word. */}
+                <SlashFacts
+                  className="block text-xs font-medium text-slate-500"
+                  parts={[
+                    row.status !== 'PENDING' && <span className={`font-bold ${OUTCOME[row.status] ?? 'text-slate-600'}`}>{t(`gbaf.word.${row.status}`)}</span>,
+                    t('gbs.npsn', { npsn: row.school.npsn }),
+                    row.school.schoolType,
+                    row.school.city,
+                    row.requestedBy?.fullName,
+                    t('gbaf.asked', { date: asDate(row.requestedAt) }),
+                    row.status !== 'PENDING' &&
+                      (row.decidedBy?.fullName ? t('gb.decidedBy', { by: row.decidedBy.fullName, date: asDate(row.decidedAt) }) : asDate(row.decidedAt)),
+                  ]}
+                />
                 {row.status === 'REJECTED' && row.rejectionReason && <p className="text-xs font-medium text-slate-600 break-words">{t('others.reason', { reason: row.rejectionReason })}</p>}
               </div>
               {row.status === 'PENDING' && (
@@ -163,7 +163,7 @@ export const AffiliationRequestsCard = ({ showToast, onJoined, onGone }) => {
                   >
                     {t('gbpa.approve')}
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => setAsking({ kind: 'reject', row })} ariaLabel={t('gbaf.reject.aria', { school: row.school.name })}>
+                  <Button size="sm" variant="dangerOutline" onClick={() => setAsking({ kind: 'reject', row })} ariaLabel={t('gbaf.reject.aria', { school: row.school.name })}>
                     {t('gbpa.reject')}
                   </Button>
                 </div>

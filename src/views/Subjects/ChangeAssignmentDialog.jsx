@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { ArrowLeftRight } from 'lucide-react';
 
 import { modalActions, modalCancelClass, modalConfirmClass } from '../../components/ui/modalStyles';
-import ModalHeading from '../../components/ui/ModalHeading';
+import ModalHeading, { BusyLabel, ModalError } from '../../components/ui/ModalHeading';
 
 import SelectField from '../../components/ui/SelectField';
 import { academicsService } from '../../services/academicsService';
@@ -187,7 +187,7 @@ export const ChangeAssignmentDialog = ({ row, boardClass, semester, teachers, re
             )
           )}
           {errors.mode && (
-            <p id={`${ids.mode}-error`} className="text-xs text-red-600 font-semibold" role="alert">
+            <p id={`${ids.mode}-error`} className="text-xs text-rose-700 font-semibold" role="alert">
               {errors.mode}
             </p>
           )}
@@ -248,7 +248,7 @@ export const ChangeAssignmentDialog = ({ row, boardClass, semester, teachers, re
               t('subjects.change.stops.stopBody')
             )}
             {errors.subjectStops && (
-              <p id={`${ids.stops}-error`} className="text-xs text-red-600 font-semibold" role="alert">
+              <p id={`${ids.stops}-error`} className="text-xs text-rose-700 font-semibold" role="alert">
                 {errors.subjectStops}
               </p>
             )}
@@ -275,9 +275,7 @@ export const ChangeAssignmentDialog = ({ row, boardClass, semester, teachers, re
               className="block w-full rounded-xl border border-slate-200 hover:border-slate-300 bg-white py-2.5 px-4 text-sm text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand disabled:bg-slate-50"
             />
             {errors.reason ? (
-              <p id={ids.hint} className="text-xs text-red-600 font-semibold leading-relaxed" role="alert">
-                {errors.reason}
-              </p>
+              <ModalError id={ids.hint}>{errors.reason}</ModalError>
             ) : (
               <p id={ids.hint} className="text-[11px] text-slate-500 font-medium leading-relaxed">
                 {t('subjects.change.reasonHint', { teacher: row.teacher.fullName })}
@@ -310,7 +308,7 @@ export const ChangeAssignmentDialog = ({ row, boardClass, semester, teachers, re
               disabled={busy}
               className={modalConfirmClass(stops ? 'danger' : 'brand', busy)}
             >
-              {busy ? t('common.loading') : t(confirmKey)}
+              <BusyLabel busy={busy}>{t(confirmKey)}</BusyLabel>
             </button>
           )}
         </div>

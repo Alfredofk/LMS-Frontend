@@ -13,6 +13,7 @@ import { apiErrorMessage, bodySchoolsErrorMessage } from '../../i18n/apiError';
 import { governingBodyService } from '../../services/governingBodyService';
 import { GOVERNING_BODY_SCHOOLS } from '../../constants/roles';
 import { SCHOOL_TYPE_NAMES, SCHOOL_TYPES, choosesDuration } from '../../constants/schoolTypes';
+import { ADMIN_CARD, CARD_TITLE, SlashFacts } from '../Admin/adminParts';
 import { MAX_SCHOOLS_AT_ONCE, createBodyOf, emptyRow, rowTouched, rowsErrorsOf, serverRowErrorsOf } from './bodySchools';
 
 /*
@@ -28,6 +29,10 @@ import { MAX_SCHOOLS_AT_ONCE, createBodyOf, emptyRow, rowTouched, rowsErrorsOf, 
 
   Leaving with anything typed asks first (`useUnsavedGuard`). Done, the list opens
   with a toast; each School is live at once, with its code, waiting for a Principal.
+
+  Since 2026-10-29 (owner, mockup yayasan-sekolah-admin.html): a slash line under the
+  title, a shorter lead, the cards in the dashboards' frame, a rose refusal box, and
+  "Hapus sekolah N" in rose without an underline.
 */
 
 const say = (t, fail) => (!fail ? undefined : fail.key ? t(fail.key, fail.vars) : fail.text);
@@ -108,15 +113,9 @@ export const GoverningBodyNewSchoolsPage = () => {
   return (
     <div className="max-w-3xl space-y-6">
       <div>
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('gbs.new.title')}</h1>
-        {name && (
-          <p className="text-sm font-semibold text-slate-500 mt-1 break-words">
-            {name}
-            <span className="text-slate-300"> / </span>
-            {t('gbs.title')}
-          </p>
-        )}
-        <p className="text-sm font-medium text-slate-500 leading-relaxed mt-3">{t('gbs.new.lead')}</p>
+        <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('gbs.new.title')}</h1>
+        <SlashFacts className="block mt-2 text-sm font-medium text-slate-500" parts={[name, t('gbs.title')]} />
+        <p className="text-[13px] text-slate-500 leading-relaxed mt-3">{t('gbs.new.lead')}</p>
       </div>
 
       <form onSubmit={submit} className="space-y-4" noValidate>
@@ -136,16 +135,16 @@ export const GoverningBodyNewSchoolsPage = () => {
             />
           );
           return (
-            <section key={row.key} className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4" aria-labelledby={id('title')}>
+            <section key={row.key} className={`${ADMIN_CARD} space-y-4`} aria-labelledby={id('title')}>
               <div className="flex items-center justify-between gap-3">
-                <h2 id={id('title')} className="text-base font-extrabold text-slate-900">
+                <h2 id={id('title')} className={CARD_TITLE}>
                   {t('gbs.new.card', { n: index + 1 })}
                 </h2>
                 {rows.length > 1 && (
                   <button
                     type="button"
                     onClick={() => removeRow(index)}
-                    className="text-xs font-bold text-slate-500 hover:text-rose-700 underline underline-offset-2 cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    className="text-[13px] font-bold text-rose-700 hover:text-rose-800 cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
                   >
                     {t('gbs.new.remove', { n: index + 1 })}
                   </button>
@@ -233,7 +232,7 @@ export const GoverningBodyNewSchoolsPage = () => {
         </div>
 
         {global && (
-          <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700" role="alert">
+          <div className="p-3.5 rounded-xl bg-rose-50 text-[13px] font-semibold text-rose-700" role="alert">
             {global}
           </div>
         )}

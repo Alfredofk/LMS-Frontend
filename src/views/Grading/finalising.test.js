@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  blockerLines,
   blockerView,
   boardByClass,
   canFinalise,
   canStopFinalising,
   canUnfinalise,
+  classStandingOf,
+  closeChecksOf,
   closeBlocksOf,
   closeRefusalParts,
   defaultReportDate,
@@ -16,6 +19,7 @@ import {
   reportDateRange,
   toggleClass,
   semesterStatusOf,
+  slotCountsOf,
   slotStateOf,
 } from './finalising';
 
@@ -249,5 +253,76 @@ describe('finalising - reopening a closed semester (backend 46c6173)', () => {
     expect([...some].sort()).toEqual(['cs-a', 'cs-b', 'cs-c']);
     expect([...toggleClass(some, slots)]).toEqual(['cs-c']);
     expect([...toggleClass(new Set(['cs-c']), [])]).toEqual(['cs-c']);
+  });
+});
+
+describe('the board summary (2026-10-29)', () => {
+  const slot = (extra) => ({ teacher: { membershipId: 'm1' }, finalised: null, blockers: [], ...extra });
+  it('counts subjects by the state their row shows', () => {
+    const slots = [slot({ finalised: { at: 'x' } }), slot({ finalised: { at: 'x' } }), slot(), slot({ blockers: [{ kind: 'SESSIONS' }] }), slot({ teacher: null })];
+    expect(slotCountsOf(slots)).toEqual({ FINALISED: 2, READY: 1, BLOCKED: 1, NO_TEACHER: 1, total: 5 });
+    expect(slotCountsOf(undefined).total).toBe(0);
+  });
+  it('puts a class under attention, ready or done', () => {
+    const notes = (missing = [], promotionsMissing = null) => ({ students: 3, missing, promotionsMissing });
+    expect(classStandingOf({ slots: [slot({ finalised: { at: 'x' } })], notes: notes() })).toBe('DONE');
+    expect(classStandingOf({ slots: [slot({ finalised: { at: 'x' } }), slot()], notes: notes() })).toBe('READY');
+    expect(classStandingOf({ slots: [slot({ blockers: [{ kind: 'SESSIONS' }] })], notes: notes() })).toBe('ATTENTION');
+    expect(classStandingOf({ slots: [slot({ teacher: null })], notes: notes() })).toBe('ATTENTION');
+    expect(classStandingOf({ slots: [slot({ finalised: { at: 'x' }, blockers: [{ kind: 'SESSIONS' }] })], notes: notes() })).toBe('ATTENTION');
+    expect(classStandingOf({ slots: [slot({ finalised: { at: 'x' } })], notes: notes([{ fullName: 'Ani' }]) })).toBe('ATTENTION');
+    expect(classStandingOf({ slots: [slot({ finalised: { at: 'x' } })], notes: notes([], [{ fullName: 'Ani' }]) })).toBe('ATTENTION');
+  });
+  it('lists what closing needs, as closeBlocksOf refuses it', () => {
+    const semester = { endDate: '2026-12-19T00:00:00.000Z' };
+    const board = { counts: { slots: 10, finalised: 6, notesMissing: 2, promotionsMissing: null }, slots: [] };
+    const checks = closeChecksOf(board, semester, '2026-12-01');
+    expect(checks.map((check) => [check.id, check.done, check.count])).toEqual([
+      ['ended', false, null],
+      ['slots', false, 4],
+      ['notes', false, 2],
+    ]);
+    expect(checks[0].detail).toEqual({ key: 'grading.fin.check.endedNot', vars: { date: '2026-12-19' } });
+    const ready = { counts: { slots: 2, finalised: 2, notesMissing: 0, promotionsMissing: 0 }, slots: [slot({ finalised: { at: 'x' } })] };
+    const done = closeChecksOf(ready, semester, '2026-12-19');
+    expect(done.every((check) => check.done)).toBe(true);
+    expect(done.map((check) => check.id)).toEqual(['ended', 'slots', 'notes', 'promotions']);
+    expect(closeBlocksOf(ready, semester, '2026-12-19')).toEqual([]);
+    const stuck = { counts: { slots: 1, finalised: 1, notesMissing: 0 }, slots: [slot({ finalised: { at: 'x' }, blockers: [{ kind: 'SESSIONS' }] })] };
+    expect(closeChecksOf(stuck, semester, '2026-12-20')[1]).toMatchObject({ done: false, count: 1, detail: { key: 'grading.fin.check.slotsStuck' } });
+    expect(closeChecksOf(null, semester, '2026-12-20')).toEqual([]);
+  });
+});
+
+describe('finalising - a blocker on the teacher card (2026-10-30)', () => {
+  // t stands in for the dictionary: the key, then its vars, so each line shows what it was given.
+  const t = (key, vars = {}) => (key.startsWith('grading.fin.part.') ? `${vars.n} ${key}` : `${key}${Object.keys(vars).length ? JSON.stringify(vars) : ''}`);
+
+  it('meetings: a plain title, the count said apart', () => {
+    const lines = blockerLines(blockerView({ kind: 'SESSIONS_NEED_COMPLETION', sessions: 3 }), t);
+    expect(lines).toEqual({ title: 'grading.fin.line.sessions', detail: [{ count: 3, text: ' grading.fin.part.unconfirmed' }] });
+  });
+
+  it('an assessment: its name, then each part with its count apart', () => {
+    const view = blockerView({ kind: 'ASSESSMENT', assessment: { id: 'a1', type: 'KUIS', title: 'Bab 2', mode: 'ONLINE' }, waitingForMarking: 2, waitingForRelease: 1 });
+    const lines = blockerLines(view, t);
+    expect(lines.title).toBe('grading.fin.blocker.assessment{"type":"tasm.type.KUIS","title":"Bab 2"}');
+    expect(lines.detail).toEqual([
+      { count: 2, text: ' grading.fin.part.marking' },
+      { count: 1, text: ' grading.fin.part.release' },
+    ]);
+  });
+
+  it("names and another class's students carry no count", () => {
+    expect(blockerLines(blockerView({ kind: 'NO_GRADE', students: [{ fullName: 'Ani' }, { fullName: 'Budi' }] }), t)).toEqual({
+      title: 'grading.fin.line.noGrade',
+      detail: [{ count: null, text: 'Ani, Budi' }],
+    });
+    const pooled = blockerLines(
+      blockerView({ kind: 'POOLED', assessment: { type: 'TUGAS', title: 'Esai' }, class: { name: 'XI IPA' }, students: [{ fullName: 'Citra' }] }),
+      t
+    );
+    expect(pooled.detail).toEqual([{ count: null, text: 'grading.fin.line.waiting{"names":"Citra"}' }]);
+    expect(blockerLines(blockerView({ kind: 'NEW_ONE', text: 'something new' }), t)).toEqual({ title: 'something new', detail: [] });
   });
 });

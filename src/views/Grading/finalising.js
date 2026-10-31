@@ -91,6 +91,37 @@ export function blockerText(view, t, zone, lang) {
 }
 
 /**
+ * One blocker as the teacher card lays it out (mockup finalisasi-guru.html, item 3):
+ * `{ title, detail }`, the name on the first line and what is left on the second, each
+ * of `detail` `{ count, text }` - `count` the number the line starts with (said apart,
+ * in amber), `text` the rest; `count` null for a line without one (names). The board
+ * keeps blockerText's one line.
+ */
+export function blockerLines(view, t, zone, lang) {
+  const counted = (key, vars) => {
+    const text = t(key, vars);
+    const lead = String(vars.n);
+    return text.startsWith(lead) ? { count: vars.n, text: text.slice(lead.length) } : { count: null, text };
+  };
+  const type = view.vars?.type ? t(`tasm.type.${view.vars.type}`) : '';
+  if (view.kind === 'SESSIONS_NEED_COMPLETION') {
+    return { title: t('grading.fin.line.sessions'), detail: [counted('grading.fin.part.unconfirmed', { n: view.vars.n })] };
+  }
+  if (view.kind === 'NO_GRADE') return { title: t('grading.fin.line.noGrade'), detail: [{ count: null, text: view.vars.names }] };
+  if (view.kind === 'POOLED') {
+    return {
+      title: t('grading.fin.line.pooled', { ...view.vars, type }),
+      detail: [{ count: null, text: t('grading.fin.line.waiting', { names: view.vars.names }) }],
+    };
+  }
+  if (!view.key) return { title: view.vars.text, detail: [] };
+  return {
+    title: t(view.key, { ...view.vars, type }),
+    detail: view.parts.map((part) => counted(part.key, { n: part.n, until: part.until ? shortWhen(part.until, zone, lang) : '' })),
+  };
+}
+
+/**
  * The readiness board by class (owner: a card per class), in the board's class order:
  * `[{ class, homeroomTeacher, slots, notes }]`, `notes` the class's `{ students,
  * missing, promotionsMissing }` or null - `promotionsMissing` the students with no
@@ -117,6 +148,33 @@ export function slotStateOf(slot) {
   if (slot?.finalised) return 'FINALISED';
   if (!slot?.teacher) return 'NO_TEACHER';
   return (slot?.blockers ?? []).length ? 'BLOCKED' : 'READY';
+}
+
+/** The board's subjects by the state their row shows: `{ FINALISED, READY, BLOCKED, NO_TEACHER, total }` (the summary bar, owner 2026-10-29). */
+export function slotCountsOf(slots) {
+  const counts = { FINALISED: 0, READY: 0, BLOCKED: 0, NO_TEACHER: 0, total: 0 };
+  for (const slot of slots ?? []) {
+    counts[slotStateOf(slot)] += 1;
+    counts.total += 1;
+  }
+  return counts;
+}
+
+/**
+ * Where a class card sits under the board's tabs (mockup finalisasi-nilai.html, item 6):
+ * 'ATTENTION' when a subject is blocked, has no teacher, or is finalised with a blocker
+ * left, or a note or promotion is missing; 'DONE' when every subject is finalised and
+ * nothing is missing; otherwise 'READY' (what is left only waits for its teacher).
+ */
+export function classStandingOf(entry) {
+  const slots = entry?.slots ?? [];
+  const stuck = slots.some((slot) => {
+    const state = slotStateOf(slot);
+    return state === 'BLOCKED' || state === 'NO_TEACHER' || (state === 'FINALISED' && (slot.blockers ?? []).length > 0);
+  });
+  const missing = (entry?.notes?.missing?.length ?? 0) > 0 || (entry?.notes?.promotionsMissing?.length ?? 0) > 0;
+  if (stuck || missing) return 'ATTENTION';
+  return slots.every((slot) => slot.finalised) ? 'DONE' : 'READY';
 }
 
 /** Whether the Principal may stop finalising now: no slot finalised (the server's 409 otherwise). */
@@ -177,6 +235,54 @@ export function closeBlocksOf(readiness, semester, today) {
   const promotionsMissing = readiness.counts.promotionsMissing ?? 0;
   if (promotionsMissing > 0) blocks.push({ key: 'grading.fin.close.blocked.promotions', vars: { n: promotionsMissing } });
   return blocks;
+}
+
+/**
+ * What closing needs, as a checklist (owner 2026-10-29, item 3), the same conditions
+ * closeBlocksOf refuses on: `[{ id, key, done, count, detail: { key, vars } | null }]`
+ * - the semester over, every subject finalised and none left blocked, every homeroom
+ * note written, and in Semester 2 (`promotionsMissing` a number) every promotion set.
+ */
+export function closeChecksOf(readiness, semester, today) {
+  if (!readiness?.counts) return [];
+  const lastDay = dayOf(semester?.endDate);
+  const notOver = Boolean(lastDay && today && today < lastDay);
+  const { slots = 0, finalised = 0, notesMissing = 0, promotionsMissing = null } = readiness.counts;
+  const stuck = (readiness.slots ?? []).filter((slot) => slot.finalised && (slot.blockers ?? []).length > 0).length;
+  const left = slots - finalised;
+  const checks = [
+    {
+      id: 'ended',
+      key: 'grading.fin.check.ended',
+      done: !notOver,
+      count: null,
+      detail: lastDay ? { key: notOver ? 'grading.fin.check.endedNot' : 'grading.fin.check.endedOn', vars: { date: lastDay } } : null,
+    },
+    {
+      id: 'slots',
+      key: 'grading.fin.check.slots',
+      done: left <= 0 && stuck === 0,
+      count: left > 0 ? left : stuck > 0 ? stuck : null,
+      detail: left > 0 ? { key: 'grading.fin.check.slotsLeft', vars: { n: left } } : stuck > 0 ? { key: 'grading.fin.check.slotsStuck', vars: { n: stuck } } : null,
+    },
+    {
+      id: 'notes',
+      key: 'grading.fin.check.notes',
+      done: notesMissing === 0,
+      count: notesMissing || null,
+      detail: notesMissing ? { key: 'grading.fin.check.notesLeft', vars: { n: notesMissing } } : null,
+    },
+  ];
+  if (typeof promotionsMissing === 'number') {
+    checks.push({
+      id: 'promotions',
+      key: 'grading.fin.check.promotions',
+      done: promotionsMissing === 0,
+      count: promotionsMissing || null,
+      detail: promotionsMissing ? { key: 'grading.fin.check.promotionsLeft', vars: { n: promotionsMissing } } : null,
+    });
+  }
+  return checks;
 }
 
 /** The parts of a 409 "cannot be closed yet" (`details.notFinalised / blocked / notesMissing / promotionsMissing`), as `{ key, vars }`. */

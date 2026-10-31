@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import AuthLayout from '../../layouts/AuthLayout';
 import { authService } from '../../services/authService';
 import { validatePassword } from '../../utils/validation';
+import AuthMessageIcon from '../../components/ui/AuthMessageIcon';
 import PasswordRules from '../../components/ui/PasswordRules';
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage } from '../../i18n/apiError';
@@ -31,7 +32,7 @@ import Button from '../../components/ui/Button';
 const LockMark = ({ tone = 'brand' }) => (
   <div
     className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto shadow-sm ${
-      tone === 'error' ? 'bg-red-50 text-red-500' : 'bg-brand-tint text-brand'
+      tone === 'error' ? 'bg-rose-50 text-rose-600' : 'bg-brand-tint text-brand'
     }`}
   >
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
@@ -193,10 +194,10 @@ export const ResetPasswordPage = () => {
         <LockMark tone="error" />
 
         <div>
-          <h2 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
-            {t('reset.rejected.title')} <span className="text-brand">{t('reset.rejected.titleAccent')}</span>
+          <h2 className="text-[26px] font-extrabold text-slate-800 leading-tight select-none">
+            {t('reset.rejected.title')}
           </h2>
-          <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold">{message}</p>
+          <p className="text-slate-500 text-sm mt-2 font-medium">{message}</p>
         </div>
 
         <Button
@@ -220,10 +221,10 @@ export const ResetPasswordPage = () => {
         <LockMark tone="done" />
 
         <div>
-          <h2 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
-            {t('reset.done.title')} <span className="text-brand">{t('reset.done.titleAccent')}</span>
+          <h2 className="text-[26px] font-extrabold text-slate-800 leading-tight select-none">
+            {t('reset.done.title')}
           </h2>
-          <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold">{message}</p>
+          <p className="text-slate-500 text-sm mt-2 font-medium">{message}</p>
         </div>
 
         <div className="border border-slate-200 rounded-2xl p-5 text-left bg-white shadow-sm">
@@ -236,12 +237,7 @@ export const ResetPasswordPage = () => {
           onClick={() => navigate('/login', { replace: true })}
           className="w-full py-3.5 rounded-2xl justify-center font-bold text-base bg-brand hover:bg-brand-deep text-white active:scale-95 transition-transform shadow-lg shadow-brand/20 select-none"
         >
-          <span className="flex items-center gap-1">
-            {t('reset.done.action')}
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 mt-0.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-            </svg>
-          </span>
+          {t('reset.done.action')}
         </Button>
       </AuthLayout>
     );
@@ -259,19 +255,17 @@ export const ResetPasswordPage = () => {
       <LockMark />
 
       <div>
-        <h2 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
-          {t('reset.form.title')} <span className="text-brand">{t('reset.form.titleAccent')}</span>
+        <h2 className="text-[26px] font-extrabold text-slate-800 leading-tight select-none">
+          {t('reset.form.title')}
         </h2>
-        <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold">
+        <p className="text-slate-500 text-sm mt-2 font-medium">
           {t('reset.form.subtitle')}
         </p>
       </div>
 
       {errors.global && (
-        <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700 text-left flex items-start gap-2.5 shadow-sm" role="alert">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 shrink-0">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-          </svg>
+        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-700 text-left flex items-start gap-2.5" role="alert">
+          <AuthMessageIcon tone="error" />
           <span>{errors.global}</span>
         </div>
       )}
@@ -280,8 +274,9 @@ export const ResetPasswordPage = () => {
         <Input
           id="password"
           type="password"
-          placeholder={t('reset.form.newPassword')}
+          label={t('reset.form.newPassword')}
           required
+          markRequired={false}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           error={errors.password}
@@ -293,8 +288,9 @@ export const ResetPasswordPage = () => {
         <Input
           id="confirmPassword"
           type="password"
-          placeholder={t('reset.form.confirm')}
+          label={t('reset.form.confirm')}
           required
+          markRequired={false}
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           error={errors.confirmPassword}
@@ -306,12 +302,7 @@ export const ResetPasswordPage = () => {
           isLoading={isSaving}
           className="w-full py-3.5 rounded-2xl justify-center text-base active:scale-95 transition-transform shadow-lg shadow-brand/20 select-none"
         >
-          <span className="flex items-center gap-1">
-            {t('reset.form.action')}
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 mt-0.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-            </svg>
-          </span>
+          {t('reset.form.action')}
         </Button>
       </form>
     </AuthLayout>

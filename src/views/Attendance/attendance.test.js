@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { localOf, summarize, bySubject, groupKey, historyOf, rosterCounts, attendanceStat, semesterRate } from './attendance.js';
+import { localOf, summarize, bySubject, groupKey, historyOf, rosterCounts, checkInFactsOf, attendanceStat, semesterRate } from './attendance.js';
 
 /* A row as attendance.service.js `mine` answers it: attendanceView plus its sessionView. */
 let next = 0;
@@ -198,5 +198,23 @@ describe('semesterRate - a member summary semester (attendanceSummary)', () => {
   it('is null with nothing counted', () => {
     expect(semesterRate({ counted: 0, present: 0 })).toBeNull();
     expect(semesterRate(undefined)).toBeNull();
+  });
+});
+
+describe('checkInFactsOf (the roster rows, 2026-10-30)', () => {
+  const t = (key, vars = {}) => (vars.time ? `${key} ${vars.time}` : key);
+
+  it('says the time in the school zone, then late, then outside', () => {
+    const facts = checkInFactsOf({ checkedInAt: '2026-10-28T00:12:00.000Z', late: true, outsideSchool: true }, 'Asia/Jakarta', t);
+    expect(facts).toEqual([
+      { text: 'att.checkedInAt 07:12', late: false },
+      { text: 'att.flag.late', late: true },
+      { text: 'att.flag.outside', late: false },
+    ]);
+  });
+
+  it('says no check-in only when asked to', () => {
+    expect(checkInFactsOf({}, 'Asia/Jakarta', t)).toEqual([]);
+    expect(checkInFactsOf({}, 'Asia/Jakarta', t, { noCheckIn: 'Belum check-in' })).toEqual([{ text: 'Belum check-in', late: false }]);
   });
 });

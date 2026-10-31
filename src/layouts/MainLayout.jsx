@@ -69,8 +69,9 @@ export const MainLayout = () => {
   const openNav = () => setNav({ open: true, path: pathname });
   const closeNav = () => setNav({ open: false, path: pathname });
 
-  const showToast = (message, type = 'info') => {
-    setToast({ message, type });
+  /* `extra` may carry a grey line under the title: { description }. */
+  const showToast = (message, type = 'info', extra = {}) => {
+    setToast({ message, type, description: extra.description });
   };
 
   const closeToast = () => {
@@ -116,6 +117,7 @@ export const MainLayout = () => {
         <Toast
           message={toast.message}
           type={toast.type}
+          description={toast.description}
           onClose={closeToast}
         />
       )}

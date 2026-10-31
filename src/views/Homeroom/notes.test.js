@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { NOTE_MAX, notedCount, noteChanged, noteErrors, noteRows, notesBody, noteTextOf, willClear } from './notes';
+import { NOTE_MAX, noteTabCounts, notedCount, rowsInTab, noteChanged, noteErrors, noteRows, notesBody, noteTextOf, willClear } from './notes';
 
 // GET /grading/classes/:id/semesters/:semesterId/notes (grading.texts.js readNotes), as backend 483be5a answers it.
 const at = '2026-10-18T04:00:00.000Z';
@@ -63,5 +63,23 @@ describe('homeroom notes - editing and sending', () => {
       { studentProfileId: 'cici', text: 'Aktif.', updatedAt: null },
     ]);
     expect(notesBody(rows, { ani: 'Rajin.', cici: '' })).toEqual([]);
+  });
+});
+
+describe('notes - the tabs over the boxes (2026-10-30)', () => {
+  const rows = [
+    { studentProfileId: 'a', saved: { text: 'Rajin', updatedAt: 't1' } },
+    { studentProfileId: 'b', saved: { text: '   ', updatedAt: 't2' } },
+    { studentProfileId: 'c', saved: null },
+  ];
+
+  it('counts by what is saved, blank text as missing', () => {
+    expect(noteTabCounts(rows)).toEqual({ all: 3, missing: 2, filled: 1 });
+  });
+
+  it('shows each tab its rows, every row on "all"', () => {
+    expect(rowsInTab(rows, 'missing').map((row) => row.studentProfileId)).toEqual(['b', 'c']);
+    expect(rowsInTab(rows, 'filled').map((row) => row.studentProfileId)).toEqual(['a']);
+    expect(rowsInTab(rows, 'all')).toBe(rows);
   });
 });

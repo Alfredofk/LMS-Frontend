@@ -17,6 +17,7 @@
     (`attemptsLeft` null).
 */
 
+import { localOf } from '../Attendance/attendance';
 import { isPractice } from '../TeacherAssessment/teacherAssessment';
 
 export const MAX_SHORT_LENGTH = 200;
@@ -58,6 +59,25 @@ export const STUDENT_STATE_TONE = {
   CLOSED: 'bg-slate-100 text-slate-600',
   CANCELLED: 'bg-rose-50 text-rose-700',
 };
+
+const DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * How soon an open assessment closes, counted in the school's days (owner,
+ * 2026-10-29, mockup outline-penilaian.html item 2): `{ key, vars }` for "Ditutup
+ * hari ini pukul 23.59", "Ditutup besok" or "Ditutup 3 hari lagi"; null once it
+ * has closed or before `closesAt` can be read.
+ */
+export function closingWordsOf(closesAt, zone, now = new Date()) {
+  if (!closesAt || new Date(closesAt) <= now) return null;
+  const closes = localOf(closesAt, zone);
+  const today = localOf(now, zone);
+  if (!closes || !today) return null;
+  const days = Math.round((Date.parse(closes.date) - Date.parse(today.date)) / DAY);
+  if (days <= 0) return { key: 'sasm.closes.today', vars: { time: closes.time } };
+  if (days === 1) return { key: 'sasm.closes.tomorrow', vars: {} };
+  return { key: 'sasm.closes.inDays', vars: { n: days } };
+}
 
 /**
  * What the outline offers: `{ action: 'continue' | 'start' | null, why }`, `why` a

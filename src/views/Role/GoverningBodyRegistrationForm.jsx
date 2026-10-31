@@ -10,6 +10,7 @@ import { useAccountPhone } from '../../hooks/useAccountPhone';
 import { useT } from '../../i18n/LanguageContext';
 import { bodyRegistrationErrorMessage } from '../../i18n/apiError';
 import { fieldErrorsFrom } from '../../utils/validation';
+import AuthMessageIcon from '../../components/ui/AuthMessageIcon';
 import {
   ADDRESS_FIELDS,
   BODY_KINDS,
@@ -183,8 +184,9 @@ export const GoverningBodyRegistrationForm = ({ doneTo = '/select-role' }) => {
   return (
     <form onSubmit={handleSubmit} className="border border-slate-200 rounded-2xl p-5 text-left bg-white shadow-sm space-y-4" noValidate>
       {errors.global && (
-        <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700" role="alert">
-          {errors.global}
+        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-700 text-left flex items-start gap-2.5" role="alert">
+          <AuthMessageIcon tone="error" />
+          <span>{errors.global}</span>
         </div>
       )}
 

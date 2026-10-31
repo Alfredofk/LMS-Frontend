@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronRight, FileText } from 'lucide-react';
 
 import FactLine from '../../components/ui/FactLine';
+import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
 import { reportCardErrorMessage } from '../../i18n/apiError';
 import { gradingService } from '../../services/gradingService';
@@ -27,6 +28,7 @@ const CARD = 'bg-white border border-slate-100 rounded-2xl shadow-sm min-w-0';
 
 export const MyReportCardsPage = () => {
   const { t, lang } = useT();
+  const { user, membership } = useAuth();
   const navigate = useNavigate();
   /* undefined reading · the list · { error } */
   const [list, setList] = useState(undefined);
@@ -44,7 +46,12 @@ export const MyReportCardsPage = () => {
   }, [t, attempt]);
 
   const cards = Array.isArray(list) ? list : [];
-  const facts = cards.length > 0 ? [cards[0].student.fullName, cards[0].class.name, t('rc.mine.count', { n: cards.length })] : [];
+  /* With no card yet the line still names the student and their class (2026-10-31 sweep:
+     the page had no subtitle before the first semester closed). */
+  const facts =
+    cards.length > 0
+      ? [cards[0].student.fullName, cards[0].class.name, t('rc.mine.count', { n: cards.length })]
+      : [user?.fullName, membership?.student?.class?.name];
 
   let body;
   if (list === undefined) {
@@ -114,8 +121,8 @@ export const MyReportCardsPage = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">{t('shell.reportCards')}</h1>
-        {facts.length > 0 && <FactLine className="mt-2" wrap facts={facts} />}
+        <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('shell.reportCards')}</h1>
+        {facts.some(Boolean) && <FactLine className="mt-2" wrap facts={facts} />}
       </div>
       {body}
     </div>

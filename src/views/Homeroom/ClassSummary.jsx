@@ -311,7 +311,8 @@ export const ClassSummary = ({ classId }) => {
                               <p className={`text-lg font-extrabold leading-tight tabular-nums ${entry.belowKktp ? 'text-rose-700' : 'text-slate-900'}`}>
                                 {entry.finalGrade === null || entry.finalGrade === undefined ? '-' : number(entry.finalGrade)}
                               </p>
-                              <p className="text-[10.5px] text-slate-500">
+                              {/* slate-500 on rose-50 was 4.34:1 (walk 2026-10-31). */}
+                              <p className={`text-[10.5px] ${entry.belowKktp ? 'text-slate-600' : 'text-slate-500'}`}>
                                 {subject?.kktp !== null && subject?.kktp !== undefined && t('homeroom.sum.kktp', { n: number(subject.kktp) })}
                                 {entry.waiting > 0 && ` / ${t('homeroom.sum.waitingShort', { n: entry.waiting })}`}
                               </p>

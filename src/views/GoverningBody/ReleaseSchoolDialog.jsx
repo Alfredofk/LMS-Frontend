@@ -2,7 +2,7 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Unlink } from 'lucide-react';
 
-import ModalHeading from '../../components/ui/ModalHeading';
+import ModalHeading, { BusyLabel, ModalError } from '../../components/ui/ModalHeading';
 import { modalActions, modalCancelClass, modalConfirmClass } from '../../components/ui/modalStyles';
 import { useT } from '../../i18n/LanguageContext';
 import { confirmsName, validateLeaveReason } from '../../utils/validation';
@@ -106,9 +106,7 @@ export const ReleaseSchoolDialog = ({ schoolName, onClose, onSubmit, describeErr
         </div>
 
         {error && (
-          <p className="text-xs text-red-600 font-semibold leading-relaxed" role="alert">
-            {error}
-          </p>
+          <ModalError>{error}</ModalError>
         )}
 
         <div className={modalActions}>
@@ -116,7 +114,7 @@ export const ReleaseSchoolDialog = ({ schoolName, onClose, onSubmit, describeErr
             {t('common.cancel')}
           </button>
           <button type="submit" disabled={!confirmed || busy} className={modalConfirmClass('danger', !confirmed || busy)}>
-            {busy ? t('common.loading') : t('gbpw.release.confirm')}
+            <BusyLabel busy={busy}>{t('gbpw.release.confirm')}</BusyLabel>
           </button>
         </div>
       </form>

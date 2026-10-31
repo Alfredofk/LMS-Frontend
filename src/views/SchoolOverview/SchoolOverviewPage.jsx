@@ -1,25 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowDown, ArrowUp, BarChart3, CalendarX, ChevronRight, School } from 'lucide-react';
+import { BarChart3, CalendarX, ChevronRight, Info, School } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
 import { dashboardService } from '../../services/dashboardService';
 import { useSchoolZoneState } from '../../hooks/useSchoolToday';
 import Select from '../../components/ui/Select';
 import SubjectLabel from '../../components/ui/SubjectLabel';
-import { Bone, FactCell, HomeCard, HomeEmpty, HomeError } from '../Dashboard/components/HomeCard';
-import { ChangeMark, FigureTile, SlashLine } from './FigureParts';
+import { Bone, HomeCard, HomeEmpty, HomeError } from '../Dashboard/components/HomeCard';
+import { ChangeMark, FigureBar, FigureTile, SlashLine } from './FigureParts';
 import { useCountedParts } from './useCountedParts';
-import { FIGURES, changeOf, firstDirOf, isCounted, sortRows, valueOf, valueText } from './schoolOverview';
+import { FIGURES, SORTS, changeOf, isCounted, isEmptyRow, sortRows, valueOf, valueText } from './schoolOverview';
 
 /*
   "Ringkasan Sekolah", /headmaster/overview - the Principal's and Vice Principal's
   view of the whole School (backend 1a1eed7, dashboard ticket 06; owner,
   2026-10-28). One read of `GET /dashboard/school`, again for another Semester.
 
-  - The School's line as tiles, then two tables, per Class and per Subject per
-    grade level, each sortable by a column (grade then name first); on a phone a
-    card per row. No teacher is named anywhere: the backend names none.
+  - The School's line as tiles, then two cards of rows, per Class and per Subject
+    per grade level (owner, 2026-10-31, mockup dasbor-ringkasan.html items 6-10:
+    the 7-column table and the phone's six-eyebrow cards went, as the gradebook's
+    did). A row: the name and its students, attendance and material as two bars,
+    the average at the right, an amber line only when students are below KKTP or
+    have a signal; nobody placed is one grey line. "Urutkan" orders them
+    (`SORTS`). No teacher is named anywhere: the backend names none.
   - A change against 7 days before beside each number, green when better and red
     when worse (`changeToneOf`); none until the rollup has a row a week old.
   - A Class opens its summary on the Classes page (`state.classId`).
@@ -32,146 +36,133 @@ const NAME_OF = {
   subjects: (row) => row.subject.name,
 };
 
-/* One sortable table, and the same rows as cards on a phone. */
-const OverviewTable = ({ kind, rows, onOpen }) => {
+/* One card of rows with its "Urutkan" choice and what its counts mean. */
+const OverviewRows = ({ id, title, note, kind, rows, onOpen }) => {
   const { t, lang } = useT();
-  const [sort, setSort] = useState({ key: 'name', dir: 'asc' });
+  const [sortId, setSortId] = useState('name');
+  const sort = SORTS.find((choice) => choice.id === sortId) ?? SORTS[0];
   const ordered = sortRows(rows, sort, NAME_OF[kind]);
-
-  const press = (key) =>
-    setSort((now) => (now.key === key ? { key, dir: now.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: firstDirOf(key) }));
-
-  const nameCell = (row) =>
-    kind === 'classes' ? (
-      <span className="font-bold text-slate-900">{row.class.name}</span>
-    ) : (
-      <span className="font-bold text-slate-900">
-        <SubjectLabel code={row.subject.code} name={row.subject.name} />
-        <span className="block text-xs font-medium text-slate-500">{t('classes.grade', { n: row.gradeLevel })}</span>
-      </span>
-    );
-
-  const header = (key, label, alignRight) => {
-    const active = sort.key === key;
-    const Arrow = sort.dir === 'asc' ? ArrowUp : ArrowDown;
-    return (
-      <th
-        key={key}
-        scope="col"
-        aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-        className={`px-3 py-2.5 align-bottom ${alignRight ? 'text-right' : 'text-left'}`}
-      >
-        <button
-          type="button"
-          onClick={() => press(key)}
-          className={`inline-flex items-center gap-1 text-xs font-bold cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
-            active ? 'text-slate-900' : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          {label}
-          {active && <Arrow className="w-3.5 h-3.5" aria-hidden="true" />}
-        </button>
-      </th>
-    );
-  };
-
-  const figureCell = (row, key) => (
-    <td key={key} className="px-3 py-3 text-right tabular-nums whitespace-nowrap">
-      <span className="font-semibold text-slate-900">{valueText(key, valueOf(row, key), lang)}</span>
-      {changeOf(row, key) ? (
-        <span className="ml-1.5">
-          <ChangeMark figureKey={key} change={changeOf(row, key)} />
-        </span>
-      ) : null}
-    </td>
-  );
-
   const keyOf = (row) => (kind === 'classes' ? row.class.id : `${row.subject.id}:${row.gradeLevel}`);
 
-  return (
-    <>
-      {/* Wide: the table. */}
-      <div className="max-md:hidden -mx-2 overflow-x-auto">
-        <table className="min-w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-100">
-              {header('name', t(kind === 'classes' ? 'overview.col.class' : 'overview.col.subject'), false)}
-              {FIGURES.map(({ key }) => header(key, t(`overview.fig.${key}`), true))}
-              {onOpen && <th scope="col" className="w-8" aria-hidden="true" />}
-            </tr>
-          </thead>
-          <tbody>
-            {ordered.map((row) => (
-              <tr
-                key={keyOf(row)}
-                onClick={onOpen ? () => onOpen(row) : undefined}
-                className={`border-b border-slate-100 last:border-0 ${onOpen ? 'group cursor-pointer hover:bg-slate-50 transition-colors' : ''}`}
-              >
-                <th scope="row" className="px-3 py-3 text-left font-normal">
-                  {onOpen ? (
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onOpen(row);
-                      }}
-                      className="text-left cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                    >
-                      {nameCell(row)}
-                    </button>
-                  ) : (
-                    nameCell(row)
-                  )}
-                </th>
-                {FIGURES.map(({ key }) => figureCell(row, key))}
-                {onOpen && (
-                  <td className="pr-3 text-right">
-                    <ChevronRight className="w-4 h-4 inline text-slate-400 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+  const nameOf = (row) => (kind === 'classes' ? row.class.name : <SubjectLabel code={row.subject.code} name={row.subject.name} />);
 
-      {/* A phone: a card per row, in the same order. */}
-      <ul className="md:hidden space-y-2.5">
+  const lineOf = (row) => {
+    const placed = valueOf(row, 'studentsPlacedNow');
+    const count = isEmptyRow(row) ? t('overview.row.nobody') : placed !== null ? t('classes.class.count', { n: placed }) : null;
+    return [kind === 'subjects' && t('classes.grade', { n: row.gradeLevel }), count].filter(Boolean);
+  };
+
+  /* A change keeps its place beside the number it belongs to. */
+  const change = (row, key) =>
+    changeOf(row, key) ? (
+      <span className="ml-1">
+        <ChangeMark figureKey={key} change={changeOf(row, key)} />
+      </span>
+    ) : null;
+
+  const trouble = (row) =>
+    ['belowKktp', 'withSignal']
+      .filter((key) => valueOf(row, key) > 0)
+      .map((key) => (
+        <span key={key} className="whitespace-nowrap">
+          {t(`overview.row.${key}`, { n: valueOf(row, key) })}
+          {change(row, key)}
+        </span>
+      ));
+
+  const bar = (row, key) => (
+    <span className="block min-w-0">
+      <span className="flex items-baseline justify-between gap-2 text-[11.5px] font-semibold text-slate-600">
+        <span className="truncate">{t(`overview.fig.${key}`)}</span>
+        <span className="shrink-0 tabular-nums">
+          <b className="font-extrabold text-slate-800">{valueText(key, valueOf(row, key), lang)}</b>
+          {change(row, key)}
+        </span>
+      </span>
+      <FigureBar figureKey={key} value={valueOf(row, key)} className="mt-1" />
+    </span>
+  );
+
+  const rowClass = `group block w-full py-3 px-2 text-left rounded-xl ${
+    onOpen ? 'cursor-pointer hover:bg-slate-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand' : ''
+  }`;
+  const chevron = onOpen ? (
+    <ChevronRight className="w-4 h-4 text-slate-400 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
+  ) : (
+    <span aria-hidden="true" />
+  );
+
+  return (
+    <section aria-labelledby={id} className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 id={id} className="text-base font-extrabold text-slate-900 tracking-tight">
+          {title}
+        </h2>
+        <div className="flex items-center gap-2">
+          <label htmlFor={`${id}-sort`} className="text-xs font-semibold text-slate-500">
+            {t('overview.sort.label')}
+          </label>
+          <Select id={`${id}-sort`} size="sm" value={sortId} onChange={(e) => setSortId(e.target.value)} className="w-56 max-sm:w-48">
+            {SORTS.map((choice) => (
+              <option key={choice.id} value={choice.id}>
+                {t(`overview.sort.${choice.id}`)}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </div>
+      <p className="mt-3 flex items-start gap-2 text-[13px] font-medium text-slate-600 leading-relaxed">
+        <Info className="w-4 h-4 mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
+        {note}
+      </p>
+
+      <ul className="mt-2 -mx-2 divide-y divide-slate-100">
         {ordered.map((row) => {
-          const body = (
-            <>
-              <div className="flex items-center justify-between gap-2 mb-2.5">
-                <span className="text-sm">{nameCell(row)}</span>
-                {onOpen && <ChevronRight className="w-4 h-4 shrink-0 text-slate-400" aria-hidden="true" />}
-              </div>
-              <dl className="grid grid-cols-3 gap-x-3 gap-y-2.5">
-                {FIGURES.map(({ key }) => (
-                  <FactCell key={key} label={t(`overview.fig.${key}`)}>
-                    <span className="tabular-nums">{valueText(key, valueOf(row, key), lang)}</span>{' '}
-                    <ChangeMark figureKey={key} change={changeOf(row, key)} />
-                  </FactCell>
-                ))}
-              </dl>
-            </>
+          const issues = trouble(row);
+          /* Wide: name / two bars / average / arrow. A phone: the bars drop under the name. */
+          const body = isEmptyRow(row) ? (
+            <span className="grid grid-cols-[minmax(0,1fr)_1rem] items-center gap-4">
+              <span className="min-w-0">
+                <span className="block text-sm font-bold text-slate-900 break-words">{nameOf(row)}</span>
+                <SlashLine parts={lineOf(row)} small />
+              </span>
+              {chevron}
+            </span>
+          ) : (
+            <span className="grid grid-cols-[minmax(0,1fr)_auto_1rem] md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_4.5rem_1rem] items-center gap-x-4 gap-y-2.5">
+              <span className="min-w-0">
+                <span className="block text-sm font-bold text-slate-900 break-words">{nameOf(row)}</span>
+                <SlashLine parts={lineOf(row)} small />
+                {issues.length > 0 && <span className="mt-0.5 flex flex-wrap gap-x-3 text-xs font-bold text-amber-700">{issues}</span>}
+              </span>
+              <span className="col-span-3 order-last grid grid-cols-2 gap-4 md:contents">
+                {bar(row, 'attendance')}
+                {bar(row, 'content')}
+              </span>
+              <span className="text-right">
+                <b className="block text-base font-extrabold text-slate-900 tabular-nums">{valueText('averageGrade', valueOf(row, 'averageGrade'), lang)}</b>
+                <span className="block text-[11px] font-semibold text-slate-500">
+                  {t('overview.row.average')}
+                  {change(row, 'averageGrade')}
+                </span>
+              </span>
+              {chevron}
+            </span>
           );
           return (
             <li key={keyOf(row)}>
               {onOpen ? (
-                <button
-                  type="button"
-                  onClick={() => onOpen(row)}
-                  className="w-full text-left rounded-xl border border-slate-100 p-3.5 cursor-pointer hover:bg-slate-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                >
+                <button type="button" onClick={() => onOpen(row)} className={rowClass}>
                   {body}
                 </button>
               ) : (
-                <div className="rounded-xl border border-slate-100 p-3.5">{body}</div>
+                <div className={rowClass}>{body}</div>
               )}
             </li>
           );
         })}
       </ul>
-    </>
+    </section>
   );
 };
 
@@ -256,27 +247,28 @@ export const SchoolOverviewPage = () => {
           </dl>
         </section>
 
-        <HomeCard id="overview-classes-title" title={t('overview.byClass')}>
-          {answer.classes.length === 0 ? (
+        {answer.classes.length === 0 ? (
+          <HomeCard id="overview-classes-title" title={t('overview.byClass')}>
             <HomeEmpty icon={School} title={t('overview.noClasses')} />
-          ) : (
-            <>
-              <OverviewTable kind="classes" rows={answer.classes} onOpen={(row) => navigate('/headmaster/classes', { state: { classId: row.class.id } })} />
-              <p className="mt-3 text-xs text-slate-500 leading-relaxed">{t('overview.byClassNote')}</p>
-            </>
-          )}
-        </HomeCard>
+          </HomeCard>
+        ) : (
+          <OverviewRows
+            id="overview-classes-title"
+            title={t('overview.byClass')}
+            note={t('overview.byClassNote')}
+            kind="classes"
+            rows={answer.classes}
+            onOpen={(row) => navigate('/headmaster/classes', { state: { classId: row.class.id } })}
+          />
+        )}
 
-        <HomeCard id="overview-subjects-title" title={t('overview.bySubject')}>
-          {answer.subjects.length === 0 ? (
+        {answer.subjects.length === 0 ? (
+          <HomeCard id="overview-subjects-title" title={t('overview.bySubject')}>
             <HomeEmpty icon={BarChart3} title={t('overview.noSubjects')} />
-          ) : (
-            <>
-              <OverviewTable kind="subjects" rows={answer.subjects} />
-              <p className="mt-3 text-xs text-slate-500 leading-relaxed">{t('overview.bySubjectNote')}</p>
-            </>
-          )}
-        </HomeCard>
+          </HomeCard>
+        ) : (
+          <OverviewRows id="overview-subjects-title" title={t('overview.bySubject')} note={t('overview.bySubjectNote')} kind="subjects" rows={answer.subjects} />
+        )}
       </div>
     );
   }

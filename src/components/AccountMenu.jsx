@@ -160,8 +160,9 @@ export const AccountMenu = () => {
   };
 
   const label = user?.fullName ? t('accountMenu.button', { name: user.fullName }) : t('accountMenu.buttonNoName');
+  /* 13px semibold, as the sidebar's items (owner, 2026-10-31, sidebar-navbar.html item 9). */
   const itemClass =
-    'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand';
+    'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-[13px] font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand';
 
   return (
     <div ref={wrapRef} className="relative shrink-0">

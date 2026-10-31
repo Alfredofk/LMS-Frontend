@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { modalActions, modalCancelClass, modalConfirmClass } from '../../components/ui/modalStyles';
-import ModalHeading from '../../components/ui/ModalHeading';
+import ModalHeading, { BusyLabel, ModalError } from '../../components/ui/ModalHeading';
 import { Check, DoorOpen, FileText, X, XCircle } from 'lucide-react';
 
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
@@ -125,9 +125,7 @@ const RejectLeaveDialog = ({ request, onClose, onRejected, onStale }) => {
             className="block w-full rounded-xl border border-slate-200 hover:border-slate-300 bg-white py-2.5 px-4 text-sm text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand disabled:bg-slate-50"
           />
           {error ? (
-            <p id="reject-leave-hint" className="text-xs text-red-600 font-semibold leading-relaxed" role="alert">
-              {error}
-            </p>
+            <ModalError id="reject-leave-hint">{error}</ModalError>
           ) : (
             <p id="reject-leave-hint" className="text-[11px] text-slate-500 font-medium leading-relaxed">
               {t('members.leave.reject.hint')}
@@ -150,7 +148,7 @@ const RejectLeaveDialog = ({ request, onClose, onRejected, onStale }) => {
             disabled={busy}
             className={modalConfirmClass('danger', busy)}
           >
-            {busy ? t('common.loading') : t('members.leave.reject.confirm')}
+            <BusyLabel busy={busy}>{t('members.leave.reject.confirm')}</BusyLabel>
           </button>
         </div>
       </div>
@@ -296,7 +294,6 @@ export const LeaveRequestsPanel = ({ requests, error, onChanged, showToast }) =>
         cancelLabel={t('common.cancel')}
         tone="brand"
         busy={busy}
-        busyLabel={t('common.loading')}
         onCancel={closeApprove}
         onConfirm={handleApprove}
       />

@@ -1,6 +1,7 @@
 import React from 'react';
 import Button from '../../components/ui/Button';
 import { useT } from '../../i18n/LanguageContext';
+import AuthMessageIcon from '../../components/ui/AuthMessageIcon';
 
 /*
   The step between registering and signing in.
@@ -44,17 +45,15 @@ export const CheckEmailStep = ({ formState }) => {
       <EnvelopeMark />
 
       <h2 className="text-[26px] font-extrabold text-slate-800 leading-tight select-none">
-        {t('checkEmail.title')} <span className="text-brand">{t('checkEmail.titleAccent')}</span>
+        {t('checkEmail.title')}
       </h2>
       <p className="text-slate-500 text-sm mt-2 mb-6 font-medium select-none">
         {t('checkEmail.subtitle')}
       </p>
 
       {errors.global && (
-        <div className="mb-5 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-2xl text-sm text-amber-800 text-left flex items-start gap-2.5 shadow-sm" role="alert">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 shrink-0">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-          </svg>
+        <div className="mb-5 p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800 text-left flex items-start gap-2.5" role="alert">
+          <AuthMessageIcon tone="warning" />
           <span>{errors.global}</span>
         </div>
       )}

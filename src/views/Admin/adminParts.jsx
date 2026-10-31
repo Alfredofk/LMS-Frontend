@@ -17,15 +17,18 @@ export const SlashFacts = ({ parts, className = 'block text-xs font-semibold tex
   <span className={className}>
     {parts.filter(Boolean).map((part, i) => (
       <React.Fragment key={i}>
-        {i > 0 && (
-          <>
-            {' '}
-            <span className="mx-1 text-slate-300" aria-hidden="true">
-              /
-            </span>{' '}
-          </>
-        )}
-        <span className="whitespace-nowrap">{part}</span>
+        {i > 0 && ' '}
+        {/* The slash travels with the part after it, so a wrapped line never ends on one. */}
+        <span className="whitespace-nowrap">
+          {i > 0 && (
+            <>
+              <span className="mx-1 text-slate-300" aria-hidden="true">
+                /
+              </span>{' '}
+            </>
+          )}
+          {part}
+        </span>
       </React.Fragment>
     ))}
   </span>

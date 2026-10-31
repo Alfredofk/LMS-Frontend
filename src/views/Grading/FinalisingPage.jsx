@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
-import { AlertCircle, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
+import { AlertCircle, BookOpen, Check, ChevronRight, Clock, Lock, RotateCcw } from 'lucide-react';
 
+import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import Select from '../../components/ui/Select';
 import { useAuth } from '../../context/AuthContext';
@@ -12,6 +13,7 @@ import { apiErrorMessage, closeErrorMessage, finalisingErrorMessage, isStaleClos
 import { academicsService } from '../../services/academicsService';
 import { gradingService } from '../../services/gradingService';
 import { formatDay } from '../Classes/format';
+import { Bone, HomeEmpty, HomeError } from '../Dashboard/components/HomeCard';
 import { defaultSemesterOf } from '../Subjects/subjects';
 import { shortWhen } from '../TeacherAssessment/teacherAssessment';
 import CloseSemesterDialog from './CloseSemesterDialog';
@@ -21,11 +23,14 @@ import {
   blockerView,
   boardByClass,
   canStopFinalising,
+  classStandingOf,
   closeBlocksOf,
+  closeChecksOf,
   closeRefusalParts,
   defaultReportDate,
   reopenBody,
   reportDateRange,
+  slotCountsOf,
   slotStateOf,
 } from './finalising';
 
@@ -58,11 +63,25 @@ import {
   Done, a toast and the board read again; for this visit the board says to close it
   again, and "Hentikan finalisasi" stays off - the server refuses a reopened
   semester going back to OPEN, and the board cannot tell one apart otherwise.
+
+  The look since 2026-10-29 (mockup C:\Thesis\mockups\finalisasi-nilai.html, all
+  twelve items): a slash line under the title with the state coloured; on the
+  semester card the subjects finalised over a four-part bar (slotCountsOf) and
+  "Syarat menutup semester" as a checklist (closeChecksOf, the conditions
+  closeBlocksOf refuses on); the classes under text tabs (classStandingOf), a
+  blocked subject's whole row opening its list in place; the notes and promotions
+  as lines with an icon; the dashboards' loading, failed and empty states.
 */
 
-const card = 'bg-white border border-slate-100 rounded-2xl p-5 sm:p-6 shadow-sm';
-const button =
-  'inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50 disabled:cursor-not-allowed';
+const card = 'bg-white border border-slate-100 rounded-2xl p-5 sm:p-6 shadow-sm min-w-0';
+const note = 'flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-[13px] font-semibold leading-relaxed';
+const NOTE = {
+  warn: `${note} bg-amber-50 border-amber-100 text-amber-800`,
+  fail: `${note} bg-rose-50 border-rose-100 text-rose-700`,
+  quiet: `${note} bg-slate-50 border-slate-100 text-slate-700`,
+  done: `${note} bg-emerald-50 border-emerald-100 text-emerald-700`,
+};
+const noteIcon = 'w-4 h-4 shrink-0 mt-0.5';
 
 const STATE_TONE = {
   FINALISED: 'text-emerald-700',
@@ -70,6 +89,15 @@ const STATE_TONE = {
   NO_TEACHER: 'text-rose-700',
   READY: 'text-brand',
 };
+/* The summary bar's parts, in its order (owner 2026-10-29: purple, pale purple, amber, rose). */
+const BAR = [
+  ['FINALISED', 'bg-brand'],
+  ['READY', 'bg-brand/35'],
+  ['BLOCKED', 'bg-amber-500'],
+  ['NO_TEACHER', 'bg-rose-500'],
+];
+const STATUS_TONE = { OPEN: 'text-slate-600', FINALIZING: 'text-amber-700', CLOSED: 'text-emerald-700' };
+const TABS = ['ALL', 'ATTENTION', 'READY', 'DONE'];
 
 /** Every semester of the school's years, the active years first, newest first: `[{ semester, year }]`. */
 const semestersOf = (years) =>
@@ -77,69 +105,124 @@ const semestersOf = (years) =>
     .sort((a, b) => (a.status === b.status ? String(b.label).localeCompare(String(a.label)) : a.status === 'ACTIVE' ? -1 : 1))
     .flatMap((year) => [...(year.semesters ?? [])].sort((a, b) => b.ordinal - a.ordinal).map((semester) => ({ semester, year })));
 
+/* As FactLine draws it: spaces either side, so a long line breaks at a slash. */
+const Slash = () => (
+  <>
+    {' '}
+    <span className="mx-1 text-slate-300" aria-hidden="true">
+      /
+    </span>{' '}
+  </>
+);
+
 const SlotRow = ({ slot, zone }) => {
   const { t, lang } = useT();
   const [open, setOpen] = useState(false);
   const state = slotStateOf(slot);
   const blockers = (slot.blockers ?? []).map(blockerView);
   const word = t(`grading.fin.state.${state}`, { n: blockers.length });
+  const teacherName = slot.teacher?.fullName ?? t('grading.fin.blocker.noTeacher');
+  /* Who finalised it, said only when that is not the teacher on the row (the read names a user, the row a membership: told apart by name). */
+  const by = slot.finalised?.by?.fullName;
+  const finalisedLine = slot.finalised
+    ? by && by !== slot.teacher?.fullName
+      ? t('grading.fin.finalisedByOther', { name: by, when: shortWhen(slot.finalised.at, zone, lang) })
+      : t('grading.fin.finalisedAt', { when: shortWhen(slot.finalised.at, zone, lang) })
+    : null;
+  const name = (
+    <span className="min-w-0 flex-1">
+      <span className="block text-sm font-bold text-slate-900 break-words">{`${slot.subject.code} - ${slot.subject.name}`}</span>
+      <span className="block text-xs font-medium text-slate-500 break-words">
+        {teacherName}
+        {finalisedLine && (
+          <>
+            <Slash />
+            {finalisedLine}
+          </>
+        )}
+      </span>
+    </span>
+  );
   return (
-    <li className="py-2.5 first:pt-0 last:pb-0 space-y-1.5">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
-        <span className="min-w-0">
-          <span className="text-sm font-bold text-slate-900">{slot.subject.code}</span>{' '}
-          <span className="text-sm text-slate-700 break-words">{slot.subject.name}</span>
-          <span className="block text-[11px] font-semibold text-slate-500 break-words">{slot.teacher?.fullName ?? t('grading.fin.blocker.noTeacher')}</span>
-        </span>
-        {state === 'BLOCKED' ? (
+    <li className="border-b border-slate-100 last:border-0">
+      {state === 'BLOCKED' ? (
+        <>
           <button
             type="button"
             onClick={() => setOpen((now) => !now)}
             aria-expanded={open}
-            className={`inline-flex items-center gap-0.5 text-xs font-extrabold cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${STATE_TONE[state]}`}
+            className={`w-full flex items-center gap-3 rounded-xl px-2 py-2.5 text-left cursor-pointer transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${open ? 'bg-slate-50' : ''}`}
           >
-            {word}
-            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
+            {name}
+            <span className={`shrink-0 text-xs font-extrabold ${STATE_TONE[state]}`}>{word}</span>
+            <ChevronRight className={`w-4 h-4 shrink-0 text-slate-400 transition-transform duration-300 ${open ? 'rotate-90' : ''}`} aria-hidden="true" />
           </button>
-        ) : (
-          <span className={`text-xs font-extrabold ${STATE_TONE[state]}`}>
+          {open && (
+            <div className="animate-rise mx-2 mb-2.5 rounded-xl border border-amber-100 bg-amber-50 px-3.5 py-2.5">
+              <p className="text-[10px] font-bold tracking-wider uppercase text-amber-800">{t('grading.fin.blockersTitle')}</p>
+              <ul className="mt-1 list-disc pl-4 space-y-0.5">
+                {blockers.map((view, i) => (
+                  <li key={`${view.kind}-${view.link?.assessmentId ?? i}`} className="text-[13px] text-slate-800 break-words">
+                    {blockerText(view, t, zone, lang)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="flex items-center gap-3 px-2 py-2.5">
+          {name}
+          <span className={`shrink-0 inline-flex items-center gap-1 text-xs font-extrabold ${STATE_TONE[state]}`}>
+            {state === 'FINALISED' && <Check className="w-3.5 h-3.5" strokeWidth={3} aria-hidden="true" />}
             {word}
-            {state === 'FINALISED' && (
-              <span className="block text-[11px] font-semibold text-slate-500 text-right">
-                {t('grading.fin.finalisedBy', { name: slot.finalised.by?.fullName ?? t('tasm.results.unnamed'), when: shortWhen(slot.finalised.at, zone, lang) })}
-              </span>
-            )}
           </span>
-        )}
-      </div>
-      {open && (
-        <ul className="space-y-1 rounded-xl border border-slate-200 px-3.5 py-2.5">
-          {blockers.map((view, i) => (
-            <li key={`${view.kind}-${view.link?.assessmentId ?? i}`} className="text-xs text-slate-700 break-words">
-              {blockerText(view, t, zone, lang)}
-            </li>
-          ))}
-        </ul>
+        </div>
       )}
     </li>
   );
 };
 
+/* A class's notes or promotions: amber with the names while any is missing, a green tick once complete. */
+const CompletionLine = ({ missing, missingKey, doneKey, t }) => (
+  <p className={`flex items-start gap-2 text-[12.5px] font-semibold leading-relaxed break-words ${missing.length ? 'text-amber-700' : 'text-emerald-700'}`}>
+    {missing.length ? <AlertCircle className="w-[15px] h-[15px] shrink-0 mt-0.5" aria-hidden="true" /> : <Check className="w-[15px] h-[15px] shrink-0 mt-0.5" strokeWidth={3} aria-hidden="true" />}
+    {missing.length
+      ? t(missingKey, { n: missing.length, names: missing.map((student) => student.fullName ?? t('tasm.results.unnamed')).join(', ') })
+      : t(doneKey)}
+  </p>
+);
+
+const BoardLoading = () => (
+  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" aria-hidden="true">
+    {[0, 1].map((i) => (
+      <div key={i} className={`${card} space-y-3`}>
+        <Bone className="h-4 w-24" />
+        <Bone className="h-3 w-2/5" />
+        <Bone className="h-10" />
+        <Bone className="h-10" />
+      </div>
+    ))}
+  </div>
+);
+
 export const FinalisingPage = () => {
   const { t, lang } = useT();
   const { showToast } = useOutletContext() ?? {};
   const navigate = useNavigate();
-  const { activeRole } = useAuth();
+  const { activeRole, membership } = useAuth();
   const zone = useSchoolZone();
   const today = useSchoolToday();
   const isPrincipal = activeRole === ROLES.PRINCIPAL;
 
   /* undefined reading · years · { error } */
   const [years, setYears] = useState(undefined);
+  const [yearsAttempt, setYearsAttempt] = useState(0);
   const [semesterId, setSemesterId] = useState(null);
   /* undefined reading · the board · { error } */
   const [board, setBoard] = useState(undefined);
   const [attempt, setAttempt] = useState(0);
+  const [tab, setTab] = useState('ALL');
   /* 'start' | 'stop' while its dialog is open */
   const [asking, setAsking] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -167,7 +250,7 @@ export const FinalisingPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, [t, yearsAttempt]);
 
   useEffect(() => {
     if (!semesterId) return undefined;
@@ -189,14 +272,21 @@ export const FinalisingPage = () => {
   const classes = ready ? boardByClass(board) : [];
   const range = reportDateRange(picked?.semester);
   const closeBlocks = ready && status === 'FINALIZING' ? closeBlocksOf(board, picked?.semester, today) : [];
+  const checks = ready && status === 'FINALIZING' ? closeChecksOf(board, picked?.semester, today) : [];
   const canClose = isPrincipal && yearActive && ready && status === 'FINALIZING' && Boolean(range) && closeBlocks.length === 0;
   const lastClose = closed?.semesterId === semesterId ? closed : null;
   const justReopened = reopenedId === semesterId;
   const day = (value) => formatDay(value, lang);
+  const counts = slotCountsOf(ready ? board.slots : []);
+  const standings = new Map(classes.map((entry) => [entry.class.id, classStandingOf(entry)]));
+  const tabCount = (id) => (id === 'ALL' ? classes.length : classes.filter((entry) => standings.get(entry.class.id) === id).length);
+  const shown = tab === 'ALL' ? classes : classes.filter((entry) => standings.get(entry.class.id) === tab);
+  const schoolName = membership?.school?.name ?? membership?.schoolName ?? '';
 
   const pick = (id) => {
     setBoard(undefined);
     setMessage(null);
+    setTab('ALL');
     setSemesterId(id);
   };
   const reload = () => {
@@ -252,38 +342,62 @@ export const FinalisingPage = () => {
       throw err;
     }
   };
-  const closeBlockText = closeBlocks.map((block) => t(block.key, { ...block.vars, date: day(block.vars.date) })).join(', ');
+
+  /* What the close dialog says it writes: the students of the classes on the board, and the subjects finalised. */
+  const closeSummary = ready
+    ? {
+        students: classes.reduce((sum, entry) => sum + (entry.notes?.students ?? 0), 0),
+        classes: classes.filter((entry) => (entry.notes?.students ?? 0) > 0).length,
+        finalised: board.counts.finalised,
+      }
+    : null;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">{t('grading.fin.page.title')}</h1>
-        <p className="text-xs sm:text-sm text-slate-500 font-bold mt-1">{t('grading.fin.page.subtitle')}</p>
+        <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('grading.fin.page.title')}</h1>
+        <p className="mt-2 text-sm font-medium text-slate-500">
+          {schoolName && (
+            <>
+              <span>{schoolName}</span>
+              {picked && <Slash />}
+            </>
+          )}
+          {picked && <span className="whitespace-nowrap">{t('grading.fin.semesterOption', named)}</span>}
+          {status && (
+            <>
+              <Slash />
+              <span className={`font-bold ${STATUS_TONE[status] ?? ''}`}>{t(`grading.fin.semesterStatus.${status}`)}</span>
+            </>
+          )}
+        </p>
       </div>
 
       {years === undefined ? (
-        <div className="h-24 rounded-2xl bg-white border border-slate-100 animate-pulse" aria-busy="true" aria-label={t('common.loading')} />
+        <div className={`${card} space-y-3`} aria-busy="true" aria-label={t('common.loading')}>
+          <Bone className="h-5 w-48" />
+          <Bone className="h-16" />
+        </div>
       ) : years.error ? (
-        <p className={`${card} text-sm font-semibold text-amber-700`} role="alert">
-          {years.error}
-        </p>
+        <HomeError
+          message={years.error}
+          retryLabel={t('att.error.retry')}
+          onRetry={() => {
+            setYears(undefined);
+            setYearsAttempt((n) => n + 1);
+          }}
+        />
       ) : options.length === 0 ? (
-        <p className={`${card} text-sm font-semibold text-slate-600`}>{t('grading.fin.noSemester')}</p>
+        <section className={card}>
+          <HomeEmpty icon={Clock} title={t('grading.fin.noSemester')} />
+        </section>
       ) : (
         <>
           <section className={`${card} space-y-4`} aria-labelledby="fin-semester">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="space-y-0.5">
-                <h2 id="fin-semester" className="text-base font-extrabold text-slate-900">
-                  {t('grading.fin.semesterOption', named)}
-                </h2>
-                {status && <p className="text-xs font-semibold text-slate-500">{t(`grading.fin.semesterStatus.${status}`)}</p>}
-                {status === 'CLOSED' && lastClose && (
-                  <p className="text-xs font-semibold text-slate-500">
-                    {t(lastClose.version > 1 ? 'grading.fin.close.datedVersion' : 'grading.fin.close.dated', { date: day(lastClose.reportDate), version: lastClose.version })}
-                  </p>
-                )}
-              </div>
+              <h2 id="fin-semester" className="text-base font-extrabold text-slate-900 tracking-tight">
+                {t('grading.fin.semesterOption', named)}
+              </h2>
               <Select size="sm" value={semesterId ?? ''} onChange={(e) => pick(e.target.value)} aria-label={t('grading.fin.semester')} className="w-full sm:w-60">
                 {options.map(({ semester, year }) => (
                   <option key={semester.id} value={semester.id}>
@@ -293,143 +407,242 @@ export const FinalisingPage = () => {
               </Select>
             </div>
 
-            {ready && (
-              <p className="flex flex-wrap gap-x-4 text-xs font-semibold text-slate-500">
-                <span>{t('grading.fin.count.slots', { finalised: board.counts.finalised, slots: board.counts.slots })}</span>
-                <span className={board.counts.notesMissing > 0 ? 'text-amber-700' : ''}>{t('grading.fin.count.notes', { n: board.counts.notesMissing })}</span>
-                {typeof board.counts.promotionsMissing === 'number' && (
-                  <span className={board.counts.promotionsMissing > 0 ? 'text-amber-700' : ''}>{t('grading.fin.count.promotions', { n: board.counts.promotionsMissing })}</span>
-                )}
-              </p>
+            {ready && counts.total > 0 && (
+              <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4">
+                <p className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                  <b className="text-[28px] font-extrabold tracking-tight leading-none tabular-nums text-slate-900">
+                    {t('grading.fin.summary.of', { finalised: counts.FINALISED, slots: counts.total })}
+                  </b>
+                  <span className="text-[13px] text-slate-500">{t('grading.fin.summary.label')}</span>
+                </p>
+                <div
+                  role="img"
+                  aria-label={BAR.map(([state]) => `${t(`grading.fin.legend.${state}`)} ${counts[state]}`).join(', ')}
+                  className="mt-2.5 flex h-2.5 overflow-hidden rounded-full bg-slate-200"
+                >
+                  {BAR.map(([state, fill]) => (
+                    <i key={state} className={`h-full ${fill}`} style={{ width: `${(counts[state] / counts.total) * 100}%` }} />
+                  ))}
+                </div>
+                <p className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-[11.5px] text-slate-500" aria-hidden="true">
+                  {BAR.map(([state, fill]) => (
+                    <span key={state} className="inline-flex items-center gap-1.5">
+                      <i className={`w-2.5 h-2.5 rounded-[3px] ${fill}`} />
+                      {t(`grading.fin.legend.${state}`)} {counts[state]}
+                    </span>
+                  ))}
+                </p>
+              </div>
+            )}
+
+            {checks.length > 0 && (
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900">{t('grading.fin.check.title')}</h3>
+                <ul className="mt-1">
+                  {checks.map((check) => (
+                    <li key={check.id} className="flex items-start gap-2.5 py-2 border-b border-slate-100 last:border-0">
+                      {check.done ? (
+                        <span className="grid place-items-center w-[22px] h-[22px] shrink-0 rounded-full bg-emerald-600 text-white">
+                          <Check className="w-3 h-3" strokeWidth={3.5} aria-hidden="true" />
+                        </span>
+                      ) : (
+                        <span className="grid place-items-center w-[22px] h-[22px] shrink-0 rounded-full border-2 border-amber-500 text-[10px] font-extrabold text-amber-700 tabular-nums">
+                          {check.count ?? <Clock className="w-3 h-3" strokeWidth={3} aria-hidden="true" />}
+                        </span>
+                      )}
+                      <span className="min-w-0 text-[13.5px] font-semibold text-slate-800">
+                        {t(check.key)}
+                        <span className="sr-only">: {t(check.done ? 'grading.fin.check.met' : 'grading.fin.check.notMet')}</span>
+                        {check.detail && (
+                          <span className="block text-xs font-medium text-slate-500">
+                            {t(check.detail.key, { ...check.detail.vars, date: check.detail.vars.date ? day(check.detail.vars.date) : undefined })}
+                          </span>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
 
             {message && (
-              <p className="text-xs font-semibold text-rose-700 leading-relaxed" role="alert">
+              <p className={NOTE.fail} role="alert">
+                <AlertCircle className={noteIcon} aria-hidden="true" />
                 {message}
+              </p>
+            )}
+            {status === 'CLOSED' && lastClose && (
+              <p className={NOTE.done}>
+                <Check className={noteIcon} strokeWidth={3} aria-hidden="true" />
+                {t(lastClose.version > 1 ? 'grading.fin.close.datedVersion' : 'grading.fin.close.dated', { date: day(lastClose.reportDate), version: lastClose.version })}
+              </p>
+            )}
+            {justReopened && status === 'FINALIZING' && (
+              <p className={NOTE.warn}>
+                <RotateCcw className={noteIcon} aria-hidden="true" />
+                {t('grading.fin.reopen.afterHint')}
               </p>
             )}
 
             {yearActive && status === 'CLOSED' && ready && (
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
-                {isPrincipal ? <span /> : <p className="text-xs font-semibold text-slate-500">{t('grading.fin.reopen.viceNote')}</p>}
-                {isPrincipal && (
-                  <button type="button" onClick={() => setReopening(classes)} disabled={busy || reopening !== null} className={`${button} bg-slate-100 text-slate-700 hover:bg-slate-200`}>
-                    {t('grading.fin.reopen.open')}
-                  </button>
+              <div className="border-t border-slate-100 pt-4">
+                {isPrincipal ? (
+                  <div className="flex justify-end">
+                    <Button size="sm" variant="outline" onClick={() => setReopening(classes)} isDisabled={busy || reopening !== null}>
+                      {t('grading.fin.reopen.open')}
+                    </Button>
+                  </div>
+                ) : (
+                  <p className={NOTE.quiet}>
+                    <Lock className={noteIcon} aria-hidden="true" />
+                    {t('grading.fin.reopen.viceNote')}
+                  </p>
                 )}
               </div>
             )}
 
             {yearActive && status !== 'CLOSED' && (
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+              <div className="border-t border-slate-100 pt-4">
                 {!isPrincipal ? (
-                  <p className="text-xs font-semibold text-slate-500">{t('grading.fin.viceNote')}</p>
-                ) : status === 'FINALIZING' && ready ? (
-                  <div className="space-y-1 min-w-0">
-                    {justReopened && <p className="text-xs font-semibold leading-relaxed text-amber-700">{t('grading.fin.reopen.afterHint')}</p>}
-                    <p className={`text-xs font-semibold leading-relaxed ${closeBlocks.length ? 'text-slate-500' : 'text-emerald-700'}`}>
-                      {closeBlocks.length ? t('grading.fin.close.blockedHint', { list: closeBlockText }) : t('grading.fin.close.readyHint')}
-                    </p>
-                    {!canStopFinalising(board) && closeBlocks.length > 0 && <p className="text-xs font-semibold text-slate-500">{t('grading.fin.stopBlockedHint')}</p>}
-                  </div>
+                  <p className={NOTE.quiet}>
+                    <Lock className={noteIcon} aria-hidden="true" />
+                    {t('grading.fin.viceNote')}
+                  </p>
                 ) : (
-                  <span />
-                )}
-                {isPrincipal && status === 'OPEN' && (
-                  <button type="button" onClick={() => setAsking('start')} disabled={busy || !ready} className={`${button} bg-brand text-white hover:bg-brand-deep`}>
-                    {t('grading.fin.start')}
-                  </button>
-                )}
-                {isPrincipal && status === 'FINALIZING' && (
-                  <button
-                    type="button"
-                    onClick={() => setAsking('stop')}
-                    disabled={busy || !ready || !canStopFinalising(board) || justReopened}
-                    className={`${button} bg-slate-100 text-slate-700 hover:bg-slate-200`}
-                  >
-                    {t('grading.fin.stop')}
-                  </button>
-                )}
-                {isPrincipal && status === 'FINALIZING' && (
-                  <button type="button" onClick={() => setClosing(true)} disabled={busy || closing || !canClose} className={`${button} bg-brand text-white hover:bg-brand-deep`}>
-                    {t('grading.fin.close.open')}
-                  </button>
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center justify-end gap-2.5">
+                      {status === 'OPEN' && (
+                        <Button size="sm" onClick={() => setAsking('start')} isDisabled={busy || !ready}>
+                          {t('grading.fin.start')}
+                        </Button>
+                      )}
+                      {status === 'FINALIZING' && (
+                        <Button size="sm" variant="outline" onClick={() => setAsking('stop')} isDisabled={busy || !ready || !canStopFinalising(board) || justReopened}>
+                          {t('grading.fin.stop')}
+                        </Button>
+                      )}
+                      {status === 'FINALIZING' && (
+                        <Button size="sm" onClick={() => setClosing(true)} isDisabled={busy || closing || !canClose}>
+                          {t('grading.fin.close.open')}
+                        </Button>
+                      )}
+                    </div>
+                    {status === 'FINALIZING' && ready && !canStopFinalising(board) && closeBlocks.length > 0 && (
+                      <p className="text-right text-xs font-semibold text-slate-500">{t('grading.fin.stopBlockedHint')}</p>
+                    )}
+                  </div>
                 )}
               </div>
             )}
           </section>
 
           {board === undefined ? (
-            <div className="h-48 rounded-2xl bg-white border border-slate-100 animate-pulse" aria-busy="true" aria-label={t('common.loading')} />
+            <BoardLoading />
           ) : board.error ? (
-            <div className={`${card} flex flex-col items-center text-center gap-3 py-8`} role="alert">
-              <AlertCircle className="w-7 h-7 text-rose-500" aria-hidden="true" />
-              <p className="text-sm font-bold text-slate-700 max-w-sm">{board.error}</p>
-              <button type="button" onClick={reload} className={`${button} bg-slate-100 text-slate-700 hover:bg-slate-200`}>
-                <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
-                {t('att.error.retry')}
-              </button>
-            </div>
+            <HomeError message={board.error} retryLabel={t('att.error.retry')} onRetry={reload} />
           ) : classes.length === 0 ? (
-            <p className={`${card} text-sm font-semibold text-slate-600`}>{t('grading.fin.noClasses')}</p>
+            <section className={card}>
+              <HomeEmpty
+                icon={BookOpen}
+                title={t('grading.fin.empty.title')}
+                body={t('grading.fin.empty.body')}
+                action={
+                  <Button size="sm" variant="outline" onClick={() => navigate('/headmaster/subjects')}>
+                    {t('grading.fin.empty.action')}
+                  </Button>
+                }
+              />
+            </section>
           ) : (
-            <ul className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {classes.map((entry) => (
-                <li key={entry.class.id} className={`${card} space-y-3`}>
-                  <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
-                    <div className="space-y-0.5 min-w-0">
-                      <h3 className="text-sm font-extrabold text-slate-900 break-words">{entry.class.name}</h3>
-                      <p className="text-[11px] font-semibold text-slate-500">
-                        {t('subjects.board.homeroom', { name: entry.homeroomTeacher?.fullName ?? t('classes.detail.noHomeroom') })}
-                      </p>
-                    </div>
-                    {status === 'CLOSED' && (
-                      <button
-                        type="button"
-                        onClick={() => navigate('/headmaster/classes', { state: { classId: entry.class.id, semesterId, focus: 'reportCards' } })}
-                        className="inline-flex items-center gap-0.5 text-xs font-extrabold text-brand hover:underline cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                      >
-                        {t('grading.fin.viewReportCards')}
-                        <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
-                      </button>
-                    )}
-                  </div>
-                  {entry.slots.length > 0 && (
-                    <ul className="divide-y divide-slate-100">
-                      {entry.slots.map((slot) => (
-                        <SlotRow key={slot.classSubjectId} slot={slot} zone={zone} />
-                      ))}
-                    </ul>
-                  )}
-                  {entry.notes && (
-                    <p
-                      className={`border-t border-slate-100 pt-2.5 text-xs font-semibold leading-relaxed break-words ${
-                        entry.notes.missing.length ? 'text-amber-700' : 'text-slate-500'
+            <div className="space-y-4">
+              <div
+                role="tablist"
+                aria-label={t('grading.fin.tabs')}
+                className="flex gap-0.5 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shadow-[inset_0_-1px_0_var(--color-slate-100)]"
+              >
+                {TABS.map((id) => {
+                  const on = tab === id;
+                  const n = tabCount(id);
+                  const counter = on ? 'bg-brand-tint text-brand' : id === 'ATTENTION' && n > 0 ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600';
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      role="tab"
+                      aria-selected={on}
+                      onClick={() => setTab(id)}
+                      className={`px-2.5 py-2 text-sm font-bold border-b-2 whitespace-nowrap transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-t ${
+                        on ? 'text-brand border-brand' : 'text-slate-500 border-transparent hover:text-slate-700'
                       }`}
                     >
-                      {entry.notes.students === 0
-                        ? t('grading.fin.notesNoStudents')
-                        : entry.notes.missing.length
-                          ? t('grading.fin.notesMissing', {
-                              n: entry.notes.missing.length,
-                              names: entry.notes.missing.map((student) => student.fullName ?? t('tasm.results.unnamed')).join(', '),
-                            })
-                          : t('grading.fin.notesDone')}
-                    </p>
-                  )}
-                  {entry.notes && entry.notes.students > 0 && Array.isArray(entry.notes.promotionsMissing) && (
-                    <p className={`text-xs font-semibold leading-relaxed break-words ${entry.notes.promotionsMissing.length ? 'text-amber-700' : 'text-slate-500'}`}>
-                      {entry.notes.promotionsMissing.length
-                        ? t('grading.fin.promotionsMissing', {
-                            n: entry.notes.promotionsMissing.length,
-                            names: entry.notes.promotionsMissing.map((student) => student.fullName ?? t('tasm.results.unnamed')).join(', '),
-                          })
-                        : t('grading.fin.promotionsDone')}
-                    </p>
-                  )}
-                </li>
-              ))}
-            </ul>
+                      {t(`grading.fin.tab.${id}`)}
+                      <span className={`ml-1.5 px-1.5 rounded-full text-[11px] tabular-nums ${counter}`}>{n}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {shown.length === 0 ? (
+                <section className={card}>
+                  <HomeEmpty icon={Check} title={t(`grading.fin.tabEmpty.${tab}`)} />
+                </section>
+              ) : (
+                <ul className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+                  {shown.map((entry) => {
+                    const finalised = entry.slots.filter((slot) => slot.finalised).length;
+                    const allDone = entry.slots.length > 0 && finalised === entry.slots.length;
+                    return (
+                      <li key={entry.class.id} className={`${card} space-y-1`}>
+                        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+                          <div className="min-w-0">
+                            <h3 className="text-base font-extrabold text-slate-900 tracking-tight break-words">{entry.class.name}</h3>
+                            <p className="text-xs font-medium text-slate-500">
+                              {t('subjects.board.homeroom', { name: entry.homeroomTeacher?.fullName ?? t('classes.detail.noHomeroom') })}
+                            </p>
+                          </div>
+                          {status === 'CLOSED' ? (
+                            <button
+                              type="button"
+                              onClick={() => navigate('/headmaster/classes', { state: { classId: entry.class.id, semesterId, focus: 'reportCards' } })}
+                              className="group inline-flex items-center gap-0.5 text-xs font-extrabold text-brand cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                            >
+                              {t('grading.fin.viewReportCards')}
+                              <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                            </button>
+                          ) : (
+                            entry.slots.length > 0 && (
+                              <span className={`text-xs font-extrabold tabular-nums whitespace-nowrap ${allDone ? 'text-emerald-700' : 'text-slate-600'}`}>
+                                {t('grading.fin.classCount', { finalised, slots: entry.slots.length })}
+                              </span>
+                            )
+                          )}
+                        </div>
+                        {entry.slots.length > 0 && (
+                          <ul className="pt-2">
+                            {entry.slots.map((slot) => (
+                              <SlotRow key={slot.classSubjectId} slot={slot} zone={zone} />
+                            ))}
+                          </ul>
+                        )}
+                        {entry.notes && (
+                          <div className="pt-2 space-y-1.5">
+                            {entry.notes.students === 0 ? (
+                              <p className="text-[12.5px] font-semibold text-slate-500">{t('grading.fin.notesNoStudents')}</p>
+                            ) : (
+                              <>
+                                <CompletionLine missing={entry.notes.missing} missingKey="grading.fin.notesMissingLine" doneKey="grading.fin.notesDone" t={t} />
+                                {Array.isArray(entry.notes.promotionsMissing) && (
+                                  <CompletionLine missing={entry.notes.promotionsMissing} missingKey="grading.fin.promotionsMissingLine" doneKey="grading.fin.promotionsDone" t={t} />
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
           )}
         </>
       )}
@@ -461,6 +674,7 @@ export const FinalisingPage = () => {
           title={t('grading.fin.close.title', named)}
           range={range}
           initialDate={defaultReportDate(range, today)}
+          summary={closeSummary}
           onClose={() => setClosing(false)}
           onSubmit={submitClose}
           describeError={(err) => closeErrorMessage(err, t, closeRefusalParts(err?.details), day)}

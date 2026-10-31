@@ -56,7 +56,7 @@ const KeyIcon = () => (
 */
 const joinIntent = (role) => ({
   icon: <KeyIcon />,
-  heading: ['getStarted.join.title', 'getStarted.join.titleAccent'],
+  heading: 'getStarted.join.title',
   subheading: ['getStarted.join.subtitle', { role: `role.${role}.label` }],
   panelHeading: 'getStarted.join.panelHeading',
   panelBlurb: 'getStarted.join.panelBlurb',
@@ -70,7 +70,7 @@ const ABOVE_SCHOOL_INTENTS = ['governing-body', 'governing-body-admin', 'princip
 const INTENTS = {
   organization: {
     icon: <SchoolIcon />,
-    heading: ['getStarted.org.title', 'getStarted.org.titleAccent'],
+    heading: 'getStarted.org.title',
     subheading: ['getStarted.org.subtitle'],
     panelHeading: 'getStarted.org.panelHeading',
     panelBlurb: 'getStarted.org.panelBlurb',
@@ -91,7 +91,7 @@ const INTENTS = {
   */
   'governing-body': {
     icon: <Landmark className="w-8 h-8" strokeWidth={1.5} aria-hidden="true" />,
-    heading: ['gbreg.title', 'gbreg.titleAccent'],
+    heading: 'gbreg.title',
     subheading: ['gbreg.subtitle'],
     panelHeading: 'gbreg.panelHeading',
     panelBlurb: 'gbreg.panelBlurb',
@@ -111,7 +111,7 @@ const INTENTS = {
   */
   'governing-body-admin': {
     icon: <KeyIcon />,
-    heading: ['gbapp.title', 'gbapp.titleAccent'],
+    heading: 'gbapp.title',
     subheading: ['gbapp.subtitle'],
     panelHeading: 'gbapp.panelHeading',
     panelBlurb: 'gbapp.panelBlurb',
@@ -126,7 +126,7 @@ const INTENTS = {
   */
   principal: {
     icon: <KeyIcon />,
-    heading: ['pa.title', 'pa.titleAccent'],
+    heading: 'pa.title',
     subheading: ['pa.subtitle'],
     panelHeading: 'pa.panelHeading',
     panelBlurb: 'pa.panelBlurb',
@@ -195,7 +195,7 @@ const ADDING = {
   teacher: {
     role: ROLES.TEACHER,
     icon: <KeyIcon />,
-    heading: ['addRole.page.title', 'addRole.page.titleAccent'],
+    heading: 'addRole.page.title.TEACHER',
     panelHeading: 'addRole.page.panelHeading',
     panelBlurb: 'addRole.page.panelBlurb',
     needs: [['getStarted.join.need.teacherIds', 'addRole.page.needDetail']],
@@ -204,7 +204,7 @@ const ADDING = {
   guardian: {
     role: ROLES.GUARDIAN,
     icon: <KeyIcon />,
-    heading: ['addRole.page.title', 'addRole.guardian.titleAccent'],
+    heading: 'addRole.page.title.GUARDIAN',
     panelHeading: 'addRole.page.panelHeading',
     panelBlurb: 'addRole.page.panelBlurb',
     needs: [['addRole.guardian.need', 'addRole.guardian.needDetail']],
@@ -215,7 +215,7 @@ const ADDING = {
 export const GetStartedPage = () => {
   const navigate = useNavigate();
   const { intent } = useParams();
-  const { user, membership, otherSchools } = useAuth();
+  const { membership, otherSchools } = useAuth();
   const [search] = useSearchParams();
   const { t } = useT();
 
@@ -273,22 +273,20 @@ export const GetStartedPage = () => {
       </div>
 
       <div>
-        <h2 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
-          {t(content.heading[0])} <span className="text-brand">{t(content.heading[1])}</span>
+        {/* One colour (owner, 2026-10-29), as every signed-out card title. */}
+        <h2 className="text-[26px] font-extrabold text-slate-800 leading-tight select-none">
+          {t(content.heading)}
         </h2>
-        <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold">
+        <p className="text-slate-500 text-sm mt-2 font-medium">
           {adding
             ? t(content.subheading[0], { school: schoolName })
             : t(content.subheading[0], fill(content.subheading[1]))}
-          {user?.fullName ? ` (${user.fullName})` : ''}
         </p>
       </div>
 
       <div className="border border-slate-200 rounded-2xl p-5 text-left bg-white shadow-sm space-y-4">
         <div>
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-            {t('getStarted.needLabel')}
-          </span>
+          <h3 className="text-sm font-extrabold text-slate-800">{t('getStarted.needLabel')}</h3>
           <ul className="mt-2 space-y-2">
             {content.needs.map(([label, detail, vars]) => (
               <li key={label} className="flex items-start gap-2.5">
@@ -304,9 +302,7 @@ export const GetStartedPage = () => {
 
         {content.approval && (
           <div className="pt-1 border-t border-slate-100">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-              {t('getStarted.thenWhat')}
-            </span>
+            <h3 className="text-sm font-extrabold text-slate-800">{t('getStarted.thenWhat')}</h3>
             <p className="text-xs text-slate-500 font-medium leading-relaxed mt-1.5">
               {t(content.approval[0], fill(content.approval[1]))}
             </p>

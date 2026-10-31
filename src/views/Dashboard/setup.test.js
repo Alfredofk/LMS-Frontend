@@ -48,6 +48,17 @@ describe('setupSteps — what is done, what is next, what must wait', () => {
     expect(out).toMatchObject({ done: 6, total: 6, next: null });
   });
 
+  it('leaves out an ended assignment (a replaced teacher keeps status ACTIVE with endedAt)', () => {
+    const base = { years: [Y], classes: [klass('c1', '2026/2027', 30)], teachers: [{}], today: TODAY };
+    const counted = setupSteps({
+      ...base,
+      assignments: [{ semester: { id: 's1' } }, { semester: { id: 's1' }, endedAt: '2026-10-20T00:00:00.000Z' }],
+    });
+    expect(counted.steps.find((s) => s.id === 'SUBJECTS')).toMatchObject({ state: 'done', count: 1 });
+    const onlyEnded = setupSteps({ ...base, assignments: [{ semester: { id: 's1' }, endedAt: '2026-10-20T00:00:00.000Z' }] });
+    expect(onlyEnded.steps.find((s) => s.id === 'SUBJECTS')).toMatchObject({ state: 'todo', count: 0 });
+  });
+
   it('classes wait for a teacher, since each is created with its homeroom teacher', () => {
     const out = setupSteps({ years: [Y], classes: [], teachers: [], assignments: [], today: TODAY });
     expect(states(out)).toMatchObject({ TEACHERS: 'todo', CLASSES: 'blocked' });

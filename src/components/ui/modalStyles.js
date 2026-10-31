@@ -17,10 +17,13 @@ export const modalCancelClass = (busy = false) =>
 
 const CONFIRM_TONE = {
   danger: 'bg-rose-600 hover:bg-rose-700 focus-visible:ring-rose-500 shadow-rose-600/20',
+  /* Undoing something that can be done again (owner, 2026-10-30: "Batalkan finalisasi"). */
+  /* 700, not 600: white on amber-600 is 3.2:1. */
+  warning: 'bg-amber-700 hover:bg-amber-800 focus-visible:ring-amber-500 shadow-amber-700/20',
   brand: 'bg-brand hover:bg-brand-deep focus-visible:ring-brand shadow-brand/30',
 };
 
-/** The action: filled, red when it destroys something, purple otherwise. */
+/** The action: filled, red when it destroys something, amber when it undoes something, purple otherwise. */
 export const modalConfirmClass = (tone = 'brand', busy = false) =>
   `${buttonBase} px-6 text-white shadow-md focus-visible:ring-offset-2 ${CONFIRM_TONE[tone] ?? CONFIRM_TONE.brand} ${
     busy ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'

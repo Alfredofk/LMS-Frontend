@@ -9,6 +9,7 @@ import { academicsService } from '../../services/academicsService';
 import { assessmentService } from '../../services/assessmentService';
 import StateWord from './StateWord';
 import WindowChoice from './WindowChoice';
+import { BusyLabel } from '../../components/ui/ModalHeading';
 import {
   copyBody,
   emptyWindow,
@@ -227,7 +228,7 @@ export const CopyFromDialog = ({ classSubjectId, semesterId, zone, onCopied, onC
           </button>
           <button type="button" onClick={submit} disabled={busy || !picked} className={modalConfirmClass('brand', busy)}>
             <Copy className="w-4 h-4 inline -mt-0.5 mr-1.5" aria-hidden="true" />
-            {busy ? t('common.loading') : t('tasm.from.submit')}
+            <BusyLabel busy={busy}>{t('tasm.from.submit')}</BusyLabel>
           </button>
         </div>
       </div>

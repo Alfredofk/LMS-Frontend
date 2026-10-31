@@ -26,7 +26,7 @@ import Toast from '../../components/ui/Toast';
 const MailIcon = ({ state }) => (
   <div
     className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto shadow-sm ${
-      state === 'error' ? 'bg-red-50 text-red-500' : 'bg-brand-tint text-brand'
+      state === 'error' ? 'bg-rose-50 text-rose-600' : 'bg-brand-tint text-brand'
     }`}
   >
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
@@ -144,10 +144,7 @@ export const VerifyEmailPage = () => {
     }
   };
 
-  const heading = {
-    checking: ['verify.checking.title', 'verify.checking.titleAccent'],
-    error: ['verify.error.title', 'verify.error.titleAccent'],
-  }[state];
+  const heading = { checking: 'verify.checking.title', error: 'verify.error.title' }[state];
 
   const footer = (
     <button
@@ -177,10 +174,10 @@ export const VerifyEmailPage = () => {
         <MailIcon state={state} />
 
         <div>
-          <h2 className="text-3xl sm:text-[34px] font-extrabold text-slate-800 leading-tight select-none">
-            {t(heading[0])} <span className="text-brand">{t(heading[1])}</span>
+          <h2 className="text-[26px] font-extrabold text-slate-800 leading-tight select-none">
+            {t(heading)}
           </h2>
-          <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold">
+          <p className="text-slate-500 text-sm mt-2 font-medium">
             {state === 'checking' ? t('verify.checking.note') : message}
           </p>
         </div>
@@ -188,9 +185,9 @@ export const VerifyEmailPage = () => {
         {state === 'error' && (
           <form onSubmit={handleResend} className="border border-slate-200 rounded-2xl p-5 text-left bg-white shadow-sm space-y-3">
             <div>
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              <h3 className="text-sm font-extrabold text-slate-800">
                 {t('verify.resend.label')}
-              </span>
+              </h3>
               <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
                 {t('verify.resend.hint')}
               </p>
@@ -199,7 +196,8 @@ export const VerifyEmailPage = () => {
             <Input
               id="resendEmail"
               type="email"
-              placeholder={t('auth.field.email')}
+              label={t('auth.label.email')}
+              placeholder={t('auth.example.email')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"

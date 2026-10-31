@@ -13,6 +13,8 @@ import { useT } from '../../i18n/LanguageContext';
 import { joinErrorMessage } from '../../i18n/apiError';
 import { gradesFor } from '../../constants/schoolTypes';
 import { takesApplication } from './principalApplication';
+import AuthMessageIcon from '../../components/ui/AuthMessageIcon';
+import FactLine from '../../components/ui/FactLine';
 import {
   normaliseSchoolCode,
   validateSchoolCode,
@@ -303,10 +305,7 @@ export const JoinSchoolForm = ({ intent, doneTo = '/select-role' }) => {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-extrabold text-slate-900 leading-tight break-words">{school.name}</p>
-            <p className="mt-1 flex flex-wrap gap-x-2.5 text-xs font-semibold text-slate-600">
-              <span>{school.schoolType}</span>
-              {school.city && <span>{school.city}</span>}
-            </p>
+            <FactLine size="xs" facts={[school.schoolType, school.city]} className="mt-1" />
             {school.governingBody?.name && <p className="mt-0.5 text-xs font-semibold text-slate-600 break-words">{t('pa.underBody', { body: school.governingBody.name })}</p>}
             <button
               type="button"
@@ -346,11 +345,8 @@ export const JoinSchoolForm = ({ intent, doneTo = '/select-role' }) => {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-extrabold text-slate-900 leading-tight">{school.name}</p>
-          {/* `School.city` is nullable, so its pill is too. */}
-          <p className="mt-1.5 flex flex-wrap gap-1.5 text-[10px] font-extrabold">
-            <span className="px-1.5 py-0.5 rounded-md bg-white text-brand">{school.schoolType}</span>
-            {school.city && <span className="px-1.5 py-0.5 rounded-md bg-white text-slate-600">{school.city}</span>}
-          </p>
+          {/* `School.city` is nullable; FactLine leaves an empty part out. */}
+          <FactLine size="xs" facts={[school.schoolType, school.city]} className="mt-1" />
           <button
             type="button"
             onClick={() => {
@@ -509,11 +505,9 @@ export const JoinSchoolForm = ({ intent, doneTo = '/select-role' }) => {
       )}
 
       {errors.global && (
-        <div
-          className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold"
-          role="alert"
-        >
-          {errors.global}
+        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-700 text-left flex items-start gap-2.5" role="alert">
+          <AuthMessageIcon tone="error" />
+          <span>{errors.global}</span>
         </div>
       )}
 

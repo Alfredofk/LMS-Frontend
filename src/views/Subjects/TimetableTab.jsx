@@ -1,20 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, CalendarClock, Clock, School } from 'lucide-react';
+import { AlertTriangle, CalendarClock, ChevronRight, Clock, Info, School } from 'lucide-react';
 
 import SelectField from '../../components/ui/SelectField';
 import Button from '../../components/ui/Button';
 import EmptyCard from '../../components/ui/EmptyCard';
 import SemesterSegments from './SemesterSegments';
+import FactLine from '../../components/ui/FactLine';
 import { formatDay } from '../Classes/format';
 import ScheduleDialog from './ScheduleDialog';
 import { academicsService } from '../../services/academicsService';
 import { sessionsService } from '../../services/sessionsService';
+import { RowsLoading } from '../GoverningBody/bodyParts';
 import { useT } from '../../i18n/LanguageContext';
 import { subjectsErrorMessage, timetableErrorMessage } from '../../i18n/apiError';
 import { ROLES } from '../../constants/roles';
 import { defaultSlot, defaultSemesterOf, boardWritable } from './subjects';
 import SubjectLabel from '../../components/ui/SubjectLabel';
+import WaitingPill from './WaitingPill';
+import { Bone } from '../Dashboard/components/HomeCard';
+import { localOf } from '../Attendance/attendance';
+import { semesterTimeOf } from '../Classes/semesterTime';
+import { useAuth } from '../../context/AuthContext';
 import { dayName, semesterLength, weekOf } from './timetable';
 
 /*
@@ -32,6 +39,7 @@ import { dayName, semesterLength, weekOf } from './timetable';
 */
 export const TimetableTab = ({ years, showToast, activeRole }) => {
   const { t, lang } = useT();
+  const { membership } = useAuth();
   const navigate = useNavigate();
   const today = new Date().toISOString().slice(0, 10);
   const usable = years ?? [];
@@ -94,6 +102,9 @@ export const TimetableTab = ({ years, showToast, activeRole }) => {
   const semesterEntry = (year?.semesters ?? []).find((entry) => entry.id === semesterId) ?? null;
   const length = semesterEntry ? semesterLength(semesterEntry.startDate, semesterEntry.endDate) : null;
   const writable = semester && boardWritable(year?.status, semester.status);
+  /* Today in the school's zone; its weekday is marked only while this semester runs. */
+  const now = localOf(new Date(), membership?.school?.timeZone ?? null);
+  const isRunning = semesterEntry && semesterTimeOf(semesterEntry, now?.date)?.phase === 'running';
 
   const loaded = active.map((row) => ({ row, state: schedules[row.classSubjectId] }));
   const withSlots = loaded
@@ -118,7 +129,7 @@ export const TimetableTab = ({ years, showToast, activeRole }) => {
     </button>
   );
 
-  const loadingBox = <div className="h-48 bg-white border border-slate-100 rounded-2xl animate-pulse" aria-label={t('common.loading')} />;
+  const loadingBox = <RowsLoading />;
 
   return (
     <div className="space-y-4">
@@ -201,9 +212,10 @@ export const TimetableTab = ({ years, showToast, activeRole }) => {
       )}
 
       {semester && !writable && (
-        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold text-slate-500">
+        <p className="flex items-start gap-2 text-[13px] font-medium text-slate-600 leading-relaxed">
+          <Info className="w-4 h-4 mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
           {t('subjects.board.readOnly')}
-        </div>
+        </p>
       )}
 
       {noZone && (
@@ -235,8 +247,17 @@ export const TimetableTab = ({ years, showToast, activeRole }) => {
         <>
           <ul className={`grid grid-cols-1 sm:grid-cols-2 gap-3 ${week.length === 7 ? 'xl:grid-cols-7' : 'lg:grid-cols-3 xl:grid-cols-6'}`}>
             {week.map(({ day, items }) => (
-              <li key={day} className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm space-y-2 min-w-0">
-                <h3 className="text-sm font-extrabold text-slate-900">{dayName(day, lang)}</h3>
+              /* Today's day carries a purple edge and the word, while this semester runs (mockup item 9). */
+              <li
+                key={day}
+                className={`bg-white border rounded-2xl p-3 shadow-sm space-y-2 min-w-0 ${
+                  isRunning && day === now?.dayOfWeek ? 'border-brand ring-1 ring-brand' : 'border-slate-100'
+                }`}
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <h3 className="text-sm font-extrabold text-slate-900">{dayName(day, lang)}</h3>
+                  {isRunning && day === now?.dayOfWeek && <span className="text-[11px] font-extrabold text-brand">{t('timetable.today')}</span>}
+                </div>
                 {items.length === 0 ? (
                   <p className="text-[11px] font-semibold text-slate-500">{t('timetable.dayEmpty')}</p>
                 ) : (
@@ -260,36 +281,47 @@ export const TimetableTab = ({ years, showToast, activeRole }) => {
           {(waiting.length > 0 || pending.length > 0) && (
             <section className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-2">
               <h3 className="text-sm font-extrabold text-slate-900">{t('timetable.unscheduled')}</h3>
-              <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {/* Rows, each saying what is missing (mockup item 9). */}
+              <ul className="divide-y divide-slate-100">
                 {waiting.map(({ row, state }) => (
                   <li key={row.classSubjectId}>
                     {!state ? (
-                      <div className="h-14 bg-slate-50 rounded-xl animate-pulse" aria-label={t('common.loading')} />
+                      <div className="py-2.5" aria-label={t('common.loading')}>
+                        <Bone className="h-3.5 w-2/5" />
+                        <Bone className="h-3 w-1/3 mt-2" />
+                      </div>
                     ) : state.error ? (
-                      <div className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700" role="alert">
-                        <span className="block font-extrabold">
+                      <div className="py-2.5 text-xs font-semibold text-rose-700" role="alert">
+                        <span className="block text-[13px] font-bold text-slate-800">
                           <SubjectLabel code={row.subject.code} name={row.subject.name} />
                         </span>
                         {state.error}
                       </div>
                     ) : (
-                      subjectButton(
-                        row,
-                        <span className="block text-[11px] font-extrabold text-amber-700">{t('timetable.notSet')}</span>
-                      )
+                      <button
+                        type="button"
+                        onClick={() => setOpen(row)}
+                        className="group w-full py-2.5 px-2 -mx-2 flex items-center gap-3 text-left rounded-xl hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[13px] font-bold text-slate-800 break-words">
+                            <SubjectLabel code={row.subject.code} name={row.subject.name} />
+                          </span>
+                          <span className="block text-xs font-medium text-slate-500 break-words">{row.teacher.fullName}</span>
+                        </span>
+                        <span className="shrink-0 text-xs font-extrabold text-amber-700">{t('timetable.notSet')}</span>
+                        <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                      </button>
                     )}
                   </li>
                 ))}
                 {pending.map((row) => (
-                  <li
-                    key={row.classSubjectId}
-                    className="rounded-xl border border-dashed border-slate-200 px-3 py-2"
-                  >
-                    <span className="block text-[11px] font-extrabold text-slate-500">{t('timetable.pending')}</span>
-                    <span className="block text-xs font-bold text-slate-600 break-words">
+                  <li key={row.classSubjectId} className="py-2.5">
+                    <span className="block text-[13px] font-bold text-slate-800 break-words">
                       <SubjectLabel code={row.subject.code} name={row.subject.name} />
+                      <WaitingPill className="ml-2" />
                     </span>
-                    <span className="block text-[11px] font-semibold text-slate-500 break-words">{row.teacher.fullName}</span>
+                    <FactLine size="xs" wrap className="font-medium" facts={[row.teacher.fullName, t('timetable.pendingShort')]} />
                   </li>
                 ))}
               </ul>

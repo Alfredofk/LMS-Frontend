@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { BookPlus } from 'lucide-react';
+import { BookPlus, Calendar, CircleCheck, Clock, Info } from 'lucide-react';
 
 import { modalActions, modalCancelClass, modalConfirmClass } from '../../components/ui/modalStyles';
-import ModalHeading from '../../components/ui/ModalHeading';
+import ModalHeading, { BusyLabel, ModalError } from '../../components/ui/ModalHeading';
 import SelectField from '../../components/ui/SelectField';
 import { academicsService } from '../../services/academicsService';
 import { useT } from '../../i18n/LanguageContext';
@@ -22,7 +22,23 @@ import { requestChoices, requestableSemesters } from './teaching';
   (`requestChoices`, from the semester's board). The Principal approves it - or,
   when the reader is that class's homeroom teacher, it is theirs at once (the
   server decides; the dialog says so beforehand). Every refusal stays inside.
+
+  The look since 2026-10-30 (mockup akses-dialog.html, items 5-7): the deadline an
+  info line under the semester, what sending will do in a green or grey box, the
+  empty cases grey boxes, a refusal a rose box, a skeleton while reading.
 */
+
+/* A grey note in the dialog, with its icon. */
+const Note = ({ icon, tone = 'slate', children }) => (
+  <p
+    className={`flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-[13px] font-semibold leading-relaxed ${
+      tone === 'emerald' ? 'border-emerald-100 bg-emerald-50 text-emerald-700' : 'border-slate-100 bg-slate-50 text-slate-700'
+    }`}
+  >
+    {React.createElement(icon, { className: 'w-4 h-4 shrink-0 mt-0.5', 'aria-hidden': 'true' })}
+    <span className="min-w-0">{children}</span>
+  </p>
+);
 export const RequestSubjectDialog = ({ onClose, onRequested }) => {
   const { t, lang } = useT();
   const { membership } = useAuth();
@@ -135,11 +151,16 @@ export const RequestSubjectDialog = ({ onClose, onRequested }) => {
         />
 
         {loading ? (
-          <div className="h-24 bg-slate-50 rounded-xl animate-pulse" aria-label={t('common.loading')} />
+          <div className="space-y-3 animate-pulse motion-reduce:animate-none" aria-label={t('common.loading')}>
+            {[0, 1].map((i) => (
+              <div key={i} className="space-y-2">
+                <div className="h-3 w-1/4 rounded bg-slate-100" />
+                <div className="h-10 rounded-xl bg-slate-100" />
+              </div>
+            ))}
+          </div>
         ) : nothingOpen ? (
-          <p className="text-xs font-semibold text-slate-600 leading-relaxed">
-            {semesters.length > 0 ? t('teach.request.deadlinePassed') : t('teach.request.noSemester')}
-          </p>
+          <Note icon={Info}>{semesters.length > 0 ? t('teach.request.deadlinePassed') : t('teach.request.noSemester')}</Note>
         ) : (
           years !== null && (
             <>
@@ -166,16 +187,17 @@ export const RequestSubjectDialog = ({ onClose, onRequested }) => {
               </SelectField>
 
               {semester?.classSubjectRegistrationDeadline && (
-                <p className="-mt-2 text-[11px] font-semibold text-slate-500">
+                <p className="-mt-2 flex items-center gap-2 text-[12.5px] font-medium text-slate-500">
+                  <Calendar className="w-4 h-4 shrink-0" aria-hidden="true" />
                   {t('teach.request.deadline', { date: formatDay(semester.classSubjectRegistrationDeadline, lang) })}
                 </p>
               )}
 
               {semesterId &&
                 (choices === null ? (
-                  <div className="h-12 bg-slate-50 rounded-xl animate-pulse" aria-label={t('common.loading')} />
+                  <div className="h-16 bg-slate-100 rounded-xl animate-pulse motion-reduce:animate-none" aria-label={t('common.loading')} />
                 ) : choices.length === 0 ? (
-                  <p className="text-xs font-semibold text-slate-600 leading-relaxed">{t('teach.request.noneFree')}</p>
+                  <Note icon={Info}>{t('teach.request.noneFree')}</Note>
                 ) : (
                   <>
                     <SelectField
@@ -222,18 +244,16 @@ export const RequestSubjectDialog = ({ onClose, onRequested }) => {
                 ))}
 
               {subject && (
-                <p className={`text-xs font-semibold leading-relaxed ${ownClass ? 'text-emerald-700' : 'text-slate-600'}`}>
+                <Note icon={ownClass ? CircleCheck : Clock} tone={ownClass ? 'emerald' : 'slate'}>
                   {t(ownClass ? 'teach.request.ownClass' : 'teach.request.waits', { subject: subject.name, className: choice.class.name })}
-                </p>
+                </Note>
               )}
             </>
           )
         )}
 
         {errors.global && (
-          <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
-            {errors.global}
-          </div>
+          <ModalError>{errors.global}</ModalError>
         )}
 
         <div className={modalActions}>
@@ -242,7 +262,7 @@ export const RequestSubjectDialog = ({ onClose, onRequested }) => {
           </button>
           {!nothingOpen && years !== null && (
             <button type="button" onClick={handleSend} disabled={busy} className={modalConfirmClass('brand', busy)}>
-              {busy ? t('common.loading') : t('teach.request.send')}
+              <BusyLabel busy={busy}>{t('teach.request.send')}</BusyLabel>
             </button>
           )}
         </div>

@@ -20,6 +20,8 @@
   Owner, 2026-10-28: a page of its own plus a card on the dashboard; tables (cards
   on a phone) sortable by column, grade then name first; a change in green when it
   is better and red when worse; a class opens its summary on the Classes page.
+  Owner, 2026-10-31 (mockup dasbor-ringkasan.html): a row per class or subject on
+  every width, ordered through one "Urutkan" choice (`SORTS`).
 */
 
 /**
@@ -96,8 +98,22 @@ export function sortRows(rows, { key, dir }, nameOf) {
   });
 }
 
-/** The order a column takes when first pressed: names A-Z, numbers the largest first. */
-export const firstDirOf = (key) => (key === 'name' ? 'asc' : 'desc');
+/**
+ * The orders "Urutkan" offers (owner, 2026-10-31, mockup item 8), each the way a
+ * Principal looks for trouble: the lowest attendance, material and average first,
+ * the most students below KKTP or with a signal first.
+ */
+export const SORTS = [
+  { id: 'name', key: 'name', dir: 'asc' },
+  { id: 'attendance', key: 'attendance', dir: 'asc' },
+  { id: 'content', key: 'content', dir: 'asc' },
+  { id: 'belowKktp', key: 'belowKktp', dir: 'desc' },
+  { id: 'withSignal', key: 'withSignal', dir: 'desc' },
+  { id: 'averageGrade', key: 'averageGrade', dir: 'asc' },
+];
+
+/** A row with nobody placed: one grey line instead of a row of 0 and -. A count never taken (null) is not empty. */
+export const isEmptyRow = (row) => row?.studentsPlacedNow === 0;
 
 /** Whether the rollup has counted anything for this Semester yet. */
 export const isCounted = (answer) => Boolean(answer?.asOf);

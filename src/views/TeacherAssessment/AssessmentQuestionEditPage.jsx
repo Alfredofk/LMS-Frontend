@@ -14,6 +14,7 @@ import { assessmentService } from '../../services/assessmentService';
 import { useSlotFinalised } from '../Grading/useSlotFinalised';
 import QuestionContentFields from '../QuestionBank/QuestionContentFields';
 import { copyPayload, draftChanged, draftFrom, questionErrors, shownChanged } from '../QuestionBank/questionBank';
+import { BusyLabel } from '../../components/ui/ModalHeading';
 import {
   MAX_POINTS,
   MAX_REASON,
@@ -162,7 +163,7 @@ const AssessmentQuestionEditor = () => {
   return (
     <div className="space-y-6 max-w-3xl">
       <div className="space-y-1">
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('tasm.editCopy.title', { n: number })}</h1>
+        <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('tasm.editCopy.title', { n: number })}</h1>
         <FactLine code={subject.code} name={subject.name} facts={[assessment.title, t(`qbank.kind.${copy.kind}`)]} />
       </div>
 
@@ -268,7 +269,7 @@ const AssessmentQuestionEditor = () => {
           {t('common.cancel')}
         </button>
         <button type="button" onClick={() => save()} disabled={busy || (released && !fixChanged)} className={`${tool} px-5 py-2.5 text-sm bg-brand text-white hover:bg-brand-deep`}>
-          {busy ? t('common.loading') : t('qbank.editor.saveChanges')}
+          <BusyLabel busy={busy}>{t('qbank.editor.saveChanges')}</BusyLabel>
         </button>
       </div>
       <ConfirmDialog

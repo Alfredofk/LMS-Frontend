@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { homeFor } from '../constants/roles';
 
@@ -29,6 +29,7 @@ export const RequireAuth = ({ children }) => {
  */
 export const ProtectedRoute = ({ children, allowedRoles }) => {
   const { isAuthenticated, roles, activeRole, droppedRole } = useAuth();
+  const location = useLocation();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -50,7 +51,8 @@ export const ProtectedRoute = ({ children, allowedRoles }) => {
     /* The role this page was opened as was just taken away (a Vice Principal
        revoked): not "unauthorized", simply somewhere else to be now. */
     if (droppedRole?.to === activeRole) return <Navigate to={homeFor(activeRole)} replace />;
-    return <Navigate to="/unauthorized" replace />;
+    /* The page asked for and who may open it, so /unauthorized can offer another role the reader holds (owner, 2026-10-30). */
+    return <Navigate to="/unauthorized" replace state={{ from: `${location.pathname}${location.search}`, allowedRoles }} />;
   }
 
   return children;

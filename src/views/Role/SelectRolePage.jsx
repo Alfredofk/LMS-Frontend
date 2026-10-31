@@ -6,6 +6,7 @@ import AuthLayout from '../../layouts/AuthLayout';
 import { useAuth } from '../../context/AuthContext';
 import Toast from '../../components/ui/Toast';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import FactLine from '../../components/ui/FactLine';
 import {
   ROLES,
   ROLE_LABEL_KEY,
@@ -35,6 +36,7 @@ import { membershipService } from '../../services/membershipService';
 import { schoolService } from '../../services/schoolService';
 import { authService } from '../../services/authService';
 import { accessTokenClaims } from '../../services/apiClient';
+import { BusyLabel } from '../../components/ui/ModalHeading';
 
 /*
   The one screen between signing in and working.
@@ -69,22 +71,22 @@ import { accessTokenClaims } from '../../services/apiClient';
 
 const roleIcons = {
   [ROLES.STUDENT]: (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
       <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.62 48.62 0 0112 20.904a48.62 48.62 0 018.231-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 017.918 5.841 50.58 50.58 0 00-2.658.814m-13.002 0L12 14.583l8.742-4.436M12 14.583v6.32" />
     </svg>
   ),
   [ROLES.TEACHER]: (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
     </svg>
   ),
   [ROLES.GUARDIAN]: (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
       <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
     </svg>
   ),
   [ROLES.PRINCIPAL]: (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12v18H3V3z" />
     </svg>
   ),
@@ -101,7 +103,7 @@ const roleIcons = {
 const BODY_CARD = 'GOVERNING_BODY';
 const BODY_CARD_PATH = '/get-started/governing-body';
 const bodyCardIcon = (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7">
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
     <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" />
   </svg>
 );
@@ -171,9 +173,66 @@ const cardStatusOf = (membership, role, registration) => {
   return { ...statusOf(membership, role), noteKey: null };
 };
 
+/* A card's state as a pill right after its name, the StateWord look (owner, 2026-10-29). */
 const STATUS_BADGE = {
-  PENDING: 'bg-amber-50 text-amber-600',
-  REJECTED: 'bg-red-50 text-red-600',
+  PENDING: 'bg-amber-100 text-amber-800',
+  REJECTED: 'bg-rose-50 text-rose-700',
+};
+
+/*
+  One card on the picker: a role, or the Governing Body. Clicking it chooses it;
+  Continue is what moves on, so the right side is a choice mark, not an arrow
+  (owner, 2026-10-29). The icon sits bare, not on a tile.
+*/
+const ChoiceCard = ({ icon, title, note, state, reason, selectable, selected, disabled, onSelect, t }) => {
+  const badge = STATUS_BADGE[state];
+  return (
+    <button
+      type="button"
+      onClick={() => selectable && onSelect()}
+      disabled={!selectable || disabled}
+      aria-pressed={selected}
+      className={`
+        w-full border rounded-2xl p-4 flex items-center justify-between gap-3 text-left transition-all duration-200 select-none
+        ${selected
+          ? 'border-brand border-2 shadow-lg shadow-brand/5 bg-white cursor-pointer'
+          : selectable
+            ? 'border-slate-200 bg-white hover:border-slate-300 cursor-pointer'
+            : 'border-slate-100 bg-slate-50/60 opacity-60 cursor-not-allowed'
+        }
+      `}
+    >
+      <div className="flex items-center gap-3.5 min-w-0">
+        <span className={`shrink-0 ${selectable ? 'text-brand' : 'text-slate-400'}`} aria-hidden="true">{icon}</span>
+        <div className="min-w-0">
+          <h3 className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-extrabold ${selectable ? 'text-slate-800' : 'text-slate-500'}`}>
+            {title}
+            {badge && (
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold uppercase leading-4 whitespace-nowrap ${badge}`}>
+                {t(`selectRole.badge.${state}`)}
+              </span>
+            )}
+          </h3>
+          <p className="text-xs text-slate-500 font-semibold mt-0.5 break-words">{note}</p>
+          {/* Somebody else's words about this person, said as a labelled fact. */}
+          {state === 'REJECTED' && (
+            <p className="mt-1 text-xs text-rose-700 font-semibold break-words">
+              {reason ? t('others.reason', { reason }) : t(CARD_NOTE_KEY.REJECTED)}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {selectable && (
+        <span
+          className={`w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center ${selected ? 'border-brand' : 'border-slate-300'}`}
+          aria-hidden="true"
+        >
+          {selected && <span className="w-2.5 h-2.5 rounded-full bg-brand" />}
+        </span>
+      )}
+    </button>
+  );
 };
 
 
@@ -606,18 +665,15 @@ export const SelectRolePage = () => {
       )}
 
       <AuthLayout
-        heading={t(panelHeading)}
+        heading={t(panelHeading, { school: schoolName ?? '' })}
         blurb={blurb}
         footer={footer}
       >
         <div>
-          <h2 className="text-3xl sm:text-[34px] font-extrabold text-brand leading-tight select-none">
+          <h2 className="text-[26px] font-extrabold text-slate-800 leading-tight select-none">
             {t(deactivated ? 'selectRole.deactivated.title' : 'selectRole.title')}
           </h2>
-          <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold break-all">
-            {user?.fullName ? t('selectRole.signedInAs', { name: user.fullName }) : ''}
-            {user?.email ? ` (${user.email})` : ''}
-          </p>
+          <FactLine facts={[user?.fullName, user?.email]} wrap className="mt-2" />
         </div>
 
         {/* Nothing below is decided until the first check answers. Until then
@@ -652,12 +708,9 @@ export const SelectRolePage = () => {
             {/* The platform admin's own words, so marked as a quotation — the
                 same treatment a rejection reason gets on a card. */}
             {deactivation.reason && (
-              <div className="ml-8 pl-3 border-l-2 border-amber-300">
-                <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">
-                  {t('selectRole.deactivated.reason')}
-                </p>
-                <p className="text-sm text-slate-700 font-medium break-words mt-0.5">{deactivation.reason}</p>
-              </div>
+              <p className="ml-8 text-sm text-slate-700 font-medium break-words">
+                {t('selectRole.deactivated.reason', { reason: deactivation.reason })}
+              </p>
             )}
 
             <p className="ml-8 text-xs text-slate-600 font-medium leading-relaxed">
@@ -689,12 +742,9 @@ export const SelectRolePage = () => {
               </div>
             </div>
             {ended.reason && (
-              <div className="ml-8 pl-3 border-l-2 border-slate-300">
-                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  {t('selectRole.ended.reason')}
-                </p>
-                <p className="text-sm text-slate-700 font-medium break-words mt-0.5">{ended.reason}</p>
-              </div>
+              <p className="ml-8 text-sm text-slate-700 font-medium break-words">
+                {t('selectRole.ended.reason', { reason: ended.reason })}
+              </p>
             )}
             <p className="ml-8 text-xs text-slate-600 font-medium leading-relaxed">{t('selectRole.ended.after')}</p>
           </div>
@@ -730,8 +780,8 @@ export const SelectRolePage = () => {
         )}
 
         {hasChecked && !hasRoles && !deactivated && (
-          <div className="border border-slate-200 rounded-2xl p-4 text-left bg-white shadow-sm">
-            <p className="text-sm text-slate-600 font-medium leading-relaxed">
+          <div className="text-left px-1">
+            <p className="text-sm text-slate-500 font-medium leading-relaxed">
               {isPending ? (
                 t('selectRole.explain.pending', { school: schoolName })
               ) : (
@@ -760,7 +810,6 @@ export const SelectRolePage = () => {
             const lockKey = lockOf(membership, role, state);
             const selectable = state !== 'PENDING' && !lockKey;
             const isSelected = selectable && selected === role;
-            const badge = STATUS_BADGE[state];
 
             /*
               The card's ordinary pitch, in every state.
@@ -781,58 +830,19 @@ export const SelectRolePage = () => {
                   : t(ROLE_TAGLINE_KEY[role]);
 
             return (
-              <button
+              <ChoiceCard
                 key={role}
-                type="button"
-                onClick={() => selectable && setSelected(role)}
-                disabled={!selectable || isLoading}
-                aria-pressed={isSelected}
-                className={`
-                  w-full border rounded-2xl p-4 flex items-center justify-between text-left transition-all duration-200 select-none
-                  ${isSelected
-                    ? 'border-brand border-2 shadow-lg shadow-brand/5 bg-white cursor-pointer'
-                    : selectable
-                      ? 'border-slate-200 bg-white hover:border-slate-300 cursor-pointer'
-                      : 'border-slate-100 bg-slate-50/60 opacity-60 cursor-not-allowed'
-                  }
-                `}
-              >
-                <div className="flex items-center min-w-0">
-                  <div
-                    className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 mr-4 ${
-                      selectable ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-400'
-                    }`}
-                  >
-                    {roleIcons[role]}
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className={`text-base font-extrabold ${selectable ? 'text-slate-800' : 'text-slate-500'}`}>
-                      {t(ROLE_LABEL_KEY[role])}
-                    </h3>
-                    <p className="text-xs text-slate-500 font-semibold mt-0.5 break-words">{note}</p>
-                    {/* Somebody else's words about this person, so they are marked
-                        as a quotation rather than dressed up as our own copy. */}
-                    {state === 'REJECTED' && (
-                      <p className="mt-1.5 pl-2 border-l-2 border-rose-200 text-[11px] text-rose-600 font-semibold break-words">
-                        {reason ?? t(CARD_NOTE_KEY.REJECTED)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0 ml-2">
-                  {badge && (
-                    <span className={`text-[9px] font-bold px-2 py-1 rounded-full ${badge}`}>
-                      {t(`selectRole.badge.${state}`)}
-                    </span>
-                  )}
-                  {selectable && (
-                    <span className="w-8 h-8 rounded-full border border-brand/20 flex items-center justify-center text-brand text-sm">
-                      ➔
-                    </span>
-                  )}
-                </div>
-              </button>
+                icon={roleIcons[role]}
+                title={t(ROLE_LABEL_KEY[role])}
+                note={note}
+                state={state}
+                reason={reason}
+                selectable={selectable}
+                selected={isSelected}
+                disabled={isLoading}
+                onSelect={() => setSelected(role)}
+                t={t}
+              />
             );
           })}
 
@@ -841,51 +851,19 @@ export const SelectRolePage = () => {
             const state = waiting ? 'PENDING' : bodyLine.state === 'REJECTED' ? 'REJECTED' : null;
             const selectable = !waiting;
             const isSelected = selectable && selected === BODY_CARD;
-            const badge = STATUS_BADGE[state];
             return (
-              <button
-                type="button"
-                onClick={() => selectable && setSelected(BODY_CARD)}
-                disabled={!selectable || isLoading}
-                aria-pressed={isSelected}
-                className={`
-                  w-full border rounded-2xl p-4 flex items-center justify-between text-left transition-all duration-200 select-none
-                  ${isSelected
-                    ? 'border-brand border-2 shadow-lg shadow-brand/5 bg-white cursor-pointer'
-                    : selectable
-                      ? 'border-slate-200 bg-white hover:border-slate-300 cursor-pointer'
-                      : 'border-slate-100 bg-slate-50/60 opacity-60 cursor-not-allowed'
-                  }
-                `}
-              >
-                <div className="flex items-center min-w-0">
-                  <div
-                    className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 mr-4 ${
-                      selectable ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-400'
-                    }`}
-                  >
-                    {bodyCardIcon}
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className={`text-base font-extrabold ${selectable ? 'text-slate-800' : 'text-slate-500'}`}>{t('gbreg.card.label')}</h3>
-                    <p className="text-xs text-slate-500 font-semibold mt-0.5 break-words">{t(waiting ? 'gbreg.card.waiting' : 'gbreg.card.tagline')}</p>
-                    {state === 'REJECTED' && (
-                      <p className="mt-1.5 pl-2 border-l-2 border-rose-200 text-[11px] text-rose-600 font-semibold break-words">
-                        {bodyLine.reason ?? t(CARD_NOTE_KEY.REJECTED)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0 ml-2">
-                  {badge && <span className={`text-[9px] font-bold px-2 py-1 rounded-full ${badge}`}>{t(`selectRole.badge.${state}`)}</span>}
-                  {selectable && (
-                    <span className="w-8 h-8 rounded-full border border-brand/20 flex items-center justify-center text-brand text-sm">
-                      ➔
-                    </span>
-                  )}
-                </div>
-              </button>
+              <ChoiceCard
+                icon={bodyCardIcon}
+                title={t('gbreg.card.label')}
+                note={t(waiting ? 'gbreg.card.waiting' : 'gbreg.card.tagline')}
+                state={state}
+                reason={bodyLine.reason}
+                selectable={selectable}
+                selected={isSelected}
+                disabled={isLoading}
+                onSelect={() => setSelected(BODY_CARD)}
+                t={t}
+              />
             );
           })()}
         </div>
@@ -916,7 +894,7 @@ export const SelectRolePage = () => {
                   type="button"
                   onClick={() => setCancelTarget({ kind: 'role', role })}
                   disabled={isLoading}
-                  className="shrink-0 text-xs font-extrabold text-rose-600 hover:text-rose-700 underline underline-offset-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 rounded"
+                  className="shrink-0 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                 >
                   {t('selectRole.cancel.role.action')}
                 </button>
@@ -938,12 +916,7 @@ export const SelectRolePage = () => {
             disabled={!selected || isLoading}
             className="w-full py-3.5 rounded-2xl justify-center font-bold text-base bg-brand hover:bg-brand-deep text-white active:scale-95 transition-transform shadow-lg shadow-brand/20 flex items-center gap-1 select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
           >
-            {isLoading ? t('common.loading') : t('common.continue')}
-            {!isLoading && (
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 mt-0.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-              </svg>
-            )}
+            <BusyLabel busy={isLoading}>{t('common.continue')}</BusyLabel>
           </button>
 
           {isPending && (
@@ -968,7 +941,7 @@ export const SelectRolePage = () => {
                   <button
                     type="button"
                     onClick={() => setCancelTarget({ kind: 'request', id: entry.id, school: entry.schoolName })}
-                    className="shrink-0 text-xs font-extrabold text-rose-600 hover:text-rose-700 underline underline-offset-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 rounded"
+                    className="shrink-0 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                   >
                     {t('others.cancel')}
                   </button>

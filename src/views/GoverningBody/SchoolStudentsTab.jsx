@@ -1,11 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 
+import { GraduationCap } from 'lucide-react';
+
 import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
-import SelectField from '../../components/ui/SelectField';
+import Select from '../../components/ui/Select';
 import { useT } from '../../i18n/LanguageContext';
 import { governingBodySeatErrorMessage } from '../../i18n/apiError';
 import { governingBodyService } from '../../services/governingBodyService';
+import { ADMIN_CARD, SlashFacts } from '../Admin/adminParts';
+import { HomeEmpty, HomeError } from '../Dashboard/components/HomeCard';
+import { RowsLoading, SearchBox } from './bodyParts';
 import { classGroupsOf, studentQueryOf } from './schoolPeople';
 
 /*
@@ -16,12 +20,13 @@ import { classGroupsOf, studentQueryOf } from './schoolPeople';
   page; a new search or Class starts again from the first. Each: the name, NISN and the
   Class they sit in now, or "Belum ditempatkan". A table from md, a card below. No grade,
   attendance, contact or guardian is ever sent.
+
+  Since 2026-10-29 (owner, mockup yayasan-sekolah-admin.html) the search and the Class
+  sit in one row above one card of rows, each the name over "NISN: ... / Class"; it
+  was a three-column table.
 */
 
-const COLUMNS = 'md:grid md:grid-cols-[minmax(0,1fr)_9rem_9rem] md:gap-4 md:items-center';
 const PAGE = 50;
-
-const CellLabel = ({ children }) => <span className="md:hidden text-[11px] font-semibold text-slate-500 block">{children}</span>;
 
 export const SchoolStudentsTab = ({ schoolId, onGone }) => {
   const { t } = useT();
@@ -90,25 +95,32 @@ export const SchoolStudentsTab = ({ schoolId, onGone }) => {
   const filtering = Boolean(needle.trim() || classId);
   const groups = classGroupsOf(classes);
 
-  return (
-    <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
-      <div className="min-w-0">
-        <h2 className="text-base font-extrabold text-slate-900">{t('gbsp.students.title')}</h2>
-        <p className="text-xs font-medium text-slate-500 mt-1">{yearLabel ? t('gbsp.students.year', { label: yearLabel }) : t('gbsp.term.none')}</p>
+  if (state === 'failed') {
+    return (
+      <div className={ADMIN_CARD}>
+        <HomeError
+          message={governingBodySeatErrorMessage(error, t)}
+          retryLabel={t('gb.retry')}
+          onRetry={() => {
+            setState('loading');
+            setAttempt((n) => n + 1);
+          }}
+        />
       </div>
+    );
+  }
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Input
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2.5">
+        <SearchBox
           id="gbspStudentSearch"
-          name="search"
-          type="search"
           label={t('gbsp.students.search')}
           placeholder={t('gbsp.students.searchPlaceholder')}
-          autoComplete="off"
           value={typed}
-          onChange={(e) => setTyped(e.target.value)}
+          onChange={setTyped}
         />
-        <SelectField id="gbspStudentClass" label={t('gbsp.students.class')} value={classId} onChange={(e) => setClassId(e.target.value)}>
+        <Select size="sm" id="gbspStudentClass" className="w-full sm:w-52" aria-label={t('gbsp.students.class')} value={classId} onChange={(e) => setClassId(e.target.value)}>
           <option value="">{t('gbsp.students.allClasses')}</option>
           {groups.map((group) => (
             <optgroup key={group.grade} label={t('gbsp.grade', { n: group.grade })}>
@@ -119,67 +131,52 @@ export const SchoolStudentsTab = ({ schoolId, onGone }) => {
               ))}
             </optgroup>
           ))}
-        </SelectField>
+        </Select>
       </div>
 
-      {state === 'loading' && <div className="h-32 rounded-2xl bg-slate-50 animate-pulse" aria-busy="true" aria-label={t('common.loading')} />}
-
-      {state === 'failed' && (
-        <div className="space-y-3" role="alert">
-          <p className="text-sm font-semibold text-rose-700">{governingBodySeatErrorMessage(error, t)}</p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setState('loading');
-              setAttempt((n) => n + 1);
-            }}
-          >
-            {t('gb.retry')}
-          </Button>
+      {state === 'loading' ? (
+        <RowsLoading />
+      ) : students.length === 0 ? (
+        <div className={ADMIN_CARD}>
+          {filtering ? (
+            <HomeEmpty icon={GraduationCap} title={t('gbsp.students.noMatch')} />
+          ) : (
+            <HomeEmpty icon={GraduationCap} title={t('gbsp.students.emptyTitle')} body={t('gbsp.students.empty')} />
+          )}
+        </div>
+      ) : (
+        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm min-w-0">
+          <SlashFacts
+            className="block px-4 sm:px-5 pt-3.5 text-xs font-semibold text-slate-500"
+            parts={[
+              <span aria-live="polite">{t('gbsp.students.count', { shown: students.length, n: total })}</span>,
+              yearLabel ? t('gbsp.students.year', { label: yearLabel }) : t('gbsp.term.none'),
+            ]}
+          />
+          <ul>
+            {students.map((student) => (
+              <li key={student.membershipId} className="px-4 sm:px-5 py-3 border-b border-slate-100 last:border-0">
+                <p className="text-sm font-bold text-slate-900 break-words">{student.fullName}</p>
+                <SlashFacts
+                  className="block mt-0.5 text-xs font-medium text-slate-500"
+                  parts={[
+                    <span className="tabular-nums">{t('gbsp.nisn', { nisn: student.nisn ?? '-' })}</span>,
+                    student.class?.name ?? t('gbsp.students.unplaced'),
+                  ]}
+                />
+              </li>
+            ))}
+          </ul>
+          {students.length < total && (
+            <div className="flex justify-center px-4 py-3 border-t border-slate-100">
+              <Button variant="outline" size="sm" onClick={more} isLoading={appending}>
+                {t('admin.queue.loadMore')}
+              </Button>
+            </div>
+          )}
         </div>
       )}
-
-      {state === 'ready' &&
-        (students.length === 0 ? (
-          <p className="text-sm font-medium text-slate-500 leading-relaxed max-w-prose">{filtering ? t('gbsp.students.noMatch') : t('gbsp.students.empty')}</p>
-        ) : (
-          <>
-            <p className="text-xs font-semibold text-slate-500" aria-live="polite">
-              {t('gbsp.students.count', { shown: students.length, n: total })}
-            </p>
-            <div>
-              <div className={`hidden ${COLUMNS} pb-2 border-b border-slate-100 text-[11px] font-semibold text-slate-500`} aria-hidden="true">
-                <span>{t('gbsp.col.name')}</span>
-                <span>NISN</span>
-                <span>{t('gbsp.col.class')}</span>
-              </div>
-              <ul className="divide-y divide-slate-100">
-                {students.map((student) => (
-                  <li key={student.membershipId} className={`py-3 grid grid-cols-2 gap-x-4 gap-y-1.5 ${COLUMNS}`}>
-                    <p className="col-span-2 md:col-span-1 text-sm font-bold text-slate-900 break-words min-w-0">{student.fullName}</p>
-                    <div className="min-w-0">
-                      <CellLabel>NISN</CellLabel>
-                      <span className="text-sm font-semibold text-slate-700 tabular-nums">{student.nisn ?? '-'}</span>
-                    </div>
-                    <div className="min-w-0">
-                      <CellLabel>{t('gbsp.col.class')}</CellLabel>
-                      <span className={`text-sm font-medium ${student.class ? 'text-slate-700' : 'text-slate-500'}`}>{student.class?.name ?? t('gbsp.students.unplaced')}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            {students.length < total && (
-              <div className="flex justify-center pt-1">
-                <Button variant="outline" size="sm" onClick={more} isLoading={appending}>
-                  {t('admin.queue.loadMore')}
-                </Button>
-              </div>
-            )}
-          </>
-        ))}
-    </section>
+    </div>
   );
 };
 

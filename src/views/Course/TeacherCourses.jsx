@@ -140,7 +140,7 @@ const RequestRow = ({ entry, onWithdraw }) => {
           size="xs"
           wrap
           className="mt-0.5"
-          facts={[entry.class.name, `${t('classes.semester.name', { n: entry.semester.ordinal })} ${entry.semester.academicYear}`, when && formatDay(when, lang)]}
+          facts={[entry.class.name, t('teacherDash.slots.semester', { n: entry.semester.ordinal, year: entry.semester.academicYear }), when && formatDay(when, lang)]}
         />
         {(entry.rejectionReason || entry.endReason) && (
           <span className="block mt-1 text-[11px] font-semibold text-slate-600 leading-relaxed">
@@ -268,19 +268,16 @@ export const TeacherCourses = ({ gradebook = false }) => {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">{t(gradebook ? 'teacherGradebook.title' : 'shell.myCourses')}</h1>
-          {gradebook ? (
-            <p className="mt-1 text-sm text-slate-500 font-medium">{t('gradebook.pickIntro')}</p>
-          ) : (
-            /* The slash line (the reviewed mockup): school / the semester shown / subjects in it. */
-            <FactLine
-              className="mt-2"
-              facts={[
-                membership?.school?.name ?? membership?.schoolName,
-                shownSemesterInfo && t('teacherDash.academicContext', { year: shownSemesterInfo.academicYear, n: shownSemesterInfo.ordinal }),
-                data && t('subjects.subtitle.taught', { n: shownCount }),
-              ]}
-            />
-          )}
+          {/* The slash line (the reviewed mockup): school / the semester shown / subjects in it.
+              The gradebook's picker shows it too (it had a sentence, 2026-10-31 sweep). */}
+          <FactLine
+            className="mt-2"
+            facts={[
+              membership?.school?.name ?? membership?.schoolName,
+              shownSemesterInfo && t('teacherDash.academicContext', { year: shownSemesterInfo.academicYear, n: shownSemesterInfo.ordinal }),
+              data && t('subjects.subtitle.taught', { n: shownCount }),
+            ]}
+          />
         </div>
         {!gradebook && (
           <button

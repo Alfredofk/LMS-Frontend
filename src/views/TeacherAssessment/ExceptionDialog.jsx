@@ -11,6 +11,7 @@ import { formatSchoolDay } from '../QuestionBank/questionBank';
 import { WindowFields } from './WindowChoice';
 import { MAX_EXTRA_ATTEMPTS, exceptionBody, exceptionChanged, exceptionErrors, exceptionFormFrom, remedialOpen } from './exceptions';
 import { windowText } from './teacherAssessment';
+import { BusyLabel } from '../../components/ui/ModalHeading';
 
 /*
   "Susulan / remedial" for one student on the Hasil tab (backend 1e6c749, ticket
@@ -31,7 +32,7 @@ import { windowText } from './teacherAssessment';
 */
 const fieldLabel = 'block text-sm font-bold text-slate-700';
 const hint = 'text-[11px] font-medium text-slate-500 leading-relaxed';
-const errorText = 'text-xs font-semibold text-red-600';
+const errorText = 'text-xs font-semibold text-rose-700';
 const input =
   'block w-24 rounded-xl border bg-white py-2 px-3 text-base sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand disabled:bg-slate-50 disabled:text-slate-500';
 
@@ -235,7 +236,7 @@ export const ExceptionDialog = ({ assessment, student, zone, span = null, onDone
                     {t('common.cancel')}
                   </button>
                   <button type="button" onClick={remove} disabled={busy} className="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 cursor-pointer disabled:opacity-50">
-                    {busy ? t('common.loading') : t('tasm.exc.removeConfirm')}
+                    <BusyLabel busy={busy}>{t('tasm.exc.removeConfirm')}</BusyLabel>
                   </button>
                 </div>
               </div>
@@ -264,7 +265,7 @@ export const ExceptionDialog = ({ assessment, student, zone, span = null, onDone
             {t('common.cancel')}
           </button>
           <button type="button" onClick={submit} disabled={busy || !data || data.error || !changed} className={`${modalConfirmClass('brand', busy)} disabled:opacity-50 disabled:cursor-not-allowed`}>
-            {busy && !asking ? t('common.loading') : t('tasm.exc.save')}
+            <BusyLabel busy={busy && !asking}>{t('tasm.exc.save')}</BusyLabel>
           </button>
         </div>
       </div>

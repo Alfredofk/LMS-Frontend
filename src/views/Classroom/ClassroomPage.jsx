@@ -249,11 +249,7 @@ export const SubjectList = ({ scores = false }) => {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">{t(scores ? 'shell.scores' : 'shell.myCourses')}</h1>
-        {scores ? (
-          <p className="mt-1 text-sm text-slate-500 font-medium">{t('scores.pick')}</p>
-        ) : (
-          <FactLine className="mt-2" facts={facts} />
-        )}
+        <FactLine className="mt-2" facts={facts} />
       </div>
 
       {failed && !data ? (

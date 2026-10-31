@@ -10,6 +10,9 @@ import { governingBodySeatErrorMessage, isStaleSeat } from '../../i18n/apiError'
 import { governingBodyService } from '../../services/governingBodyService';
 import { leaveStateOf, seniorOf } from './governingBody';
 import useMoveOn from './useMoveOn';
+import { ADMIN_CARD, CARD_TITLE, SlashFacts } from '../Admin/adminParts';
+import { HomeError } from '../Dashboard/components/HomeCard';
+import { Initials, RowsLoading, SeatGone } from './bodyParts';
 
 /*
   /governing-body/admins, the body's second tab (backend 3d7d05a, governing-body
@@ -28,21 +31,27 @@ import useMoveOn from './useMoveOn';
   - A decision made meanwhile elsewhere (`isStaleSeat`) is a toast and a fresh read.
   - A 403 that is not "only the senior" means the seat ended or the body was
     switched off: the same "gone" state as the first page.
+
+  The look since 2026-10-29 (owner, mockup yayasan-sekolah-admin.html): a slash line
+  of the admins and applications waiting, the dashboards' frame, round initials and one
+  grey slash line per person ("Admin senior" first in brand, as on the platform admin's
+  panel), Tolak, Keluarkan and Keluar dari yayasan `dangerOutline`.
 */
 
 const localeOf = (lang) => (lang === 'en' ? 'en-GB' : 'id-ID');
 
-/* One person: the name, then a grey line of facts (owner, 2026-10-07: plain spans, no pills). */
-const PersonRow = ({ person, facts, children }) => (
+/* One person: round initials, the name, then one grey slash line ("Admin senior" first in brand). */
+const PersonRow = ({ person, lead = null, facts, children }) => (
   <li className="py-3.5 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
-    <div className="min-w-0">
-      <p className="text-sm font-bold text-slate-900 break-words">{person.fullName}</p>
-      <p className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs font-medium text-slate-500 mt-0.5">
-        <span className="break-all">{person.email}</span>
-        {facts.filter(Boolean).map((fact) => (
-          <span key={fact}>{fact}</span>
-        ))}
-      </p>
+    <div className="min-w-0 flex items-center gap-3">
+      <Initials name={person.fullName} />
+      <div className="min-w-0">
+        <p className="text-sm font-bold text-slate-900 break-words">{person.displayName ?? person.fullName}</p>
+        <SlashFacts
+          className="block mt-0.5 text-xs font-medium text-slate-500"
+          parts={[lead && <span className="font-bold text-brand">{lead}</span>, <span className="break-all whitespace-normal">{person.email}</span>, ...facts]}
+        />
+      </div>
     </div>
     {children && <div className="flex flex-wrap gap-2 shrink-0">{children}</div>}
   </li>
@@ -161,47 +170,37 @@ export const GoverningBodyAdminsPage = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('gba.title')}</h1>
-        {name && (
-          <p className="text-sm font-semibold text-slate-500 mt-1 break-words">
-            {name}
-            <span className="text-slate-300"> / </span>
-            {t('place.governingBodyAdmin')}
-          </p>
-        )}
+        <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('gba.title')}</h1>
+        <SlashFacts
+          className="block mt-2 text-sm font-medium text-slate-500"
+          parts={[
+            name,
+            state === 'ready' && t('gba.count', { n: admins.length }),
+            state === 'ready' && applications.length > 0 && <span className="font-bold text-amber-700">{t('gbs.waiting.subtitle', { n: applications.length })}</span>,
+          ]}
+        />
       </div>
 
-      {state === 'loading' && <div className="h-48 rounded-2xl bg-white border border-slate-100 animate-pulse" aria-busy="true" aria-label={t('common.loading')} />}
+      {state === 'loading' && <RowsLoading />}
 
-      {state === 'gone' && (
-        <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-3" role="alert">
-          <p className="text-sm font-bold text-slate-900">{t('gb.gone.title')}</p>
-          <p className="text-xs font-medium text-slate-500 leading-relaxed">{t('gb.gone.body')}</p>
-          <Button variant="outline" size="sm" onClick={checkAgain} isLoading={checking}>
-            {t('gb.checkAgain')}
-          </Button>
-        </section>
-      )}
+      {state === 'gone' && <SeatGone onCheck={checkAgain} checking={checking} />}
 
       {state === 'failed' && (
-        <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-3" role="alert">
-          <p className="text-sm font-semibold text-rose-700">{governingBodySeatErrorMessage(error, t)}</p>
-          <Button variant="outline" size="sm" onClick={load}>
-            {t('gb.retry')}
-          </Button>
-        </section>
+        <div className={ADMIN_CARD}>
+          <HomeError message={governingBodySeatErrorMessage(error, t)} retryLabel={t('gb.retry')} onRetry={load} />
+        </div>
       )}
 
       {state === 'ready' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           <div className="lg:col-span-2 space-y-6">
-            <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
-              <h2 className="text-base font-extrabold text-slate-900">
-                {t('gba.waiting')} <span className="text-slate-500 font-bold">({applications.length})</span>
+            <section className={ADMIN_CARD}>
+              <h2 className={CARD_TITLE}>
+                {t('gba.waiting')} <span className="ml-1 text-[13px] font-semibold text-slate-500 tabular-nums">{applications.length}</span>
               </h2>
-              {!youAreSenior && senior && <p className="text-xs font-medium text-slate-500 leading-relaxed mt-1">{t('gba.waiting.notSenior', { name: senior.user.fullName, email: senior.user.email })}</p>}
+              {!youAreSenior && senior && <p className="text-[13px] text-slate-500 leading-relaxed mt-1">{t('gba.waiting.notSenior', { name: senior.user.fullName, email: senior.user.email })}</p>}
               {applications.length === 0 ? (
-                <p className="text-sm font-medium text-slate-500 mt-3">{t('gba.waiting.empty')}</p>
+                <p className="text-[13px] text-slate-500 mt-3">{t('gba.waiting.empty')}</p>
               ) : (
                 <ul className="divide-y divide-slate-100 mt-1">
                   {applications.map((row) => (
@@ -211,7 +210,7 @@ export const GoverningBodyAdminsPage = () => {
                           <Button size="sm" onClick={() => setAsking({ kind: 'approve', row })}>
                             {t('gba.approve')}
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => setAsking({ kind: 'reject', row })}>
+                          <Button size="sm" variant="dangerOutline" onClick={() => setAsking({ kind: 'reject', row })}>
                             {t('gba.reject')}
                           </Button>
                         </>
@@ -222,20 +221,21 @@ export const GoverningBodyAdminsPage = () => {
               )}
             </section>
 
-            <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
-              <h2 className="text-base font-extrabold text-slate-900">
-                {t('gba.admins')} <span className="text-slate-500 font-bold">({admins.length})</span>
+            <section className={ADMIN_CARD}>
+              <h2 className={CARD_TITLE}>
+                {t('gba.admins')} <span className="ml-1 text-[13px] font-semibold text-slate-500 tabular-nums">{admins.length}</span>
               </h2>
-              <p className="text-xs font-medium text-slate-500 leading-relaxed mt-1">{t('gba.admins.lead')}</p>
+              <p className="text-[13px] text-slate-500 leading-relaxed mt-1">{t('gba.admins.lead')}</p>
               <ul className="divide-y divide-slate-100 mt-1">
                 {admins.map((row) => (
                   <PersonRow
                     key={row.id}
-                    person={{ ...row.user, fullName: row.you ? t('gba.you', { name: row.user.fullName }) : row.user.fullName }}
-                    facts={[row.senior && t('gba.senior'), row.approvedAt && t('gba.approvedAt', { date: asDate(row.approvedAt) })]}
+                    person={{ ...row.user, displayName: row.you ? t('gba.you', { name: row.user.fullName }) : row.user.fullName }}
+                    lead={row.senior && t('gba.senior')}
+                    facts={[row.approvedAt && t('gba.approvedAt', { date: asDate(row.approvedAt) })]}
                   >
                     {youAreSenior && !row.you && (
-                      <Button size="sm" variant="outline" onClick={() => setAsking({ kind: 'remove', row })}>
+                      <Button size="sm" variant="dangerOutline" onClick={() => setAsking({ kind: 'remove', row })}>
                         {t('gba.remove')}
                       </Button>
                     )}
@@ -245,12 +245,12 @@ export const GoverningBodyAdminsPage = () => {
             </section>
           </div>
 
-          <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-3">
-            <h2 className="text-base font-extrabold text-slate-900">{t('gba.leave.title')}</h2>
-            <p className="text-xs font-medium text-slate-500 leading-relaxed">
+          <section className={`${ADMIN_CARD} space-y-3`}>
+            <h2 className={CARD_TITLE}>{t('gba.leave.title')}</h2>
+            <p className="text-[13px] text-slate-500 leading-relaxed">
               {leaving.state === 'LAST' ? t('gba.leave.last') : leaving.state === 'SENIOR' ? t('gba.leave.senior', { name: leaving.next.user.fullName, email: leaving.next.user.email }) : t('gba.leave.lead')}
             </p>
-            <Button variant="outline" size="sm" onClick={() => setAsking({ kind: 'leave' })} isDisabled={leaving.state === 'LAST'}>
+            <Button variant="dangerOutline" size="sm" onClick={() => setAsking({ kind: 'leave' })} isDisabled={leaving.state === 'LAST'}>
               {t('gba.leave.action')}
             </Button>
           </section>

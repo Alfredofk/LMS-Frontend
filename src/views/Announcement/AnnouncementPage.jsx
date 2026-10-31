@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Megaphone, Calendar, User, ChevronLeft, Search } from 'lucide-react';
+import { Pin, Search } from 'lucide-react';
 import { useT } from '../../i18n/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
+import FactLine from '../../components/ui/FactLine';
 import { api, isNotBuiltYet } from '../../services/apiClient';
 
 /*
@@ -10,15 +11,26 @@ import { api, isNotBuiltYet } from '../../services/apiClient';
   schema — so the request 404s and the page says so with NotBuiltYet instead of
   "no announcements yet", which would be a claim about the school. Every role
   that reaches this route sees the same thing.
+
+  The look since 2026-10-31 (owner, mockup pengumuman.html items 1-5): the
+  navbar's back arrow is the only one, the title is "Pengumuman" as in the menu,
+  under it one grey line - the school, and a student's class - and the page sits
+  in the layout's own padding and background like every other.
+
+  The list is drawn for the day the module lands, and its fields are a guess
+  until then: the same shape PinnedAnnouncements documents,
+  [{ id, title, body, authorName, authorRole, createdAt, pinned }]. Align both
+  with the real controller when it exists. Pinned ones come first and say so;
+  the author, role and time are one grey line, no icon tile.
 */
 export const AnnouncementPage = () => {
   const { t, lang } = useT();
+  const { membership } = useAuth();
   const locale = lang === 'id' ? 'id-ID' : 'en-GB';
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notBuilt, setNotBuilt] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const navigate = useNavigate();
 
   const fetchAnnouncements = async () => {
     try {
@@ -36,131 +48,96 @@ export const AnnouncementPage = () => {
     fetchAnnouncements();
   }, []);
 
-  const filteredAnnouncements = announcements.filter(ann => 
-    ann.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    ann.content.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const query = searchQuery.toLowerCase();
+  const filteredAnnouncements = announcements
+    .filter((ann) => (ann.title ?? '').toLowerCase().includes(query) || (ann.body ?? '').toLowerCase().includes(query))
+    .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)));
 
-  const formatDate = (dateStr) => {
+  const formatWhen = (dateStr) => {
     try {
-      const date = new Date(dateStr);
-      return date.toLocaleDateString(locale, {
+      return new Date(dateStr).toLocaleString(locale, {
         day: 'numeric',
-        month: 'long',
+        month: 'short',
         year: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
       });
     } catch {
       return dateStr;
     }
   };
 
-  return (
-    <div className="flex-1 overflow-y-auto bg-slate-50 p-6 sm:p-8 font-sans">
-      
-      {/* Header Back Button & Title */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2.5 bg-white border border-slate-100 hover:border-slate-200 text-slate-700 rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer"
-            aria-label={t('ann.back')}
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-800 leading-tight">
-              {t('ann.title')}
-            </h1>
-            <p className="text-xs text-slate-500 font-semibold mt-1">
-              {t('ann.subtitle')}
-            </p>
-          </div>
-        </div>
+  /* A student's class beside the school; staff have no one class, so the school alone. */
+  const schoolName = membership?.school?.name ?? membership?.schoolName ?? '';
+  const className = membership?.student?.class?.name ?? '';
 
-        {/* Search Bar — nothing to search while the feature is not built */}
-        {!notBuilt && (
-        <div className="relative w-full sm:w-72 select-none">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder={t('ann.search')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white border border-slate-200 rounded-xl py-2 pl-9 pr-4 text-xs font-semibold text-slate-800 focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all shadow-sm"
-          />
-        </div>
-        )}
+  return (
+    <div className="space-y-6">
+      <div className="text-left">
+        <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('ann.title')}</h1>
+        <FactLine className="mt-2" facts={[schoolName, className]} />
       </div>
 
-      {/* Main Content List */}
       {loading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map(i => (
+        <div className="space-y-3" aria-busy="true" aria-label={t('common.loading')}>
+          {[1, 2, 3].map((i) => (
             <div key={i} className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm animate-pulse space-y-3">
               <div className="h-4 bg-slate-100 rounded w-1/3" />
               <div className="h-3 bg-slate-100 rounded w-full" />
               <div className="h-3 bg-slate-100 rounded w-5/6" />
-              <div className="flex gap-4 pt-2">
-                <div className="h-3 bg-slate-100 rounded w-16" />
-                <div className="h-3 bg-slate-100 rounded w-24" />
-              </div>
             </div>
           ))}
         </div>
       ) : notBuilt ? (
         <NotBuiltYet />
-      ) : filteredAnnouncements.length === 0 ? (
-        <div className="bg-white border border-slate-100 rounded-2xl p-12 text-center shadow-sm select-none">
-          <div className="w-16 h-16 bg-brand-tint text-brand rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Megaphone className="w-8 h-8" />
-          </div>
-          <h3 className="text-sm font-extrabold text-slate-800">{t('ann.empty')}</h3>
-          <p className="text-xs text-slate-500 font-semibold mt-1">
-            {searchQuery ? t('ann.emptySearch') : t('ann.emptyNone')}
-          </p>
+      ) : announcements.length === 0 ? (
+        <div className="bg-white border border-slate-100 rounded-2xl p-12 text-center shadow-sm">
+          <p className="text-sm font-extrabold text-slate-900">{t('ann.empty')}</p>
+          <p className="text-[13px] text-slate-500 mt-1">{t('ann.emptyNone')}</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {filteredAnnouncements.map((ann) => (
-            <div 
-              key={ann.id}
-              className="bg-white border border-slate-100 hover:border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row gap-5 relative group"
-            >
-              {/* Icon badge left column */}
-              <div className="w-12 h-12 bg-pink-50 text-pink-500 rounded-xl flex items-center justify-center shrink-0 shadow-sm">
-                <Megaphone className="w-6 h-6" />
-              </div>
-
-              {/* Main content body */}
-              <div className="flex-1 space-y-2.5">
-                <h3 className="text-base font-extrabold text-slate-900 tracking-tight leading-snug group-hover:text-brand transition-colors">
-                  {ann.title}
-                </h3>
-                <p className="text-xs text-slate-500 font-medium leading-relaxed whitespace-pre-wrap">
-                  {ann.content}
-                </p>
-
-                {/* Footer metadata details */}
-                <div className="flex flex-wrap items-center gap-y-1.5 gap-x-4 pt-3 border-t border-slate-50 text-[10px] text-slate-500 font-bold select-none">
-                  <div className="flex items-center gap-1.5">
-                    <User className="w-3.5 h-3.5 text-slate-400" />
-                    <span>
-                      {t('ann.by')}{' '}
-                      <span className="text-slate-500">
-                        {ann.author_name || t('ann.authorFallback')}
-                      </span>
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{formatDate(ann.created_at)}</span>
-                  </div>
-                </div>
-              </div>
+        <div className="space-y-3">
+          {/* The count and the search only when there is something to count and search. */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[13px] text-slate-500">{t('ann.count', { n: announcements.length })}</p>
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" aria-hidden="true" />
+              <input
+                type="text"
+                placeholder={t('ann.search')}
+                aria-label={t('ann.search')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded-xl py-2 pl-9 pr-4 text-[13px] text-slate-800 placeholder:text-slate-500 focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all"
+              />
             </div>
-          ))}
+          </div>
+
+          {filteredAnnouncements.length === 0 ? (
+            <p className="bg-white border border-slate-100 rounded-2xl p-8 text-center text-[13px] text-slate-500 shadow-sm">
+              {t('ann.emptySearch')}
+            </p>
+          ) : (
+            filteredAnnouncements.map((ann) => (
+              <article key={ann.id} className="bg-white border border-slate-100 rounded-2xl px-6 py-5 max-sm:p-[18px] shadow-sm">
+                <h2 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-extrabold text-slate-900 tracking-tight">
+                  <span className="break-words min-w-0">{ann.title}</span>
+                  {ann.pinned && (
+                    <span className="inline-flex items-center gap-1 text-xs font-bold text-brand">
+                      <Pin className="w-3.5 h-3.5" aria-hidden="true" />
+                      {t('dash.pinned.pinned')}
+                    </span>
+                  )}
+                </h2>
+                <p className="mt-2 text-[13.5px] leading-relaxed text-slate-700 whitespace-pre-wrap break-words">{ann.body}</p>
+                <FactLine
+                  size="xs"
+                  className="mt-2.5"
+                  facts={[ann.authorName, ann.authorRole && t(`roleTitle.${ann.authorRole}`), ann.createdAt && formatWhen(ann.createdAt)]}
+                />
+              </article>
+            ))
+          )}
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarClock, Pencil, Plus, School } from 'lucide-react';
+import { CalendarClock, CalendarDays, Info, Pencil, Plus, School } from 'lucide-react';
 
 import SelectField from '../../components/ui/SelectField';
 import Button from '../../components/ui/Button';
@@ -10,10 +10,15 @@ import SemesterSegments from './SemesterSegments';
 import AssignTeacherDialog from './AssignTeacherDialog';
 import ChangeAssignmentDialog from './ChangeAssignmentDialog';
 import { academicsService } from '../../services/academicsService';
+import { RowsLoading } from '../GoverningBody/bodyParts';
 import { useT } from '../../i18n/LanguageContext';
 import { subjectsErrorMessage } from '../../i18n/apiError';
 import { formatDay } from '../Classes/format';
 import SubjectLabel from '../../components/ui/SubjectLabel';
+import WaitingPill from './WaitingPill';
+import { deadlineSoonOf, spanWords } from '../Classes/semesterTime';
+import { localOf } from '../Attendance/attendance';
+import { useAuth } from '../../context/AuthContext';
 import { defaultSlot, defaultSemesterOf, freeSubjects, boardWritable, boardAssignable, replaceOnly, deadlinePassed, canChangeAssignment } from './subjects';
 
 /*
@@ -40,6 +45,7 @@ import { defaultSlot, defaultSemesterOf, freeSubjects, boardWritable, boardAssig
 */
 export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast, selfId = null, onChanged: onBoardChanged = () => {} }) => {
   const { t, lang } = useT();
+  const { membership } = useAuth();
   const navigate = useNavigate();
   const today = new Date().toISOString().slice(0, 10);
   const usable = years ?? [];
@@ -68,6 +74,7 @@ export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast
   }, [load]);
 
   const current = answer.semesterId === semesterId;
+  const schoolToday = localOf(new Date(), membership?.school?.timeZone ?? null)?.date ?? '';
   const board = current ? answer.board : null;
   const error = current ? answer.error : null;
 
@@ -93,6 +100,8 @@ export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast
   const assignable = semester && boardAssignable(year?.status, semester.status);
   const finalizing = Boolean(assignable && !writable);
   const deadline = semester?.classSubjectRegistrationDeadline;
+  /* Amber from a week before the sign-up closes (owner, 2026-10-31, mockup item 7). */
+  const soon = writable && deadline && !deadlinePassed(semester) ? deadlineSoonOf(semester, schoolToday) : null;
 
   const openAssign = (boardClass) => {
     loadTeachers();
@@ -141,25 +150,28 @@ export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast
 
       {!semesterId && noSemester}
 
+      {/* One line with an icon, not a white box (owner, 2026-10-31, mockup item 7). A closed
+          year or semester takes nothing, so its deadline says nothing useful: only the
+          read-only line is shown then. */}
       {semester && (
-        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold text-slate-600 leading-relaxed space-y-1">
-          {/* A closed year or semester takes nothing, so its deadline says
-              nothing useful — "teachers can ask any time" beside "closed" read
-              as a contradiction. Only the read-only line is shown then. */}
-          {finalizing ? (
-            <p>{t('subjects.board.finalizing')}</p>
-          ) : writable ? (
-            <p>
-              {deadline
-                ? t(deadlinePassed(semester) ? 'subjects.board.deadlinePassed' : 'subjects.board.deadline', {
-                    date: formatDay(deadline, lang),
-                  })
-                : t('subjects.board.noDeadline')}
-            </p>
+        <p className={`flex items-start gap-2 text-[13px] font-medium leading-relaxed ${soon !== null ? 'text-amber-800' : 'text-slate-600'}`}>
+          {writable && deadline ? (
+            <CalendarDays className={`w-4 h-4 mt-0.5 shrink-0 ${soon !== null ? 'text-amber-700' : 'text-slate-500'}`} aria-hidden="true" />
           ) : (
-            <p className="text-slate-500">{t('subjects.board.readOnly')}</p>
+            <Info className="w-4 h-4 mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
           )}
-        </div>
+          <span>
+            {finalizing
+              ? t('subjects.board.finalizing')
+              : writable
+                ? deadline
+                  ? soon !== null
+                    ? t('subjects.board.deadlineSoon', { date: formatDay(deadline, lang), left: spanWords({ unit: 'day', n: soon }, t) })
+                    : t(deadlinePassed(semester) ? 'subjects.board.deadlinePassed' : 'subjects.board.deadline', { date: formatDay(deadline, lang) })
+                  : t('subjects.board.noDeadline')
+                : t('subjects.board.readOnly')}
+          </span>
+        </p>
       )}
 
       {!semesterId ? null : error ? (
@@ -167,7 +179,7 @@ export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast
           {error}
         </div>
       ) : board === null ? (
-        <div className="h-48 bg-white border border-slate-100 rounded-2xl animate-pulse" aria-label={t('common.loading')} />
+        <RowsLoading />
       ) : board.classes.length === 0 ? (
         <EmptyCard icon={School} title={t('subjects.board.noClasses')} />
       ) : (
@@ -185,18 +197,15 @@ export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast
                     facts={[
                       t('classes.grade', { n: entry.gradeLevel }),
                       t('subjects.board.homeroom', { name: entry.homeroomTeacher?.fullName ?? t('classes.detail.noHomeroom') }),
+                      t('subjects.board.subjectCount', { n: entry.subjects.length }),
                     ]}
                   />
                 </div>
                 {assignable && (
-                  <button
-                    type="button"
-                    onClick={() => openAssign(entry)}
-                    className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold text-brand hover:bg-brand-tint transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                  >
-                    <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+                  <Button size="sm" variant="outline" className="shrink-0" onClick={() => openAssign(entry)}>
+                    <Plus className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
                     {t('subjects.board.assign')}
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -207,16 +216,13 @@ export const SubjectBoard = ({ years, catalog, teachers, loadTeachers, showToast
                   {entry.subjects.map((row) => (
                     <li key={row.classSubjectId} className="py-2 flex items-center justify-between gap-3">
                       <span className="min-w-0">
-                        <span className="block text-xs font-bold text-slate-800 break-words">
+                        {/* A waiting one wears the state pill right after its name (mockup item 8). */}
+                        <span className="block text-[13px] font-bold text-slate-800 break-words">
                           <SubjectLabel code={row.subject.code} name={row.subject.name} />
+                          {row.status === 'PENDING' && <WaitingPill className="ml-2" />}
                         </span>
-                        <span className="block text-[11px] font-semibold text-slate-500 break-words">{row.teacher.fullName}</span>
+                        <span className="block mt-0.5 text-xs font-medium text-slate-500 break-words">{row.teacher.fullName}</span>
                       </span>
-                      {row.status === 'PENDING' && (
-                        <span className="shrink-0 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-100 text-amber-800">
-                          {t('subjects.status.PENDING')}
-                        </span>
-                      )}
                       {assignable && canChangeAssignment(row, selfId) && (
                         <button
                           type="button"

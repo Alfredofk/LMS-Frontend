@@ -11,7 +11,6 @@ import {
   BookOpen,
   Award,
   FileText,
-  MessageSquare,
   Calendar,
   ClipboardList,
   CalendarCheck,
@@ -31,14 +30,16 @@ import { usePendingCounts } from '../../../hooks/usePendingCounts';
   How many things wait at a menu item (usePendingCounts), beside its label.
   Amber on either background, so it reads on the active purple button too; the
   number is also said in words to a screen reader, as part of the button's name.
+  `srKey` words it for what the number counts (a student's is work to do, not a
+  decision).
 */
-const PendingBadge = ({ n }) => {
+const PendingBadge = ({ n, srKey = 'shell.pending' }) => {
   const { t } = useT();
   if (!n) return null;
   return (
     <span className="ml-auto shrink-0 min-w-5 px-1.5 py-0.5 rounded-full text-[10px] font-extrabold tabular-nums text-center bg-amber-100 text-amber-800">
       <span aria-hidden="true">{n > 99 ? '99+' : n}</span>
-      <span className="sr-only">{t('shell.pending', { n })}</span>
+      <span className="sr-only">{t(srKey, { n })}</span>
     </span>
   );
 };
@@ -52,7 +53,7 @@ const ROLE_TITLE_KEY = {
   [ROLES.VICE_PRINCIPAL]: 'roleTitle.VICE_PRINCIPAL',
 };
 
-export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
+export const Sidebar = ({ userRole, isOpen = false, onClose }) => {
   const { user, membership, activeRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -92,16 +93,12 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
     };
   }, [role, membershipId]);
 
-  const handleLinkClick = (labelKey, routePath) => {
-    if (routePath) {
-      navigate(routePath);
-      onClose?.();
-    } else {
-      if (showToast) {
-        showToast(t('shell.underConstruction', { feature: t(labelKey) }), 'info');
-      }
-      onClose?.();
-    }
+  /* Every item has a page: Chatbot, the one without (it only toasted "masih dalam
+     pengerjaan"), left the student's menu on 2026-10-31 (owner, mockup
+     sidebar-navbar.html question 1). */
+  const handleLinkClick = (routePath) => {
+    navigate(routePath);
+    onClose?.();
   };
 
   const isActive = (routePath) => {
@@ -138,8 +135,10 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
   const schoolName = membership?.school?.name ?? membership?.schoolName ?? t('shell.noSchool');
   const roleTitle = ROLE_TITLE_KEY[role] ? t(ROLE_TITLE_KEY[role]) : t('roleTitle.fallback');
 
-  const activeBtnClass = "w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-bold rounded-xl bg-brand text-white shadow-md shadow-brand/20 select-none cursor-pointer transition-all";
-  const inactiveBtnClass = "w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-bold rounded-xl text-slate-700 hover:text-brand hover:bg-purple-50/50 select-none cursor-pointer group transition-all";
+  /* 13px semibold, as the approved student mockup of 2026-10-27 (owner, 2026-10-31,
+     sidebar-navbar.html item 2); it was 12px bold. */
+  const activeBtnClass = "w-full flex items-center gap-3 px-3 py-2.5 text-[13px] font-semibold rounded-xl bg-brand text-white shadow-md shadow-brand/20 select-none cursor-pointer transition-all";
+  const inactiveBtnClass = "w-full flex items-center gap-3 px-3 py-2.5 text-[13px] font-semibold rounded-xl text-slate-700 hover:text-brand hover:bg-purple-50/50 select-none cursor-pointer group transition-all";
 
   /* The identity card is a link to /profile, except while you are on /profile —
      then there is nowhere to go, so it renders as a plain div. */
@@ -227,7 +226,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
         */}
         <ProfileCardTag
           type={onProfile ? undefined : 'button'}
-          onClick={onProfile ? undefined : () => handleLinkClick('shell.myProfile', '/profile')}
+          onClick={onProfile ? undefined : () => handleLinkClick('/profile')}
           /* The content alone would read as "Siti Rahma, siti@…, Siswa" and
              never say where it goes, so the label names the destination too. */
           aria-label={onProfile ? undefined : `${user?.fullName ?? ''}, ${t('shell.myProfile')}`}
@@ -246,15 +245,13 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
           <div className="text-left min-w-0 flex-1">
             {/* A label inside this card, not a section heading. As an h4 it sat
                 before every page own h1, since the sidebar renders first. */}
-            <p className="text-xs font-extrabold text-slate-900 leading-tight truncate" title={user?.fullName}>
+            {/* Name and the role worked as, one grey line (owner, 2026-10-31, mockup
+                sidebar-navbar.html item 1): the email and the purple role pill left;
+                the email is in the avatar menu. */}
+            <p className="text-[13px] font-extrabold text-slate-900 leading-tight truncate" title={user?.fullName}>
               {user?.fullName || t('shell.account.fallback')}
             </p>
-            <p className="text-[10px] font-medium text-slate-500 mt-0.5 truncate" title={user?.email}>
-              {user?.email}
-            </p>
-            <div className="mt-1 px-2 py-0.5 bg-brand-tint text-brand text-[9px] font-bold rounded-full inline-block">
-              {roleTitle}
-            </div>
+            <p className="text-xs font-medium text-slate-500 mt-0.5 truncate">{roleTitle}</p>
           </div>
         </ProfileCardTag>
 
@@ -271,7 +268,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
                   it is the only item they get: the other screens are a student's
                   or a teacher's, with no guardian data behind them. */}
               <button
-                onClick={() => handleLinkClick(role === ROLES.GUARDIAN ? 'shell.myChildren' : 'shell.dashboard', dashboardPath)}
+                onClick={() => handleLinkClick(dashboardPath)}
                 className={isActive(dashboardPath) ? activeBtnClass : inactiveBtnClass}
               >
                 {role === ROLES.GUARDIAN ? (
@@ -285,7 +282,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
               {/* The School seen whole, from the nightly rollup (backend 1a1eed7; owner, 2026-10-28). */}
               {isPrincipalDesk(role) && (
                 <button
-                  onClick={() => handleLinkClick('shell.overview', '/headmaster/overview')}
+                  onClick={() => handleLinkClick('/headmaster/overview')}
                   className={isActive('/headmaster/overview') ? activeBtnClass : inactiveBtnClass}
                 >
                   <BarChart3 className={`w-4 h-4 shrink-0 transition-colors ${isActive('/headmaster/overview') ? 'text-white' : 'text-brand'}`} />
@@ -295,7 +292,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
 
               {(role === ROLES.STUDENT || role === ROLES.TEACHER) && (
                 <button
-                  onClick={() => handleLinkClick('shell.myCourses', role === ROLES.TEACHER ? '/teacher/courses' : '/classroom')}
+                  onClick={() => handleLinkClick(role === ROLES.TEACHER ? '/teacher/courses' : '/classroom')}
                   className={isActive(role === ROLES.TEACHER ? '/teacher/courses' : '/classroom') ? activeBtnClass : inactiveBtnClass}
                 >
                   <BookOpen className={`w-4 h-4 shrink-0 transition-colors ${isActive(role === ROLES.TEACHER ? '/teacher/courses' : '/classroom') ? 'text-white' : 'text-brand'}`} />
@@ -305,14 +302,113 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
               )}
 
               {/*
-                Reviewing who may join. Both roles get it, which is what the backend
-                allows — and a Teacher who is not homeroom of any class will find
-                it empty, because there is nothing they can release.
-                An empty page they can reach beats a decision hidden from them.
+                A student's menu is one group, the often used first (owner, 2026-10-31,
+                mockup sidebar-navbar.html item 3; the "Aktivitas" group is gone). The
+                number beside Penilaian is what the dashboard's "Perlu dikerjakan" lists.
               */}
-              {(role === ROLES.PRINCIPAL || role === ROLES.TEACHER) && (
+              {role === ROLES.STUDENT && (
+                <>
+                  <button
+                    onClick={() => handleLinkClick('/assessment')}
+                    className={isActive('/assessment') ? activeBtnClass : inactiveBtnClass}
+                  >
+                    <ClipboardList className={`w-4 h-4 shrink-0 transition-colors ${isActive('/assessment') ? 'text-white' : 'text-brand'}`} />
+                    {t('shell.assessment')}
+                    <PendingBadge n={pending.todo} srKey="shell.todoCount" />
+                  </button>
+                  <button
+                    onClick={() => handleLinkClick('/attendance')}
+                    className={isActive('/attendance') ? activeBtnClass : inactiveBtnClass}
+                  >
+                    <CalendarCheck className={`w-4 h-4 shrink-0 transition-colors ${isActive('/attendance') ? 'text-white' : 'text-brand'}`} />
+                    {t('shell.attendance')}
+                  </button>
+                  <button
+                    onClick={() => handleLinkClick('/schedule')}
+                    className={isActive('/schedule') ? activeBtnClass : inactiveBtnClass}
+                  >
+                    <Calendar className={`w-4 h-4 shrink-0 transition-colors ${isActive('/schedule') ? 'text-white' : 'text-brand'}`} />
+                    {t('shell.schedule')}
+                  </button>
+                  <button
+                    onClick={() => handleLinkClick('/scores')}
+                    className={isActive('/scores') ? activeBtnClass : inactiveBtnClass}
+                  >
+                    <Award className={`w-4 h-4 shrink-0 transition-colors ${isActive('/scores') ? 'text-white' : 'text-brand'}`} />
+                    {t('shell.scores')}
+                  </button>
+                  <button
+                    onClick={() => handleLinkClick('/report-cards')}
+                    className={isActive('/report-cards') ? activeBtnClass : inactiveBtnClass}
+                  >
+                    <FileText className={`w-4 h-4 shrink-0 transition-colors ${isActive('/report-cards') ? 'text-white' : 'text-brand'}`} />
+                    {t('shell.reportCards')}
+                  </button>
+                  <button
+                    onClick={() => handleLinkClick('/announcements')}
+                    className={isActive('/announcements') ? activeBtnClass : inactiveBtnClass}
+                  >
+                    <Megaphone className={`w-4 h-4 shrink-0 transition-colors ${isActive('/announcements') ? 'text-white' : 'text-brand'}`} />
+                    {t('shell.announcement')}
+                  </button>
+                </>
+              )}
+
+              {/*
+                A teacher's: their classes, the marks, the questions, the week, their
+                homeroom class, then whom to let in (owner, 2026-10-31, item 5).
+                Reviewing who may join is also the Principal's (below), which is what
+                the backend allows; a Teacher who is not homeroom of any class finds it
+                empty, because there is nothing they can release. An empty page they
+                can reach beats a decision hidden from them.
+              */}
+              {role === ROLES.TEACHER && (
+                <>
+                  <button
+                    onClick={() => handleLinkClick('/teacher/gradebook')}
+                    className={isActive('/teacher/gradebook') ? activeBtnClass : inactiveBtnClass}
+                  >
+                    <GraduationCap className={`w-4 h-4 shrink-0 transition-colors ${isActive('/teacher/gradebook') ? 'text-white' : 'text-brand'}`} />
+                    {t('shell.gradebook')}
+                  </button>
+                  <button
+                    onClick={() => handleLinkClick('/question-bank')}
+                    className={isActive('/question-bank') ? activeBtnClass : inactiveBtnClass}
+                  >
+                    <FileQuestion className={`w-4 h-4 shrink-0 transition-colors ${isActive('/question-bank') ? 'text-white' : 'text-brand'}`} />
+                    {t('qbank.title')}
+                  </button>
+                  <button
+                    onClick={() => handleLinkClick('/schedule')}
+                    className={isActive('/schedule') ? activeBtnClass : inactiveBtnClass}
+                  >
+                    <Calendar className={`w-4 h-4 shrink-0 transition-colors ${isActive('/schedule') ? 'text-white' : 'text-brand'}`} />
+                    {t('shell.schedule')}
+                  </button>
+                  {isHomeroomTeacher && (
+                    <button
+                      onClick={() => handleLinkClick('/teacher/homeroom')}
+                      className={isActive('/teacher/homeroom') ? activeBtnClass : inactiveBtnClass}
+                    >
+                      <Users className={`w-4 h-4 shrink-0 transition-colors ${isActive('/teacher/homeroom') ? 'text-white' : 'text-brand'}`} />
+                      {t('shell.homeroom')}
+                      <PendingBadge n={pending.classMoves} />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleLinkClick('/join-requests')}
+                    className={isActive('/join-requests') ? activeBtnClass : inactiveBtnClass}
+                  >
+                    <UserPlus className={`w-4 h-4 shrink-0 transition-colors ${isActive('/join-requests') ? 'text-white' : 'text-brand'}`} />
+                    {t('shell.joinRequests')}
+                    <PendingBadge n={pending.joinRequests} />
+                  </button>
+                </>
+              )}
+
+              {role === ROLES.PRINCIPAL && (
                 <button
-                  onClick={() => handleLinkClick('shell.joinRequests', '/join-requests')}
+                  onClick={() => handleLinkClick('/join-requests')}
                   className={isActive('/join-requests') ? activeBtnClass : inactiveBtnClass}
                 >
                   <UserPlus className={`w-4 h-4 shrink-0 transition-colors ${isActive('/join-requests') ? 'text-white' : 'text-brand'}`} />
@@ -325,7 +421,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
                   Principal's or a Vice Principal's (ticket 19). */}
               {isPrincipalDesk(role) && (
                 <button
-                  onClick={() => handleLinkClick('shell.classes', '/headmaster/classes')}
+                  onClick={() => handleLinkClick('/headmaster/classes')}
                   className={isActive('/headmaster/classes') ? activeBtnClass : inactiveBtnClass}
                 >
                   <School className={`w-4 h-4 shrink-0 transition-colors ${isActive('/headmaster/classes') ? 'text-white' : 'text-brand'}`} />
@@ -337,7 +433,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
                   asking to teach, is on My classes. */}
               {isPrincipalDesk(role) && (
                 <button
-                  onClick={() => handleLinkClick('shell.subjects', '/headmaster/subjects')}
+                  onClick={() => handleLinkClick('/headmaster/subjects')}
                   className={isActive('/headmaster/subjects') ? activeBtnClass : inactiveBtnClass}
                 >
                   <Library className={`w-4 h-4 shrink-0 transition-colors ${isActive('/headmaster/subjects') ? 'text-white' : 'text-brand'}`} />
@@ -349,7 +445,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
               {/* Finalising the semester's grades and its readiness board (backend eadf680, ticket 04). */}
               {isPrincipalDesk(role) && (
                 <button
-                  onClick={() => handleLinkClick('shell.finalising', '/headmaster/finalising')}
+                  onClick={() => handleLinkClick('/headmaster/finalising')}
                   className={isActive('/headmaster/finalising') ? activeBtnClass : inactiveBtnClass}
                 >
                   <ClipboardCheck className={`w-4 h-4 shrink-0 transition-colors ${isActive('/headmaster/finalising') ? 'text-white' : 'text-brand'}`} />
@@ -361,7 +457,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
                   reads them (/api/members answers a teacher 403). */}
               {isPrincipalDesk(role) && (
                 <button
-                  onClick={() => handleLinkClick('shell.members', '/headmaster/members')}
+                  onClick={() => handleLinkClick('/headmaster/members')}
                   className={isActive('/headmaster/members') ? activeBtnClass : inactiveBtnClass}
                 >
                   <Users className={`w-4 h-4 shrink-0 transition-colors ${isActive('/headmaster/members') ? 'text-white' : 'text-brand'}`} />
@@ -376,7 +472,7 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
                   days off, not a timetable. */}
               {isPrincipalDesk(role) && (
                 <button
-                  onClick={() => handleLinkClick('shell.calendar', '/schedule')}
+                  onClick={() => handleLinkClick('/schedule')}
                   className={isActive('/schedule') ? activeBtnClass : inactiveBtnClass}
                 >
                   <Calendar className={`w-4 h-4 shrink-0 transition-colors ${isActive('/schedule') ? 'text-white' : 'text-brand'}`} />
@@ -385,114 +481,18 @@ export const Sidebar = ({ showToast, userRole, isOpen = false, onClose }) => {
               )}
 
               {/* The question bank (backend ed46340): written at the Teacher's
-                  desk, read at the Principal's and a Vice Principal's. */}
-              {(role === ROLES.TEACHER || isPrincipalDesk(role)) && (
+                  desk (above), read at the Principal's and a Vice Principal's. */}
+              {isPrincipalDesk(role) && (
                 <button
-                  onClick={() => handleLinkClick('qbank.title', '/question-bank')}
+                  onClick={() => handleLinkClick('/question-bank')}
                   className={isActive('/question-bank') ? activeBtnClass : inactiveBtnClass}
                 >
                   <FileQuestion className={`w-4 h-4 shrink-0 transition-colors ${isActive('/question-bank') ? 'text-white' : 'text-brand'}`} />
                   {t('qbank.title')}
                 </button>
               )}
-
-              {role === ROLES.TEACHER ? (
-                <>
-                  <button
-                    onClick={() => handleLinkClick('shell.gradebook', '/teacher/gradebook')}
-                    className={isActive('/teacher/gradebook') ? activeBtnClass : inactiveBtnClass}
-                  >
-                    <GraduationCap className={`w-4 h-4 shrink-0 transition-colors ${isActive('/teacher/gradebook') ? 'text-white' : 'text-brand'}`} />
-                    {t('shell.gradebook')}
-                  </button>
-
-                  <button
-                    onClick={() => handleLinkClick('shell.schedule', '/schedule')}
-                    className={isActive('/schedule') ? activeBtnClass : inactiveBtnClass}
-                  >
-                    <Calendar className={`w-4 h-4 shrink-0 transition-colors ${isActive('/schedule') ? 'text-white' : 'text-brand'}`} />
-                    {t('shell.schedule')}
-                  </button>
-
-                  {isHomeroomTeacher && (
-                    <button
-                      onClick={() => handleLinkClick('shell.homeroom', '/teacher/homeroom')}
-                      className={isActive('/teacher/homeroom') ? activeBtnClass : inactiveBtnClass}
-                    >
-                      <Users className={`w-4 h-4 shrink-0 transition-colors ${isActive('/teacher/homeroom') ? 'text-white' : 'text-brand'}`} />
-                      {t('shell.homeroom')}
-                      <PendingBadge n={pending.classMoves} />
-                    </button>
-                  )}
-                </>
-              ) : role === ROLES.STUDENT ? (
-                <>
-                  <button
-                    onClick={() => handleLinkClick('shell.scores', '/scores')}
-                    className={isActive('/scores') ? activeBtnClass : inactiveBtnClass}
-                  >
-                    <Award className={`w-4 h-4 shrink-0 transition-colors ${isActive('/scores') ? 'text-white' : 'text-brand'}`} />
-                    {t('shell.scores')}
-                  </button>
-
-                  <button
-                    onClick={() => handleLinkClick('shell.reportCards', '/report-cards')}
-                    className={isActive('/report-cards') ? activeBtnClass : inactiveBtnClass}
-                  >
-                    <FileText className={`w-4 h-4 shrink-0 transition-colors ${isActive('/report-cards') ? 'text-white' : 'text-brand'}`} />
-                    {t('shell.reportCards')}
-                  </button>
-
-                  <button
-                    onClick={() => handleLinkClick('shell.chatbot')}
-                    className={inactiveBtnClass}
-                  >
-                    <MessageSquare className="w-4 h-4 shrink-0 text-brand transition-colors" />
-                    {t('shell.chatbot')}
-                  </button>
-                </>
-              ) : null}
             </nav>
           </div>
-
-          {/* Activities group - Only for students */}
-          {role === ROLES.STUDENT && (
-            <div className="space-y-1">
-              <span className="px-3 text-[10px] font-bold text-slate-500 tracking-wider block select-none">
-                {t('shell.activities')}
-              </span>
-              <nav className="space-y-0.5">
-                <button
-                  onClick={() => handleLinkClick('shell.schedule', '/schedule')}
-                  className={isActive('/schedule') ? activeBtnClass : inactiveBtnClass}
-                >
-                  <Calendar className={`w-4 h-4 shrink-0 transition-colors ${isActive('/schedule') ? 'text-white' : 'text-brand'}`} />
-                  {t('shell.schedule')}
-                </button>
-                <button
-                  onClick={() => handleLinkClick('shell.assessment', '/assessment')}
-                  className={isActive('/assessment') ? activeBtnClass : inactiveBtnClass}
-                >
-                  <ClipboardList className={`w-4 h-4 shrink-0 transition-colors ${isActive('/assessment') ? 'text-white' : 'text-brand'}`} />
-                  {t('shell.assessment')}
-                </button>
-                <button
-                  onClick={() => handleLinkClick('shell.attendance', '/attendance')}
-                  className={isActive('/attendance') ? activeBtnClass : inactiveBtnClass}
-                >
-                  <CalendarCheck className={`w-4 h-4 shrink-0 transition-colors ${isActive('/attendance') ? 'text-white' : 'text-brand'}`} />
-                  {t('shell.attendance')}
-                </button>
-                <button
-                  onClick={() => handleLinkClick('shell.announcement', '/announcements')}
-                  className={isActive('/announcements') ? activeBtnClass : inactiveBtnClass}
-                >
-                  <Megaphone className={`w-4 h-4 shrink-0 transition-colors ${isActive('/announcements') ? 'text-white' : 'text-brand'}`} />
-                  {t('shell.announcement')}
-                </button>
-              </nav>
-            </div>
-          )}
 
         </div>
       </div>

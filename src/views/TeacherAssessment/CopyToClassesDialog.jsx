@@ -10,6 +10,7 @@ import { academicsService } from '../../services/academicsService';
 import { assessmentService } from '../../services/assessmentService';
 import { readMyTeaching } from '../Course/readMyTeaching';
 import WindowChoice from './WindowChoice';
+import { BusyLabel } from '../../components/ui/ModalHeading';
 import {
   MAX_COPY_TARGETS,
   copyBody,
@@ -211,7 +212,7 @@ export const CopyToClassesDialog = ({ source, zone, onCopied, onClose }) => {
           </button>
           <button type="button" onClick={submit} disabled={busy || picked.length === 0 || split} className={modalConfirmClass('brand', busy)}>
             <Copy className="w-4 h-4 inline -mt-0.5 mr-1.5" aria-hidden="true" />
-            {busy ? t('common.loading') : t('tasm.copy.submit', { n: picked.length })}
+            <BusyLabel busy={busy}>{t('tasm.copy.submit', { n: picked.length })}</BusyLabel>
           </button>
         </div>
       </div>

@@ -6,6 +6,7 @@ import ReasonDialog from '../../components/ReasonDialog';
 import { useT } from '../../i18n/LanguageContext';
 import { isPlatformBrake, isStaleSchoolPower, schoolPowerErrorMessage } from '../../i18n/apiError';
 import { governingBodyService } from '../../services/governingBodyService';
+import { ADMIN_CARD, CARD_TITLE } from '../Admin/adminParts';
 import { validateOptionalReason } from '../../utils/validation';
 import { manageActionsOf, principalFateOf } from './schoolPowers';
 import AppointPrincipalDialog from './AppointPrincipalDialog';
@@ -84,10 +85,10 @@ export const SchoolManageCard = ({ school, showToast, onChanged, onGone, onRelea
   const fate = principalFateOf(school, teachers);
 
   return (
-    <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
+    <section className={`${ADMIN_CARD} space-y-4`}>
       <div>
-        <h2 className="text-base font-extrabold text-slate-900">{t('gbpw.title')}</h2>
-        <p className="text-xs font-medium text-slate-500 mt-1">{t('gbpw.anyAdmin')}</p>
+        <h2 className={CARD_TITLE}>{t('gbpw.title')}</h2>
+        <p className="text-[13px] text-slate-500 mt-1">{t('gbpw.anyAdmin')}</p>
       </div>
 
       {actions.braked && <p className="text-xs font-semibold text-rose-700">{t('gbpw.error.brake')}</p>}

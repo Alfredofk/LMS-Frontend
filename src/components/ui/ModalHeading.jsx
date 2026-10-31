@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, HelpCircle, Trash2 } from 'lucide-react';
+import { AlertTriangle, CircleAlert, HelpCircle, Trash2 } from 'lucide-react';
 
 /*
   The parts every dialog in the app shares (owner, 2026-10-03: "modalnya usahain
@@ -41,3 +41,23 @@ export const ModalHeading = ({ tone = 'brand', icon, titleId, title, bodyId, bod
 };
 
 export default ModalHeading;
+
+/** A dialog's error (mockup akses-dialog.html, owner 2026-10-30): a rose box with its icon, in place of red text or a red bar. */
+export const ModalError = ({ id, children }) => (
+  <p id={id} className="flex items-start gap-2.5 rounded-xl border border-rose-100 bg-rose-50 px-3.5 py-3 text-[13px] font-semibold leading-relaxed text-rose-700" role="alert">
+    <CircleAlert className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+    <span className="min-w-0 break-words">{children}</span>
+  </p>
+);
+
+/**
+ * What a confirm button says while it runs: a small spinner beside its own label,
+ * never "Memuat...". The spinner takes the button's text colour and brings its own
+ * gap, so it reads on a filled button and an outlined one alike.
+ */
+export const BusyLabel = ({ busy, children }) => (
+  <span className="inline-flex items-center justify-center gap-2">
+    {busy && <span className="w-4 h-4 shrink-0 rounded-full border-2 border-current border-r-transparent animate-spin motion-reduce:animate-none" aria-hidden="true" />}
+    {children}
+  </span>
+);

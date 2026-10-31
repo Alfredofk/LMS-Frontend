@@ -14,6 +14,8 @@ export const Input = React.forwardRef(({
   icon,
   placeholder,
   required = false,
+  /* false where every field on the form is required (sign-in, sign-up): a star on each says nothing. */
+  markRequired = true,
   className = '',
   ...props
 }, ref) => {
@@ -30,7 +32,7 @@ export const Input = React.forwardRef(({
           htmlFor={id}
           className="text-sm font-semibold text-slate-700 select-none flex items-center justify-between"
         >
-          <span>{label} {required && <span className="text-red-600" aria-hidden="true">*</span>}</span>
+          <span>{label} {required && markRequired && <span className="text-red-600" aria-hidden="true">*</span>}</span>
         </label>
       )}
 

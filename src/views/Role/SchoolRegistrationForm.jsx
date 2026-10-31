@@ -22,6 +22,7 @@ import {
   fieldErrorsFrom,
 } from '../../utils/validation';
 import { LocationFields, TimeZoneField } from '../../components/SchoolPlaceFields';
+import AuthMessageIcon from '../../components/ui/AuthMessageIcon';
 
 /*
   Founding a school. The first form in this app that talks to a real endpoint
@@ -161,7 +162,8 @@ export const SchoolRegistrationForm = ({ doneTo = '/select-role' }) => {
       className="border border-slate-200 rounded-2xl p-5 text-left bg-white shadow-sm space-y-4"
     >
       {errors.global && (
-        <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700 flex items-start gap-2.5" role="alert">
+        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-700 text-left flex items-start gap-2.5" role="alert">
+          <AuthMessageIcon tone="error" />
           <span>{errors.global}</span>
         </div>
       )}

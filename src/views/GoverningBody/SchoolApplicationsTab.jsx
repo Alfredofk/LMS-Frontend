@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { MessageCircle } from 'lucide-react';
-
+import { Inbox } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import ReasonDialog from '../../components/ReasonDialog';
@@ -10,6 +9,9 @@ import { governingBodyService } from '../../services/governingBodyService';
 import { telLink, waLink } from '../../utils/contact';
 import { othersWaiting, outcomeOf } from './principalApplications';
 import PrincipalKtp from './PrincipalKtp';
+import { ADMIN_CARD, CARD_TITLE, Segments, SlashFacts } from '../Admin/adminParts';
+import { HomeEmpty, HomeError } from '../Dashboard/components/HomeCard';
+import { RowsLoading } from './bodyParts';
 
 /*
   The "Lamaran Kepala Sekolah" tab of a School's page (backend e206bd9, ticket 06; owner
@@ -30,6 +32,11 @@ import PrincipalKtp from './PrincipalKtp';
   The Platform Admin reads the same while a body is switched off (ticket 06c): `source`
   swaps the four calls for theirs, `lead` the line under the heading, and a refusal
   saying the body decides (it runs) is said in place of the list.
+
+  Since 2026-10-29 (owner, mockup yayasan-sekolah-admin.html): the dashboards' frame,
+  Menunggu / Semua as pale-purple segments, a row's email, phone, WhatsApp and day one
+  grey slash line (WhatsApp a plain link, no green chip), a decided one opening with its
+  outcome as a coloured word, Tolak `dangerOutline`, and the dashboards' states.
 */
 
 const BODY_SOURCE = {
@@ -143,25 +150,12 @@ export const SchoolApplicationsTab = ({ school, version = 0, showToast, onChange
   const others = asking?.kind === 'approve' ? othersWaiting(applications, asking.row.id) : 0;
   const waiting = applications.filter((row) => row.status === 'PENDING');
 
-  const filterButton = (all, label) => (
-    <button
-      type="button"
-      onClick={() => setShowAll(all)}
-      aria-pressed={showAll === all}
-      className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
-        showAll === all ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-      }`}
-    >
-      {label}
-    </button>
-  );
-
   return (
-    <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
+    <section className={`${ADMIN_CARD} space-y-4`}>
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-base font-extrabold text-slate-900">{t('gbpa.section')}</h2>
-          <p className="text-xs font-medium text-slate-500 mt-1 leading-relaxed">
+          <h2 className={CARD_TITLE}>{t('gbpa.section')}</h2>
+          <p className="text-[13px] text-slate-500 mt-1 leading-relaxed">
             {lead ??
               (school.hasPrincipal && school.principal?.fullName
               ? t('gbpa.headed', { name: school.principal.fullName })
@@ -170,28 +164,26 @@ export const SchoolApplicationsTab = ({ school, version = 0, showToast, onChange
                 : t('gbpa.anyAdmin'))}
           </p>
         </div>
-        <div className="inline-flex p-1 rounded-xl bg-slate-100 shrink-0 self-start" role="group" aria-label={t('gbpa.filter')}>
-          {filterButton(false, t('gbpa.filter.waiting'))}
-          {filterButton(true, t('gbpa.filter.all'))}
+        <div className="shrink-0 self-start">
+          <Segments
+            label={t('gbpa.filter')}
+            options={['WAITING', 'ALL']}
+            value={showAll ? 'ALL' : 'WAITING'}
+            onChange={(option) => setShowAll(option === 'ALL')}
+            labelOf={(option) => t(option === 'ALL' ? 'gbpa.filter.all' : 'gbpa.filter.waiting')}
+          />
         </div>
       </div>
 
       {state === 'bodyRuns' && <p className="text-sm font-medium text-slate-500 py-2">{t('adminSchools.error.bodyDecides')}</p>}
 
-      {state === 'loading' && <div className="h-24 rounded-2xl bg-slate-50 animate-pulse" aria-busy="true" aria-label={t('common.loading')} />}
+      {state === 'loading' && <RowsLoading rows={2} card={false} />}
 
-      {state === 'failed' && (
-        <div className="space-y-3" role="alert">
-          <p className="text-sm font-semibold text-rose-700">{governingBodySeatErrorMessage(error, t)}</p>
-          <Button variant="outline" size="sm" onClick={load}>
-            {t('gb.retry')}
-          </Button>
-        </div>
-      )}
+      {state === 'failed' && <HomeError message={governingBodySeatErrorMessage(error, t)} retryLabel={t('gb.retry')} onRetry={load} />}
 
       {state === 'ready' &&
         (applications.length === 0 ? (
-          <p className="text-sm font-medium text-slate-500 py-2">{showAll ? t('gbpa.empty.all') : t('gbpa.empty.waiting')}</p>
+          <HomeEmpty icon={Inbox} title={showAll ? t('gbpa.empty.all') : t('gbpa.empty.waiting')} />
         ) : (
           <ul className="divide-y divide-slate-100">
             {applications.map((row) => {
@@ -202,39 +194,33 @@ export const SchoolApplicationsTab = ({ school, version = 0, showToast, onChange
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                     <div className="min-w-0 space-y-1">
                       <p className="text-sm font-bold text-slate-900 break-words">{name}</p>
-                      <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium text-slate-500">
-                        {row.applicant.email ? (
-                          <a href={`mailto:${row.applicant.email}`} className={`${linkClass} break-all`}>
-                            {row.applicant.email}
-                          </a>
-                        ) : (
-                          <span>{t('gbpa.accountGone')}</span>
-                        )}
-                        {row.applicantPhone && (
-                          <span className="inline-flex items-center gap-2 flex-wrap">
+                      {/* One grey slash line; a decided one opens with its outcome as a coloured word. */}
+                      <SlashFacts
+                        className="block text-xs font-medium text-slate-500"
+                        parts={[
+                          outcome.state !== 'WAITING' && <span className={`font-bold ${OUTCOME_TONE[outcome.state]}`}>{t(`gbpa.word.${outcome.state}`)}</span>,
+                          outcome.state !== 'WAITING' && (outcome.by ? t('gb.decidedBy', { by: outcome.by, date: asDate(outcome.at) }) : asDate(outcome.at)),
+                          outcome.state === 'CLOSED' && t('gbpa.closedWhy'),
+                          row.applicant.email ? (
+                            <a href={`mailto:${row.applicant.email}`} className={`${linkClass} break-all whitespace-normal`}>
+                              {row.applicant.email}
+                            </a>
+                          ) : (
+                            t('gbpa.accountGone')
+                          ),
+                          row.applicantPhone && (
                             <a href={telLink(row.applicantPhone)} className={linkClass} aria-label={t('person.call', { name })}>
                               {row.applicantPhone}
                             </a>
-                            <a
-                              href={waLink(row.applicantPhone)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              aria-label={t('person.whatsapp', { name })}
-                              title={t('person.whatsapp', { name })}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-extrabold hover:bg-emerald-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                            >
-                              <MessageCircle className="w-3 h-3" aria-hidden="true" />
+                          ),
+                          row.applicantPhone && (
+                            <a href={waLink(row.applicantPhone)} target="_blank" rel="noopener noreferrer" className={linkClass} aria-label={t('person.whatsapp', { name })}>
                               WhatsApp
                             </a>
-                          </span>
-                        )}
-                        <span>{t('gba.requestedAt', { date: asDate(row.requestedAt) })}</span>
-                      </p>
-                      {outcome.state !== 'WAITING' && (
-                        <p className={`text-xs font-semibold ${OUTCOME_TONE[outcome.state]}`}>
-                          {t(`gbpa.outcome.${outcome.state}`, { by: outcome.by ?? '', date: asDate(outcome.at) })}
-                        </p>
-                      )}
+                          ),
+                          t('gba.requestedAt', { date: asDate(row.requestedAt) }),
+                        ]}
+                      />
                       {outcome.reason && <p className="text-xs font-medium text-slate-600 break-words">{t('others.reason', { reason: outcome.reason })}</p>}
                     </div>
                     {row.status === 'PENDING' && (
@@ -242,7 +228,7 @@ export const SchoolApplicationsTab = ({ school, version = 0, showToast, onChange
                         <Button size="sm" onClick={() => openApprove(row)} ariaLabel={t('gbpa.approve.aria', { name })}>
                           {t('gbpa.approve')}
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => setAsking({ kind: 'reject', row })} ariaLabel={t('gbpa.reject.aria', { name })}>
+                        <Button size="sm" variant="dangerOutline" onClick={() => setAsking({ kind: 'reject', row })} ariaLabel={t('gbpa.reject.aria', { name })}>
                           {t('gbpa.reject')}
                         </Button>
                       </div>

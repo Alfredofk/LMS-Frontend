@@ -17,6 +17,7 @@ import { notifyPendingChanged } from '../../hooks/usePendingCounts';
 import { cancelReasonError, isPractice } from './teacherAssessment';
 import SignalLine from './SignalLine';
 import { useSlotFinalised } from '../Grading/useSlotFinalised';
+import { BusyLabel } from '../../components/ui/ModalHeading';
 import {
   canMark,
   chosenOptions,
@@ -139,8 +140,8 @@ const StudentAnswer = ({ question, assessmentId, submissionId, t }) => {
       )}
       {file && (
         <button type="button" onClick={openFile} disabled={opening} className={`${tool} border border-slate-200 text-slate-700 hover:bg-slate-50`}>
-          <FileText className="w-4 h-4" aria-hidden="true" />
-          {opening ? t('common.loading') : t('tasm.mark.openFile', { name: file.name })}
+          {!opening && <FileText className="w-4 h-4" aria-hidden="true" />}
+          <BusyLabel busy={opening}>{t('tasm.mark.openFile', { name: file.name })}</BusyLabel>
         </button>
       )}
       {fileError && <p className={errorText}>{fileError}</p>}
@@ -278,7 +279,7 @@ export const Marking = ({ assessmentId, submissionId, onBack, onOpen, embedded =
         {embedded ? (
           <p className="text-base font-extrabold text-slate-900 break-words">{submission.student.fullName ?? t('tasm.results.unnamed')}</p>
         ) : (
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight break-words">{submission.student.fullName ?? t('tasm.results.unnamed')}</h1>
+          <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight break-words">{submission.student.fullName ?? t('tasm.results.unnamed')}</h1>
         )}
         <FactLine
           code={assessment.classSubject.subject.code}
@@ -480,7 +481,7 @@ export const Marking = ({ assessmentId, submissionId, onBack, onOpen, embedded =
             )}
             {editable && (
               <button type="button" onClick={save} disabled={busy || !body} className={`${tool} px-5 py-2.5 text-sm bg-brand text-white hover:bg-brand-deep`}>
-                {busy ? t('common.loading') : t('tasm.mark.save')}
+                <BusyLabel busy={busy}>{t('tasm.mark.save')}</BusyLabel>
               </button>
             )}
           </div>

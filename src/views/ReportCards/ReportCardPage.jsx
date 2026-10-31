@@ -123,7 +123,7 @@ export const ReportCardPage = () => {
   if (read?.error || !read) {
     return (
       <div className="space-y-6">
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">{t('shell.reportCards')}</h1>
+        <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('shell.reportCards')}</h1>
         <div className={card}>
           <HomeError message={read?.error ?? t('rc.error.notFound')} />
         </div>
@@ -159,7 +159,7 @@ export const ReportCardPage = () => {
     <div className="space-y-6 max-w-4xl">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">{t('rc.title', { n: rc.semester.ordinal, year: rc.academicYear })}</h1>
+          <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('rc.title', { n: rc.semester.ordinal, year: rc.academicYear })}</h1>
           <FactLine className="mt-2" wrap facts={[rc.student.fullName, rc.class.name]} />
         </div>
         <div className="flex flex-col sm:flex-row gap-2 sm:items-center">

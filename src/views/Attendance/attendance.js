@@ -39,6 +39,28 @@ export const STATUS_DOT = {
   EXCUSED: 'bg-sky-500',
   ABSENT: 'bg-rose-500',
 };
+/* A status as a coloured word on a roster (mockup kehadiran-guru-wali.html, owner 2026-10-30). */
+export const STATUS_TEXT = {
+  PRESENT: 'text-emerald-700',
+  SICK: 'text-amber-700',
+  EXCUSED: 'text-sky-700',
+  ABSENT: 'text-rose-700',
+};
+
+/**
+ * The check-in facts under a student's name on a roster, in order: the time (or
+ * `noCheckIn` when given and there is none), late, outside the school. Each
+ * `{ text, late }`; `late` is the one the roster colours amber.
+ */
+export function checkInFactsOf(student, zone, t, { noCheckIn = null } = {}) {
+  const facts = [];
+  const local = student?.checkedInAt ? localOf(student.checkedInAt, zone) : null;
+  if (local) facts.push({ text: t('att.checkedInAt', { time: local.time }), late: false });
+  else if (noCheckIn) facts.push({ text: noCheckIn, late: false });
+  if (student?.late) facts.push({ text: t('att.flag.late'), late: true });
+  if (student?.outsideSchool) facts.push({ text: t('att.flag.outside'), late: false });
+  return facts;
+}
 
 const OFFSET_HOURS = { WIB: 7, WITA: 8, WIT: 9 };
 const HOUR = 60 * 60 * 1000;

@@ -15,6 +15,7 @@ import { useT } from '../../../i18n/LanguageContext';
 import { academicsErrorMessage } from '../../../i18n/apiError';
 import { formatDay } from '../format';
 import { HomeEmpty } from '../../Dashboard/components/HomeCard';
+import { SearchBox } from '../../GoverningBody/bodyParts';
 
 /*
   One class: who holds it, and who is in it.
@@ -212,7 +213,7 @@ export const ClassDetail = ({
             <FactLine
               size="xs"
               className="mt-1"
-              facts={[t('classes.grade', { n: target.gradeLevel }), target.academicYear?.label]}
+              facts={[t('classes.grade', { n: target.gradeLevel }), target.academicYear?.label, t('classes.class.count', { n: students.length })]}
             />
           </div>
           {open && !readOnly && !isEditing && (
@@ -222,7 +223,7 @@ export const ClassDetail = ({
                 {t('classes.class.edit.open')}
               </Button>
               {students.length === 0 && (
-                <Button size="sm" variant="outline" onClick={() => { setDeleting(true); setDeleteError(null); }}>
+                <Button size="sm" variant="dangerOutline" onClick={() => { setDeleting(true); setDeleteError(null); }}>
                   <Trash2 className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
                   {t('classes.class.delete.open')}
                 </Button>
@@ -255,13 +256,20 @@ export const ClassDetail = ({
         )}
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-slate-100">
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              {t('classes.class.field.homeroom')}
-            </p>
-            <p className="text-sm font-extrabold text-slate-800 mt-0.5">
-              {target.homeroomTeacher?.fullName ?? t('classes.detail.noHomeroom')}
-            </p>
+          <div className="min-w-0 flex items-center gap-3">
+            {target.homeroomTeacher && (
+              <span className="w-9 h-9 rounded-full bg-brand-tint text-brand text-xs font-extrabold grid place-items-center shrink-0 select-none" aria-hidden="true">
+                {initialsOf(target.homeroomTeacher.fullName)}
+              </span>
+            )}
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                {t('classes.class.field.homeroom')}
+              </p>
+              <p className={`text-sm font-extrabold mt-0.5 ${target.homeroomTeacher ? 'text-slate-900' : 'text-amber-700'}`}>
+                {target.homeroomTeacher?.fullName ?? t('classes.detail.noHomeroom')}
+              </p>
+            </div>
           </div>
           {open && !readOnly && !isChanging && (
             <Button size="sm" variant="outline" className="shrink-0" onClick={openChange}>
@@ -320,19 +328,10 @@ export const ClassDetail = ({
         </h3>
 
         {students.length > 1 && (
-          <div className="relative mt-3">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" aria-hidden="true" />
-            <input
-              type="search"
-              value={rosterQuery}
-              onChange={(e) => setRosterQuery(e.target.value)}
-              placeholder={t('classes.detail.search')}
-              aria-label={t('classes.detail.search')}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
-            />
+          <div className="mt-3 flex">
+            <SearchBox id="roster-search" label={t('classes.detail.search')} placeholder={t('classes.detail.search')} value={rosterQuery} onChange={setRosterQuery} />
           </div>
         )}
-
         {students.length === 0 ? (
           <p className="mt-3 text-xs font-semibold text-slate-500 leading-relaxed">
             {t('classes.detail.noStudents')}
@@ -350,23 +349,28 @@ export const ClassDetail = ({
                   aria-label={t('classes.detail.openStudent', { name: student.fullName })}
                   className="group min-w-0 flex-1 flex items-center gap-3 text-left rounded-xl px-2 py-1.5 -mx-2 hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                 >
-                  <span className="w-9 h-9 rounded-xl bg-brand-tint text-brand text-xs font-extrabold flex items-center justify-center shrink-0 select-none">
+                  <span className="w-9 h-9 rounded-full bg-brand-tint text-brand text-xs font-extrabold flex items-center justify-center shrink-0 select-none">
                     {initialsOf(student.fullName)}
                   </span>
                   <span className="min-w-0 flex-1 space-y-1">
                     <span className="block text-sm font-bold text-slate-800 break-words group-hover:text-brand transition-colors">
                       {student.fullName}
                     </span>
+                    {/* Labelled facts with a colon (owner, 2026-10-31, mockup item 6). */}
                     <span className="flex flex-wrap gap-x-4 gap-y-0.5 mt-0.5 text-xs font-medium text-slate-500 tabular-nums">
-                      <span>{`${t('profile.nisn')} ${student.nisn ?? '-'}`}</span>
-                      <span>{t('classes.detail.since', { date: formatDay(student.placedAt, lang) })}</span>
+                      <span>
+                        {t('profile.nisn')}: <b className="font-bold text-slate-700">{student.nisn ?? '-'}</b>
+                      </span>
+                      <span>
+                        {t('classes.detail.sinceLabel')}: <b className="font-bold text-slate-700">{formatDay(student.placedAt, lang)}</b>
+                      </span>
                     </span>
                   </span>
                   <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
                 </button>
                 {canMove && open && (
                   pendingMoves?.get(student.studentProfileId) ? (
-                    <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold text-amber-800 bg-amber-50">
+                    <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-extrabold text-amber-700">
                       <Clock className="w-4 h-4 shrink-0" aria-hidden="true" />
                       {t('moves.roster.waiting', { to: pendingMoves.get(student.studentProfileId).toClass.name })}
                     </span>

@@ -13,6 +13,7 @@ import { academicsService } from '../../services/academicsService';
 import { isNotBuiltYet } from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import { ROLES } from '../../constants/roles';
+import { RowsLoading } from '../GoverningBody/bodyParts';
 import { useT } from '../../i18n/LanguageContext';
 import { subjectsErrorMessage } from '../../i18n/apiError';
 import { SUBJECT_TABS, defaultSemesterOf, subjectsInUse } from './subjects';
@@ -138,7 +139,7 @@ export const SubjectsPage = () => {
   }
 
   const failed = (message) => <HomeError message={message} />;
-  const loading = <div className="h-48 bg-white border border-slate-100 rounded-2xl animate-pulse" aria-label={t('common.loading')} />;
+  const loading = <RowsLoading />;
 
   const count = { PENDING: queue?.length ?? 0, CATALOG: catalog?.length ?? 0 };
 
@@ -148,7 +149,7 @@ export const SubjectsPage = () => {
 
       {/* Text tabs with a counter, as on the dashboards (the skill's recipe); the
           waiting count stays amber while anything waits. */}
-      <div className="flex gap-0.5 select-none overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shadow-[inset_0_-1px_0_var(--color-slate-100)]">
+      <div role="tablist" aria-label={t('shell.subjects')} className="flex gap-0.5 select-none overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shadow-[inset_0_-1px_0_var(--color-slate-100)]">
         {SUBJECT_TABS.map((name) => {
           const isActive = tab === name;
           return (
@@ -156,7 +157,8 @@ export const SubjectsPage = () => {
               key={name}
               type="button"
               onClick={() => setTab(name)}
-              aria-pressed={isActive}
+              role="tab"
+              aria-selected={isActive}
               className={`px-2.5 py-2 text-sm font-bold border-b-2 whitespace-nowrap transition-colors cursor-pointer focus:outline-none focus-visible:text-brand ${
                 isActive ? 'text-brand border-brand' : 'text-slate-500 border-transparent hover:text-slate-700'
               }`}

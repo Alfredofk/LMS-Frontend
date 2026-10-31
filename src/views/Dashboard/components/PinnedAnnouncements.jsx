@@ -1,77 +1,68 @@
 import React from 'react';
-import { Bell, Megaphone, Pin, Wrench } from 'lucide-react';
+import { Pin } from 'lucide-react';
 
 import { useT } from '../../../i18n/LanguageContext';
+import FactLine from '../../../components/ui/FactLine';
 import { formatDay } from '../../Classes/format';
+import { HomeCard } from './HomeCard';
 
 /*
   The announcements a teacher, the Principal or a Vice Principal pinned, at the
-  top of the student's dashboard, above today's schedule (owner, 2026-10-03).
-  One that is not pinned goes only to the notifications behind the bell, and the
-  old "School announcements" widget at the foot of the page went.
-
-  Each is a small card, never one long line, two side by side from 640px.
+  top of the student's dashboard, above today's schedule (owner, 2026-10-03; kept
+  at the top on 2026-10-27 and again on 2026-10-31).
 
   There is no announcement model or route in the backend yet (bf6e9b5), so this
   renders `notBuilt` until there is; then pass `items`:
   [{ id, title, body, authorName, authorRole, createdAt }], pinned ones only.
+
+  The look since 2026-10-31 (owner, mockup pengumuman.html items 6-8): while not
+  built it is the Principal dashboard's Pengumuman card - the title, a plain grey
+  "Fitur ini belum tersedia", one line - so it takes one line's height at the top
+  of the page. The icon tile, the wrench, the dashed box and the sentence about
+  the bell (which is not built either) went. Pinned ones are small cards, two side
+  by side from 640px, the author, role and day one grey line instead of three
+  chips, with "Semua pengumuman" to /announcements.
 */
 export const PinnedAnnouncements = ({ items = [], notBuilt = false }) => {
   const { t, lang } = useT();
 
-  return (
-    <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm" aria-labelledby="pinned-title">
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-2.5">
-          <span className="w-9 h-9 rounded-xl bg-brand-tint text-brand flex items-center justify-center shrink-0">
-            <Megaphone className="w-4.5 h-4.5" aria-hidden="true" />
-          </span>
-          <h2 id="pinned-title" className="text-base font-extrabold text-slate-800 tracking-tight">
+  if (notBuilt) {
+    return (
+      <section aria-labelledby="pinned-title" className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm text-left">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+          <h2 id="pinned-title" className="text-base font-extrabold text-slate-900 tracking-tight">
             {t('dash.pinned.title')}
           </h2>
+          <span className="px-2 py-0.5 rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">{t('common.notBuilt.title')}</span>
         </div>
-        {notBuilt && (
-          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 text-slate-600 text-[10px] font-extrabold">
-            <Wrench className="w-3 h-3" aria-hidden="true" />
-            {t('common.notBuilt.title')}
-          </span>
-        )}
-      </div>
+        <p className="text-[13px] text-slate-500">{t('dash.pinned.soon')}</p>
+      </section>
+    );
+  }
 
-      {notBuilt || items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 flex flex-col sm:flex-row sm:items-center gap-3 text-left">
-          <span className="w-10 h-10 rounded-xl bg-slate-50 text-slate-400 flex items-center justify-center shrink-0">
-            <Pin className="w-5 h-5" aria-hidden="true" />
-          </span>
-          <div className="min-w-0 space-y-1">
-            <p className="text-xs font-extrabold text-slate-700">{t('dash.pinned.empty')}</p>
-            <p className="text-[11px] font-semibold text-slate-500 leading-relaxed flex items-start gap-1.5">
-              <Bell className="w-3.5 h-3.5 shrink-0 mt-px" aria-hidden="true" />
-              {t('dash.pinned.howItWorks')}
-            </p>
-          </div>
-        </div>
+  return (
+    <HomeCard id="pinned-title" title={t('dash.pinned.title')} linkLabel={t('dash.pinned.all')} linkTo="/announcements">
+      {items.length === 0 ? (
+        <p className="text-[13px] text-slate-500">{t('dash.pinned.empty')}</p>
       ) : (
         <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {items.map((item) => (
-            <li key={item.id} className="rounded-2xl border border-brand/20 bg-brand-tint/40 p-4 space-y-2">
+            <li key={item.id} className="rounded-2xl border border-brand/20 bg-brand-tint/40 p-4">
               <div className="flex items-start gap-2">
                 <Pin className="w-4 h-4 text-brand shrink-0 mt-0.5" aria-label={t('dash.pinned.pinned')} />
-                <h3 className="text-sm font-extrabold text-slate-800 break-words">{item.title}</h3>
+                <h3 className="text-sm font-extrabold text-slate-900 break-words">{item.title}</h3>
               </div>
-              <p className="text-xs font-medium text-slate-600 leading-relaxed line-clamp-3 break-words">{item.body}</p>
-              <p className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold">
-                <span className="px-1.5 py-0.5 rounded-md bg-white text-slate-700">{item.authorName}</span>
-                {item.authorRole && (
-                  <span className="px-1.5 py-0.5 rounded-md bg-brand-tint text-brand">{t(`roleTitle.${item.authorRole}`)}</span>
-                )}
-                <span className="px-1.5 py-0.5 rounded-md bg-white text-slate-500">{formatDay(item.createdAt, lang)}</span>
-              </p>
+              <p className="mt-1.5 text-xs text-slate-600 leading-relaxed line-clamp-3 break-words">{item.body}</p>
+              <FactLine
+                size="xs"
+                className="mt-2"
+                facts={[item.authorName, item.authorRole && t(`roleTitle.${item.authorRole}`), item.createdAt && formatDay(item.createdAt, lang)]}
+              />
             </li>
           ))}
         </ul>
       )}
-    </section>
+    </HomeCard>
   );
 };
 

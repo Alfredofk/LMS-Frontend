@@ -124,12 +124,13 @@ export const MarkingByTeacherCard = ({ className = '' }) => {
             </span>
             <span className="flex-1 min-w-0">
               <span className="block text-[13.5px] font-bold text-slate-900 break-words">{teacher.fullName}</span>
-              <span className="block text-xs text-slate-500">{countsLine(teacher)}</span>
+              {/* What waits for marking is the chip; the grey line keeps the rest. */}
+              {teacher.release > 0 && <span className="block text-xs text-slate-500">{countsLine({ marking: 0, release: teacher.release })}</span>}
             </span>
             {teacher.marking > 0 && (
-              <span className="min-w-[26px] px-2 py-0.5 rounded-full text-xs font-extrabold text-center tabular-nums bg-amber-50 text-amber-700">
-                {teacher.marking}
-                <span className="sr-only"> {t('teacherDash.asm.toMark', { n: teacher.marking })}</span>
+              /* In words, not a bare number (owner, 2026-10-31, mockup dasbor-ringkasan.html item 5). */
+              <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-extrabold tabular-nums whitespace-nowrap bg-amber-50 text-amber-700">
+                {t('teacherDash.asm.toMark', { n: teacher.marking })}
               </span>
             )}
           </li>

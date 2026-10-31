@@ -9,6 +9,7 @@ import QuestionImage from '../../components/questionBank/QuestionImage';
 import { questionBankErrorMessage, isStaleQuestion } from '../../i18n/apiError';
 import { assessmentService } from '../../services/assessmentService';
 import { duplicateGrades, formatQuestionDate, formatSchoolDay, isPrivateOn, plainTextOf } from './questionBank';
+import { BusyLabel } from '../../components/ui/ModalHeading';
 
 /*
   One question as a row of the bank's list, opened in place (owner, 2026-10-28,
@@ -219,8 +220,8 @@ export const QuestionItem = ({ question, number, pairs = [], writable = false, o
                 </Select>
               )}
               <button type="button" onClick={() => setConfirming(true)} disabled={Boolean(busy)} className={`${tool} border border-slate-200 text-slate-700 hover:bg-slate-50`}>
-                <Copy className="w-3.5 h-3.5" aria-hidden="true" />
-                {busy === 'duplicate' ? t('common.loading') : t('qbank.duplicate.action')}
+                {busy !== 'duplicate' && <Copy className="w-3.5 h-3.5" aria-hidden="true" />}
+                <BusyLabel busy={busy === 'duplicate'}>{t('qbank.duplicate.action')}</BusyLabel>
               </button>
             </span>
           )}
@@ -231,8 +232,8 @@ export const QuestionItem = ({ question, number, pairs = [], writable = false, o
               disabled={Boolean(busy)}
               className={`${tool} sm:ml-auto border border-slate-200 text-slate-700 hover:bg-slate-50`}
             >
-              {question.archived ? <ArchiveRestore className="w-3.5 h-3.5" aria-hidden="true" /> : <Archive className="w-3.5 h-3.5" aria-hidden="true" />}
-              {busy === 'archive' || busy === 'restore' ? t('common.loading') : t(question.archived ? 'qbank.restore' : 'qbank.archive')}
+              {busy !== 'archive' && busy !== 'restore' && (question.archived ? <ArchiveRestore className="w-3.5 h-3.5" aria-hidden="true" /> : <Archive className="w-3.5 h-3.5" aria-hidden="true" />)}
+              <BusyLabel busy={busy === 'archive' || busy === 'restore'}>{t(question.archived ? 'qbank.restore' : 'qbank.archive')}</BusyLabel>
             </button>
           )}
         </div>

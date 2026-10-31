@@ -12,6 +12,7 @@ import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage, decisionErrorMessage } from '../../i18n/apiError';
 import { releasableInPov, roleTitleKey } from '../../constants/roles';
 import { classesFor, groupForApproval, planCalls, summarise } from './bulk';
+import { BusyLabel, ModalError } from '../../components/ui/ModalHeading';
 
 /*
   Releasing the ticked requests, in one go.
@@ -189,7 +190,7 @@ export const BulkApproveDialog = ({ requests, onClose, onDone }) => {
             {needsClasses && (
               <div className="space-y-3 pt-3 border-t border-slate-100">
                 {classesError ? (
-                  <p className="text-xs font-semibold text-red-600" role="alert">{classesError}</p>
+                  <ModalError>{classesError}</ModalError>
                 ) : classes === null ? (
                   <div className="h-12 bg-slate-50 rounded-xl animate-pulse" aria-label={t('common.loading')} />
                 ) : (
@@ -267,7 +268,7 @@ export const BulkApproveDialog = ({ requests, onClose, onDone }) => {
                 disabled={!ready || phase === 'running'}
                 className={modalConfirmClass('brand', !ready || phase === 'running')}
               >
-                {phase === 'running' ? t('common.loading') : t('requests.bulk.confirm', { n: requests.length })}
+                <BusyLabel busy={phase === 'running'}>{t('requests.bulk.confirm', { n: requests.length })}</BusyLabel>
               </button>
             </div>
           </>

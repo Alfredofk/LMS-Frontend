@@ -222,7 +222,7 @@ export const AdminSchoolsPage = () => {
             {rows.length < total && (
               <div className="px-2 pt-2 pb-2.5">
                 <Button size="sm" variant="outline" onClick={() => fetchPage(rows.length)} isLoading={isAppending} className="w-full">
-                  {isAppending ? t('common.loading') : t('admin.queue.loadMore')}
+                  {t('admin.queue.loadMore')}
                 </Button>
               </div>
             )}
@@ -235,7 +235,7 @@ export const AdminSchoolsPage = () => {
   return (
     <div className="space-y-6">
       <div className="select-none">
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('adminSchools.title')}</h1>
+        <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('adminSchools.title')}</h1>
         <SlashFacts
           className="block mt-2 text-sm font-medium text-slate-500"
           parts={[everyCount !== null && everyCount > 0 ? t('adminSchools.count', { n: everyCount }) : null, t('adminSchools.kinds')]}

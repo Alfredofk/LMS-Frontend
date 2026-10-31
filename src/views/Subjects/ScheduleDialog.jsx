@@ -27,6 +27,7 @@ import SubjectProgress from './SubjectProgress';
 import AssessmentReader from '../TeacherAssessment/AssessmentReader';
 import GradebookReader from '../Gradebook/GradebookReader';
 import SessionContentDrawer from '../../components/content/SessionContentDrawer';
+import { BusyLabel, ModalError } from '../../components/ui/ModalHeading';
 
 /*
   One subject in one class: its weekly timetable, what it has made, and — for the
@@ -253,9 +254,7 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
       <div className="space-y-1.5">
         <h3 className="text-sm font-extrabold text-slate-900">{t('timetable.sessions')}</h3>
         {sessions.error ? (
-          <p className="text-xs font-semibold text-red-600" role="alert">
-            {sessions.error}
-          </p>
+          <ModalError>{sessions.error}</ModalError>
         ) : sessions.list === null ? (
           <div className="h-24 bg-slate-50 rounded-xl animate-pulse" aria-label={t('common.loading')} />
         ) : sessions.list.length === 0 ? (
@@ -347,7 +346,7 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
                 </button>
               </div>
               {messages.length > 0 && (
-                <p className="text-[11px] text-red-600 font-semibold" role="alert">
+                <p className="text-[11px] text-rose-700 font-semibold" role="alert">
                   {messages.map((key) => t(key)).join(' ')}
                 </p>
               )}
@@ -369,9 +368,7 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
       </button>
       <p className="text-[11px] font-semibold text-slate-500 leading-relaxed">{t('timetable.form.hint', { zone: schedule.timeZone ?? '' })}</p>
       {errors.form && (
-        <p className="text-xs text-red-600 font-semibold" role="alert">
-          {t(errors.form)}
-        </p>
+        <ModalError>{t(errors.form)}</ModalError>
       )}
     </>
   );
@@ -439,7 +436,7 @@ export const ScheduleDialog = ({ row, boardClass, semester, schedule, others, wr
                 {t('common.cancel')}
               </button>
               <button type="button" onClick={handleSave} disabled={busy} className={primary}>
-                {busy ? t('common.loading') : t('timetable.form.save')}
+                <BusyLabel busy={busy}>{t('timetable.form.save')}</BusyLabel>
               </button>
             </>
           ) : (

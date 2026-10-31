@@ -28,6 +28,11 @@ import { Bone, HomeCard } from './HomeCard';
   done, purple the next, grey not yet - then the steps, the next one tinted with
   the one main button. Done, it is one green line ("Sekolah siap dipakai"), and the
   steps can be opened again.
+
+  `asLine` (owner, 2026-10-31, mockup dasbor-ringkasan.html item 3): inside the
+  dashboard's "Semua beres" card, a finished checklist is one line with a tick,
+  "Lihat langkahnya" still opening the steps under it. The dashboard passes it
+  only when every step is done.
 */
 
 const ACTION = {
@@ -43,7 +48,7 @@ const ACTION = {
    is handed out by the Principal: those two steps are shown, without a button. */
 const VICE_ACTION = { ...ACTION, TEACHERS: null, STUDENTS: null };
 
-export const SetupChecklist = ({ data, desk = 'principal', className = '' }) => {
+export const SetupChecklist = ({ data, desk = 'principal', asLine = false, className = '' }) => {
   const actions = desk === 'vice' ? VICE_ACTION : ACTION;
   const { t } = useT();
   const navigate = useNavigate();
@@ -94,7 +99,8 @@ export const SetupChecklist = ({ data, desk = 'principal', className = '' }) => 
                 {t(step.state === 'done' ? `setup.${step.id}.done` : `setup.${step.id}.todo`, vars)}
               </span>
               {step.state !== 'done' && (
-                <span className="block text-xs text-slate-500">
+                /* slate-500 on the next step's tint was 4.18:1 (walk 2026-10-31). */
+                <span className={`block text-xs ${isNext ? 'text-slate-600' : 'text-slate-500'}`}>
                   {step.state === 'blocked' ? t('setup.blocked') : step.state === 'unknown' ? t('setup.unknown') : t(`setup.${step.id}.hint`)}
                 </span>
               )}
@@ -114,6 +120,35 @@ export const SetupChecklist = ({ data, desk = 'principal', className = '' }) => 
       })}
     </ol>
   );
+
+  const toggle = (
+    <button
+      type="button"
+      onClick={() => setShowSteps((value) => !value)}
+      aria-expanded={showSteps}
+      className="text-xs font-bold text-slate-500 hover:text-slate-700 underline underline-offset-2 cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+    >
+      {t(showSteps ? 'setup.hide' : 'setup.show')}
+    </button>
+  );
+
+  if (asLine && complete) {
+    return (
+      <div>
+        <div className="flex flex-wrap items-start gap-3 py-2.5">
+          <span className="grid place-items-center w-[22px] h-[22px] rounded-full bg-emerald-50 text-emerald-700 shrink-0" aria-hidden="true">
+            <Check className="w-3 h-3" strokeWidth={3} />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-[13.5px] font-semibold text-slate-700">{t('setup.readyLine', { label, total })}</span>
+            <span className="block text-xs text-slate-500">{t('setup.readyLineSub')}</span>
+          </span>
+          <span className="shrink-0">{toggle}</span>
+        </div>
+        {showSteps && list}
+      </div>
+    );
+  }
 
   return card(
     <>
@@ -139,16 +174,7 @@ export const SetupChecklist = ({ data, desk = 'principal', className = '' }) => 
             </span>
             {t('setup.ready', { label })}
           </div>
-          <div className="mt-2.5">
-            <button
-              type="button"
-              onClick={() => setShowSteps((value) => !value)}
-              aria-expanded={showSteps}
-              className="text-xs font-bold text-slate-500 hover:text-slate-700 underline underline-offset-2 cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-            >
-              {t(showSteps ? 'setup.hide' : 'setup.show')}
-            </button>
-          </div>
+          <div className="mt-2.5">{toggle}</div>
           {showSteps && list}
         </>
       ) : (

@@ -76,3 +76,19 @@ export function notDecidableView(read) {
   }
   return { key: 'homeroom.promo.notYet.yearClosed', vars: { year: read.academicYear } };
 }
+
+/**
+ * The summary over the list (mockup catatan-kenaikan-wali.html, item 9): how many
+ * students go up (or graduate), stay, and have no result yet, with the choices on
+ * screen. `advance` counts PROMOTED and GRADUATED alike - a class offers only one.
+ */
+export function outcomeCounts(students, drafts, automaticOutcome) {
+  const out = { advance: 0, RETAINED: 0, undecided: 0 };
+  for (const student of students ?? []) {
+    const result = resultShown(student, drafts, automaticOutcome);
+    if (result === 'RETAINED') out.RETAINED += 1;
+    else if (result) out.advance += 1;
+    else out.undecided += 1;
+  }
+  return out;
+}

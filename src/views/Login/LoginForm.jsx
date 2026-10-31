@@ -6,6 +6,7 @@ import BrandMark from '../../components/ui/BrandMark';
 import PasswordRules from '../../components/ui/PasswordRules';
 import { useT } from '../../i18n/LanguageContext';
 import CheckEmailStep from './CheckEmailStep';
+import AuthMessageIcon from '../../components/ui/AuthMessageIcon';
 import GoogleButton from './GoogleButton';
 
 /*
@@ -74,11 +75,8 @@ export const LoginForm = ({ formState, notice, googleElsewhere = null }) => {
       <BrandMark size="lg" tone="soft" className="mb-5 mx-auto" />
 
       <h2 className="text-[26px] font-extrabold text-slate-800 leading-tight select-none">
-        {isSignUp ? (
-          <>{t('auth.signUp.title')} <span className="text-brand">{t('auth.signUp.titleAccent')}</span></>
-        ) : (
-          <>{t('auth.signIn.title')} <span className="text-brand">{t('auth.signIn.titleAccent')}</span></>
-        )}
+        {/* One colour (owner, 2026-10-29): the welcome sentence is the purple column's h1. */}
+        {t(isSignUp ? 'auth.signUp.title' : 'auth.signIn.title')}
       </h2>
       <p className="text-slate-500 text-sm mt-2 mb-8 font-medium select-none">
         {isSignUp
@@ -89,19 +87,15 @@ export const LoginForm = ({ formState, notice, googleElsewhere = null }) => {
       {/* Something good that just happened elsewhere — today, an email that was
           verified a moment ago on /verify-email. An error below outranks it. */}
       {notice && !errors.global && (
-        <div className="mb-5 p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-2xl text-sm text-emerald-800 text-left flex items-start gap-2.5 shadow-sm" role="status">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 shrink-0">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+        <div className="mb-5 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 text-left flex items-start gap-2.5" role="status">
+          <AuthMessageIcon tone="success" />
           <span>{notice}</span>
         </div>
       )}
 
       {errors.global && (
-        <div className="mb-5 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl text-sm text-red-700 text-left flex items-start gap-2.5 shadow-sm" role="alert">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 shrink-0">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-          </svg>
+        <div className="mb-5 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-700 text-left flex items-start gap-2.5" role="alert">
+          <AuthMessageIcon tone="error" />
           <div className="space-y-2">
             <span className="block">{errors.global}</span>
 
@@ -112,7 +106,7 @@ export const LoginForm = ({ formState, notice, googleElsewhere = null }) => {
                 type="button"
                 onClick={handleResendVerification}
                 disabled={isResending}
-                className="font-extrabold text-red-800 underline underline-offset-2 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none cursor-pointer"
+                className="font-extrabold text-rose-700 underline underline-offset-2 hover:text-rose-800 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none cursor-pointer"
               >
                 {isResending ? t('common.sending') : t('auth.resendLink')}
               </button>
@@ -135,8 +129,10 @@ export const LoginForm = ({ formState, notice, googleElsewhere = null }) => {
             id="fullName"
             name="fullName"
             type="text"
-            placeholder={t('auth.field.fullName')}
+            label={t('auth.label.fullName')}
+            placeholder={t('auth.example.fullName')}
             required
+            markRequired={false}
             icon={icons.user}
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
@@ -149,8 +145,10 @@ export const LoginForm = ({ formState, notice, googleElsewhere = null }) => {
           id="email"
           name="email"
           type="email"
-          placeholder={t('auth.field.email')}
+          label={t('auth.label.email')}
+          placeholder={t('auth.example.email')}
           required
+          markRequired={false}
           icon={icons.email}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -162,8 +160,9 @@ export const LoginForm = ({ formState, notice, googleElsewhere = null }) => {
           id="password"
           name="password"
           type="password"
-          placeholder={t('auth.field.password')}
+          label={t('auth.label.password')}
           required
+          markRequired={false}
           icon={icons.lock}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -179,8 +178,9 @@ export const LoginForm = ({ formState, notice, googleElsewhere = null }) => {
               id="confirmPassword"
               name="confirmPassword"
               type="password"
-              placeholder={t('auth.field.confirmPassword')}
+              label={t('auth.label.confirmPassword')}
               required
+              markRequired={false}
               icon={icons.lock}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
@@ -222,18 +222,13 @@ export const LoginForm = ({ formState, notice, googleElsewhere = null }) => {
           className="w-full py-3 md:py-3.5 rounded-2xl justify-center text-sm md:text-base active:scale-95 transition-transform mt-5 shadow-lg shadow-brand/20 select-none"
           isLoading={isLoading}
         >
-          <span className="flex items-center gap-1">
-            {t('common.continue')}
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 mt-0.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-            </svg>
-          </span>
+          {t(isSignUp ? 'auth.submit.signUp' : 'auth.submit.signIn')}
         </Button>
       </form>
 
       <div className="flex items-center justify-center gap-3 my-5">
         <span className="h-px bg-slate-100 flex-1" />
-        <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider select-none">{t('common.or')}</span>
+        <span className="text-xs text-slate-500 font-medium select-none">{t('common.or')}</span>
         <span className="h-px bg-slate-100 flex-1" />
       </div>
 

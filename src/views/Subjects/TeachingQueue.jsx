@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import { Check, ClipboardCheck, X } from 'lucide-react';
+import { ClipboardCheck, Info } from 'lucide-react';
 
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import ReasonDialog from '../../components/ReasonDialog';
 import { academicsService } from '../../services/academicsService';
 import { useT } from '../../i18n/LanguageContext';
 import { subjectsErrorMessage, isStaleTeaching } from '../../i18n/apiError';
-import SubjectLabel from '../../components/ui/SubjectLabel';
 import { bulkOutcome, isOwnRequest } from './subjects';
 import FactLine from '../../components/ui/FactLine';
 import EmptyCard from '../../components/ui/EmptyCard';
 import { HomeError } from '../Dashboard/components/HomeCard';
+import Button from '../../components/ui/Button';
+import { RowsLoading } from '../GoverningBody/bodyParts';
+import { initialsOf } from '../../utils/names';
 
 /*
   Teachers asking to teach a subject in a class — the Principal's queue,
@@ -47,7 +49,7 @@ export const TeachingQueue = ({ requests, error, onChanged, showToast, selfId = 
 
   const locale = lang === 'en' ? 'en-GB' : 'id-ID';
   const day = (value) =>
-    value ? new Date(value).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
+    value ? new Date(value).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
 
   const toggle = (id) =>
     setTicked((prev) => {
@@ -111,7 +113,7 @@ export const TeachingQueue = ({ requests, error, onChanged, showToast, selfId = 
   }
 
   if (requests === null) {
-    return <div className="h-48 bg-white border border-slate-100 rounded-2xl animate-pulse" aria-label={t('common.loading')} />;
+    return <RowsLoading />;
   }
 
   const decidable = requests.filter((request) => !isOwnRequest(request, selfId));
@@ -119,7 +121,10 @@ export const TeachingQueue = ({ requests, error, onChanged, showToast, selfId = 
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-slate-500 font-medium leading-relaxed">{t('subjects.queue.hint')}</p>
+      <p className="flex items-start gap-2 text-[13px] font-medium text-slate-600 leading-relaxed">
+        <Info className="w-4 h-4 mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
+        {t('subjects.queue.hint')}
+      </p>
 
       {failures.length > 0 && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 space-y-1.5" role="status">
@@ -137,95 +142,95 @@ export const TeachingQueue = ({ requests, error, onChanged, showToast, selfId = 
       {requests.length === 0 ? (
         <EmptyCard icon={ClipboardCheck} title={t('subjects.queue.empty')} />
       ) : (
-        <>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={allTicked}
-                disabled={decidable.length === 0}
-                onChange={() => setTicked(allTicked ? new Set() : new Set(decidable.map((request) => request.id)))}
-                className="w-4 h-4 accent-brand cursor-pointer"
-              />
-              {t('subjects.queue.selectAll')}
-            </label>
-            {ticked.size > 0 && (
-              <button
-                type="button"
-                onClick={() => setApproving('BULK')}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-brand hover:bg-brand-deep text-white text-xs font-extrabold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-              >
-                <Check className="w-4 h-4 shrink-0" aria-hidden="true" />
-                {t('subjects.queue.bulk.open', { n: ticked.size })}
-              </button>
+        /* One card of rows as on Permintaan bergabung (owner, 2026-10-31, mockup item 10):
+           the "N dipilih" bar on its top edge, a row's box beside its initials,
+           Tolak and Setujui the app's buttons. */
+        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm min-w-0">
+          {ticked.size > 0 && (
+            <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 bg-brand-tint rounded-t-2xl border-b border-slate-100 px-[18px] py-2.5" aria-live="polite">
+              <span className="text-[13px] font-bold text-brand">{t('requests.bulk.ticked', { n: ticked.size })}</span>
+              <span className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setTicked(new Set())}
+                  className="text-xs font-bold text-slate-600 hover:text-slate-800 cursor-pointer focus:outline-none focus-visible:underline"
+                >
+                  {t('requests.bulk.clear')}
+                </button>
+                <Button size="sm" onClick={() => setApproving('BULK')}>
+                  {t('subjects.queue.bulk.open', { n: ticked.size })}
+                </Button>
+              </span>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-2 px-[18px] py-3 border-b border-slate-100">
+            <p className="text-[13px] font-extrabold text-slate-900 select-none">{t('subjects.queue.count', { n: requests.length })}</p>
+            {decidable.length > 1 && (
+              <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={allTicked}
+                  onChange={() => setTicked(allTicked ? new Set() : new Set(decidable.map((request) => request.id)))}
+                  className="w-4 h-4 rounded accent-brand cursor-pointer"
+                />
+                {t('requests.bulk.selectAll', { n: decidable.length })}
+              </label>
             )}
           </div>
 
-          <ul className="bg-white border border-slate-100 rounded-2xl shadow-sm divide-y divide-slate-100">
+          <ul>
             {requests.map((request) => {
               const own = isOwnRequest(request, selfId);
               return (
-              <li key={request.id} className="px-5 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                <div className="flex items-start gap-3 min-w-0">
+                <li key={request.id} className="flex items-start gap-3 px-[18px] py-3.5 border-b border-slate-100 last:border-0">
                   {own ? (
                     <span className="w-4 shrink-0" aria-hidden="true" />
                   ) : (
-                  <input
-                    type="checkbox"
-                    checked={ticked.has(request.id)}
-                    onChange={() => toggle(request.id)}
-                    aria-label={t('subjects.queue.tick', { teacher: request.teacher.fullName, subject: request.subject.name })}
-                    className="mt-1 w-4 h-4 accent-brand cursor-pointer shrink-0"
-                  />
+                    <input
+                      type="checkbox"
+                      checked={ticked.has(request.id)}
+                      onChange={() => toggle(request.id)}
+                      aria-label={t('subjects.queue.tick', { teacher: request.teacher.fullName, subject: request.subject.name })}
+                      className="mt-3 w-4 h-4 shrink-0 rounded accent-brand cursor-pointer"
+                    />
                   )}
-                  <div className="min-w-0 space-y-1">
-                    <p className="text-sm font-extrabold text-slate-800 break-words">{request.teacher.fullName}</p>
-                    <p className="text-xs font-bold text-slate-700 break-words">
-                      <SubjectLabel code={request.subject.code} name={request.subject.name} />
-                    </p>
-                    {/* The class in the grey line, not a chip (owner, 2026-10-28). */}
+                  <span className="w-10 h-10 rounded-full bg-brand-tint text-brand text-xs font-extrabold flex items-center justify-center shrink-0 select-none" aria-hidden="true">
+                    {initialsOf(request.teacher.fullName)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-extrabold text-slate-900 break-words">{request.teacher.fullName}</p>
+                    {/* The subject, class, semester and day in one grey line. */}
                     <FactLine
                       size="xs"
                       wrap
+                      className="mt-0.5 font-medium"
+                      code={request.subject.code}
+                      name={request.subject.name}
                       facts={[
                         request.class.name,
-                        t('subjects.queue.when', {
-                          n: request.semester.ordinal,
-                          year: request.semester.academicYear,
-                          date: day(request.requestedAt),
-                        }),
+                        t('subjects.queue.semester', { n: request.semester.ordinal, year: request.semester.academicYear }),
+                        t('subjects.queue.asked', { date: day(request.requestedAt) }),
                       ]}
                     />
-                    {own && (
-                      <p className="text-[11px] font-semibold text-amber-800">{t('subjects.queue.own')}</p>
+                    {own ? (
+                      <p className="mt-1 text-xs font-semibold text-amber-800">{t('subjects.queue.own')}</p>
+                    ) : (
+                      <div className="mt-2.5 flex flex-wrap gap-2">
+                        <Button size="sm" variant="dangerOutline" onClick={() => setRejecting(request)}>
+                          {t('subjects.queue.reject')}
+                        </Button>
+                        <Button size="sm" onClick={() => setApproving(request)}>
+                          {t('subjects.queue.approve')}
+                        </Button>
+                      </div>
                     )}
                   </div>
-                </div>
-                {!own && (
-                <div className="flex flex-wrap gap-2 shrink-0 pl-7 lg:pl-0">
-                  <button
-                    type="button"
-                    onClick={() => setRejecting(request)}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-extrabold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
-                  >
-                    <X className="w-4 h-4 shrink-0" aria-hidden="true" />
-                    {t('subjects.queue.reject')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setApproving(request)}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-brand hover:bg-brand-deep text-white text-xs font-extrabold transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-                  >
-                    <Check className="w-4 h-4 shrink-0" aria-hidden="true" />
-                    {t('subjects.queue.approve')}
-                  </button>
-                </div>
-                )}
-              </li>
+                </li>
               );
             })}
           </ul>
-        </>
+        </div>
       )}
 
       <ConfirmDialog

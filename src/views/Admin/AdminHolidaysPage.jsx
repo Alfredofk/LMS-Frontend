@@ -1,11 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, DownloadCloud, Pencil, Plus } from 'lucide-react';
+import { CalendarOff, ChevronLeft, ChevronRight, DownloadCloud, Plus } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import SelectField from '../../components/ui/SelectField';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import EmptyCard from '../../components/ui/EmptyCard';
+import { Bone, HomeError } from '../Dashboard/components/HomeCard';
+import { ADMIN_CARD, CARD_TITLE, SlashFacts } from './adminParts';
 import { holidaysService } from '../../services/holidaysService';
 import { useT } from '../../i18n/LanguageContext';
 import { apiErrorMessage } from '../../i18n/apiError';
@@ -34,6 +37,12 @@ import { daysBetween, daysIndex, nextHoliday, todayIso } from '../../utils/holid
   with drafts painted washed out behind a dashed border, and the list by status
   underneath, where everything is done. Picking a day in the calendar opens the
   tab that holds it and scrolls to its row.
+
+  The look since 2026-10-29 (owner, mockup libur-nasional.html, all nine items):
+  a slash line of the year's counts, no frame around the page, the list one card
+  of rows per month (the kind a coloured word, the rest grey slashes), select-all
+  as a bar over it, "Tarik" dangerOutline, the add form a card, and the
+  dashboards' tabs and states.
 */
 
 const STATUSES = ['DRAFT', 'CONFIRMED', 'WITHDRAWN'];
@@ -237,14 +246,227 @@ export const AdminHolidaysPage = () => {
     }
   };
 
+  const busyList = holidays === null && !error;
+  const draftCount = byStatus.DRAFT.length;
+
+  /* The list by month, as on the school calendar (the reviewed mockup). */
+  const byMonth = new Map();
+  for (const entry of [...shown].sort((a, b) => a.date.localeCompare(b.date))) {
+    const month = entry.date.slice(0, 7);
+    if (!byMonth.has(month)) byMonth.set(month, []);
+    byMonth.get(month).push(entry);
+  }
+  const months = [...byMonth.entries()];
+  const monthName = (yyyymm) =>
+    new Date(`${yyyymm}-01T00:00:00Z`).toLocaleDateString(lang === 'en' ? 'en-GB' : 'id-ID', { month: 'long', timeZone: 'UTC' });
+
+  const summary = [
+    String(year),
+    holidays !== null && !error && t('adminHoliday.summary.confirmed', { n: byStatus.CONFIRMED.length }),
+    holidays !== null && !error && (
+      <span className={draftCount > 0 ? 'font-bold text-amber-700' : ''}>{t('adminHoliday.summary.draft', { n: draftCount })}</span>
+    ),
+  ];
+
+  let list;
+  if (error) {
+    list = (
+      <div className={ADMIN_CARD}>
+        <HomeError message={error} retryLabel={t('att.error.retry')} onRetry={load} />
+      </div>
+    );
+  } else if (busyList) {
+    list = (
+      <div className={`${ADMIN_CARD} px-4 sm:px-5 py-2`} aria-busy="true" aria-label={t('common.loading')}>
+        {[0, 1, 2].map((n) => (
+          <div key={n} className="py-3.5 flex items-center gap-3">
+            <Bone className="w-14 h-11 shrink-0" />
+            <div className="flex-1">
+              <Bone className="h-3.5 w-2/5" />
+              <Bone className="h-3 w-3/5 mt-2" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  } else if (shown.length === 0) {
+    list = (
+      <EmptyCard
+        icon={CalendarOff}
+        title={t(`adminHoliday.empty.${tab}`, { year })}
+        body={tab === 'DRAFT' ? t('adminHoliday.empty.DRAFT.body') : undefined}
+        action={
+          tab === 'DRAFT' && (
+            <Button size="sm" variant="outline" isLoading={busy === 'fetch'} onClick={fetchDrafts}>
+              <DownloadCloud className="w-4 h-4 mr-1" aria-hidden="true" />
+              {t('adminHoliday.fetch')}
+            </Button>
+          )
+        }
+      />
+    );
+  } else {
+    list = (
+      <div className="space-y-4">
+        {/* Select all and confirm: a bar over the list, the boxes inside the rows. */}
+        {tab === 'DRAFT' && (
+          <div
+            className={`flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-100 px-4 py-2.5 ${
+              ticked.size > 0 ? 'bg-brand-tint' : 'bg-white shadow-sm'
+            }`}
+          >
+            <label
+              className={`inline-flex items-center gap-2.5 text-[13px] cursor-pointer ${
+                ticked.size > 0 ? 'font-extrabold text-brand' : 'font-bold text-slate-600'
+              }`}
+            >
+              <input
+                type="checkbox"
+                className="accent-brand"
+                checked={allTicked}
+                onChange={() => setTicked(allTicked ? new Set() : new Set(shown.map((entry) => entry.id)))}
+              />
+              {ticked.size > 0 ? t('adminHoliday.selected', { n: ticked.size }) : t('adminHoliday.selectAll', { n: shown.length })}
+            </label>
+            <Button size="sm" isDisabled={ticked.size === 0} isLoading={busy === 'confirm'} onClick={confirmTicked}>
+              {t('adminHoliday.confirm', { n: ticked.size })}
+            </Button>
+          </div>
+        )}
+
+        {months.map(([month, entries]) => (
+          <div key={month} className="space-y-2">
+            <div className="flex items-center gap-3">
+              <h3 className="text-sm font-extrabold text-slate-900 capitalize">{monthName(month)}</h3>
+              <span className="h-px flex-1 bg-slate-100" aria-hidden="true" />
+            </div>
+            <ul className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+              {entries.map((entry) => {
+                const past = entry.date < today;
+                return (
+                  <li
+                    key={entry.id}
+                    data-day={entry.date}
+                    /* A past or withdrawn day is told by its grey date and its name, not by
+                       opacity: a faded row put the grey line at 2.7:1. */
+                    className={`px-4 py-3 border-b border-slate-100 last:border-0 flex flex-wrap sm:flex-nowrap items-center gap-3 transition-colors ${
+                      selected === entry.date ? 'bg-brand-tint' : ''
+                    }`}
+                  >
+                    {tab === 'DRAFT' && editing?.id !== entry.id && (
+                      <input
+                        type="checkbox"
+                        className="accent-brand"
+                        checked={ticked.has(entry.id)}
+                        onChange={() => toggle(entry.id)}
+                        aria-label={t('adminHoliday.tick', { name: entry.name })}
+                      />
+                    )}
+                    {editing?.id === entry.id ? (
+                      <form onSubmit={handleEdit} noValidate className="flex-1 space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <Input
+                            id={`draftDate-${entry.id}`}
+                            name="date"
+                            label={t('adminHoliday.field.date')}
+                            type="date"
+                            value={editing.date}
+                            error={editErrors.date || undefined}
+                            onChange={(e) => setEditing((prev) => ({ ...prev, date: e.target.value }))}
+                          />
+                          <Input
+                            id={`draftName-${entry.id}`}
+                            name="name"
+                            label={t('adminHoliday.field.name')}
+                            type="text"
+                            autoComplete="off"
+                            value={editing.name}
+                            error={editErrors.name || undefined}
+                            onChange={(e) => setEditing((prev) => ({ ...prev, name: e.target.value }))}
+                          />
+                          <SelectField
+                            id={`draftKind-${entry.id}`}
+                            label={t('adminHoliday.field.kind')}
+                            value={editing.kind}
+                            onChange={(e) => setEditing((prev) => ({ ...prev, kind: e.target.value }))}
+                          >
+                            {KINDS.map((kind) => (
+                              <option key={kind} value={kind}>
+                                {t(`holiday.kind.${kind}`)}
+                              </option>
+                            ))}
+                          </SelectField>
+                        </div>
+                        {editErrors.global && <ErrorBox>{editErrors.global}</ErrorBox>}
+                        <div className="flex gap-2">
+                          <Button type="button" size="sm" variant="outline" onClick={() => setEditing(null)}>
+                            {t('common.cancel')}
+                          </Button>
+                          <Button type="submit" size="sm" isLoading={busy === entry.id}>
+                            {t('classes.edit.save')}
+                          </Button>
+                        </div>
+                      </form>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-3 min-w-0 flex-1 basis-56">
+                          <DateChip start={entry.date} lang={lang} past={past} />
+                          <div className="min-w-0">
+                            <p className={`text-sm font-bold break-words ${entry.status === 'WITHDRAWN' ? 'text-slate-500 line-through' : past ? 'text-slate-600' : 'text-slate-800'}`}>
+                              {entry.name}
+                            </p>
+                            {/* The kind as a coloured word, the rest grey with slashes: no chips. */}
+                            <SlashFacts
+                              className="mt-0.5 block text-[12.5px] font-medium text-slate-500"
+                              parts={[
+                                <span className={`font-bold ${(KIND_STYLE[entry.kind] ?? KIND_STYLE.NATIONAL).word}`}>{t(`holiday.kind.${entry.kind}`)}</span>,
+                                entry.status !== 'WITHDRAWN' && when(entry),
+                                entry.source === 'manual' || !entry.source
+                                  ? t('adminHoliday.source.manual')
+                                  : t('adminHoliday.source.fetched', { source: entry.source }),
+                              ]}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0 ml-auto">
+                          {entry.status === 'DRAFT' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditing({ id: entry.id, date: entry.date, name: entry.name, kind: entry.kind });
+                                setEditErrors({});
+                              }}
+                              className="text-[13px] font-bold text-brand hover:text-brand-deep cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                            >
+                              {t('adminHoliday.edit')}
+                            </button>
+                          )}
+                          {entry.status !== 'WITHDRAWN' && (
+                            <Button size="sm" variant="dangerOutline" onClick={() => setWithdrawing(entry)}>
+                              {t('adminHoliday.withdraw')}
+                            </Button>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="select-none">
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('adminHoliday.title')}</h1>
-        <p className="text-xs sm:text-sm text-slate-500 font-bold mt-1 max-w-2xl leading-relaxed">{t('adminHoliday.subtitle')}</p>
+        <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('adminHoliday.title')}</h1>
+        <SlashFacts className="block mt-2 text-sm font-medium text-slate-500" parts={summary} />
       </div>
 
-      <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
+      <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-1" role="group" aria-label={t('holiday.year')}>
             <button
@@ -252,7 +474,7 @@ export const AdminHolidaysPage = () => {
               onClick={() => setYear((y) => y - 1)}
               disabled={year <= 2020}
               aria-label={t('holiday.year.prev')}
-              className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-brand disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              className="p-1.5 rounded-lg text-slate-500 hover:bg-white hover:text-brand disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             >
               <ChevronLeft className="w-4 h-4" aria-hidden="true" />
             </button>
@@ -264,7 +486,7 @@ export const AdminHolidaysPage = () => {
               onClick={() => setYear((y) => y + 1)}
               disabled={year >= 2100}
               aria-label={t('holiday.year.next')}
-              className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-brand disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              className="p-1.5 rounded-lg text-slate-500 hover:bg-white hover:text-brand disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             >
               <ChevronRight className="w-4 h-4" aria-hidden="true" />
             </button>
@@ -286,260 +508,130 @@ export const AdminHolidaysPage = () => {
         <p className="p-3 rounded-xl border border-amber-200 bg-amber-50 text-xs font-semibold text-amber-800 leading-relaxed">
           {t('adminHoliday.sourceNote')}
         </p>
+      </div>
 
-        {holidays !== null && !error && (
-          <>
-            <SummaryCards stats={stats} next={next} lang={lang} />
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <Legend kinds={['NATIONAL', 'JOINT_LEAVE']} draft />
-              <ViewToggle view={view} onChange={setView} />
-            </div>
-            <div className={view === 'calendar' ? '' : 'hidden sm:block'}>
-              <YearCalendar year={year} index={index} today={today} selected={selected} onPick={pick} lang={lang} />
-            </div>
-          </>
-        )}
+      {holidays !== null && !error && (
+        <div className="space-y-4">
+          <SummaryCards stats={stats} next={next} lang={lang} />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Legend kinds={['NATIONAL', 'JOINT_LEAVE']} draft />
+            <ViewToggle view={view} onChange={setView} />
+          </div>
+          <div className={view === 'calendar' ? '' : 'hidden sm:block'}>
+            <YearCalendar year={year} index={index} today={today} selected={selected} onPick={pick} lang={lang} />
+          </div>
+        </div>
+      )}
 
-        {adding && (
-          <form onSubmit={handleAdd} noValidate className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 space-y-3 max-w-xl">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Input
-                id="nationalDate"
-                name="date"
-                label={t('adminHoliday.field.date')}
-                type="date"
-                value={form.date}
-                error={formErrors.date || undefined}
-                onChange={(e) => {
-                  setForm((prev) => ({ ...prev, date: e.target.value }));
-                  setFormErrors((prev) => ({ ...prev, date: null, global: null }));
-                }}
-              />
-              <SelectField
-                id="nationalKind"
-                label={t('adminHoliday.field.kind')}
-                value={form.kind}
-                onChange={(e) => setForm((prev) => ({ ...prev, kind: e.target.value }))}
-              >
-                {KINDS.map((kind) => (
-                  <option key={kind} value={kind}>
-                    {t(`holiday.kind.${kind}`)}
-                  </option>
-                ))}
-              </SelectField>
-            </div>
+      {adding && (
+        <form onSubmit={handleAdd} noValidate className={`${ADMIN_CARD} max-w-2xl space-y-3`}>
+          <div>
+            <h2 className={CARD_TITLE}>{t('adminHoliday.add')}</h2>
+            <p className="mt-1 text-[13px] text-slate-500">{t('adminHoliday.add.hint')}</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
-              id="nationalName"
-              name="name"
-              label={t('adminHoliday.field.name')}
-              type="text"
-              autoComplete="off"
-              value={form.name}
-              error={formErrors.name || undefined}
+              id="nationalDate"
+              name="date"
+              label={t('adminHoliday.field.date')}
+              type="date"
+              value={form.date}
+              error={formErrors.date || undefined}
               onChange={(e) => {
-                setForm((prev) => ({ ...prev, name: e.target.value }));
-                setFormErrors((prev) => ({ ...prev, name: null, global: null }));
+                setForm((prev) => ({ ...prev, date: e.target.value }));
+                setFormErrors((prev) => ({ ...prev, date: null, global: null }));
               }}
             />
-            <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{t('adminHoliday.add.hint')}</p>
-            {formErrors.global && (
-              <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
-                {formErrors.global}
-              </div>
-            )}
-            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setAdding(false);
-                  setForm(EMPTY);
-                  setFormErrors({});
-                }}
-              >
-                {t('common.cancel')}
-              </Button>
-              <Button type="submit" size="sm" isLoading={busy === 'add'}>
-                {t('adminHoliday.add.save')}
-              </Button>
-            </div>
-          </form>
-        )}
+            <SelectField
+              id="nationalKind"
+              label={t('adminHoliday.field.kind')}
+              value={form.kind}
+              onChange={(e) => setForm((prev) => ({ ...prev, kind: e.target.value }))}
+            >
+              {KINDS.map((kind) => (
+                <option key={kind} value={kind}>
+                  {t(`holiday.kind.${kind}`)}
+                </option>
+              ))}
+            </SelectField>
+          </div>
+          <Input
+            id="nationalName"
+            name="name"
+            label={t('adminHoliday.field.name')}
+            type="text"
+            autoComplete="off"
+            value={form.name}
+            error={formErrors.name || undefined}
+            onChange={(e) => {
+              setForm((prev) => ({ ...prev, name: e.target.value }));
+              setFormErrors((prev) => ({ ...prev, name: null, global: null }));
+            }}
+          />
+          {formErrors.global && <ErrorBox>{formErrors.global}</ErrorBox>}
+          <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setAdding(false);
+                setForm(EMPTY);
+                setFormErrors({});
+              }}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button type="submit" size="sm" isLoading={busy === 'add'}>
+              {t('adminHoliday.add.save')}
+            </Button>
+          </div>
+        </form>
+      )}
 
-        <div className="border-b border-slate-100 flex gap-6 select-none overflow-x-auto">
+      <div className="space-y-4">
+        {/* The dashboards' text tabs; the drafts' count amber while any wait. */}
+        <div
+          role="tablist"
+          className="flex gap-0.5 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shadow-[inset_0_-1px_0_var(--color-slate-100)] select-none"
+        >
           {STATUSES.map((status) => {
-            const active = tab === status;
+            const on = tab === status;
+            const count = byStatus[status].length;
+            const waiting = status === 'DRAFT' && count > 0;
             return (
               <button
                 key={status}
                 type="button"
-                aria-pressed={active}
+                role="tab"
+                aria-selected={on}
                 onClick={() => {
                   setTab(status);
                   setTicked(new Set());
                   setEditing(null);
                 }}
-                className={`pb-3 text-sm font-extrabold transition-all border-b-2 cursor-pointer focus:outline-none focus-visible:text-brand flex items-center gap-2 shrink-0 whitespace-nowrap ${
-                  active ? 'border-brand text-brand' : 'border-transparent text-slate-500 hover:text-slate-600'
+                className={`px-2.5 py-2 text-sm font-bold border-b-2 whitespace-nowrap transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-t-lg ${
+                  on ? 'text-brand border-brand' : 'text-slate-500 border-transparent hover:text-slate-700'
                 }`}
               >
                 {t(`adminHoliday.status.${status}`)}
-                <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold tabular-nums ${active ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-600'}`}>
-                  {byStatus[status].length}
+                <span
+                  className={`ml-1.5 px-1.5 rounded-full text-[11px] tabular-nums ${
+                    waiting ? 'bg-amber-50 text-amber-700' : on ? 'bg-brand-tint text-brand' : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {count}
                 </span>
               </button>
             );
           })}
         </div>
 
-        <div ref={listRef} className={`space-y-4 ${view === 'list' ? '' : 'hidden sm:block'}`}>
-        {tab === 'DRAFT' && shown.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer">
-              <input
-                type="checkbox"
-                className="accent-brand"
-                checked={allTicked}
-                onChange={() => setTicked(allTicked ? new Set() : new Set(shown.map((entry) => entry.id)))}
-              />
-              {t('adminHoliday.selectAll', { n: shown.length })}
-            </label>
-            <Button size="sm" isDisabled={ticked.size === 0} isLoading={busy === 'confirm'} onClick={confirmTicked}>
-              {t('adminHoliday.confirm', { n: ticked.size })}
-            </Button>
-          </div>
-        )}
-
-        {error ? (
-          <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
-            {error}
-          </div>
-        ) : holidays === null ? (
-          <div className="h-32 bg-slate-50 rounded-2xl animate-pulse" aria-label={t('common.loading')} />
-        ) : shown.length === 0 ? (
-          <p className="py-6 text-center text-xs font-semibold text-slate-500">{t(`adminHoliday.empty.${tab}`, { year })}</p>
-        ) : (
-          <ul className="space-y-2">
-            {shown.map((entry) => (
-              <li
-                key={entry.id}
-                data-day={entry.date}
-                className={`rounded-2xl border bg-white p-3 flex items-center gap-3 transition-shadow ${
-                  selected === entry.date ? 'border-brand ring-2 ring-brand/20 shadow-md' : 'border-slate-100 shadow-sm'
-                } ${entry.status === 'WITHDRAWN' || entry.date < today ? 'opacity-70' : ''}`}
-              >
-                {tab === 'DRAFT' && editing?.id !== entry.id && (
-                  <input
-                    type="checkbox"
-                    className="accent-brand self-start sm:self-auto"
-                    checked={ticked.has(entry.id)}
-                    onChange={() => toggle(entry.id)}
-                    aria-label={t('adminHoliday.tick', { name: entry.name })}
-                  />
-                )}
-                {editing?.id === entry.id ? (
-                  <form onSubmit={handleEdit} noValidate className="flex-1 space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <Input
-                        id={`draftDate-${entry.id}`}
-                        name="date"
-                        label={t('adminHoliday.field.date')}
-                        type="date"
-                        value={editing.date}
-                        error={editErrors.date || undefined}
-                        onChange={(e) => setEditing((prev) => ({ ...prev, date: e.target.value }))}
-                      />
-                      <Input
-                        id={`draftName-${entry.id}`}
-                        name="name"
-                        label={t('adminHoliday.field.name')}
-                        type="text"
-                        autoComplete="off"
-                        value={editing.name}
-                        error={editErrors.name || undefined}
-                        onChange={(e) => setEditing((prev) => ({ ...prev, name: e.target.value }))}
-                      />
-                      <SelectField
-                        id={`draftKind-${entry.id}`}
-                        label={t('adminHoliday.field.kind')}
-                        value={editing.kind}
-                        onChange={(e) => setEditing((prev) => ({ ...prev, kind: e.target.value }))}
-                      >
-                        {KINDS.map((kind) => (
-                          <option key={kind} value={kind}>
-                            {t(`holiday.kind.${kind}`)}
-                          </option>
-                        ))}
-                      </SelectField>
-                    </div>
-                    {editErrors.global && (
-                      <div className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold" role="alert">
-                        {editErrors.global}
-                      </div>
-                    )}
-                    <div className="flex gap-2">
-                      <Button type="button" size="sm" variant="outline" onClick={() => setEditing(null)}>
-                        {t('common.cancel')}
-                      </Button>
-                      <Button type="submit" size="sm" isLoading={busy === entry.id}>
-                        {t('classes.edit.save')}
-                      </Button>
-                    </div>
-                  </form>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <DateChip start={entry.date} lang={lang} past={entry.date < today} />
-                      <div className="min-w-0">
-                        <p className={`text-sm font-bold break-words ${entry.status === 'WITHDRAWN' ? 'text-slate-500 line-through' : 'text-slate-800'}`}>
-                          {entry.name}
-                        </p>
-                        <p className="text-[11px] font-semibold text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
-                          <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${(KIND_STYLE[entry.kind] ?? KIND_STYLE.NATIONAL).soft}`}>
-                            {t(`holiday.kind.${entry.kind}`)}
-                          </span>
-                          {entry.status !== 'WITHDRAWN' && (
-                            <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600">{when(entry)}</span>
-                          )}
-                          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600">
-                            {entry.source === 'manual' || !entry.source ? t('adminHoliday.source.manual') : t('adminHoliday.source.fetched', { source: entry.source })}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1 shrink-0">
-                      {entry.status === 'DRAFT' && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditing({ id: entry.id, date: entry.date, name: entry.name, kind: entry.kind });
-                            setEditErrors({});
-                          }}
-                          className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-500 hover:text-brand hover:bg-brand-tint/60 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                        >
-                          <Pencil className="w-3 h-3" aria-hidden="true" />
-                          {t('adminHoliday.edit')}
-                        </button>
-                      )}
-                      {entry.status !== 'WITHDRAWN' && (
-                        <button
-                          type="button"
-                          onClick={() => setWithdrawing(entry)}
-                          className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
-                        >
-                          {t('adminHoliday.withdraw')}
-                        </button>
-                      )}
-                    </div>
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
+        {/* On a phone the list hides behind "Kalender"; a failed or first read is shown either way. */}
+        <div ref={listRef} className={view === 'list' || error || busyList ? '' : 'hidden sm:block'}>
+          {list}
         </div>
-      </section>
+      </div>
 
       <ConfirmDialog
         open={Boolean(withdrawing)}
@@ -556,5 +648,12 @@ export const AdminHolidaysPage = () => {
     </div>
   );
 };
+
+/* A refusal under a form: the rose box, not the old red accent bar. */
+const ErrorBox = ({ children }) => (
+  <div className="p-3 rounded-xl bg-rose-50 text-[13px] font-semibold text-rose-700" role="alert">
+    {children}
+  </div>
+);
 
 export default AdminHolidaysPage;

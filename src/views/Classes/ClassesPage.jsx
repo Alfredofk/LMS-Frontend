@@ -1,13 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useOutletContext } from 'react-router-dom';
-import { Check, ChevronRight, Pencil, Plus, School, Search, ShieldOff, Lock, Trash2, Users } from 'lucide-react';
+import { CalendarDays, Check, ChevronRight, Pencil, Plus, School, Search, ShieldOff, Lock, Trash2 } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
 import FactLine from '../../components/ui/FactLine';
-import { HomeEmpty, HomeError } from '../Dashboard/components/HomeCard';
-import { defaultSemesterOf } from '../Subjects/subjects';
+import { Bone, HomeEmpty, HomeError } from '../Dashboard/components/HomeCard';
+import { Segments } from '../Admin/adminParts';
+import { RowsLoading, SearchBox } from '../GoverningBody/bodyParts';
+import { deadlinePassed, defaultSemesterOf } from '../Subjects/subjects';
+import { localOf } from '../Attendance/attendance';
+import { semesterTimeOf, deadlineSoonOf, spanWords } from './semesterTime';
 import { AcademicYearForm, SemesterForm } from './components/PeriodForms';
 import ClassForm from './components/ClassForm';
 import ClassDetail from './components/ClassDetail';
@@ -32,6 +36,7 @@ import {
   yearSummary,
   gradesPresent,
   filterClasses,
+  classGroupsOf,
 } from './filters';
 
 /*
@@ -97,6 +102,52 @@ const SEMESTER_BADGE = {
   CLOSED: 'bg-slate-100 text-slate-600',
 };
 
+/* The year's and a semester's state, in capitals at 11px like StateWord (owner, 2026-10-31: was 9px). */
+const PILL = 'shrink-0 px-2 py-0.5 rounded-full text-[11px] font-bold uppercase leading-4 whitespace-nowrap';
+
+/*
+  Where a semester stands (owner, 2026-10-31, mockup item 2): a running one gets a
+  thin bar with "Minggu ke-16 dari 23 / 7 minggu lagi", one not begun "Mulai 4 Jan
+  2027 / 9 minggu lagi", one over nothing. Then its teaching sign-up deadline as a
+  line with a calendar, amber from a week before it closes.
+*/
+const SemesterTime = ({ semester, today, open, t, lang }) => {
+  const time = open ? semesterTimeOf(semester, today) : null;
+  const deadline = semester.classSubjectRegistrationDeadline;
+  const passed = Boolean(deadline) && deadlinePassed(semester);
+  const soon = deadline && !passed && open ? deadlineSoonOf(semester, today) : null;
+  const week = time?.phase === 'running' ? t('classes.semester.week', { week: time.week, weeks: time.weeks }) : '';
+  return (
+    <>
+      {time?.phase === 'running' && (
+        <div>
+          <div className="h-2 mt-1 rounded-full bg-slate-100 overflow-hidden" role="img" aria-label={week}>
+            <div className="h-full rounded-full bg-brand" style={{ width: `${Math.round(time.fraction * 100)}%` }} />
+          </div>
+          <FactLine
+            size="xs"
+            className="mt-1.5"
+            facts={[week, time.left.unit === 'day' && time.left.n === 0 ? t('classes.semester.lastDay') : spanWords(time.left, t)]}
+          />
+        </div>
+      )}
+      {time?.phase === 'upcoming' && (
+        <FactLine size="xs" facts={[t('classes.semester.startsOn', { date: formatDay(semester.startDate, lang) }), spanWords(time.startsIn, t)]} />
+      )}
+      {deadline && (
+        <p className={`flex items-start gap-1.5 text-xs font-semibold ${soon !== null ? 'text-amber-700' : 'text-slate-500'}`}>
+          <CalendarDays className="w-3.5 h-3.5 mt-px shrink-0" aria-hidden="true" />
+          {passed
+            ? t('classes.semester.deadlinePassedOn', { date: formatDay(deadline, lang) })
+            : soon !== null
+              ? t('classes.semester.deadlineSoon', { date: formatDay(deadline, lang), left: spanWords({ unit: 'day', n: soon }, t) })
+              : t('classes.semester.deadlineOn', { date: formatDay(deadline, lang) })}
+        </p>
+      )}
+    </>
+  );
+};
+
 export const ClassesPage = () => {
   const { showToast } = useOutletContext();
   const { membership, refreshMe, activeRole } = useAuth();
@@ -111,6 +162,8 @@ export const ClassesPage = () => {
 
   const school = membership?.school ?? null;
   const grades = gradesFor(school?.schoolType, school?.durationYears);
+  /* The school's date today, for where a semester stands (the device's until /users/me says the zone). */
+  const today = localOf(new Date(), school?.timeZone ?? null)?.date ?? '';
 
   const [years, setYears] = useState(null);
   const [yearId, setYearId] = useState(null);
@@ -407,10 +460,7 @@ export const ClassesPage = () => {
       {error ? (
         <HomeError message={error} retryLabel={t('att.error.retry')} onRetry={retry} />
       ) : years === null ? (
-        <div className="space-y-4" aria-label={t('common.loading')}>
-          <div className="h-36 bg-white border border-slate-100 rounded-2xl animate-pulse" />
-          <div className="h-48 bg-white border border-slate-100 rounded-2xl animate-pulse" />
-        </div>
+        <RowsLoading rows={3} />
       ) : years.length === 0 ? (
         /* An empty school starts here: nothing else on this page can exist
            before a year does. */
@@ -448,7 +498,7 @@ export const ClassesPage = () => {
             {/* Tabs by status — the backend sends every year and filters none, so
                 this is done here — then one card per year on the tab. */}
             {/* Text tabs with a counter, as on the dashboards (the skill's recipe). */}
-            <div className="flex gap-0.5 select-none overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shadow-[inset_0_-1px_0_var(--color-slate-100)]">
+            <div role="tablist" aria-label={t('classes.year.heading')} className="flex gap-0.5 select-none overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shadow-[inset_0_-1px_0_var(--color-slate-100)]">
               {YEAR_TABS.map((tab) => {
                 const isActive = yearTab === tab;
                 const count = yearsInTab(years, tab).length;
@@ -457,7 +507,8 @@ export const ClassesPage = () => {
                     key={tab}
                     type="button"
                     onClick={() => selectTab(tab)}
-                    aria-pressed={isActive}
+                    role="tab"
+                    aria-selected={isActive}
                     className={`px-2.5 py-2 text-sm font-bold border-b-2 whitespace-nowrap transition-colors cursor-pointer focus:outline-none focus-visible:text-brand ${
                       isActive ? 'text-brand border-brand' : 'text-slate-500 border-transparent hover:text-slate-700'
                     }`}
@@ -508,7 +559,7 @@ export const ClassesPage = () => {
                           <span className={`text-base font-extrabold tabular-nums ${active ? 'text-brand' : 'text-slate-800'}`}>
                             {entry.label}
                           </span>
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${YEAR_BADGE[entry.status] ?? YEAR_BADGE.CLOSED}`}>
+                          <span className={`${PILL} ${YEAR_BADGE[entry.status] ?? YEAR_BADGE.CLOSED}`}>
                             {t(`classes.year.status.${entry.status}`)}
                           </span>
                         </span>
@@ -518,15 +569,23 @@ export const ClassesPage = () => {
                             end: formatDay(entry.endDate, lang),
                           })}
                         </span>
-                        {classes === null ? (
-                          <span className="block text-[11px] font-bold text-slate-500">{t('common.loading')}</span>
-                        ) : (
-                          <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-medium text-slate-500 tabular-nums">
-                            <span>{t('classes.year.stat.semesters', { n: summary.semesters })}</span>
-                            <span>{t('classes.year.stat.classes', { n: summary.classes })}</span>
-                            <span>{t('classes.year.stat.students', { n: summary.students })}</span>
-                          </span>
-                        )}
+                        {/* The counts as eyebrow cells (owner, 2026-10-31, mockup item 1). */}
+                        <span className="flex flex-wrap gap-x-6 gap-y-1 pt-1">
+                          {[
+                            ['semesters', summary.semesters],
+                            ['classes', summary.classes],
+                            ['students', summary.students],
+                          ].map(([key, n]) => (
+                            <span key={key}>
+                              <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">{t(`classes.year.cell.${key}`)}</span>
+                              {classes === null ? (
+                                <Bone className="h-5 w-6 mt-1" />
+                              ) : (
+                                <span className="block text-lg font-extrabold text-slate-900 leading-tight tabular-nums">{n}</span>
+                              )}
+                            </span>
+                          ))}
+                        </span>
                         {/* Said in words as well as drawn: the colour alone is not
                             enough to tell which year the rest of the page is about. */}
                         {active && (
@@ -585,7 +644,7 @@ export const ClassesPage = () => {
                                 selectYear(entry.id);
                                 setClosing(true);
                               }}
-                              className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-rose-600 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 hover:underline cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
                             >
                               <Lock className="w-3 h-3" aria-hidden="true" />
                               {t('classes.year.close')}
@@ -616,6 +675,21 @@ export const ClassesPage = () => {
                   {SEMESTER_ORDINALS.map((ordinal) => {
                     const semester = year.semesters?.find((entry) => entry.ordinal === ordinal);
                     const formKey = `semester-${ordinal}`;
+                    /* A semester not made yet is a dashed box that makes it (owner, 2026-10-31). */
+                    if (!semester && yearOpen && openForm !== formKey) {
+                      return (
+                        <li key={ordinal}>
+                          <button
+                            type="button"
+                            onClick={() => setOpenForm(formKey)}
+                            className="w-full h-full min-h-[84px] rounded-2xl border border-dashed border-slate-300 flex items-center justify-center gap-1.5 text-sm font-bold text-brand hover:bg-brand-tint/40 hover:border-brand/40 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                          >
+                            <Plus className="w-4 h-4" aria-hidden="true" />
+                            {t('classes.semester.add', { n: ordinal })}
+                          </button>
+                        </li>
+                      );
+                    }
                     return (
                       <li key={ordinal} className="rounded-2xl border border-slate-200 p-4 space-y-2">
                         <div className="flex items-center justify-between gap-2">
@@ -628,7 +702,7 @@ export const ClassesPage = () => {
                                closed year's semesters read as closed here, with the year. */
                             const status = yearOpen ? semester.status : 'CLOSED';
                             return (
-                              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${SEMESTER_BADGE[status] ?? SEMESTER_BADGE.CLOSED}`}>
+                              <span className={`${PILL} ${SEMESTER_BADGE[status] ?? SEMESTER_BADGE.CLOSED}`}>
                                 {t(`classes.semester.status.${status}`)}
                               </span>
                             );
@@ -649,13 +723,7 @@ export const ClassesPage = () => {
                             <p className="text-xs font-semibold text-slate-500">
                               {formatDay(semester.startDate, lang)} - {formatDay(semester.endDate, lang)}
                             </p>
-                            {semester.classSubjectRegistrationDeadline && (
-                              <p className="text-[11px] font-semibold text-slate-500">
-                                {t('classes.semester.deadlineOn', {
-                                  date: formatDay(semester.classSubjectRegistrationDeadline, lang),
-                                })}
-                              </p>
-                            )}
+                            <SemesterTime semester={semester} today={today} open={yearOpen} t={t} lang={lang} />
                             {/* An OPEN semester of an ACTIVE year only — the server's own rule. */}
                             {yearOpen && semester.status === 'OPEN' && (
                               <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1">
@@ -685,15 +753,6 @@ export const ClassesPage = () => {
                             onCreated={(updated) => handleSemesterCreated(updated, ordinal)}
                             onCancel={() => setOpenForm(null)}
                           />
-                        ) : yearOpen ? (
-                          <button
-                            type="button"
-                            onClick={() => setOpenForm(formKey)}
-                            className="inline-flex items-center gap-1 text-xs font-bold text-brand hover:text-brand-deep cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
-                          >
-                            <Plus className="w-3.5 h-3.5" aria-hidden="true" />
-                            {t('classes.semester.add', { n: ordinal })}
-                          </button>
                         ) : (
                           <p className="text-xs font-semibold text-slate-500">{t('classes.semester.none')}</p>
                         )}
@@ -734,37 +793,17 @@ export const ClassesPage = () => {
               {/* Filters, once there is something to filter. The grade chips
                   appear only when the year has more than one grade. */}
               {!classesError && yearClasses !== null && yearClasses.length > 0 && (
-                <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-                  <div className="relative lg:w-80 shrink-0">
-                    <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" aria-hidden="true" />
-                    <input
-                      type="search"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder={t('classes.class.search')}
-                      aria-label={t('classes.class.search')}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
-                    />
-                  </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <SearchBox id="class-search" label={t('classes.class.search')} placeholder={t('classes.class.search')} value={query} onChange={setQuery} />
                   {gradeChips.length > 1 && (
-                    <div className="flex flex-wrap gap-2" role="group" aria-label={t('classes.class.grade.label')}>
-                      {[null, ...gradeChips].map((level) => {
-                        const on = grade === level;
-                        return (
-                          <button
-                            key={level ?? 'all'}
-                            type="button"
-                            aria-pressed={on}
-                            onClick={() => setGrade(level)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-extrabold border transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
-                              on ? 'border-brand bg-brand-tint text-brand' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                            }`}
-                          >
-                            {level === null ? t('classes.class.grade.all') : t('classes.grade', { n: level })}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    /* Segments, as on Admin and Subjects (owner, 2026-10-31, mockup item 3). */
+                    <Segments
+                      label={t('classes.class.grade.label')}
+                      options={['all', ...gradeChips]}
+                      value={grade ?? 'all'}
+                      onChange={(option) => setGrade(option === 'all' ? null : option)}
+                      labelOf={(option) => (option === 'all' ? t('classes.class.grade.everyShort') : t('classes.grade', { n: option }))}
+                    />
                   )}
                 </div>
               )}
@@ -805,36 +844,49 @@ export const ClassesPage = () => {
                   body={t(yearOpen ? 'classes.class.emptyHint' : 'classes.class.emptyClosed')}
                 />
               ) : (
-                /* A class as one grey line under its name (owner, 2026-10-28): the
-                   grade and student chips went. */
-                <ul className="-mx-2">
-                  {shownClasses.map((entry) => (
-                    <li key={entry.id} className="border-b border-slate-100 last:border-0">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedClassId(entry.id)}
-                        className="group w-full px-2 py-3 flex items-center justify-between gap-3 text-left rounded-xl hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                      >
-                        <span className="min-w-0">
-                          <span className="block text-sm font-bold text-slate-900 break-words">{entry.name}</span>
+                /* Grouped by grade once two are present, the student count at the right
+                   (owner, 2026-10-31, mockup item 4). */
+                <div className="-mx-2">
+                  {classGroupsOf(shownClasses).map((group, index, groups) => (
+                    <div key={group.grade}>
+                      {groups.length > 1 && (
+                        <div className={`flex flex-wrap items-baseline justify-between gap-x-3 px-2 pb-1.5 border-b border-slate-100 ${index > 0 ? 'mt-4' : ''}`}>
+                          <h3 className="text-[13px] font-extrabold text-slate-700">{t('classes.grade', { n: group.grade })}</h3>
                           <FactLine
                             size="xs"
-                            wrap
-                            className="mt-0.5"
-                            facts={[
-                              t('classes.grade', { n: entry.gradeLevel }),
-                              t('classes.class.studentCount', { n: entry.studentCount ?? 0 }),
-                              t('classes.class.homeroomLine', {
-                                name: entry.homeroomTeacher?.fullName ?? t('classes.detail.noHomeroom'),
-                              }),
-                            ]}
+                            facts={[t('classes.year.stat.classes', { n: group.classes.length }), t('classes.class.count', { n: group.students })]}
                           />
-                        </span>
-                        <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
-                      </button>
-                    </li>
+                        </div>
+                      )}
+                      <ul>
+                        {group.classes.map((entry) => (
+                          <li key={entry.id} className="border-b border-slate-100 last:border-0">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedClassId(entry.id)}
+                              className="group w-full px-2 py-3 flex items-center gap-3 text-left rounded-xl hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                            >
+                              <span className="min-w-0 flex-1">
+                                <span className="block text-sm font-bold text-slate-900 break-words">{entry.name}</span>
+                                {entry.homeroomTeacher ? (
+                                  <span className="block mt-0.5 text-xs font-semibold text-slate-500 break-words">
+                                    {t('classes.class.homeroomLine', { name: entry.homeroomTeacher.fullName })}
+                                  </span>
+                                ) : (
+                                  <span className="block mt-0.5 text-xs font-bold text-amber-700">{t('classes.class.noHomeroomLine')}</span>
+                                )}
+                              </span>
+                              <span className="shrink-0 text-[13px] font-extrabold text-slate-700 tabular-nums">
+                                {t('classes.class.count', { n: entry.studentCount ?? 0 })}
+                              </span>
+                              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   ))}
-                </ul>
+                </div>
               )}
             </section>
           )}

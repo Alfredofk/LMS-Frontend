@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Lock } from 'lucide-react';
+import { AlertCircle, Loader2, Lock } from 'lucide-react';
 
 import Input from '../../components/ui/Input';
 import ModalHeading from '../../components/ui/ModalHeading';
@@ -26,11 +26,12 @@ import { reportDateError } from './finalising';
   @param title         already translated
   @param range         { from, to }, 'YYYY-MM-DD'
   @param initialDate   'YYYY-MM-DD'
+  @param summary       { students, classes, finalised } from the board, said above the date (2026-10-29), or null
   @param onClose       () => void
   @param onSubmit      (reportDate) => Promise
   @param describeError (err) => string
 */
-export const CloseSemesterDialog = ({ title, range, initialDate, onClose, onSubmit, describeError }) => {
+export const CloseSemesterDialog = ({ title, range, initialDate, summary = null, onClose, onSubmit, describeError }) => {
   const { t, lang } = useT();
   const baseId = useId();
   const [date, setDate] = useState(initialDate ?? '');
@@ -91,7 +92,24 @@ export const CloseSemesterDialog = ({ title, range, initialDate, onClose, onSubm
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 sm:p-7 space-y-4 text-left max-h-[90dvh] overflow-y-auto"
       >
-        <ModalHeading tone="brand" icon={Lock} titleId={ids.title} title={title} bodyId={ids.body} body={t('grading.fin.close.body')} />
+        <ModalHeading tone="brand" icon={Lock} titleId={ids.title} title={title} bodyId={ids.body} body={
+            <>
+              <p>{t('grading.fin.close.body')}</p>
+              {summary && (
+                <dl className="mt-3 flex flex-wrap gap-x-7 gap-y-2">
+                  <div>
+                    <dt className="text-[10px] font-bold tracking-wider uppercase text-slate-500">{t('grading.fin.close.for')}</dt>
+                    <dd className="text-sm font-extrabold text-slate-900">{t('grading.fin.close.forValue', { n: summary.students, classes: summary.classes })}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[10px] font-bold tracking-wider uppercase text-slate-500">{t('grading.fin.close.subjects')}</dt>
+                    <dd className="text-sm font-extrabold text-slate-900">{t('grading.fin.close.subjectsValue', { n: summary.finalised })}</dd>
+                  </div>
+                </dl>
+              )}
+            </>
+          }
+        />
 
         <div className="space-y-1.5">
           <Input
@@ -118,9 +136,15 @@ export const CloseSemesterDialog = ({ title, range, initialDate, onClose, onSubm
           )}
         </div>
 
-        {busy && <p className="text-xs font-semibold text-slate-500 leading-relaxed">{t('grading.fin.close.busyHint')}</p>}
+        {busy && (
+          <p className="flex items-start gap-2.5 rounded-xl border border-slate-100 bg-slate-50 px-3.5 py-3 text-[12.5px] font-semibold text-slate-700 leading-relaxed" role="status">
+            <Loader2 className="w-4 h-4 shrink-0 mt-0.5 animate-spin" aria-hidden="true" />
+            {t('grading.fin.close.busyHint')}
+          </p>
+        )}
         {failed && (
-          <p className="text-xs font-semibold text-rose-700 leading-relaxed" role="alert">
+          <p className="flex items-start gap-2.5 rounded-xl border border-rose-100 bg-rose-50 px-3.5 py-3 text-[12.5px] font-semibold text-rose-700 leading-relaxed" role="alert">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
             {failed}
           </p>
         )}

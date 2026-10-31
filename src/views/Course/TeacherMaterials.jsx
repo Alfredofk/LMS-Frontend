@@ -11,6 +11,7 @@ import { contentErrorMessage } from '../../i18n/apiError';
 import { contentService } from '../../services/contentService';
 import { CONTENT_TYPES, FILE_TYPES, contentErrors, moveContent } from './teaching';
 import TextEditor from './TextEditor';
+import { BusyLabel } from '../../components/ui/ModalHeading';
 
 /*
   A meeting's materials, for the teacher who answers for it (owner, 2026-10-04) -
@@ -189,12 +190,12 @@ const ContentForm = ({ sessionId, editing, onSaved, onCancel }) => {
           disabled={Boolean(busy)}
           className={`${tool} justify-center border border-slate-200 text-slate-700 hover:bg-slate-50`}
         >
-          {busy === 'save' ? t('common.loading') : t(editing ? 'teach.content.saveChanges' : 'teach.content.saveDraft')}
+          <BusyLabel busy={busy === 'save'}>{t(editing ? 'teach.content.saveChanges' : 'teach.content.saveDraft')}</BusyLabel>
         </button>
         {(!editing || !editing.published) && (
           <button type="button" onClick={() => save(true)} disabled={Boolean(busy)} className={`${tool} justify-center bg-brand text-white hover:bg-brand-deep`}>
-            <Send className="w-3.5 h-3.5" aria-hidden="true" />
-            {busy === 'publish' ? t('common.loading') : t('teach.content.saveAndPublish')}
+            {busy !== 'publish' && <Send className="w-3.5 h-3.5" aria-hidden="true" />}
+            <BusyLabel busy={busy === 'publish'}>{t('teach.content.saveAndPublish')}</BusyLabel>
           </button>
         )}
       </div>

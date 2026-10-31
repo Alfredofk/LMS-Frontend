@@ -1,19 +1,23 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
+import { ChevronRight, School } from 'lucide-react';
 
 import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
+import EmptyCard from '../../components/ui/EmptyCard';
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
 import { bodySchoolsErrorMessage, governingBodySeatErrorMessage, isHadPrincipal } from '../../i18n/apiError';
 import { governingBodyService } from '../../services/governingBodyService';
 import { GOVERNING_BODY_SCHOOLS } from '../../constants/roles';
 import { schoolAddressOf } from '../../constants/subdomain';
+import { ADMIN_CARD, SlashFacts } from '../Admin/adminParts';
+import { HomeEmpty, HomeError } from '../Dashboard/components/HomeCard';
 import { matchesSchool } from './bodySchools';
 import { waitingSummary } from './principalApplications';
 import GoverningBodySchoolFixForm from './GoverningBodySchoolFixForm';
 import CopyCode from './CopyCode';
 import AffiliationRequestsCard from './AffiliationRequestsCard';
+import { RowsLoading, SearchBox, SeatGone } from './bodyParts';
 import useMoveOn from './useMoveOn';
 
 /*
@@ -22,26 +26,23 @@ import useMoveOn from './useMoveOn';
   One read, `GET /governing-body/schools`, by name: each School's NPSN, type, city,
   its School Code to copy, and whether a Principal sits there now.
 
-  - A table from md, a card per School below it; a search box over the name, NPSN and
-    city, in the browser (the read has no paging).
+  - One card of rows (owner, 2026-10-29, mockup yayasan-sekolah-admin.html, as the
+    platform admin's list): the name opening the School, a grey slash line ("Nonaktif"
+    first in rose, type, city, NPSN, the address), a second one (the Principal, the
+    applications waiting in amber, students and teachers), the code with Salin and
+    "Ubah" on the right. A search box over the name, NPSN and city, in the browser
+    (the read has no paging); the waiting total is in the slash line under the title.
   - "Buat sekolah" opens /governing-body/schools/new.
   - "Ubah" opens `GoverningBodySchoolFixForm` under the row, for a School that never
     had a Principal (`hadPrincipal`, backend f669e3e; the rule is ever: 9697362). One
     that gained one meanwhile is still learnt from the 409, said, and the button goes
     for this visit.
   - A School's name opens its own page, /governing-body/schools/:id, where the Principal
-    applications are decided (backend e206bd9, ticket 06; owner 2026-10-26, B1-B2). The
-    Principal cell names the Principal (f01cd28, D3) and says how many applications wait
-    there; a line above the list sums them; under the name, its Students and Teachers.
+    applications are decided (backend e206bd9, ticket 06; owner 2026-10-26, B1-B2).
   - Above the list, independent Schools asking to join, while one waits
     (AffiliationRequestsCard, ticket 08, E7).
   - A 403 means the seat ended or the body was switched off: the other tabs' "gone".
 */
-
-/* A cell's own label, on a phone only: the table's header row says it from md. */
-const CellLabel = ({ children }) => <span className="md:hidden text-[11px] font-semibold text-slate-500 block">{children}</span>;
-
-const COLUMNS = 'md:grid md:grid-cols-[minmax(0,1fr)_6.5rem_10.5rem_7.5rem_4.5rem] md:gap-4 md:items-center';
 
 export const GoverningBodySchoolsPage = () => {
   const { governingBody: cached } = useAuth();
@@ -123,150 +124,115 @@ export const GoverningBodySchoolsPage = () => {
     </Link>
   );
 
+  const summary = [
+    name,
+    state === 'ready' && t('gbs.count', { n: schools.length }),
+    state === 'ready' && waiting.applications > 0 && (
+      <span className="font-bold text-amber-700">{t('gbs.waiting.subtitle', { n: waiting.applications })}</span>
+    ),
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('gbs.title')}</h1>
-          {name && (
-            <p className="text-sm font-semibold text-slate-500 mt-1 break-words">
-              {name}
-              <span className="text-slate-300"> / </span>
-              {t('place.governingBodyAdmin')}
-            </p>
-          )}
+          <h1 className="text-3xl max-sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">{t('gbs.title')}</h1>
+          <SlashFacts className="block mt-2 text-sm font-medium text-slate-500" parts={summary} />
         </div>
         {state === 'ready' && schools.length > 0 && createLink}
       </div>
 
-      {state === 'loading' && <div className="h-48 rounded-2xl bg-white border border-slate-100 animate-pulse" aria-busy="true" aria-label={t('common.loading')} />}
+      {state === 'loading' && <RowsLoading />}
 
-      {state === 'gone' && (
-        <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-3" role="alert">
-          <p className="text-sm font-bold text-slate-900">{t('gb.gone.title')}</p>
-          <p className="text-xs font-medium text-slate-500 leading-relaxed">{t('gb.gone.body')}</p>
-          <Button variant="outline" size="sm" onClick={checkAgain} isLoading={checking}>
-            {t('gb.checkAgain')}
-          </Button>
-        </section>
-      )}
+      {state === 'gone' && <SeatGone onCheck={checkAgain} checking={checking} />}
 
       {state === 'failed' && (
-        <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-3" role="alert">
-          <p className="text-sm font-semibold text-rose-700">{governingBodySeatErrorMessage(error, t)}</p>
-          <Button variant="outline" size="sm" onClick={load}>
-            {t('gb.retry')}
-          </Button>
-        </section>
+        <div className={ADMIN_CARD}>
+          <HomeError message={governingBodySeatErrorMessage(error, t)} retryLabel={t('gb.retry')} onRetry={load} />
+        </div>
       )}
 
       {/* Independent Schools asking to join (backend 261a9c7, ticket 08): only while one waits. */}
       {state === 'ready' && <AffiliationRequestsCard showToast={showToast} onJoined={load} onGone={gone} />}
 
       {state === 'ready' && schools.length === 0 && (
-        <section className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm space-y-3">
-          <h2 className="text-base font-extrabold text-slate-900">{t('gbs.empty.title')}</h2>
-          <p className="text-sm font-medium text-slate-500 leading-relaxed max-w-prose">{t('gbs.empty.body')}</p>
-          <div className="pt-1">{createLink}</div>
-        </section>
+        <EmptyCard icon={School} title={t('gbs.empty.title')} body={t('gbs.empty.body')} action={createLink} />
       )}
 
       {state === 'ready' && schools.length > 0 && (
-        <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-            <div className="w-full sm:max-w-xs">
-              <Input
-                id="gbsSearch"
-                name="search"
-                type="search"
-                label={t('gbs.search.label')}
-                placeholder={t('gbs.search.placeholder')}
-                autoComplete="off"
-                value={needle}
-                onChange={(e) => setNeedle(e.target.value)}
-              />
-            </div>
-            <p className="text-xs font-semibold text-slate-500" aria-live="polite">
-              {needle.trim() ? t('gbs.count.filtered', { shown: shown.length, n: schools.length }) : t('gbs.count', { n: schools.length })}
-            </p>
-          </div>
-
-          {waiting.applications > 0 && (
-            <p className="text-sm font-semibold text-amber-700">{t('gbs.waiting.summary', { n: waiting.applications, schools: waiting.schools })}</p>
-          )}
+        <div className="space-y-4">
+          <SearchBox
+            id="gbsSearch"
+            label={t('gbs.search.label')}
+            placeholder={t('gbs.search.placeholder')}
+            value={needle}
+            onChange={setNeedle}
+          />
 
           {shown.length === 0 ? (
-            <p className="text-sm font-medium text-slate-500 py-4">{t('gbs.noMatch')}</p>
+            <div className={ADMIN_CARD}>
+              <HomeEmpty
+                icon={School}
+                title={t('gbs.noMatch')}
+                action={
+                  <Button size="sm" variant="outline" onClick={() => setNeedle('')}>
+                    {t('admin.search.clear')}
+                  </Button>
+                }
+              />
+            </div>
           ) : (
-            <div>
-              <div className={`hidden ${COLUMNS} pb-2 border-b border-slate-100 text-[11px] font-semibold text-slate-500`} aria-hidden="true">
-                <span>{t('gbs.col.name')}</span>
-                <span>{t('reg.field.npsn')}</span>
-                <span>{t('gbs.col.code')}</span>
-                <span>{t('gbs.col.principal')}</span>
-                <span />
-              </div>
-              <ul className="divide-y divide-slate-100">
+            <div className="bg-white border border-slate-100 rounded-2xl shadow-sm min-w-0">
+              <p className="px-4 sm:px-5 pt-3.5 text-xs font-semibold text-slate-500" aria-live="polite">
+                {needle.trim() ? t('gbs.count.filtered', { shown: shown.length, n: schools.length }) : t('gbs.count', { n: schools.length })}
+              </p>
+              <ul>
                 {shown.map((school) => {
                   const address = schoolAddressOf(school.subdomain ?? null);
                   const canFix = !school.hadPrincipal && !school.hasPrincipal && !locked.has(school.id);
+                  const to = `${GOVERNING_BODY_SCHOOLS}/${encodeURIComponent(school.id)}`;
+                  const principal = school.principal?.fullName ?? (school.hasPrincipal ? t('gbs.principal.yes') : t('gbs.principal.no'));
                   return (
-                    <li key={school.id} className="py-3.5 space-y-3">
-                      <div className={`grid grid-cols-2 gap-x-4 gap-y-2.5 ${COLUMNS}`}>
-                        <div className="col-span-2 md:col-span-1 min-w-0">
+                    <li key={school.id} className="px-4 sm:px-5 py-3.5 border-b border-slate-100 last:border-0 space-y-3">
+                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-4 gap-y-2.5">
+                        <div className="min-w-0 flex-1 basis-64">
                           <Link
-                            to={`${GOVERNING_BODY_SCHOOLS}/${encodeURIComponent(school.id)}`}
-                            className="text-sm font-bold text-slate-900 hover:text-brand underline-offset-2 hover:underline break-words focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+                            to={to}
+                            className="group inline-flex items-center gap-1 text-sm font-bold text-slate-900 hover:text-brand break-words focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
                           >
                             {school.name}
+                            <ChevronRight className="w-4 h-4 shrink-0 text-slate-400 group-hover:text-brand transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
                           </Link>
-                          <p className="text-xs font-medium text-slate-500 mt-0.5 break-words">
-                            {school.schoolType}
-                            <span className="text-slate-300"> / </span>
-                            {school.city}
-                            {school.schoolType === 'SMK' && school.durationYears && (
-                              <>
-                                <span className="text-slate-300"> / </span>
-                                {t('reg.field.duration.years', { n: school.durationYears })}
-                              </>
-                            )}
-                            {address && (
-                              <>
-                                <span className="text-slate-300"> / </span>
-                                <span className="break-all">{address}</span>
-                              </>
-                            )}
-                          </p>
-                          {school.counts && (
-                            <p className="text-xs font-medium text-slate-500 mt-0.5">
-                              {t('gbs.counts', { students: school.counts.students, teachers: school.counts.teachers })}
-                            </p>
-                          )}
-                          {school.deactivatedAt && <p className="text-xs font-semibold text-rose-700 mt-0.5">{t('gbs.deactivated')}</p>}
+                          <SlashFacts
+                            className="block mt-0.5 text-xs font-medium text-slate-500"
+                            parts={[
+                              school.deactivatedAt && <span className="font-bold text-rose-700">{t('gbs.deactivated')}</span>,
+                              school.schoolType,
+                              school.city,
+                              school.schoolType === 'SMK' && school.durationYears && t('reg.field.duration.years', { n: school.durationYears }),
+                              t('gbs.npsn', { npsn: school.npsn }),
+                              address && <span className="break-all whitespace-normal">{address}</span>,
+                            ]}
+                          />
+                          <SlashFacts
+                            className="block mt-0.5 text-xs font-medium text-slate-500"
+                            parts={[
+                              t('gbs.principal.line', { name: principal }),
+                              school.principalApplicationsWaiting > 0 && (
+                                <Link
+                                  to={to}
+                                  className="font-semibold text-amber-700 hover:text-amber-800 underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+                                >
+                                  {t('gbs.waiting.row', { n: school.principalApplicationsWaiting })}
+                                </Link>
+                              ),
+                              school.counts && t('gbs.count.students', { n: school.counts.students }),
+                              school.counts && t('gbs.count.teachers', { n: school.counts.teachers }),
+                            ]}
+                          />
                         </div>
-                        <div className="min-w-0">
-                          <CellLabel>{t('reg.field.npsn')}</CellLabel>
-                          <span className="text-sm font-semibold text-slate-700 tabular-nums">{school.npsn}</span>
-                        </div>
-                        <div className="min-w-0">
-                          <CellLabel>{t('gbs.col.code')}</CellLabel>
+                        <div className="flex items-center gap-3 shrink-0">
                           <CopyCode code={school.schoolCode} />
-                        </div>
-                        <div className="min-w-0">
-                          <CellLabel>{t('gbs.col.principal')}</CellLabel>
-                          <span className={`text-sm font-semibold break-words ${school.hasPrincipal ? 'text-slate-900' : 'text-slate-500'}`}>
-                            {school.principal?.fullName ?? (school.hasPrincipal ? t('gbs.principal.yes') : t('gbs.principal.no'))}
-                          </span>
-                          {school.principalApplicationsWaiting > 0 && (
-                            <Link
-                              to={`${GOVERNING_BODY_SCHOOLS}/${encodeURIComponent(school.id)}`}
-                              className="block text-xs font-semibold text-amber-700 hover:text-amber-800 underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
-                            >
-                              {t('gbs.waiting.row', { n: school.principalApplicationsWaiting })}
-                            </Link>
-                          )}
-                        </div>
-                        <div className="flex items-end md:justify-end">
                           {canFix && fixing !== school.id && (
                             <Button size="sm" variant="outline" onClick={() => setFixing(school.id)} ariaLabel={t('gbs.fix.aria', { name: school.name })}>
                               {t('gbs.fix')}
@@ -281,11 +247,10 @@ export const GoverningBodySchoolsPage = () => {
                   );
                 })}
               </ul>
+              <p className="px-4 sm:px-5 py-3 border-t border-slate-100 text-[13px] text-slate-500 leading-relaxed">{t('gbs.code.hint')}</p>
             </div>
           )}
-
-          <p className="text-xs font-medium text-slate-500 leading-relaxed border-t border-slate-100 pt-3">{t('gbs.code.hint')}</p>
-        </section>
+        </div>
       )}
     </div>
   );

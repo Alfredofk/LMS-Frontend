@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { roleRankOf, sortByRole } from './members';
+import { roleGroupsOf, roleRankOf, sortByRole } from './members';
 
 const m = (membershipId, fullName, roles) => ({ membershipId, fullName, roles });
 
@@ -46,5 +46,26 @@ describe('sortByRole', () => {
 
   it('answers an empty list for nothing', () => {
     expect(sortByRole(null)).toEqual([]);
+  });
+});
+
+describe('roleGroupsOf', () => {
+  it('cuts the sorted list into one group per highest role, in order', () => {
+    const sorted = sortByRole([
+      m('s1', 'Sari', ['STUDENT']),
+      m('p', 'Kepala', ['GUARDIAN', 'TEACHER', 'PRINCIPAL']),
+      m('t1', 'Budi', ['TEACHER']),
+      m('g', 'Hendra', ['GUARDIAN']),
+      m('v', 'Wakil', ['TEACHER', 'VICE_PRINCIPAL']),
+      m('t2', 'Ani', ['GUARDIAN', 'TEACHER']),
+    ]);
+    const groups = roleGroupsOf(sorted);
+    expect(groups.map((g) => g.role)).toEqual(['PRINCIPAL', 'VICE_PRINCIPAL', 'TEACHER', 'STUDENT', 'GUARDIAN']);
+    expect(groups[2].members.map((x) => x.membershipId)).toEqual(['t2', 't1']);
+  });
+
+  it('puts a member with no known role in a last group of role null, and answers nothing for nothing', () => {
+    expect(roleGroupsOf([m('x', 'X', ['TEACHER']), m('y', 'Y', ['ADMIN'])]).map((g) => g.role)).toEqual(['TEACHER', null]);
+    expect(roleGroupsOf(null)).toEqual([]);
   });
 });

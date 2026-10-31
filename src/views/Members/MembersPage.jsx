@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useOutletContext } from 'react-router-dom';
 import { ChevronRight, DoorOpen, Search, ShieldCheck, ShieldOff, ShieldX, UserMinus, Users } from 'lucide-react';
-import { sortByRole } from './members';
+import { roleGroupsOf, sortByRole } from './members';
 
 import NotBuiltYet from '../../components/ui/NotBuiltYet';
 import FactLine from '../../components/ui/FactLine';
 import EmptyCard from '../../components/ui/EmptyCard';
-import { HomeError } from '../Dashboard/components/HomeCard';
+import { Bone, HomeError } from '../Dashboard/components/HomeCard';
 import RemoveMemberDialog from '../../components/RemoveMemberDialog';
 import PersonDetailDialog from '../../components/PersonDetailDialog';
 import { initialsOf } from '../../utils/names';
@@ -235,7 +235,7 @@ export const MembersPage = () => {
 
       {/* Text tabs with a counter, as on the dashboards (the skill's recipe): no icon in a
           tab, and the leave count amber while anything waits. */}
-      <div className="flex gap-0.5 select-none overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shadow-[inset_0_-1px_0_var(--color-slate-100)]">
+      <div role="tablist" aria-label={t('shell.members')} className="flex gap-0.5 select-none overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden shadow-[inset_0_-1px_0_var(--color-slate-100)]">
         {TABS.map((name) => {
           const isActive = tab === name;
           const count = inTab(name).length;
@@ -244,7 +244,8 @@ export const MembersPage = () => {
               key={name}
               type="button"
               onClick={() => setTab(name)}
-              aria-pressed={isActive}
+              role="tab"
+              aria-selected={isActive}
               className={`px-2.5 py-2 text-sm font-bold border-b-2 whitespace-nowrap transition-colors cursor-pointer focus:outline-none focus-visible:text-brand ${
                 isActive ? 'text-brand border-brand' : 'text-slate-500 border-transparent hover:text-slate-700'
               }`}
@@ -266,7 +267,8 @@ export const MembersPage = () => {
         <button
           type="button"
           onClick={() => setTab('LEAVE')}
-          aria-pressed={tab === 'LEAVE'}
+          role="tab"
+          aria-selected={tab === 'LEAVE'}
           className={`px-2.5 py-2 text-sm font-bold border-b-2 whitespace-nowrap transition-colors cursor-pointer focus:outline-none focus-visible:text-brand ${
             tab === 'LEAVE' ? 'text-brand border-brand' : 'text-slate-500 border-transparent hover:text-slate-700'
           }`}
@@ -305,15 +307,37 @@ export const MembersPage = () => {
       {error ? (
         <HomeError message={error} />
       ) : loading ? (
-        <div className="h-48 bg-white border border-slate-100 rounded-2xl animate-pulse" aria-label={t('common.loading')} />
+        /* Rows shaped like the members' (owner, 2026-10-31, mockup item 16). */
+        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm divide-y divide-slate-100" aria-busy="true" aria-label={t('common.loading')}>
+          {[0, 1, 2].map((n) => (
+            <div key={n} className="px-5 py-4 flex items-center gap-3">
+              <span className="w-10 h-10 rounded-full shrink-0 animate-pulse bg-slate-100" aria-hidden="true" />
+              <div className="flex-1">
+                <Bone className="h-3.5 w-2/5" />
+                <Bone className="h-3 w-3/5 mt-2" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : rows.length === 0 ? (
         <EmptyCard
           icon={query.trim() ? Search : Users}
           title={query.trim() ? t('members.empty.search') : t(tab === 'LEFT' ? 'members.empty.left' : 'members.empty.active')}
         />
       ) : (
-        <ul className="bg-white border border-slate-100 rounded-2xl shadow-sm divide-y divide-slate-100">
-          {rows.map((member) => {
+        /* On "Semua" a small heading per role (owner, 2026-10-31, mockup item 14): the
+           order was by role already, the heading shows where one ends. */
+        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm">
+          {(tab === 'ALL' ? roleGroupsOf(rows) : [{ role: undefined, members: rows }]).map((group) => (
+            <div key={group.role ?? 'rest'}>
+              {group.role !== undefined && (
+                <div className="flex items-baseline justify-between gap-2 px-5 pt-3.5 pb-2 border-b border-slate-100">
+                  <h2 className="text-[13px] font-extrabold text-slate-700">{t(group.role ? `roleTitle.${group.role}` : 'roleTitle.fallback')}</h2>
+                  <span className="text-xs font-semibold text-slate-500 tabular-nums">{group.members.length}</span>
+                </div>
+              )}
+        <ul className="divide-y divide-slate-100">
+          {group.members.map((member) => {
             const isSelf = member.membershipId === membership?.id;
             const here = tab !== 'LEFT';
             const removable = isPrincipal && here && !isSelf && !member.roles.includes(ROLES.PRINCIPAL);
@@ -322,14 +346,13 @@ export const MembersPage = () => {
             const appointable =
               isPrincipal && here && !isVice && member.roles.includes(ROLES.TEACHER) && !member.roles.includes(ROLES.PRINCIPAL);
             const revocable = isPrincipal && here && isVice;
-            /* Plain text, no pills or icons (owner, 2026-10-07: the coloured chips were "pusing"). */
+            /* Plain text, no pills or icons (owner, 2026-10-07: the coloured chips were "pusing");
+               labelled with a colon, the value bolder (owner, 2026-10-31, mockup item 13). */
             const facts = [
-              member.nisn && `${t('profile.nisn')} ${member.nisn}`,
-              member.nip && `${t('profile.nip')} ${member.nip}`,
-              member.nuptk && `${t('profile.nuptk')} ${member.nuptk}`,
-              tab === 'LEFT'
-                ? t('members.leftOn', { date: day(member.endedAt) })
-                : t('members.joinedOn', { date: day(member.joinedAt) }),
+              member.nisn && [t('profile.nisn'), member.nisn],
+              member.nip && [t('profile.nip'), member.nip],
+              member.nuptk && [t('profile.nuptk'), member.nuptk],
+              tab === 'LEFT' ? [t('members.leftLabel'), day(member.endedAt)] : [t('members.joinedLabel'), day(member.joinedAt)],
             ].filter(Boolean);
 
             return (
@@ -352,17 +375,22 @@ export const MembersPage = () => {
                     {member.roles.map((role) => t(`roleTitle.${role}`)).join(', ')}
                   </p>
                   <p className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs font-medium text-slate-500 tabular-nums">
-                    {facts.map((fact) => (
-                      <span key={fact}>{fact}</span>
+                    {facts.map(([label, value]) => (
+                      <span key={label}>
+                        {label}: <b className="font-bold text-slate-700">{value}</b>
+                      </span>
                     ))}
                   </p>
-                  {tab === 'LEFT' && (
-                    /* The reason somebody else wrote, so marked as a quotation;
-                       none means they left on their own. */
-                    <p className="mt-1 pl-2 border-l-2 border-slate-200 text-[11px] text-slate-600 font-semibold break-words">
-                      {member.endReason ?? t('members.leftThemselves')}
-                    </p>
-                  )}
+                  {tab === 'LEFT' &&
+                    /* The reason somebody else wrote, in a pale box as on /select-role; none
+                       means they left on their own, one grey sentence (mockup item 15). */
+                    (member.endReason ? (
+                      <p className="mt-1.5 rounded-[10px] bg-slate-50 border border-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 break-words">
+                        {t('members.leftReason', { reason: member.endReason })}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-xs font-medium text-slate-500">{t('members.leftThemselves')}</p>
+                    ))}
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 self-center sm:hidden" aria-hidden="true" />
                 </button>
@@ -406,6 +434,9 @@ export const MembersPage = () => {
             );
           })}
         </ul>
+            </div>
+          ))}
+        </div>
       )}
       </>
       )}

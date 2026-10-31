@@ -47,8 +47,10 @@ export function setupSteps({ years, classes, teachers, assignments, today }) {
   const semesterCount = year?.semesters?.length ?? 0;
   const teacherCount = teachers?.length ?? 0;
   const classCount = classesNow?.length ?? 0;
+  /* An ended assignment keeps status ACTIVE with `endedAt` set (a replaced teacher's
+     row): not taught now, so not counted - as the "Mapel diajar" card (2026-10-31). */
   const assignmentCount = assignments
-    ? assignments.filter((entry) => semesterIds.has(entry.semester?.id)).length
+    ? assignments.filter((entry) => semesterIds.has(entry.semester?.id) && !entry.endedAt).length
     : 0;
   const studentCount = (classesNow ?? []).reduce((sum, entry) => sum + (entry.studentCount ?? 0), 0);
 

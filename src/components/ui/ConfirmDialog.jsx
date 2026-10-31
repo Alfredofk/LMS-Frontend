@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
-import ModalHeading from './ModalHeading';
+import ModalHeading, { BusyLabel } from './ModalHeading';
 import { modalActions, modalCancelClass, modalConfirmClass } from './modalStyles';
 
 /*
@@ -28,13 +28,15 @@ import { modalActions, modalCancelClass, modalConfirmClass } from './modalStyles
   confirms it, which is the same accident one step later.
 */
 
+const TONES = ['danger', 'warning', 'brand'];
+
 /**
  * @param {boolean} open
  * @param {string} title        already translated
  * @param {string} body         already translated
  * @param {string} confirmLabel already translated
  * @param {string} cancelLabel  already translated
- * @param {'danger'|'brand'} [tone]  red with a bin, or purple with a question mark
+ * @param {'danger'|'warning'|'brand'} [tone]  red with a bin, amber with a warning sign, or purple with a question mark
  * @param {import('react').ComponentType} [icon]  another lucide icon for the tile
  * @param {boolean} [busy]        the confirmed work is still running: both
  *                                buttons, Escape and the backdrop stop answering,
@@ -106,7 +108,7 @@ export const ConfirmDialog = ({
         className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 sm:p-7 space-y-4 text-left max-h-[90dvh] overflow-y-auto"
       >
         <ModalHeading
-          tone={tone === 'brand' ? 'brand' : 'danger'}
+          tone={TONES.includes(tone) ? tone : 'danger'}
           icon={icon}
           titleId="confirm-dialog-title"
           title={title}
@@ -135,9 +137,9 @@ export const ConfirmDialog = ({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className={modalConfirmClass(tone === 'brand' ? 'brand' : 'danger', busy)}
+            className={modalConfirmClass(TONES.includes(tone) ? tone : 'danger', busy)}
           >
-            {busy ? busyLabel ?? confirmLabel : confirmLabel}
+            <BusyLabel busy={busy}>{busy ? busyLabel ?? confirmLabel : confirmLabel}</BusyLabel>
           </button>
         </div>
       </div>

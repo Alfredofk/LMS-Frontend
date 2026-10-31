@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { UserMinus } from 'lucide-react';
 
 import { modalActions, modalCancelClass, modalConfirmClass } from './ui/modalStyles';
-import ModalHeading from './ui/ModalHeading';
+import ModalHeading, { BusyLabel, ModalError } from './ui/ModalHeading';
 
 import { membersService } from '../services/membersService';
 import { useT } from '../i18n/LanguageContext';
@@ -131,18 +131,18 @@ export const RemoveMemberDialog = ({ member, onClose, onRemoved }) => {
             }}
             aria-invalid={!!error}
             aria-describedby="remove-member-hint"
-            className="block w-full rounded-xl border border-slate-200 hover:border-slate-300 bg-white py-2.5 px-4 text-sm text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand disabled:bg-slate-50"
+            className={`block w-full rounded-xl border ${error ? 'border-rose-300' : 'border-slate-200 hover:border-slate-300'} bg-white py-2.5 px-4 text-sm text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand disabled:bg-slate-50`}
           />
-          {error ? (
-            <p id="remove-member-hint" className="text-xs text-red-600 font-semibold leading-relaxed" role="alert">
-              {error}
-            </p>
-          ) : (
-            <p id="remove-member-hint" className="text-[11px] text-slate-500 font-medium leading-relaxed">
-              {t('members.remove.reason.hint')}
-            </p>
-          )}
+          {/* The hint stays with a counter (mockup akses-dialog.html, items 8-9); an error is a rose box under it. */}
+          <p id="remove-member-hint" className="flex justify-between gap-3 text-xs text-slate-500 font-medium leading-relaxed">
+            <span>{t('members.remove.reason.hint')}</span>
+            <span className="shrink-0 tabular-nums">
+              {reason.trim().length}/{MAX_REASON}
+            </span>
+          </p>
         </div>
+
+        {error && <ModalError>{error}</ModalError>}
 
         <div className={modalActions}>
           <button
@@ -159,7 +159,7 @@ export const RemoveMemberDialog = ({ member, onClose, onRemoved }) => {
             disabled={busy}
             className={modalConfirmClass('danger', busy)}
           >
-            {busy ? t('common.loading') : t('members.remove.confirm')}
+            <BusyLabel busy={busy}>{t('members.remove.confirm')}</BusyLabel>
           </button>
         </div>
       </div>

@@ -1,19 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, CheckCheck, ChevronRight, GraduationCap, LogOut, MonitorPlay, School, UserPlus, Users } from 'lucide-react';
+import { BookOpen, Check, CheckCheck, ChevronRight, GraduationCap, LogOut, MonitorPlay, School, UserPlus, Users } from 'lucide-react';
 
 import { useT } from '../../i18n/LanguageContext';
 import { academicsService } from '../../services/academicsService';
 import { membersService } from '../../services/membersService';
-import Button from '../../components/ui/Button';
 import SetupChecklist from './components/SetupChecklist';
 import StatCard from './components/StatCard';
 import AwaitingConfirmationCard from './components/AwaitingConfirmationCard';
 import MarkingByTeacherCard from './components/MarkingByTeacherCard';
 import SchoolOverviewCard from './components/SchoolOverviewCard';
 import { Bone, HomeCard, HomeEmpty } from './components/HomeCard';
-import { currentYear } from './setup';
-import { defaultSemesterOf, subjectsInUse } from '../Subjects/subjects';
+import { currentYear, setupSteps } from './setup';
+import { defaultSemesterOf } from '../Subjects/subjects';
 import { ROLES } from '../../constants/roles';
 import { useAuth } from '../../context/AuthContext';
 import { usePendingCounts } from '../../hooks/usePendingCounts';
@@ -46,6 +45,13 @@ import { usePendingCounts } from '../../hooks/usePendingCounts';
   and a small "Pengumuman" card saying it is not available yet - the backend has
   no module for announcements, and the old tab's list, form and delete were built
   on a guessed contract (`author_name`, `created_at`), so they went with it.
+
+  Since 2026-10-31 (owner, mockup dasbor-ringkasan.html items 1-5): the Kelas card
+  says whether every class has a homeroom teacher, not the year again; with
+  nothing waiting and every setup step done, "Perlu tindakan" and "Persiapan
+  sekolah" are one short "Semua beres" card; the subjects card went (its numbers
+  are on the "Mapel diajar" card and in "Perlu tindakan"), so "Pertemuan menunggu
+  guru" sits beside "Penilaian per guru".
 */
 
 /* The same four-way split of the day as the student's and teacher's dashboards. */
@@ -109,10 +115,10 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
   const classesNow = overview?.classes && year ? overview.classes.filter((entry) => entry.academicYear?.id === year.id) : null;
   /* The cards' second lines: homeroom teachers and students placed, this year. */
   const homerooms = classesNow ? new Set(classesNow.map((entry) => entry.homeroomTeacher?.membershipId).filter(Boolean)).size : null;
+  const withoutHomeroom = classesNow ? classesNow.filter((entry) => !entry.homeroomTeacher).length : null;
   const placed = classesNow ? classesNow.reduce((sum, entry) => sum + (entry.studentCount ?? 0), 0) : null;
   /* An ended assignment keeps status ACTIVE with `endedAt` set (a replaced teacher's row): not taught now. */
   const assignmentsNow = overview?.assignments ? overview.assignments.filter((entry) => semesterIds.has(entry.semester?.id) && !entry.endedAt) : null;
-  const inUse = overview?.catalog ? subjectsInUse(overview.catalog) : null;
 
   /* undefined while reading, null when the read failed (usePendingCounts). A Vice
      Principal decides teaching requests only. */
@@ -129,6 +135,10 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
     teachers,
     assignments: overview.assignments,
   };
+
+  /* Everything settled: nothing waits (each count read and 0) and every setup step is done. */
+  const setup = checklistData && !Object.values(checklistData).every((value) => value === null) ? setupSteps({ ...checklistData, today }) : null;
+  const allClear = needs.every((item) => item.n === 0) && Boolean(setup) && setup.total > 0 && setup.done === setup.total;
 
   /* A number, or a dash when its read failed - never a zero it did not count. */
   const count = (list) => (overview ? (list ? String(list.length) : '-') : '…');
@@ -176,7 +186,15 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
         <StatCard
           title={t('dash.principal.stat.classes')}
           value={count(classesNow)}
-          subtext={yearLine ?? ''}
+          subtext={
+            withoutHomeroom === null || !classesNow.length ? (
+              ''
+            ) : withoutHomeroom > 0 ? (
+              <span className="font-bold text-amber-700">{t('dash.principal.stat.classes.noHomeroom', { n: withoutHomeroom })}</span>
+            ) : (
+              t('dash.principal.stat.classes.allHomeroom')
+            )
+          }
           icon={School}
           onClick={() => navigate('/headmaster/classes')}
         />
@@ -192,95 +210,77 @@ export const HeadmasterDashboard = ({ desk = 'principal' }) => {
       {/* The School's numbers from the nightly rollup (backend 1a1eed7; owner, 2026-10-28). */}
       <SchoolOverviewCard />
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <HomeCard id="needs-action-title" title={t('dash.principal.needs.title')}>
-          {needs.every((item) => item.n === 0) ? (
-            <HomeEmpty icon={CheckCheck} title={t('dash.principal.needs.none')} body={t(isVice ? 'dash.principal.needs.noneBodyVice' : 'dash.principal.needs.noneBody')} />
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {needs.map(({ key, n, to, tab }) => {
-                const { icon: Icon, tone } = NEED_TONE[key];
-                const waits = Number(n) > 0;
-                return (
-                  <li key={key}>
-                    <button
-                      type="button"
-                      onClick={() => navigate(to, tab ? { state: { tab } } : undefined)}
-                      className="group w-full flex items-center gap-3.5 px-2 py-3 text-left rounded-xl hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                    >
-                      <span className={`grid place-items-center w-9 h-9 rounded-full shrink-0 ${waits ? tone : 'bg-slate-100 text-slate-500'}`}>
-                        <Icon className="w-4 h-4" aria-hidden="true" />
-                      </span>
-                      <span className="flex-1 min-w-0">
-                        <span className="block text-sm font-bold text-slate-900">{t(`dash.principal.needs.${key}`)}</span>
-                        <span className="block text-xs text-slate-500">{t(`dash.principal.needs.${key}.hint`)}</span>
-                      </span>
-                      {n === undefined ? (
-                        <Bone className="w-7 h-5 rounded-full" />
-                      ) : (
-                        <span
-                          className={`min-w-[26px] px-2 py-0.5 rounded-full text-xs text-center tabular-nums ${
-                            waits ? `${tone} font-extrabold` : 'text-slate-300 font-semibold'
-                          }`}
-                        >
-                          {n === null ? '-' : n || '-'}
-                        </span>
-                      )}
-                      <ChevronRight className="w-4 h-4 shrink-0 text-slate-400 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+      {allClear ? (
+        <HomeCard id="all-clear-title" title={t('dash.principal.allClear.title')}>
+          <div className="-mt-1.5 divide-y divide-slate-100">
+            <div className="flex items-start gap-3 py-2.5">
+              <span className="grid place-items-center w-[22px] h-[22px] rounded-full bg-emerald-50 text-emerald-700 shrink-0" aria-hidden="true">
+                <Check className="w-3 h-3" strokeWidth={3} />
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-[13.5px] font-semibold text-slate-700">{t('dash.principal.needs.none')}</span>
+                <span className="block text-xs text-slate-500">{t(isVice ? 'dash.principal.needs.noneBodyVice' : 'dash.principal.needs.noneBody')}</span>
+              </span>
+            </div>
+            <SetupChecklist data={checklistData} desk={desk} asLine />
+          </div>
         </HomeCard>
+      ) : (
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <HomeCard id="needs-action-title" title={t('dash.principal.needs.title')}>
+            {needs.every((item) => item.n === 0) ? (
+              <HomeEmpty icon={CheckCheck} title={t('dash.principal.needs.none')} body={t(isVice ? 'dash.principal.needs.noneBodyVice' : 'dash.principal.needs.noneBody')} />
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {needs.map(({ key, n, to, tab }) => {
+                  const { icon: Icon, tone } = NEED_TONE[key];
+                  const waits = Number(n) > 0;
+                  return (
+                    <li key={key}>
+                      <button
+                        type="button"
+                        onClick={() => navigate(to, tab ? { state: { tab } } : undefined)}
+                        className="group w-full flex items-center gap-3.5 px-2 py-3 text-left rounded-xl hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                      >
+                        <span className={`grid place-items-center w-9 h-9 rounded-full shrink-0 ${waits ? tone : 'bg-slate-100 text-slate-500'}`}>
+                          <Icon className="w-4 h-4" aria-hidden="true" />
+                        </span>
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-sm font-bold text-slate-900">{t(`dash.principal.needs.${key}`)}</span>
+                          <span className="block text-xs text-slate-500">{t(`dash.principal.needs.${key}.hint`)}</span>
+                        </span>
+                        {n === undefined ? (
+                          <Bone className="w-7 h-5 rounded-full" />
+                        ) : (
+                          <span
+                            className={`min-w-[26px] px-2 py-0.5 rounded-full text-xs text-center tabular-nums ${
+                              waits ? `${tone} font-extrabold` : 'text-slate-300 font-semibold'
+                            }`}
+                          >
+                            {n === null ? '-' : n || '-'}
+                          </span>
+                        )}
+                        <ChevronRight className="w-4 h-4 shrink-0 text-slate-400 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </HomeCard>
 
-        {/* What the school still needs before it can teach anybody, in order (owner, 2026-09-26). */}
-        <SetupChecklist data={checklistData} desk={desk} />
-      </div>
+          {/* What the school still needs before it can teach anybody, in order (owner, 2026-09-26). */}
+          <SetupChecklist data={checklistData} desk={desk} />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         {/* Meetings waiting for their teacher's answer (backend 7cdc46d). */}
         <AwaitingConfirmationCard />
 
-        {/* The subjects, a summary of the real page (ticket 08); its own tab until 2026-10-27. */}
-        <HomeCard id="subjects-title" title={t('dash.principal.subjects.title')} linkLabel={t('dash.principal.subjects.manage')} linkTo="/headmaster/subjects">
-          <p className="-mt-2 mb-4 text-xs text-slate-500 leading-relaxed">
-            {year ? t('dash.principal.subjects.body', { label: year.label }) : t('dash.principal.subjects.noYear')}
-          </p>
-          <dl className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-4">
-            {[
-              { term: t('dash.principal.subjects.active'), value: overview ? (assignmentsNow ? assignmentsNow.length : '-') : null },
-              {
-                term: t('dash.principal.subjects.pending'),
-                value: overview ? (overview.waiting ? overview.waiting.length : '-') : null,
-                warn: Number(overview?.waiting?.length) > 0,
-              },
-              {
-                term: t('dash.principal.subjects.catalog'),
-                value: overview ? (inUse ? inUse.length : '-') : null,
-                sub: inUse ? t('dash.principal.subjects.local', { n: inUse.filter((subject) => !subject.national).length }) : null,
-              },
-            ].map(({ term, value, warn, sub }) => (
-              <div key={term} className="rounded-[14px] border border-slate-100 bg-slate-50 px-3.5 py-3">
-                <dt className="text-xs font-semibold text-slate-600">{term}</dt>
-                <dd className={`mt-0.5 text-[22px] font-extrabold tracking-tight tabular-nums ${warn ? 'text-amber-700' : 'text-slate-900'}`}>
-                  {value ?? <Bone className="h-6 w-10 mt-1" />}
-                </dd>
-                {sub && <dd className="text-xs text-slate-500">{sub}</dd>}
-              </div>
-            ))}
-          </dl>
-          <div className="mt-auto">
-            <Button size="sm" variant="outline" onClick={() => navigate('/headmaster/subjects')}>
-              {t('dash.principal.subjects.open')}
-            </Button>
-          </div>
-        </HomeCard>
+        {/* Each teacher's marking and release totals (backend 0eefba2; owner, 2026-10-28). */}
+        <MarkingByTeacherCard />
       </div>
-
-      {/* Each teacher's marking and release totals (backend 0eefba2; owner, 2026-10-28). */}
-      <MarkingByTeacherCard />
 
       {!isVice && (
         <section aria-labelledby="ann-title" className="bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm">

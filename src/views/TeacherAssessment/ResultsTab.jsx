@@ -17,6 +17,7 @@ import { notifyPendingChanged } from '../../hooks/usePendingCounts';
 import { cancelReasonError, isPractice } from './teacherAssessment';
 import ExceptionDialog from './ExceptionDialog';
 import { canSetException, exceptionFacts } from './exceptions';
+import { BusyLabel } from '../../components/ui/ModalHeading';
 import {
   MARKABLE,
   MAX_OFFLINE_MARK,
@@ -638,7 +639,7 @@ export const ResultsTab = ({ assessment, zone, span = null, onReleased, onDirty,
               </button>
             )}
             <button type="button" onClick={saveMarks} disabled={busy || !dirty} className={`${tool} px-5 py-2.5 text-sm bg-brand text-white hover:bg-brand-deep`}>
-              {busy ? t('common.loading') : t('tasm.offline.save')}
+              <BusyLabel busy={busy}>{t('tasm.offline.save')}</BusyLabel>
             </button>
           </div>
         </div>

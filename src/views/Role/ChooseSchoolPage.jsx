@@ -1,8 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Loader2 } from 'lucide-react';
 
 import AuthLayout from '../../layouts/AuthLayout';
+import FactLine from '../../components/ui/FactLine';
+import { Initials } from '../GoverningBody/bodyParts';
+import AuthMessageIcon from '../../components/ui/AuthMessageIcon';
 import { useAuth } from '../../context/AuthContext';
 import { useT } from '../../i18n/LanguageContext';
 import { placesErrorMessage } from '../../i18n/apiError';
@@ -34,6 +37,7 @@ export const ChooseSchoolPage = () => {
   const [checked, setChecked] = useState(false);
   const [opening, setOpening] = useState(null);
   const [error, setError] = useState(null);
+  const [sessionEnded, setSessionEnded] = useState(false);
 
   useEffect(() => {
     if (asked.current) return;
@@ -54,13 +58,16 @@ export const ChooseSchoolPage = () => {
   const open = async (place) => {
     setOpening(place);
     setError(null);
+    setSessionEnded(false);
     try {
       /* Leaves the page: to the place's own address (a handoff) or a fresh load here. */
       await openPlace(place);
     } catch (err) {
       setError(placesErrorMessage(err, t, place));
       setOpening(null);
-      refreshMe().catch(() => {});
+      /* A 401 is a spent sign-in: reading the list again would only fail the same way. */
+      if (err?.status === 401) setSessionEnded(true);
+      else refreshMe().catch(() => {});
     }
   };
 
@@ -79,11 +86,8 @@ export const ChooseSchoolPage = () => {
   return (
     <AuthLayout heading={words('choose.panel.heading')} blurb={words('choose.panel.blurb')} footer={footer}>
       <div>
-        <h2 className="text-3xl sm:text-[34px] font-extrabold text-brand leading-tight select-none">{words('choose.title')}</h2>
-        <p className="text-slate-500 text-xs sm:text-sm mt-2 font-semibold">
-          {words('choose.subtitle')}
-          {user?.fullName ? ` (${user.fullName})` : ''}
-        </p>
+        <h2 className="text-[26px] font-extrabold text-slate-800 leading-tight select-none">{words('choose.title')}</h2>
+        <FactLine facts={[user?.fullName, t(withBody ? 'choose.count.withBody' : 'choose.count', { n: places.length })]} wrap className="mt-2" />
       </div>
 
       {!checked ? (
@@ -96,15 +100,24 @@ export const ChooseSchoolPage = () => {
                 type="button"
                 onClick={() => open(place)}
                 disabled={opening !== null}
-                className="w-full flex items-center justify-between gap-3 p-4 text-left rounded-2xl border border-slate-200 bg-white hover:border-brand hover:bg-brand-tint/40 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-wait focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                className={`group w-full flex items-center justify-between gap-3 p-4 text-left rounded-2xl border bg-white hover:border-brand hover:bg-brand-tint/40 transition-colors cursor-pointer disabled:cursor-wait focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+                  samePlace(opening, place) ? 'border-brand bg-brand-tint/40' : 'border-slate-200 disabled:opacity-60'
+                }`}
               >
-                <span className="min-w-0">
-                  <span className="block text-sm font-extrabold text-slate-900 break-words">{place.name}</span>
-                  <span className="block text-xs font-semibold text-slate-500 mt-0.5">
-                    {samePlace(opening, place) ? t('choose.opening') : placeRoleKeysOf(place).map((key) => t(key)).join(', ')}
+                <span className="flex items-center gap-3 min-w-0">
+                  <Initials name={place.name} />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-extrabold text-slate-900 break-words">{place.name}</span>
+                    <span className="block text-xs font-semibold text-slate-500 mt-0.5">
+                      {samePlace(opening, place) ? t('choose.opening') : placeRoleKeysOf(place).map((key) => t(key)).join(', ')}
+                    </span>
                   </span>
                 </span>
-                <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
+                {samePlace(opening, place) ? (
+                  <Loader2 className="w-4 h-4 text-brand shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-slate-500 shrink-0 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden="true" />
+                )}
               </button>
             </li>
           ))}
@@ -112,9 +125,22 @@ export const ChooseSchoolPage = () => {
       )}
 
       {error && (
-        <p className="text-sm font-semibold text-rose-700 text-left" role="alert">
-          {error}
-        </p>
+        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-700 text-left flex items-start gap-2.5" role="alert">
+          <AuthMessageIcon tone="error" />
+          <div className="space-y-2">
+            <span className="block">{error}</span>
+            {/* A 401 here means the sign-in itself is spent: the only way on is signing in again. */}
+            {sessionEnded && (
+              <button
+                type="button"
+                onClick={logout}
+                className="font-extrabold text-rose-700 underline underline-offset-2 hover:text-rose-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 rounded cursor-pointer"
+              >
+                {t('choose.signInAgain')}
+              </button>
+            )}
+          </div>
+        </div>
       )}
 
       {waiting.length > 0 && (

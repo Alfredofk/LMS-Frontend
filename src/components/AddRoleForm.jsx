@@ -12,6 +12,7 @@ import { useT } from '../i18n/LanguageContext';
 import { apiErrorMessage, guardianErrorMessage } from '../i18n/apiError';
 import { ROLES, addsInstantly } from '../constants/roles';
 import { teacherIdErrors, guardianErrors, guardianRequestPayload, nestedFieldErrors } from '../utils/validation';
+import AuthMessageIcon from './ui/AuthMessageIcon';
 
 /*
   Adding TEACHER or GUARDIAN to the membership somebody already holds.
@@ -209,11 +210,9 @@ export const AddRoleForm = ({ role = ROLES.TEACHER, onDone, onCancel }) => {
       )}
 
       {errors.global && (
-        <div
-          className="p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-xs text-red-700 font-semibold"
-          role="alert"
-        >
-          {errors.global}
+        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-700 text-left flex items-start gap-2.5" role="alert">
+          <AuthMessageIcon tone="error" />
+          <span>{errors.global}</span>
         </div>
       )}
 

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { UserPlus } from 'lucide-react';
 
 import { modalActions, modalCancelClass, modalConfirmClass } from '../../components/ui/modalStyles';
-import ModalHeading from '../../components/ui/ModalHeading';
+import ModalHeading, { BusyLabel } from '../../components/ui/ModalHeading';
 
 import SelectField from '../../components/ui/SelectField';
 import { academicsService } from '../../services/academicsService';
@@ -182,7 +182,7 @@ export const AssignTeacherDialog = ({ boardClass, semester, subjects, teachers, 
               disabled={busy}
               className={modalConfirmClass('brand', busy)}
             >
-              {busy ? t('common.loading') : t('subjects.assign.confirm')}
+              <BusyLabel busy={busy}>{t('subjects.assign.confirm')}</BusyLabel>
             </button>
           )}
         </div>

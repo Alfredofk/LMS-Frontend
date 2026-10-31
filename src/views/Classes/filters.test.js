@@ -15,6 +15,7 @@ import {
   yearSummary,
   gradesPresent,
   filterClasses,
+  classGroupsOf,
 } from './filters.js';
 
 const year = (id, status, semesters = 0) => ({
@@ -100,5 +101,25 @@ describe('class filters', () => {
   it('let everything through with no filter, and survive a class with no homeroom teacher', () => {
     expect(filterClasses(own).length).toBe(3);
     expect(filterClasses([klass('x', 'y', 10, 'X A', null)], { query: 'guru' })).toEqual([]);
+  });
+});
+
+describe('classGroupsOf', () => {
+  it('groups by grade, lowest first, keeping the order given and summing the students', () => {
+    const rows = [
+      { id: 'a', gradeLevel: 11, studentCount: 2 },
+      { id: 'b', gradeLevel: 10, studentCount: 30 },
+      { id: 'c', gradeLevel: 11, studentCount: 32 },
+      { id: 'd', gradeLevel: 11 },
+    ];
+    const groups = classGroupsOf(rows);
+    expect(groups.map((g) => g.grade)).toEqual([10, 11]);
+    expect(groups[1].classes.map((c) => c.id)).toEqual(['a', 'c', 'd']);
+    expect(groups.map((g) => g.students)).toEqual([30, 34]);
+  });
+
+  it('answers nothing for nothing', () => {
+    expect(classGroupsOf(null)).toEqual([]);
+    expect(classGroupsOf([])).toEqual([]);
   });
 });

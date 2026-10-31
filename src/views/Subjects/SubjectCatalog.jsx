@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Check, Plus } from 'lucide-react';
+import { AlertTriangle, Check, Clock, Info, Plus } from 'lucide-react';
 
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
@@ -9,6 +9,7 @@ import { useT } from '../../i18n/LanguageContext';
 import { subjectsErrorMessage } from '../../i18n/apiError';
 import { normaliseSubjectCode, validateSubjectCode, validateSubjectName } from '../../utils/validation';
 import { selectionChanges } from './subjects';
+import FactLine from '../../components/ui/FactLine';
 
 /*
   The subjects a school can teach — `GET /academics/subjects`: the national
@@ -117,95 +118,20 @@ export const SubjectCatalog = ({ subjects, onCreated, onSaved, showToast }) => {
     }
   };
 
-  const list = (heading, rows, empty) => (
-    <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-3">
-      <h2 className="text-base font-extrabold text-slate-900">
-        {heading} ({rows.length})
-      </h2>
-      {rows.length === 0 ? (
-        <p className="text-xs font-semibold text-slate-500">{empty}</p>
-      ) : (
-        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 divide-y divide-slate-100 sm:divide-y-0">
-          {rows.map((subject) => (
-            <li key={subject.id} className="py-2 flex items-baseline gap-2 min-w-0">
-              <span className="w-14 shrink-0 text-[11px] font-extrabold tabular-nums text-slate-500">{subject.code}</span>
-              <span className="text-sm font-semibold text-slate-800 break-words">{subject.name}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
+  /* The dashboards' card frame. */
+  const CARD = 'bg-white border border-slate-100 rounded-2xl p-6 max-sm:p-[18px] shadow-sm space-y-4 min-w-0';
 
+  /* National first, the one used day to day; local below with its add button in its
+     head (owner, 2026-10-31, mockup items 11 and 12). */
   return (
     <div className="space-y-4">
-      {list(t('subjects.kind.local'), local, t('subjects.catalog.noLocal'))}
-
-      {isOpen ? (
-        <form onSubmit={handleSubmit} noValidate className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
-          <h2 className="text-sm font-extrabold text-slate-900">{t('subjects.catalog.add')}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Input
-              id="subject-code"
-              name="code"
-              label={t('subjects.catalog.code')}
-              value={code}
-              placeholder="MULOK1"
-              maxLength={10}
-              autoCapitalize="characters"
-              error={errors.code || undefined}
-              disabled={busy}
-              onChange={(e) => {
-                setCode(e.target.value.toUpperCase());
-                if (errors.code || errors.global) setErrors((prev) => ({ ...prev, code: null, global: null }));
-              }}
-            />
-            <div className="sm:col-span-2">
-              <Input
-                id="subject-name"
-                name="name"
-                label={t('subjects.catalog.name')}
-                value={name}
-                placeholder={t('subjects.catalog.namePlaceholder')}
-                maxLength={100}
-                error={errors.name || undefined}
-                disabled={busy}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  if (errors.name || errors.global) setErrors((prev) => ({ ...prev, name: null, global: null }));
-                }}
-              />
-            </div>
-          </div>
-          <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{t('subjects.catalog.permanent')}</p>
-          {errors.global && (
-            <div className="flex items-start gap-2.5 rounded-xl bg-rose-50 p-3.5 text-[13px] font-semibold text-rose-700" role="alert">
-              {errors.global}
-            </div>
-          )}
-          <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
-            <Button type="button" variant="outline" size="sm" onClick={reset} isDisabled={busy}>
-              {t('common.cancel')}
-            </Button>
-            <Button type="submit" size="sm" isLoading={busy}>
-              {t('subjects.catalog.save')}
-            </Button>
-          </div>
-        </form>
-      ) : (
-        <Button variant="outline" size="sm" onClick={() => setIsOpen(true)}>
-          <Plus className="w-4 h-4" aria-hidden="true" />
-          {t('subjects.catalog.add')}
-        </Button>
-      )}
-
-      <section className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-3" aria-labelledby="national-subjects">
+      <section className={CARD} aria-labelledby="national-subjects">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h2 id="national-subjects" className="text-base font-extrabold text-slate-900">
-              {t('subjects.kind.national')} ({t('subjects.selection.count', { n: ticked.size, total: national.length })})
+            <h2 id="national-subjects" className="text-base font-extrabold text-slate-900 tracking-tight">
+              {t('subjects.kind.nationalHead')}
             </h2>
-            <p className="mt-1 text-xs font-semibold text-slate-500 leading-relaxed">{t('subjects.selection.hint')}</p>
+            <FactLine size="xs" className="mt-0.5" facts={[t('subjects.selection.count', { n: ticked.size, total: national.length })]} />
           </div>
           {national.length > 0 && ticked.size < national.length && (
             <button
@@ -218,6 +144,10 @@ export const SubjectCatalog = ({ subjects, onCreated, onSaved, showToast }) => {
             </button>
           )}
         </div>
+        <p className="flex items-start gap-2 text-[13px] font-medium text-slate-600 leading-relaxed">
+          <Info className="w-4 h-4 mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
+          {t('subjects.selection.hint')}
+        </p>
 
         {national.length === 0 ? (
           <p className="text-xs font-semibold text-slate-500">{t('subjects.catalog.noNational')}</p>
@@ -249,9 +179,8 @@ export const SubjectCatalog = ({ subjects, onCreated, onSaved, showToast }) => {
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline gap-2">
                         <span className="w-12 shrink-0 text-[11px] font-extrabold tabular-nums text-slate-500">{subject.code}</span>
-                        <span className={`text-sm font-semibold break-words ${on ? 'text-slate-800' : 'text-slate-500 line-through'}`}>
-                          {subject.name}
-                        </span>
+                        {/* Grey when not in use, no strike-through: a struck name read as deleted. */}
+                        <span className={`text-sm font-semibold break-words ${on ? 'text-slate-800' : 'text-slate-500'}`}>{subject.name}</span>
                       </span>
                       {running && <span className="block pl-14 text-[11px] font-semibold text-slate-500">{running}</span>}
                     </span>
@@ -268,12 +197,14 @@ export const SubjectCatalog = ({ subjects, onCreated, onSaved, showToast }) => {
           </div>
         )}
 
+        {/* Sticks to the bottom of the screen while anything is unsaved, as the homeroom notes' bar. */}
         {changes.dirty && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
-            <p className="text-xs font-semibold text-slate-600" role="status">
+          <div className="sticky bottom-0 z-10 -mx-6 max-sm:-mx-[18px] -mb-6 max-sm:-mb-[18px] px-6 max-sm:px-[18px] py-3 rounded-b-2xl border-t border-slate-200 bg-white shadow-[0_-6px_14px_-10px_rgba(15,23,42,0.25)] flex flex-wrap items-center justify-between gap-3">
+            <p className="inline-flex items-center gap-1.5 text-[13px] font-bold text-amber-700" role="status">
+              <Clock className="w-3.5 h-3.5" aria-hidden="true" />
               {t('subjects.selection.pending', { n: changes.selecting.length + changes.deselecting.length })}
             </p>
-            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+            <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => setTicked(serverTicks)} isDisabled={saving}>
                 {t('common.cancel')}
               </Button>
@@ -282,6 +213,88 @@ export const SubjectCatalog = ({ subjects, onCreated, onSaved, showToast }) => {
               </Button>
             </div>
           </div>
+        )}
+      </section>
+
+      <section className={CARD} aria-labelledby="local-subjects">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 id="local-subjects" className="text-base font-extrabold text-slate-900 tracking-tight">
+              {t('subjects.kind.local')}
+            </h2>
+            <FactLine size="xs" className="mt-0.5" facts={[t('subjects.catalog.localCount', { n: local.length })]} />
+          </div>
+          {!isOpen && (
+            <Button variant="outline" size="sm" className="shrink-0" onClick={() => setIsOpen(true)}>
+              <Plus className="w-4 h-4" aria-hidden="true" />
+              {t('subjects.catalog.add')}
+            </Button>
+          )}
+        </div>
+
+        {isOpen && (
+          <form onSubmit={handleSubmit} noValidate className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Input
+                id="subject-code"
+                name="code"
+                label={t('subjects.catalog.code')}
+                value={code}
+                placeholder="MULOK1"
+                maxLength={10}
+                autoCapitalize="characters"
+                error={errors.code || undefined}
+                disabled={busy}
+                onChange={(e) => {
+                  setCode(e.target.value.toUpperCase());
+                  if (errors.code || errors.global) setErrors((prev) => ({ ...prev, code: null, global: null }));
+                }}
+              />
+              <div className="sm:col-span-2">
+                <Input
+                  id="subject-name"
+                  name="name"
+                  label={t('subjects.catalog.name')}
+                  value={name}
+                  placeholder={t('subjects.catalog.namePlaceholder')}
+                  maxLength={100}
+                  error={errors.name || undefined}
+                  disabled={busy}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (errors.name || errors.global) setErrors((prev) => ({ ...prev, name: null, global: null }));
+                  }}
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{t('subjects.catalog.permanent')}</p>
+            {errors.global && (
+              <div className="flex items-start gap-2.5 rounded-xl bg-rose-50 p-3.5 text-[13px] font-semibold text-rose-700" role="alert">
+                {errors.global}
+              </div>
+            )}
+            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+              <Button type="button" variant="outline" size="sm" onClick={reset} isDisabled={busy}>
+                {t('common.cancel')}
+              </Button>
+              <Button type="submit" size="sm" isLoading={busy}>
+                {t('subjects.catalog.save')}
+              </Button>
+            </div>
+          </form>
+        )}
+
+        {local.length === 0 ? (
+          <p className="text-xs font-semibold text-slate-500">{t('subjects.catalog.noLocal')}</p>
+        ) : (
+          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 divide-y divide-slate-100 sm:divide-y-0">
+            {local.map((subject) => (
+              <li key={subject.id} className="py-2 flex items-baseline gap-2 min-w-0">
+                <span className="w-14 shrink-0 text-[11px] font-extrabold tabular-nums text-slate-500">{subject.code}</span>
+                <span className="text-sm font-semibold text-slate-800 break-words">{subject.name}</span>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 

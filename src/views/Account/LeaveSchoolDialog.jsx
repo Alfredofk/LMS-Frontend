@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { LogOut } from 'lucide-react';
 
 import { modalActions, modalCancelClass, modalConfirmClass } from '../../components/ui/modalStyles';
-import ModalHeading from '../../components/ui/ModalHeading';
+import ModalHeading, { BusyLabel, ModalError } from '../../components/ui/ModalHeading';
 
 import { membershipService } from '../../services/membershipService';
 import { useT } from '../../i18n/LanguageContext';
@@ -115,9 +115,7 @@ export const LeaveSchoolDialog = ({ schoolName, onClose, onLeft }) => {
             className="block w-full rounded-xl border border-slate-200 hover:border-slate-300 bg-white py-2.5 px-4 text-base text-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 disabled:bg-slate-50"
           />
           {error && (
-            <p id="leave-school-error" className="text-xs text-red-600 font-semibold leading-relaxed" role="alert">
-              {error}
-            </p>
+            <ModalError id="leave-school-error">{error}</ModalError>
           )}
         </div>
 
@@ -135,7 +133,7 @@ export const LeaveSchoolDialog = ({ schoolName, onClose, onLeft }) => {
             disabled={!confirmed || busy}
             className={modalConfirmClass('danger', !confirmed || busy)}
           >
-            {busy ? t('common.loading') : t('account.leave.confirm')}
+            <BusyLabel busy={busy}>{t('account.leave.confirm')}</BusyLabel>
           </button>
         </div>
       </form>
